@@ -284,7 +284,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **16** | **Deployment, MLOps, Monitoramento e Versionamento** | Pipelines 13, 14, 15 | 4 | 🟡 **Em revisão** |
 | **17** | **Orçamento Computacional, Modelo de Custos e Cronograma Mestre** | Modelo financeiro e de prazos completo | 5 | 🟡 **Em revisão** |
 | **18** | **Licenciamento, Segurança, Ética e Estratégia de Release** | Postura legal, uso dual, model cards | 5 | 🟡 **Em revisão** |
-| 19 | Registro de Riscos e Protocolo de Validade Científica | Modos de falha, resultados negativos, mitigações | 5 | ⚪ |
+| **19** | **Registro de Riscos e Protocolo de Validade Científica** | Modos de falha, resultados negativos, mitigações | 5 | 🟡 **Em revisão** |
 
 ---
 

@@ -2,7 +2,7 @@
 
 Programa de pesquisa para projetar e construir uma família de foundation models especializada **exclusivamente em Física** e na matemática aplicada que a sustenta, junto com o corpus, a infraestrutura de verificação, os benchmarks e o stack de serving necessários para tornar as alegações auditáveis.
 
-**Status:** fase de projeto. Stage-Gate 0 em revisão. Ainda sem código — por decisão de projeto (ver DOC-01 §10).
+**Status:** **corpus de projeto completo** — 19 documentos + 1 ADR, cobrindo os 20 pipelines. Ainda sem código, por decisão de projeto (ver DOC-01 §10): o código implementa os documentos, não o contrário.
 
 ---
 
@@ -58,7 +58,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 |---|---|---|
 | [DOC-17](docs/05-governance/DOC-17-orcamento-cronograma.md) | Orçamento Consolidado e Cronograma Mestre | 🟡 Em revisão |
 | [DOC-18](docs/05-governance/DOC-18-licenciamento-seguranca-etica-release.md) | Licenciamento, Segurança, Ética e Release | 🟡 Em revisão |
-| DOC-19 | Riscos e Protocolo de Validade Científica | ⚪ | — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
+| [DOC-19](docs/05-governance/DOC-19-riscos-validade-cientifica.md) | Riscos e Protocolo de Validade Científica | 🟡 Em revisão | — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
 

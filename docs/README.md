@@ -58,7 +58,7 @@ Para quem chega agora, leia nesta ordem:
 | [DOC-17A](05-governance/DOC-17A-orcamento-gpu-runpod.md) | Custo-benefício de GPU e Armazenamento (RunPod) | — | 🟢 Entregue |
 | [DOC-17](05-governance/DOC-17-orcamento-cronograma.md) | Orçamento, Modelo de Custos e Cronograma Mestre | — | 🟡 Em revisão |
 | [DOC-18](05-governance/DOC-18-licenciamento-seguranca-etica-release.md) | Licenciamento, Segurança, Ética e Estratégia de Release | — | 🟡 Em revisão |
-| DOC-19 | Registro de Riscos e Protocolo de Validade Científica | — | ⚪ |
+| [DOC-19](05-governance/DOC-19-riscos-validade-cientifica.md) | Registro de Riscos e Protocolo de Validade Científica | — | 🟡 Em revisão |
 
 **Legenda:** 🟢 entregue · 🟡 em revisão · 🔵 em redação · ⚪ na fila
 
