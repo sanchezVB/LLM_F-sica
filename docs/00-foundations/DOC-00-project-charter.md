@@ -280,7 +280,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **12** | **Harness de Avaliação e Protocolo Estatístico** | Pipeline 11; correção por CAS, descontaminação, avaliação humana | 3 | 🟡 **Em revisão** |
 | **13** | **Recuperação, Embeddings e Stack de RAG** | Pipelines 17, 18 | 4 | 🟡 **Em revisão** |
 | **14** | **Framework de Agentes e Ferramentas Matemáticas/Científicas** | Pipelines 19, 20 (SymPy…COMSOL) | 4 | 🟡 **Em revisão** |
-| 15 | Inferência e Serving | Pipeline 12; quantização, decodificação especulativa | 4 | ⚪ |
+| **15** | **Inferência e Serving** | Pipeline 12; quantização, decodificação especulativa | 4 | 🟡 **Em revisão** |
 | 16 | Deployment, MLOps, Monitoramento e Versionamento | Pipelines 13, 14, 15 | 4 | ⚪ |
 | 17 | Orçamento Computacional, Modelo de Custos e Cronograma Mestre | Modelo financeiro e de prazos completo | 5 | ⚪ |
 | 18 | Licenciamento, Segurança, Ética e Estratégia de Release | Postura legal, uso dual, model cards | 5 | ⚪ |

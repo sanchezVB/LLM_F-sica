@@ -49,7 +49,7 @@ Para quem chega agora, leia nesta ordem:
 |---|---|---|---|
 | [DOC-13](04-systems/DOC-13-recuperacao-embeddings-rag.md) | Recuperação, Embeddings e Stack de RAG | Pipelines 17, 18 | 🟡 Em revisão |
 | [DOC-14](04-systems/DOC-14-agentes-ferramentas.md) | Framework de Agentes e Ferramentas Científicas | Pipelines 19, 20 | 🟡 Em revisão |
-| DOC-15 | Inferência e Serving | Pipeline 12 | ⚪ |
+| [DOC-15](04-systems/DOC-15-inferencia-serving.md) | Inferência e Serving | Pipeline 12 | 🟡 Em revisão |
 | DOC-16 | Deployment, MLOps, Monitoramento e Versionamento | Pipelines 13, 14, 15 | ⚪ |
 
 ### Fase 5 — Governança

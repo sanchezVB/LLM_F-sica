@@ -50,7 +50,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 |---|---|---|
 | [DOC-13](docs/04-systems/DOC-13-recuperacao-embeddings-rag.md) | Recuperação, Embeddings e RAG | 🟡 Em revisão |
 | [DOC-14](docs/04-systems/DOC-14-agentes-ferramentas.md) | Agentes e Ferramentas Científicas | 🟡 Em revisão |
-| DOC-15 | Inferência e Serving | ⚪ |
+| [DOC-15](docs/04-systems/DOC-15-inferencia-serving.md) | Inferência e Serving | 🟡 Em revisão |
 | DOC-16 | Deployment, MLOps e Monitoramento | ⚪ |
 
 ### Fase 5 — Governança
