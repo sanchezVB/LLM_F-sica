@@ -54,7 +54,11 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | [DOC-16](docs/04-systems/DOC-16-deployment-mlops-monitoramento.md) | Deployment, MLOps e Monitoramento | 🟡 Em revisão |
 
 ### Fase 5 — Governança
-DOC-17 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
+| Doc | Título | Status |
+|---|---|---|
+| [DOC-17](docs/05-governance/DOC-17-orcamento-cronograma.md) | Orçamento Consolidado e Cronograma Mestre | 🟡 Em revisão |
+| DOC-18 | Licenciamento, Segurança, Ética e Release | ⚪ Na fila |
+| DOC-19 | Riscos e Protocolo de Validade Científica | ⚪ | — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
 

@@ -56,7 +56,7 @@ Para quem chega agora, leia nesta ordem:
 | Doc | Título | Cobre | Status |
 |---|---|---|---|
 | [DOC-17A](05-governance/DOC-17A-orcamento-gpu-runpod.md) | Custo-benefício de GPU e Armazenamento (RunPod) | — | 🟢 Entregue |
-| DOC-17 | Orçamento, Modelo de Custos e Cronograma Mestre | — | ⚪ |
+| [DOC-17](05-governance/DOC-17-orcamento-cronograma.md) | Orçamento, Modelo de Custos e Cronograma Mestre | — | 🟡 Em revisão |
 | DOC-18 | Licenciamento, Segurança, Ética e Estratégia de Release | — | ⚪ |
 | DOC-19 | Registro de Riscos e Protocolo de Validade Científica | — | ⚪ |
 

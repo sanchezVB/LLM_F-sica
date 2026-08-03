@@ -1,6 +1,6 @@
 # DOC-17A — Análise de Custo-Benefício de GPU e Armazenamento (RunPod)
 
-**Status:** `RASCUNHO v0.1` — extrato antecipado do DOC-17, emitido fora de ordem porque resolve a questão Q1 do Stage-Gate 0
+**Status:** `RASCUNHO v0.2` — **extrato parcial**. Cobre apenas horas de GPU de treino; não inclui processamento de dados, verificador, avaliação nem baselines. **A referência financeira vigente é o [DOC-17](DOC-17-orcamento-cronograma.md).**
 **Depende de:** [DOC-00 §4.2, §7](../00-foundations/DOC-00-project-charter.md), [DOC-01 §7](../00-foundations/DOC-01-system-architecture.md)
 **Data:** 2026-08-03
 
