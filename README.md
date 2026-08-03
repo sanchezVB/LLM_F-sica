@@ -57,7 +57,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | Doc | Título | Status |
 |---|---|---|
 | [DOC-17](docs/05-governance/DOC-17-orcamento-cronograma.md) | Orçamento Consolidado e Cronograma Mestre | 🟡 Em revisão |
-| DOC-18 | Licenciamento, Segurança, Ética e Release | ⚪ Na fila |
+| [DOC-18](docs/05-governance/DOC-18-licenciamento-seguranca-etica-release.md) | Licenciamento, Segurança, Ética e Release | 🟡 Em revisão |
 | DOC-19 | Riscos e Protocolo de Validade Científica | ⚪ | — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
