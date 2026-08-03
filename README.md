@@ -24,7 +24,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | [DOC-02](docs/01-data/DOC-02-aquisicao-corpus.md) | Plano Mestre de Aquisição de Corpus | 🟡 Em revisão |
 | [DOC-03](docs/01-data/DOC-03-ingestao-parsing-normalizacao.md) | Ingestão, Parsing e Normalização | 🟡 Em revisão |
 | [DOC-04](docs/01-data/DOC-04-filtragem-dedup-descontaminacao.md) | Filtragem, Deduplicação e Descontaminação | 🟡 Em revisão |
-| DOC-05 | Projeto do Tokenizer | ⚪ |
+| [DOC-05](docs/01-data/DOC-05-tokenizer.md) | Projeto do Tokenizer e Vocabulário Físico-Matemático | 🟡 Em revisão |
 | DOC-06 | Mistura de Dados, Currículo e Dados Sintéticos | ⚪ |
 
 ### Fases 2 a 5

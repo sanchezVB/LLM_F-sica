@@ -270,7 +270,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **02** | **Plano Mestre de Aquisição de Corpus** | Pipeline 3; todas as fontes, postura legal, volumes | 1 | 🟡 **Em revisão** |
 | **03** | **Ingestão, Parsing e Normalização** | Pipeline 4; LaTeX/PDF/OCR, projeto do ΦOCR | 1 | 🟡 **Em revisão** |
 | **04** | **Filtragem de Qualidade, Deduplicação e Descontaminação** | Pipelines 5, 16 (parte) | 1 | 🟡 **Em revisão** |
-| 05 | Projeto do Tokenizer e Vocabulário Físico-Matemático | Pipeline 6; BPE/Unigram/WordPiece, vocab, LaTeX e dígitos | 1 | ⚪ |
+| **05** | **Projeto do Tokenizer e Vocabulário Físico-Matemático** | Pipeline 6; BPE/Unigram/WordPiece, vocab, LaTeX e dígitos | 1 | 🟡 **Em revisão** |
 | 06 | Mistura de Dados, Currículo e Motor de Dados Sintéticos | Curriculum learning, geração sintética | 1 | ⚪ |
 | 07 | Especificação da Família de Modelos | ΦEnc/ΦEmb/ΦRank/ΦGen/ΦMath/ΦVis/ΦOCR/ΦCode/ΦAgent; MoE | 2 | ⚪ |
 | 08 | Infraestrutura de Pretraining e Continual Pretraining | Pipelines 7, 9; paralelismo, replay, estabilidade | 2 | ⚪ |
