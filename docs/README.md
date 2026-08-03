@@ -28,7 +28,7 @@ Para quem chega agora, leia nesta ordem:
 | [DOC-03](01-data/DOC-03-ingestao-parsing-normalizacao.md) | Ingestão, Parsing e Normalização | Pipeline 4 | 🟡 Em revisão |
 | [DOC-04](01-data/DOC-04-filtragem-dedup-descontaminacao.md) | Filtragem de Qualidade, Deduplicação e Descontaminação | Pipelines 5, 16 (parte) | 🟡 Em revisão |
 | [DOC-05](01-data/DOC-05-tokenizer.md) | Projeto do Tokenizer e Vocabulário Físico-Matemático | Pipeline 6 | 🟡 Em revisão |
-| DOC-06 | Mistura de Dados, Currículo e Motor de Dados Sintéticos | — | ⚪ |
+| [DOC-06](01-data/DOC-06-mistura-curriculo-dados-sinteticos.md) | Mistura de Dados, Currículo e Motor de Dados Sintéticos | — | 🟡 Em revisão |
 
 ### Fase 2 — Modelos
 | Doc | Título | Cobre | Status |
