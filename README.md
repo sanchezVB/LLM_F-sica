@@ -33,7 +33,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | Doc | Título | Status |
 |---|---|---|
 | [DOC-07](docs/02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos | 🟡 Em revisão |
-| DOC-08 | Pretraining e Continual Pretraining | ⚪ Na fila |
+| [DOC-08](docs/02-models/DOC-08-pretraining-cpt.md) | Pretraining e Continual Pretraining | 🟡 Em revisão |
 | DOC-09 | Pós-treino: SFT, DPO, RLVR, Destilação | ⚪ |
 | DOC-10 | Raciocínio, Verificação e Ferramentas | ⚪ |
 

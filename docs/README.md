@@ -34,7 +34,7 @@ Para quem chega agora, leia nesta ordem:
 | Doc | Título | Cobre | Status |
 |---|---|---|---|
 | [DOC-07](02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos | — | 🟡 Em revisão |
-| DOC-08 | Infraestrutura de Pretraining e Continual Pretraining | Pipelines 7, 9 | ⚪ |
+| [DOC-08](02-models/DOC-08-pretraining-cpt.md) | Infraestrutura de Pretraining e Continual Pretraining | Pipelines 7, 9 | 🟡 Em revisão |
 | DOC-09 | Pós-treino: SFT, DPO, RLVR, Destilação | Pipelines 8, 10 | ⚪ |
 | DOC-10 | Raciocínio, Verificação e Treino Integrado a Ferramentas | — | ⚪ |
 
