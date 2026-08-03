@@ -72,3 +72,6 @@ Thumbs.db
 !benchmarks/**/*.jsonl
 !tests/golden/**/*.jsonl
 !docs/**/*.parquet
+
+# ─── Ambiente virtual local ───────────────────────────────────────────────
+.venv/

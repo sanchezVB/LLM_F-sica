@@ -60,13 +60,25 @@ Prioridade máxima. Tudo aqui é obtível em semanas, sem custo e sem ambiguidad
 
 | Fonte | Acesso | Volume | Licença | Por que primeiro |
 |---|---|---|---|---|
-| **arXiv metadata** | OAI-PMH (`export.arxiv.org/oai2`) ou snapshot Kaggle | ~2,7 M registros, ~4 GB | Metadados CC0 | Fornece **categoria, licença por paper, DOI, data, resumo**. É a chave de tudo. |
+| **arXiv metadata** | OAI-PMH em **`https://oaipmh.arxiv.org/oai`**, `metadataPrefix=arXiv`, `set=physics` | ~1,2 M registros, **~700 MB** em parquet | Metadados CC0 | Fornece **categoria, licença por paper, DOI, journal-ref, resumo**. É a chave de tudo. |
 | **OpenAlex** | Snapshot S3 público, sem chave | 250 M obras, ~330 GB (fatia relevante muito menor) | **CC0** | Grafo de citações, fields-of-study, links de OA, resolução de autores/instituições |
 | **INSPIRE-HEP** | API REST (`inspirehep.net/api/literature`) | ~1,5 M registros | Metadados CC0 | Melhor metadado de HEP que existe; aponta para fulltext OA |
 | **NASA ADS** | API com token gratuito | ~2 M registros de Física/astro | Metadados abertos | Cobertura de astronomia insuperável; resumos |
 | **Unpaywall** | Snapshot / API gratuita | 50 M DOIs | CC0 | Descobre qual paper tem versão OA e onde |
 
-**Custo: US$ 0. Tempo: 3–5 dias. Tamanho em disco: ~80–150 GB.**
+**Custo: US$ 0. Tempo: ~2 h para o arXiv; 3–5 dias para o conjunto. Tamanho em disco: ~10–25 GB.**
+
+> ### ⚙️ Correções apuradas em execução (2026-08-03)
+>
+> O Sprint S1 foi executado e cinco pontos desta seção estavam errados. Registrados aqui porque cada um teria custado tempo ou credibilidade:
+>
+> 1. **Endpoint.** `export.arxiv.org/oai2` responde **301** e está obsoleto. O correto é **`https://oaipmh.arxiv.org/oai`**. O `Identify` declara explicitamente: *"Metadata harvesting permitted through OAI interface"*.
+> 2. **Filtragem no servidor.** O arXiv expõe o *set* **`physics`** (e subsets `physics:hep-th`, `physics:gr-qc`…). Não é preciso coletar 2,7 M registros e filtrar depois — coletamos **~1,2 M direto**. Menos tráfego para eles, menos tempo para nós.
+> 3. **Formato.** `metadataPrefix=arXiv` (não `oai_dc`) traz categorias, **licença por registro**, DOI e journal-ref — exatamente os campos que o princípio A3 exige.
+> 4. **Tamanho.** A espinha de metadados do arXiv ocupa **~516–686 bytes/registro** em parquet zstd, ou **~700 MB no total** — não os ~150 GB estimados. Aquele número pressupunha baixar o snapshot completo do OpenAlex (330 GB), o que é **desnecessário**: a API do OpenAlex permite filtrar a fatia de Física, e uma passagem já traz também as `referenced_works` (o grafo de citações do DOC-07 §3.1). **Consequência: o Sprint S1 cabe folgado em disco comum.**
+> 5. **Semântica de `from`/`until`.** Filtram por **datestamp** (última modificação), não por data de criação. Uma fatia de um mês retorna também papers antigos com metadados atualizados. Irrelevante para a coleta completa; relevante para fatias.
+>
+> Também observado: este servidor retorna `completeListSize=0`, então **não há barra de progresso percentual** — o progresso é reportado em contagem absoluta.
 
 > Limite de taxa do ADS: ~5.000 requisições/dia por token. Coletar 2 M registros em lotes de 2.000 leva ~1.000 requisições — trivial. A API do arXiv pede **1 requisição a cada 3 segundos**; use OAI-PMH em lote, não a API de busca.
 

@@ -86,6 +86,25 @@ Esta é a consequência não óbvia da combinação Q2 + Q3, e precisa de confir
 | **Subconjunto NC do arXiv** | CC BY-NC-SA | ~0,5–1,5 B tokens |
 | **Total** | | **~1,3–3,8 B tokens** |
 
+> ### 📊 Medição real (2026-08-03) — substitui a estimativa acima para o arXiv
+>
+> O Sprint S1 coletou os metadados do arXiv e a distribuição de licenças deixou de ser estimativa. Numa amostra de **6.975 papers de Física** (datestamps de junho/2024):
+>
+> | Licença | Fração | Efeito |
+> |---|---|---|
+> | **CC BY 4.0** | **43,3%** | ✅ Treina e redistribui |
+> | CC BY-SA | 1,3% | ✅ Treina e redistribui (share-alike) |
+> | CC0 1.0 | 1,4% | ✅ Treina e redistribui |
+> | **arXiv padrão** (não-exclusiva) | **45,8%** | ⚠️ Treina (D2), **não redistribui** (D3) |
+> | CC BY-NC-ND | 5,5% | ❌ **Excluído do treino** |
+> | CC BY-NC-SA | 2,7% | ❌ **Excluído do treino** |
+>
+> **Três consequências:**
+>
+> 1. **45,9% do arXiv de Física é redistribuível e compatível com Apache-2.0.** É bem mais que o suposto ao escrever o §6 deste ADR, e **aumenta materialmente o `PhysCorpus-Open`**.
+> 2. **O custo da decisão Q3 é de 8,2%** dos papers, por cláusula NC. Fica dentro da faixa de 3–10% estimada no §4, na metade superior. A decisão se mantém, agora com número medido.
+> 3. ⚠️ **A amostra é de 2024 e superestima o histórico.** A opção de licença CC foi introduzida pelo arXiv anos após o início do repositório, e a adesão cresceu com o tempo. A fração CC de todo o acervo será **menor** — provavelmente 25–35%. O número definitivo sai da coleta completa, em andamento.
+
 Sobre um corpus de 30–50 B, é uma perda de **3% a 10%** — mas é material *pedagogicamente denso*, exatamente o tipo que mais contribui para explicação didática e resolução de problemas. Não é uma perda irrelevante.
 
 **Três saídas, para sua decisão:**
