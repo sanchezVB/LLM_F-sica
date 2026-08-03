@@ -43,7 +43,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | Doc | Título | Status |
 |---|---|---|
 | [DOC-11](docs/03-evaluation/DOC-11-physbench.md) | PhysBench — Suíte de Benchmarks | 🟡 Em revisão |
-| DOC-12 | Harness de Avaliação e Protocolo Estatístico | ⚪ Na fila |
+| [DOC-12](docs/03-evaluation/DOC-12-harness-protocolo-estatistico.md) | Harness de Avaliação e Protocolo Estatístico | 🟡 Em revisão |
 
 ### Fases 4 e 5
 DOC-13 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
