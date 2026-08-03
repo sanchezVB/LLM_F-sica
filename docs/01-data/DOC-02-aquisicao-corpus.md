@@ -61,7 +61,7 @@ Prioridade máxima. Tudo aqui é obtível em semanas, sem custo e sem ambiguidad
 | Fonte | Acesso | Volume | Licença | Por que primeiro |
 |---|---|---|---|---|
 | **arXiv metadata** | OAI-PMH em **`https://oaipmh.arxiv.org/oai`**, `metadataPrefix=arXiv`, `set=physics` | ~1,2 M registros, **~700 MB** em parquet | Metadados CC0 | Fornece **categoria, licença por paper, DOI, journal-ref, resumo**. É a chave de tudo. |
-| **OpenAlex** | Snapshot S3 público, sem chave | 250 M obras, ~330 GB (fatia relevante muito menor) | **CC0** | Grafo de citações, fields-of-study, links de OA, resolução de autores/instituições |
+| **OpenAlex** | ⚠️ **API agora é cotada** — usar o snapshot S3, que continua livre | 250 M obras; snapshot ~330 GB | **CC0** | Grafo de citações, fields-of-study, links de OA, resolução de autores/instituições |
 | **INSPIRE-HEP** | API REST (`inspirehep.net/api/literature`) | ~1,5 M registros | Metadados CC0 | Melhor metadado de HEP que existe; aponta para fulltext OA |
 | **NASA ADS** | API com token gratuito | ~2 M registros de Física/astro | Metadados abertos | Cobertura de astronomia insuperável; resumos |
 | **Unpaywall** | Snapshot / API gratuita | 50 M DOIs | CC0 | Descobre qual paper tem versão OA e onde |
@@ -79,6 +79,34 @@ Prioridade máxima. Tudo aqui é obtível em semanas, sem custo e sem ambiguidad
 > 5. **Semântica de `from`/`until`.** Filtram por **datestamp** (última modificação), não por data de criação. Uma fatia de um mês retorna também papers antigos com metadados atualizados. Irrelevante para a coleta completa; relevante para fatias.
 >
 > Também observado: este servidor retorna `completeListSize=0`, então **não há barra de progresso percentual** — o progresso é reportado em contagem absoluta.
+
+> ### ⚠️ O OpenAlex passou a cobrar pela API (medido em 2026-08-03)
+>
+> Esta seção descrevia o OpenAlex como *"snapshot S3 público, sem chave"*. A **API** mudou de modelo e agora é cotada:
+>
+> ```
+> "Insufficient budget. This request costs $0.0001 but you only have $0
+>  remaining. Resets at midnight UTC."
+> ```
+>
+> | | |
+> |---|---|
+> | Cota gratuita | **1.000 requisições/dia** (`x-ratelimit-limit: 1000`) |
+> | Custo por requisição | US$ 0,0001 |
+> | Necessário para 3,67 M obras | 18.336 requisições |
+> | Pela cota gratuita | **18 dias** |
+> | Pagando | **US$ 1,83** |
+>
+> **O snapshot S3 continua gratuito e sem cota**, e é a rota correta. Medição
+> na conexão do projeto: 444 Mbps de download, ou seja, **~2 h para os 330 GB**
+> — mais rápido que pagar a API. Processado em fluxo (baixa partição → filtra
+> para arXiv → apaga → próxima), o pico de disco fica em ~10 GB, pelo mesmo
+> princípio do DOC-03 §8.
+>
+> **Lição para o resto do plano:** o custo declarado de uma fonte é uma
+> *medição com prazo de validade*, não um fato. Toda fonte da Camada A precisa
+> ser reverificada no momento da coleta, e o plano precisa de rota alternativa
+> onde houver dependência de API de terceiro.
 
 > Limite de taxa do ADS: ~5.000 requisições/dia por token. Coletar 2 M registros em lotes de 2.000 leva ~1.000 requisições — trivial. A API do arXiv pede **1 requisição a cada 3 segundos**; use OAI-PMH em lote, não a API de busca.
 
