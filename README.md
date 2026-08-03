@@ -22,7 +22,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | Doc | Título | Status |
 |---|---|---|
 | [DOC-02](docs/01-data/DOC-02-aquisicao-corpus.md) | Plano Mestre de Aquisição de Corpus | 🟡 Em revisão |
-| DOC-03 | Ingestão, Parsing e Normalização | ⚪ Na fila |
+| [DOC-03](docs/01-data/DOC-03-ingestao-parsing-normalizacao.md) | Ingestão, Parsing e Normalização | 🟡 Em revisão |
 | DOC-04 | Filtragem, Deduplicação e Descontaminação | ⚪ |
 | DOC-05 | Projeto do Tokenizer | ⚪ |
 | DOC-06 | Mistura de Dados, Currículo e Dados Sintéticos | ⚪ |

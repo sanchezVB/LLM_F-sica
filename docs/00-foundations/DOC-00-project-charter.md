@@ -266,7 +266,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **00** | **Carta do Projeto e Roteiro** *(este doc)* | Posicionamento, escada, portões | 0 | 🟡 **Em revisão** |
 | **01** | **Arquitetura do Sistema e Organização do Repositório** | Pipelines 1–2; modelo de camadas, DAG, stack, contratos de dados | 0 | 🟡 **Em revisão** |
 | **02** | **Plano Mestre de Aquisição de Corpus** | Pipeline 3; todas as fontes, postura legal, volumes | 1 | 🟡 **Em revisão** |
-| 03 | Ingestão, Parsing e Normalização | Pipeline 4; LaTeX/PDF/OCR, projeto do ΦOCR | 1 | ⚪ |
+| **03** | **Ingestão, Parsing e Normalização** | Pipeline 4; LaTeX/PDF/OCR, projeto do ΦOCR | 1 | 🟡 **Em revisão** |
 | 04 | Filtragem de Qualidade, Deduplicação e Descontaminação | Pipelines 5, 16 (parte) | 1 | ⚪ |
 | 05 | Projeto do Tokenizer e Vocabulário Físico-Matemático | Pipeline 6; BPE/Unigram/WordPiece, vocab, LaTeX e dígitos | 1 | ⚪ |
 | 06 | Mistura de Dados, Currículo e Motor de Dados Sintéticos | Curriculum learning, geração sintética | 1 | ⚪ |
