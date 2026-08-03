@@ -8,7 +8,8 @@ Programa de pesquisa para projetar e construir uma família de foundation models
 
 ## Começar em outra máquina
 
-Instalação, dados e retomada: **[SETUP.md](SETUP.md)**.
+- **[ESTADO.md](ESTADO.md)** — onde estamos, o que fazer a seguir, decisões pendentes
+- **[SETUP.md](SETUP.md)** — instalar, trazer os dados, retomar as coletas
 
 ## Documentos de projeto
 
