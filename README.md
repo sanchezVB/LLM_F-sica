@@ -6,6 +6,10 @@ Programa de pesquisa para projetar e construir uma família de foundation models
 
 ---
 
+## Começar em outra máquina
+
+Instalação, dados e retomada: **[SETUP.md](SETUP.md)**.
+
 ## Documentos de projeto
 
 Vinte documentos, escritos em nível de publicação, cada um revisado antes do próximo começar.
