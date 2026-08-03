@@ -227,13 +227,13 @@ Cada degrau é uma entrega independente. Você pode parar em qualquer um.
 | **T1a — ΦEnc + ΦEmb** | Encoder 150M + modelo de embedding → **Portão G1: bater o PhysBERT** | 1× 4090 (129 h) ou 1× H100 (17 h) | **$25–90** | 1–5 dias |
 | **T1b — ΦRank + índice** | Reranker + busca híbrida → sistema de recuperação de Física completo | 1× 4090 | **+$10–30** | 2–3 dias |
 | **T2a — ΦGen-1,5B** | CPT sobre 15 B tokens → primeiro modelo generativo de Física | **1× H100** (84 h) | **+$120–240** | 4–7 dias |
-| **T2b — SFT + RLVR no 1,5B** | Raciocínio verificado pelo barramento de verificação | 1× H100 em janelas | **+$100–200** | ~1 semana |
+| **T2b — SFT + RLVR no 1,5B** | Raciocínio verificado pelo barramento de verificação | 1× H100 em janelas | **+$235** | ~1 semana |
 | **T2c — ΦGen-8B** | Modelo competitivo com abertos de porte médio | 4× H100 (150 h) ou 1× MI300X | **+$850–1.700** | 1–3 semanas |
 
 **Marcos de custo acumulado:**
 
 - **Até o Portão G1 (resultado publicável, bate o PhysBERT): US$ 25 – 120.**
-- **Até um modelo generativo de Física funcional (T2b): US$ 255 – 560.**
+- **Até um modelo generativo de Física funcional (T2b): US$ 300 – 600.** *(revisado pelo [DOC-09 §8](../02-models/DOC-09-pos-treino-sft-dpo-rlvr.md#8-orçamento): a varredura de coeficiente de KL e a geração de dados de SFT não estavam contabilizadas)*
 - Até o ΦGen-8B (T2c): US$ 1.100 – 2.260.
 
 Custos únicos e recorrentes fora da GPU: **HD externo de 8–16 TB, ~$150–250** (ou o disco que você já tiver), e **~$1–3/mês** de bucket B2/R2 exclusivo para checkpoints — este último não é opcional, é o que impede um pod spot interrompido de destruir dias de treino.

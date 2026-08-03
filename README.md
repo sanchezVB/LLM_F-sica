@@ -34,7 +34,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 |---|---|---|
 | [DOC-07](docs/02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos | 🟡 Em revisão |
 | [DOC-08](docs/02-models/DOC-08-pretraining-cpt.md) | Pretraining e Continual Pretraining | 🟡 Em revisão |
-| DOC-09 | Pós-treino: SFT, DPO, RLVR, Destilação | ⚪ |
+| [DOC-09](docs/02-models/DOC-09-pos-treino-sft-dpo-rlvr.md) | Pós-treino: SFT, DPO, RLVR, Destilação | 🟡 Em revisão |
 | DOC-10 | Raciocínio, Verificação e Ferramentas | ⚪ |
 
 ### Fases 3 a 5
@@ -82,7 +82,7 @@ Mapa detalhado e as fronteiras de import impostas em CI: [`src/README.md`](src/R
 |---|---|---|---|
 | **T0 — Corpus** | `PhysCorpus-Open` + tokenizer de Física — publicável sem nenhum modelo | **US$ 0** | Corpus reconstruível a partir de um único hash de manifesto |
 | **T1 — Representação** | ΦEnc / ΦEmb / ΦRank | **US$ 35–120** | Superar o PhysBERT em ≥5 nDCG@10 **e** superar o melhor embedder geral com 1/10 dos parâmetros |
-| **T2 — Raciocínio** | ΦGen-1,5B via CPT + SFT + RLVR, ΦRAG | **US$ 255–560** acum. | ≥ +10 pontos sobre o **próprio modelo base**, zero regressão geral, ≥0,95 de precisão de citação |
+| **T2 — Raciocínio** | ΦGen-1,5B via CPT + SFT + RLVR, ΦRAG | **US$ 300–600** acum. | ≥ +10 pontos sobre o **próprio modelo base**, zero regressão geral, ≥0,95 de precisão de citação |
 | **T2c — Escala** | ΦGen-8B | **US$ 1.100–2.260** acum. | Competitivo com abertos de porte médio |
 | **T3 — Fronteira** | ΦGen-32B, ΦMM, ΦAgent | 150–600k GPU-h | Exige financiamento externo |
 

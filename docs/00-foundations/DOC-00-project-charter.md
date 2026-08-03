@@ -193,7 +193,7 @@ O programa é estruturado em três tiers, cada um com um portão **falseável**.
 | G2.4 | Precisão de citação ≥ 0,95 em modo RAG (DOI alucinado = falha) — a cláusula Galactica |
 | G2.5 | Calibração: ECE ≤ 0,10 e mecanismo de abstenção funcional |
 
-**Envelope de custo:** **US$ 220–440** para a rota ΦGen-1,5B (CPT + SFT + RLVR); **+US$ 850–1.700** se e quando o ΦGen-8B for justificado. Ver [DOC-17A §8.2](../05-governance/DOC-17A-orcamento-gpu-runpod.md#82-a-escada-degrau-a-degrau).
+**Envelope de custo:** **US$ 300–600** para a rota ΦGen-1,5B (CPT + SFT + RLVR); **+US$ 850–1.700** se e quando o ΦGen-8B for justificado. Ver [DOC-17A §8.2](../05-governance/DOC-17A-orcamento-gpu-runpod.md#82-a-escada-degrau-a-degrau).
 
 > **Nota de escopo.** O G2 é escrito em termos do ΦGen-8B, mas os critérios G2.1 e G2.3 — o delta contra o próprio modelo base e a ausência de regressão geral — são igualmente válidos e igualmente publicáveis no **1,5B**. Um ΦGen-1,5B que supere sua base em +10 pontos em Física sem regredir em capacidade geral é um resultado científico legítimo por US$ 440. O 8B é escala, não é a tese.
 
@@ -274,7 +274,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **06** | **Mistura de Dados, Currículo e Motor de Dados Sintéticos** | Curriculum learning, geração sintética | 1 | 🟡 **Em revisão** |
 | **07** | **Especificação da Família de Modelos** | ΦEnc/ΦEmb/ΦRank/ΦGen/ΦMath/ΦVis/ΦOCR/ΦCode/ΦAgent; MoE | 2 | 🟡 **Em revisão** |
 | **08** | **Infraestrutura de Pretraining e Continual Pretraining** | Pipelines 7, 9; paralelismo, replay, estabilidade | 2 | 🟡 **Em revisão** |
-| 09 | Pós-treino: SFT, DPO, RLVR, Destilação | Pipelines 8, 10 | 2 | ⚪ |
+| **09** | **Pós-treino: SFT, DPO, RLVR, Destilação** | Pipelines 8, 10 | 2 | 🟡 **Em revisão** |
 | 10 | Raciocínio, Verificação e Treino Integrado a Ferramentas | CoT longo, recompensas de processo, projeto de verificadores | 2 | ⚪ |
 | 11 | PhysBench — Projeto da Suíte de Benchmarks | Pipelines 11, 16 | 3 | ⚪ |
 | 12 | Harness de Avaliação e Protocolo Estatístico | Pipeline 11; correção por CAS, descontaminação, avaliação humana | 3 | ⚪ |
