@@ -2,7 +2,7 @@
 
 Programa de pesquisa para projetar e construir uma família de foundation models especializada **exclusivamente em Física** e na matemática aplicada que a sustenta, junto com o corpus, a infraestrutura de verificação, os benchmarks e o stack de serving necessários para tornar as alegações auditáveis.
 
-**Status:** **corpus de projeto completo** — 19 documentos + 1 ADR, cobrindo os 20 pipelines. Ainda sem código, por decisão de projeto (ver DOC-01 §10): o código implementa os documentos, não o contrário.
+**Status:** corpus de projeto completo (19 documentos + 1 ADR, cobrindo os 20 pipelines) e **execução iniciada** — Sprint S1 coletando o corpus. O código implementa os documentos, não o contrário.
 
 ---
 
@@ -62,7 +62,9 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 |---|---|---|
 | [DOC-17](docs/05-governance/DOC-17-orcamento-cronograma.md) | Orçamento Consolidado e Cronograma Mestre | 🟡 Em revisão |
 | [DOC-18](docs/05-governance/DOC-18-licenciamento-seguranca-etica-release.md) | Licenciamento, Segurança, Ética e Release | 🟡 Em revisão |
-| [DOC-19](docs/05-governance/DOC-19-riscos-validade-cientifica.md) | Riscos e Protocolo de Validade Científica | 🟡 Em revisão | — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
+| [DOC-19](docs/05-governance/DOC-19-riscos-validade-cientifica.md) | Riscos e Protocolo de Validade Científica | 🟡 Em revisão |
+
+Índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
 
@@ -71,7 +73,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 ```
 docs/          ← os 20 documentos de projeto + ADRs. A fonte de verdade.
 configs/       ← árvore Hydra. TODO hiperparâmetro mora aqui, nenhum no código.
-src/phifm/     ← código (ainda vazio, por decisão — ver docs/00-foundations/DOC-01 §10)
+src/phifm/     ← código. Sprints S1–S2 implementados; o resto segue o desenho.
   core/          schema, linhagem, licenças, unidades, LaTeX  ← não importa de nada
   corpus/        aquisição → parsing → filtro → dedup → mistura
   verify/        ★ o barramento de verificação (CAS, dimensional, numérico, limites)
@@ -86,7 +88,7 @@ benchmarks/    ← dados e definições de tarefa do PhysBench
 
 Mapa detalhado e as fronteiras de import impostas em CI: [`src/README.md`](src/README.md).
 
-**Dados nunca entram no git.** O corpus (10–20 TB) vive no disco local, endereçado por conteúdo; só shards tokenizados (20–80 GB) sobem para a GPU alugada. Ver [DOC-17A §6.1](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md#61-opção-de-custo-zero-processar-localmente-alugar-só-a-gpu).
+**Dados nunca entram no git.** O corpus vive no disco local, endereçado por conteúdo, com arquivo frio no Google Drive; só shards tokenizados (20–80 GB) sobem para a GPU alugada. Instalação em outra máquina: [SETUP.md](SETUP.md). Ver [DOC-17A §6.1](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md#61-opção-de-custo-zero-processar-localmente-alugar-só-a-gpu).
 
 ---
 
