@@ -45,8 +45,16 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | [DOC-11](docs/03-evaluation/DOC-11-physbench.md) | PhysBench — Suíte de Benchmarks | 🟡 Em revisão |
 | [DOC-12](docs/03-evaluation/DOC-12-harness-protocolo-estatistico.md) | Harness de Avaliação e Protocolo Estatístico | 🟡 Em revisão |
 
-### Fases 4 e 5
-DOC-13 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
+### Fase 4 — Sistemas
+| Doc | Título | Status |
+|---|---|---|
+| [DOC-13](docs/04-systems/DOC-13-recuperacao-embeddings-rag.md) | Recuperação, Embeddings e RAG | 🟡 Em revisão |
+| DOC-14 | Agentes e Ferramentas Científicas | ⚪ Na fila |
+| DOC-15 | Inferência e Serving | ⚪ |
+| DOC-16 | Deployment, MLOps e Monitoramento | ⚪ |
+
+### Fase 5 — Governança
+DOC-17 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
 
