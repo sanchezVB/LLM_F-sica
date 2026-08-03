@@ -49,7 +49,7 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | Doc | Título | Status |
 |---|---|---|
 | [DOC-13](docs/04-systems/DOC-13-recuperacao-embeddings-rag.md) | Recuperação, Embeddings e RAG | 🟡 Em revisão |
-| DOC-14 | Agentes e Ferramentas Científicas | ⚪ Na fila |
+| [DOC-14](docs/04-systems/DOC-14-agentes-ferramentas.md) | Agentes e Ferramentas Científicas | 🟡 Em revisão |
 | DOC-15 | Inferência e Serving | ⚪ |
 | DOC-16 | Deployment, MLOps e Monitoramento | ⚪ |
 
