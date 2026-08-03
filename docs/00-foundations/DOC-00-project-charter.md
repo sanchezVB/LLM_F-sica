@@ -276,7 +276,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **08** | **Infraestrutura de Pretraining e Continual Pretraining** | Pipelines 7, 9; paralelismo, replay, estabilidade | 2 | 🟡 **Em revisão** |
 | **09** | **Pós-treino: SFT, DPO, RLVR, Destilação** | Pipelines 8, 10 | 2 | 🟡 **Em revisão** |
 | **10** | **Raciocínio, Verificação e Treino Integrado a Ferramentas** | CoT longo, recompensas de processo, projeto de verificadores | 2 | 🟡 **Em revisão** |
-| 11 | PhysBench — Projeto da Suíte de Benchmarks | Pipelines 11, 16 | 3 | ⚪ |
+| **11** | **PhysBench — Projeto da Suíte de Benchmarks** | Pipelines 11, 16 | 3 | 🟡 **Em revisão** |
 | 12 | Harness de Avaliação e Protocolo Estatístico | Pipeline 11; correção por CAS, descontaminação, avaliação humana | 3 | ⚪ |
 | 13 | Recuperação, Embeddings e Stack de RAG | Pipelines 17, 18 | 4 | ⚪ |
 | 14 | Framework de Agentes e Ferramentas Matemáticas/Científicas | Pipelines 19, 20 (SymPy…COMSOL) | 4 | ⚪ |

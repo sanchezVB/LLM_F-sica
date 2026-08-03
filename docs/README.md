@@ -41,7 +41,7 @@ Para quem chega agora, leia nesta ordem:
 ### Fase 3 — Avaliação
 | Doc | Título | Cobre | Status |
 |---|---|---|---|
-| DOC-11 | PhysBench — Projeto da Suíte de Benchmarks | Pipelines 11, 16 | ⚪ |
+| [DOC-11](03-evaluation/DOC-11-physbench.md) | PhysBench — Projeto da Suíte de Benchmarks | Pipelines 11, 16 | 🟡 Em revisão |
 | DOC-12 | Harness de Avaliação e Protocolo Estatístico | Pipeline 11 | ⚪ |
 
 ### Fase 4 — Sistemas

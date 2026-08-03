@@ -39,8 +39,14 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 
 **Fase 2 completa.** Quatro troncos treinados, não dez modelos. Barramento de verificação especificado: o ativo central custa **~US$ 50** em computação.
 
-### Fases 3 a 5
-DOC-11 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
+### Fase 3 — Avaliação
+| Doc | Título | Status |
+|---|---|---|
+| [DOC-11](docs/03-evaluation/DOC-11-physbench.md) | PhysBench — Suíte de Benchmarks | 🟡 Em revisão |
+| DOC-12 | Harness de Avaliação e Protocolo Estatístico | ⚪ Na fila |
+
+### Fases 4 e 5
+DOC-13 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
 
