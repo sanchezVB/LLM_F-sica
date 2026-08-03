@@ -35,7 +35,9 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 | [DOC-07](docs/02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos | 🟡 Em revisão |
 | [DOC-08](docs/02-models/DOC-08-pretraining-cpt.md) | Pretraining e Continual Pretraining | 🟡 Em revisão |
 | [DOC-09](docs/02-models/DOC-09-pos-treino-sft-dpo-rlvr.md) | Pós-treino: SFT, DPO, RLVR, Destilação | 🟡 Em revisão |
-| DOC-10 | Raciocínio, Verificação e Ferramentas | ⚪ |
+| [DOC-10](docs/02-models/DOC-10-raciocinio-verificacao-ferramentas.md) | Raciocínio, Verificação e Ferramentas | 🟡 Em revisão |
+
+**Fase 2 completa.** Quatro troncos treinados, não dez modelos. Barramento de verificação especificado: o ativo central custa **~US$ 50** em computação.
 
 ### Fases 3 a 5
 DOC-11 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
