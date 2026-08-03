@@ -272,7 +272,7 @@ Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada u
 | **04** | **Filtragem de Qualidade, Deduplicação e Descontaminação** | Pipelines 5, 16 (parte) | 1 | 🟡 **Em revisão** |
 | **05** | **Projeto do Tokenizer e Vocabulário Físico-Matemático** | Pipeline 6; BPE/Unigram/WordPiece, vocab, LaTeX e dígitos | 1 | 🟡 **Em revisão** |
 | **06** | **Mistura de Dados, Currículo e Motor de Dados Sintéticos** | Curriculum learning, geração sintética | 1 | 🟡 **Em revisão** |
-| 07 | Especificação da Família de Modelos | ΦEnc/ΦEmb/ΦRank/ΦGen/ΦMath/ΦVis/ΦOCR/ΦCode/ΦAgent; MoE | 2 | ⚪ |
+| **07** | **Especificação da Família de Modelos** | ΦEnc/ΦEmb/ΦRank/ΦGen/ΦMath/ΦVis/ΦOCR/ΦCode/ΦAgent; MoE | 2 | 🟡 **Em revisão** |
 | 08 | Infraestrutura de Pretraining e Continual Pretraining | Pipelines 7, 9; paralelismo, replay, estabilidade | 2 | ⚪ |
 | 09 | Pós-treino: SFT, DPO, RLVR, Destilação | Pipelines 8, 10 | 2 | ⚪ |
 | 10 | Raciocínio, Verificação e Treino Integrado a Ferramentas | CoT longo, recompensas de processo, projeto de verificadores | 2 | ⚪ |

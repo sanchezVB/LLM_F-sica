@@ -29,8 +29,16 @@ Vinte documentos, escritos em nível de publicação, cada um revisado antes do 
 
 **Fase 1 completa.** Custo total dos cinco documentos, do corpus bruto aos shards prontos: **< US$ 60**.
 
-### Fases 2 a 5
-DOC-07 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
+### Fase 2 — Modelos
+| Doc | Título | Status |
+|---|---|---|
+| [DOC-07](docs/02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos | 🟡 Em revisão |
+| DOC-08 | Pretraining e Continual Pretraining | ⚪ Na fila |
+| DOC-09 | Pós-treino: SFT, DPO, RLVR, Destilação | ⚪ |
+| DOC-10 | Raciocínio, Verificação e Ferramentas | ⚪ |
+
+### Fases 3 a 5
+DOC-11 a DOC-19 — índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
 ---
 
