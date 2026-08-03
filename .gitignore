@@ -1,0 +1,74 @@
+# ─── Dados: NUNCA versionados no git ──────────────────────────────────────
+# O corpus vive no disco local / object store, endereçado por conteúdo.
+# Ver DOC-01 §4.1 e DOC-17A §6.1.
+data/
+corpus/
+raw/
+*.parquet
+*.arrow
+*.jsonl
+*.jsonl.gz
+*.tar.gz
+*.warc.gz
+*.pdf
+*.bin
+*.npy
+*.npz
+
+# ─── Pesos e checkpoints ──────────────────────────────────────────────────
+checkpoints/
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.gguf
+
+# ─── Artefatos de treino e experimento ────────────────────────────────────
+wandb/
+mlruns/
+outputs/          # saída padrão do Hydra
+multirun/
+lightning_logs/
+runs/
+.dagster/
+
+# ─── Segredos ─────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+secrets/
+
+# ─── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# ─── Sistema operacional e editores ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ─── Exceções: manifestos e amostras pequenas SÃO versionados ─────────────
+!benchmarks/**/*.jsonl
+!tests/golden/**/*.jsonl
+!docs/**/*.parquet
