@@ -215,11 +215,13 @@ Fontes como peS2o, OpenWebMath e The Stack são multi-domínio. Reduzi-las a Fí
 | | Estimativa |
 |---|---|
 | Bruto | 39–73 B |
-| Após dedup exata + aproximada | 26–48 B |
-| Após filtro de qualidade e de idioma | **22–42 B** |
-| Subconjunto redistribuível (`PhysCorpus-Open`) | **9–16 B** |
+| Após dedup exata + heurísticos + near-dedup | 20–38 B |
+| Após qualidade por modelo + dedup semântica + descontaminação | **15–30 B** |
+| Subconjunto redistribuível (`PhysCorpus-Open`) | **6–12 B** |
 
-**Conclusão: 22–42 bilhões de tokens de Física, por US$ 0 de aquisição.** Suficiente para todo o Tier 1 e para o CPT do ΦGen-1,5B com folga (DOC-17A §8.2), e suficiente para o ΦGen-8B em regime de 3–4 épocas, dentro do que Muennighoff et al. (2023) indicam ser seguro.
+**Conclusão: 15–30 bilhões de tokens de Física, por US$ 0 de aquisição.** Suficiente com folga para todo o Tier 1 e para o CPT do ΦGen-1,5B em uma época (DOC-17A §8.2); o ΦGen-8B exige 2–4 épocas, dentro do que Muennighoff et al. (2023) indicam ser seguro, mas sem margem.
+
+> **Correção (v0.2, após o DOC-04).** A estimativa original desta seção era de **22–42 B**. O [DOC-04 §7](DOC-04-filtragem-dedup-descontaminacao.md#7-o-funil-com-números) modelou o funil estágio a estágio e encontrou **15–30 B**. A diferença vem de dois estágios que esta seção não contabilizava separadamente: a deduplicação semântica (−5%) e o filtro de qualidade por modelo (−15%). O número do DOC-04 é o vigente; este ficou registrado para preservar o rastro da revisão.
 
 ---
 
