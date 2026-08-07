@@ -1,9 +1,14 @@
 # ─── Dados: NUNCA versionados no git ──────────────────────────────────────
 # O corpus vive no disco local / object store, endereçado por conteúdo.
 # Ver DOC-01 §4.1 e DOC-17A §6.1.
-data/
-corpus/
-raw/
+#
+# ATENÇÃO à barra inicial. Sem ela, `corpus/` casa em QUALQUER nível — e foi
+# assim que `src/phifm/corpus/` (o módulo de coleta) ficou fora do git sem
+# ninguém notar: na máquina de origem os arquivos existiam em disco, apenas
+# não rastreados, então os testes passavam lá e falhavam em clone limpo.
+/data/
+/corpus/
+/raw/
 *.parquet
 *.arrow
 *.jsonl
@@ -19,8 +24,8 @@ raw/
 # Modelos treinados vão para a camada fria (Drive), nunca para o git.
 # `*.pkl` estava faltando aqui e um classificador de 56 MB entrou no
 # histórico em 2026-08-03 — ver src/phifm/core/io/storage.py
-models/
-checkpoints/
+/models/
+/checkpoints/
 *.pkl
 *.joblib
 *.pt
