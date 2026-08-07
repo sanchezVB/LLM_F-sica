@@ -31,7 +31,11 @@
 # Idempotente: detecta execução em andamento e não duplica. Após interrupção,
 # retoma do cursor durável no `_manifest.json`.
 
-param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot')][string]$Fonte = 'arxiv')
+# NOTA DE NOME: o script comecou como lancador de COLETA e passou a cobrir
+# treino tambem ('phiemb'). O nome ficou estreito, mas a alternativa era um
+# segundo par de scripts com trava e supervisor duplicados — e mecanismo
+# duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
+param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -49,6 +53,11 @@ switch ($Fonte) {
                  $argumentos = '--out data/raw/openalex_works' }
     'snapshot' { $script = 'scripts\harvest_openalex_snapshot.py'
                  $argumentos = '--out data/raw/openalex_snapshot' }
+    'phiemb'   { $script = 'scripts	rain_embedding.py'
+                 # A venv de treino e Python 3.12: o torch-directml nao suporta
+                 # o 3.14 da venv principal.
+                 $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
+                 $argumentos = '--out models/phiemb --lote 8 --passos-aval 500' }
 }
 
 # ─── Trava por PID, e por que a checagem antiga nao servia ───────────────

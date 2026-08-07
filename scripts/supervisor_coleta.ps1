@@ -32,7 +32,7 @@
 # progresso durável apareça a cada ~30 s em vez de ~1,5 min.
 
 param(
-    [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot')][string]$Fonte = 'snapshot',
+    [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb')][string]$Fonte = 'snapshot',
     [int]$IntervaloSegundos = 60,
     [int]$MaxReinicios = 40,
     [int]$MaxParado = 4
@@ -56,6 +56,12 @@ switch ($Fonte) {
                                   'data\raw\arxiv_negativos\econ\_manifest.json') }
     'openalex'  { $alvo = 'harvest_openalex.py'
                   $manifestos = @('data\raw\openalex_works\_manifest.json') }
+    'phiemb'    { $alvo = 'train_embedding.py'
+                  # `phiemb.json` usa a MESMA chave `completed_at` dos manifestos
+                  # de coleta, entao `TodasConcluidas` serve sem alteracao. Nao ha
+                  # `actual_count`, entao o progresso e -1 e o guarda de "nao
+                  # avanca" tolera isso pelas 4 mortes de folga.
+                  $manifestos = @('models\phiemb\phiemb.json') }
     'snapshot'  { $alvo = 'harvest_openalex_snapshot.py'
                   $manifestos = @('data\raw\openalex_snapshot\_manifest.json') }
 }

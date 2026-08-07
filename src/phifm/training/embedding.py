@@ -253,7 +253,7 @@ class TreinadorEmb:
         self.salvar_estado(saida, m.passo)
         m.historico.append({"passo": m.passo, "recall_1": r1, "recall_10": r10,
                             "mrr": mrr, "perda": m.perda, "nota": "final"})
-        self.salvar(saida, m)
+        self.salvar(saida, m, concluido=True)
         return m
 
     # ── retomada ──────────────────────────────────────────────────────────
@@ -311,7 +311,8 @@ class TreinadorEmb:
         log.info("retomando do passo %s", f"{est['passo']:,}")
         return int(est["passo"])
 
-    def salvar(self, saida: Path, m: Metricas | None = None) -> None:
+    def salvar(self, saida: Path, m: Metricas | None = None,
+               concluido: bool = False) -> None:
         """Grava uma CÓPIA em CPU. Nunca mexe no modelo em uso.
 
         ⚠️ A versão anterior fazia `self.mod.to("cpu").save_pretrained(...)` e
@@ -332,6 +333,12 @@ class TreinadorEmb:
         self.mod.save_pretrained(saida, state_dict=pesos)
         self.tok.save_pretrained(saida)
         meta = {"config": asdict(self.cfg), "base": self.cfg.base}
+        # `completed_at` é a MESMA chave que o supervisor já procura nos
+        # manifestos de coleta. Reusar o nome evita um segundo mecanismo de
+        # "acabou" — e um mecanismo a menos é um ramo a menos sem teste.
+        if concluido:
+            from datetime import datetime, timezone
+            meta["completed_at"] = datetime.now(timezone.utc).isoformat()
         if m:
             meta["metricas"] = {k: v for k, v in asdict(m).items()}
         (saida / "phiemb.json").write_text(
