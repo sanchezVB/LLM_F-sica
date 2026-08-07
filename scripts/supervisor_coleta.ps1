@@ -42,11 +42,22 @@ $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 Set-Location $raiz
 
+# `manifestos` e sempre uma LISTA. Os negativos tem um por set, e tratar isso
+# como caso especial (`$null`) era um defeito: sem manifesto o supervisor nao
+# distinguia "terminou" de "morreu", entao relancava uma coleta CONCLUIDA e
+# acabava abortando por "nao avanca". Coleta concluida com sucesso nao pode
+# terminar em mensagem de erro.
 switch ($Fonte) {
-    'arxiv'     { $alvo = 'harvest_arxiv.py';            $manifesto = 'data\raw\arxiv_metadata\_manifest.json' }
-    'negativos' { $alvo = 'harvest_negativos.py';        $manifesto = $null }
-    'openalex'  { $alvo = 'harvest_openalex.py';         $manifesto = 'data\raw\openalex_works\_manifest.json' }
-    'snapshot'  { $alvo = 'harvest_openalex_snapshot.py'; $manifesto = 'data\raw\openalex_snapshot\_manifest.json' }
+    'arxiv'     { $alvo = 'harvest_arxiv.py'
+                  $manifestos = @('data\raw\arxiv_metadata\_manifest.json') }
+    'negativos' { $alvo = 'harvest_negativos.py'
+                  $manifestos = @('data\raw\arxiv_negativos\cs\_manifest.json',
+                                  'data\raw\arxiv_negativos\q_bio\_manifest.json',
+                                  'data\raw\arxiv_negativos\econ\_manifest.json') }
+    'openalex'  { $alvo = 'harvest_openalex.py'
+                  $manifestos = @('data\raw\openalex_works\_manifest.json') }
+    'snapshot'  { $alvo = 'harvest_openalex_snapshot.py'
+                  $manifestos = @('data\raw\openalex_snapshot\_manifest.json') }
 }
 
 $log = Join-Path $raiz "data\raw\supervisor_$Fonte.log"
@@ -69,11 +80,30 @@ function Registrar($texto) {
 }
 
 function ProgressoAtual {
-    # Registros duráveis no manifesto. Serve para distinguir "morreu mas
-    # avançou" de "morre sempre no mesmo ponto".
-    if (-not $manifesto -or -not (Test-Path $manifesto)) { return -1 }
-    try { (Get-Content $manifesto -Raw -Encoding utf8 | ConvertFrom-Json).actual_count }
-    catch { return -1 }
+    # Soma dos registros duráveis. Serve para distinguir "morreu mas avançou"
+    # de "morre sempre no mesmo ponto".
+    $total = -1
+    foreach ($m in $manifestos) {
+        if (-not (Test-Path $m)) { continue }
+        try {
+            $c = (Get-Content $m -Raw -Encoding utf8 | ConvertFrom-Json).actual_count
+            if ($total -lt 0) { $total = 0 }
+            $total += [int]$c
+        } catch { }
+    }
+    return $total
+}
+
+function TodasConcluidas {
+    # Só é conclusão se TODOS os manifestos existirem e estiverem marcados.
+    # Um deles faltando significa que aquele set nem começou.
+    foreach ($m in $manifestos) {
+        if (-not (Test-Path $m)) { return $false }
+        try {
+            if (-not (Get-Content $m -Raw -Encoding utf8 | ConvertFrom-Json).completed_at) { return $false }
+        } catch { return $false }
+    }
+    return $true
 }
 
 Registrar "supervisor de '$Fonte' iniciado (intervalo ${IntervaloSegundos}s, ate $MaxReinicios reinicios)"
@@ -104,13 +134,10 @@ while ($true) {
         $mortesSeguidas = 0
         $p = ProgressoAtual
 
-        # Concluida? O manifesto marca `completed_at` ao fim.
-        if ($manifesto -and (Test-Path $manifesto)) {
-            $m = Get-Content $manifesto -Raw -Encoding utf8 | ConvertFrom-Json
-            if ($m.completed_at) {
-                Registrar "CONCLUIDA: $($m.actual_count) registros, $($m.failures.Count) falhas"
-                break
-            }
+        # Concluida? Cada manifesto marca `completed_at` ao fim do seu lote.
+        if (TodasConcluidas) {
+            Registrar "CONCLUIDA: $(ProgressoAtual) registros em $($manifestos.Count) manifesto(s)"
+            break
         }
 
         # Uma morte sem avanco NAO prova defeito. O progresso durável só aparece
