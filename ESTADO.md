@@ -153,9 +153,31 @@ representar tensor com índices no schema — decisão de dados, não de parser.
 
 ## Onde está cada coisa
 
+## Espinha construída — 2026-08-07
+
+```bash
+PYTHONPATH=src .venv/Scripts/python.exe scripts/build_spine.py \
+    --arxiv data/raw/arxiv_metadata --openalex data/raw/openalex_snapshot
+```
+
+| | |
+|---|---|
+| Registros únicos | **1.595.422** · 0,0% de duplicação por retomada |
+| Revisados por pares | 740.823 (46,4%) |
+| **Redistribuível** (`train_open`) | **235.795 (14,8%)** — dimensiona o `PhysCorpus-Open` |
+| OpenAlex casado | 257.321, com a coleta em curso |
+
+A fração publicável depende fortemente da época, confirmando o ADR-0001 §4:
+**0,0% aberto até 2004**, 36,2% em 2020–2024, **48,8% em 2025–2029**.
+
+Previsão de tamanho do DOC-02 §3.1 confirmada: **422 bytes/registro** brutos
+contra 516–686 previstos.
+
+## Onde está cada coisa
+
 | | Local | Drive | GitHub |
 |---|---|---|---|
-| Código, docs, testes | ✅ | ✅ | ⚠️ `src/phifm/corpus/` ficou fora até 2026-08-06 — ver achados |
+| Código, docs, testes | ✅ | ✅ | ✅ desde 2026-08-07 — `src/phifm/corpus/` estava fora, ver achados |
 | Manifestos | ✅ | ✅ | ✅ |
 | Coletas brutas (285 MB) | ✅ | ✅ | ❌ por decisão |
 | Espinha consolidada (150 MB) | ✅ | ✅ | ❌ |
