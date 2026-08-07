@@ -31,7 +31,7 @@
 # Idempotente: detecta execução em andamento e não duplica. Após interrupção,
 # retoma do cursor durável no `_manifest.json`.
 
-param([ValidateSet('arxiv', 'openalex', 'snapshot')][string]$Fonte = 'arxiv')
+param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -43,6 +43,8 @@ if (-not (Test-Path $python)) { throw "venv nao encontrada em $python - ver SETU
 switch ($Fonte) {
     'arxiv'    { $script = 'scripts\harvest_arxiv.py'
                  $argumentos = '--out data/raw/arxiv_metadata --set physics' }
+    'negativos' { $script = 'scripts\harvest_negativos.py'
+                  $argumentos = '--out data/raw/arxiv_negativos' }
     'openalex' { $script = 'scripts\harvest_openalex.py'
                  $argumentos = '--out data/raw/openalex_works' }
     'snapshot' { $script = 'scripts\harvest_openalex_snapshot.py'
