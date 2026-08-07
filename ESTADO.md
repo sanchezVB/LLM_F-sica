@@ -162,16 +162,43 @@ representar tensor com índices no schema — decisão de dados, não de parser.
 | Classificador (59 MB) | ✅ | ✅ | ❌ |
 | `.env` | ✅ | ❌ | ❌ recriar |
 
-## Pendência conhecida
+## Histórico reescrito em 2026-08-07
 
-O histórico do git carrega um `model.pkl` de 56 MB commitado por engano antes
-de eu corrigir o `.gitignore`. O `.git` está em ~32 MB. Limpar exige reescrever
-o histórico e dar force-push — operação destrutiva, não executada sem
-autorização explícita:
+O `model.pkl` de 56 MB saiu do histórico com `git-filter-repo --path models
+--invert-paths`, seguido de force-push. Resultado local: `.git` de **30 MB para
+492 KB**, e um clone novo do GitHub traz **463 KB** com os 38 commits
+preservados. Cópia de segurança em bundle foi feita antes.
+
+### ⚠️ O force-push NÃO apaga o blob do GitHub
+
+Isto precisa ficar registrado, porque é contraintuitivo e a documentação do
+`filter-repo` não enfatiza:
+
+```
+$ gh api "repos/sanchezVB/LLM_F-sica/contents/models/subfield-clf/model.pkl?ref=b18743d"
+AINDA LÁ: 58.594.000 bytes
+```
+
+Os commits antigos ficam **inalcançáveis, não apagados**. O GitHub continua
+servindo qualquer um deles por SHA direto até rodar a coleta de lixo dele, e
+isso não é acionável pelo lado de cá — só por **pedido ao GitHub Support**. O
+tamanho que a API reporta para o repositório segue em ~30 MB por essa razão.
+
+Consequência prática: quem clonar recebe 463 KB, que era o objetivo. Quem tiver
+o SHA antigo ainda baixa o blob. Como o arquivo é um classificador treinado e
+não um segredo, isso é higiene, não incidente — mas se algum dia entrar uma
+credencial no histórico, **force-push não basta**: tem de rotacionar a
+credencial e abrir chamado.
+
+### Armadilha ao redor: `git fetch` traz o lixo de volta
+
+Entre o `filter-repo` e o push eu rodei `git fetch origin` para conferir o que
+seria substituído. O `.git` voltou de 492 KB para 30 MB na hora, porque o
+remoto ainda anunciava a história antiga. Resolvido com:
 
 ```bash
-.venv/bin/pip install git-filter-repo
-.venv/bin/git-filter-repo --path models --invert-paths --force
-git remote add origin https://github.com/sanchezVB/LLM_F-sica.git
-git push --force origin main
+git reflog expire --expire=now --all && git gc --prune=now --aggressive
 ```
+
+Vale para qualquer clone que ainda tenha a história velha: não basta puxar, tem
+de expirar o reflog e podar.
