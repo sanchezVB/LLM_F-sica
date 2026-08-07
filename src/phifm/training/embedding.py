@@ -22,18 +22,27 @@ descobertas por medição:
 |---|---|
 | Backward do ModernBERT falha no DML | Base é SciBERT, não ModernBERT — perde-se o contexto de 8192, irrelevante para resumos de ~300 tokens |
 | Só `attn_implementation="eager"` treina | `sdpa` quebra no backward com erro interno ilegível |
-| Lote 32 estoura os 8 GB | **Teto de 16** a 192 tokens, medido |
+| Um passo contrastivo mantém DOIS grafos vivos | **Lote 8**, com gradient checkpointing |
 
-**O teto de lote é o limite de qualidade, não só de velocidade.** Contrastivo
-com negativos no lote aprende de `lote−1` negativos por âncora: 15 aqui, contra
-64–256 do que a literatura usa. Acumulação de gradiente **não corrige** isso —
-ela soma gradientes de lotes pequenos, não faz um lote pequeno ver mais
-negativos. É limite de conteúdo do lote.
+**Sobre o teto de lote, e a medição que eu errei primeiro.** Medi a vazão com um
+forward só e conclui "teto de 16". Errado pela metade: contrastivo codifica
+âncora e positivo antes do backward, então lote 8 são 16 textos em memória. O
+treino morreu pedindo 36 MB de VRAM.
 
-Vazão medida: **5,1 pares/s**, ou ~90 h por época sobre 1,65 M pares. Uma 4090
-alugada faria a mesma época em ~3 h por ~US$ 1, com lote 128 e negativos de
-verdade. A escolha entre as duas é do dono do projeto; este código roda nas
-duas, e `--max-pares` existe para tornar a versão local viável.
+**O teto é limite de QUALIDADE, não só de velocidade.** Contrastivo aprende de
+`lote−1` negativos por âncora: **7 aqui**, contra 64–256 do que a literatura
+usa. Acumulação de gradiente **não corrige** — ela soma gradientes de lotes
+pequenos, não faz um lote pequeno ver mais negativos. É limite de conteúdo.
+
+Vazão medida com checkpointing: **4,1 pares/s** → ~112 h por época sobre 1,65 M
+pares. Uma 4090 alugada faria a mesma época em ~3 h por ~US$ 1, com lote 128 e
+negativos de verdade. A escolha é do dono do projeto; este código roda nas duas.
+
+**O que o piloto mostrou sobre retorno marginal.** Com 6.400 pares (0,4% do
+conjunto) o recall@1 foi de 0,266 para 0,422. Entre os passos 400 e 800 o ganho
+já caiu para +0,043. Fine-tune contrastivo converge em dezenas de milhares de
+pares, não em milhões — então a época completa compra pouco sobre uma fração
+dela, e `--max-pares` não é atalho, é a escolha informada.
 """
 
 from __future__ import annotations
@@ -193,22 +202,30 @@ class TreinadorEmb:
     def treinar(self, treino: pl.DataFrame, val: pl.DataFrame, saida: Path) -> Metricas:
         if self.cfg.max_pares:
             treino = treino.head(self.cfg.max_pares)
+        # Gerador com semente explícita: a ordem dos lotes tem de ser a MESMA
+        # entre execuções, senão retomar do passo N não significa nada — pularia
+        # lotes diferentes dos que já foram vistos.
+        g = torch.Generator().manual_seed(self.cfg.semente)
         carregador = DataLoader(ParesDataset(treino), batch_size=self.cfg.lote,
-                                shuffle=True, drop_last=True)
+                                shuffle=True, drop_last=True, generator=g)
         m = Metricas()
+        inicio = self.retomar(saida)
 
         # Linha de base ANTES de qualquer passo. Sem ela não há como afirmar que
-        # o treino ajudou — só que o número final é X.
+        # o treino ajudou — só que o número final é X. Numa retomada isto mede o
+        # ponto de partida real, não o encoder virgem, e o rótulo diz qual.
         r1, r10, mrr = self.avaliar(val)
         log.info("base %s | entre %d candidatos: recall@1 %.3f · recall@10 %.3f · MRR %.3f",
                  self.cfg.base, self.cfg.n_candidatos, r1, r10, mrr)
         m.n_candidatos = self.cfg.n_candidatos
-        m.historico.append({"passo": 0, "recall_1": r1, "recall_10": r10, "mrr": mrr,
-                            "n_candidatos": m.n_candidatos, "perda": None,
-                            "nota": "antes do treino"})
+        m.historico.append({"passo": inicio, "recall_1": r1, "recall_10": r10,
+                            "mrr": mrr, "n_candidatos": m.n_candidatos, "perda": None,
+                            "nota": "antes do treino" if not inicio else f"retomado do passo {inicio}"})
 
         t0, vistos, soma, n = time.perf_counter(), 0, 0.0, 0
         for passo, (a, p) in enumerate(carregador, start=1):
+            if passo <= inicio:
+                continue        # lote já consumido: pular é barato, refazer não
             perda = self._perda(self._codificar(a), self._codificar(p))
             perda.backward()
             self.opt.step()
@@ -225,17 +242,74 @@ class TreinadorEmb:
                 log.info("  aval: recall@1 %.3f · recall@10 %.3f · MRR %.3f", r1, r10, mrr)
                 m.historico.append({"passo": passo, "recall_1": r1, "recall_10": r10,
                                     "mrr": mrr, "perda": perda.item()})
-                self.salvar(saida)   # checkpoint: queda não custa o treino todo
+                self.salvar(saida)
+                self.salvar_estado(saida, passo)   # queda não custa o treino todo
 
             m.passo = passo
 
         r1, r10, mrr = self.avaliar(val)
         m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
         m.perda = perda.item()
+        self.salvar_estado(saida, m.passo)
         m.historico.append({"passo": m.passo, "recall_1": r1, "recall_10": r10,
                             "mrr": mrr, "perda": m.perda, "nota": "final"})
         self.salvar(saida, m)
         return m
+
+    # ── retomada ──────────────────────────────────────────────────────────
+    #
+    # Uma época sobre 1,65 M pares leva ~112 h aqui. Nesta máquina processos
+    # morrem por causa não identificada — cinco vezes em 2026-08-07 — então um
+    # run de dias SEM retomada não é arriscado, é garantia de desperdício.
+    #
+    # O estado durável é modelo + otimizador + passo. Sem o otimizador, retomar
+    # zera os momentos do Adam e o treino dá um salto de perda a cada queda;
+    # sem o passo, refaz os mesmos lotes e nunca termina.
+
+    def _estado(self) -> Path:
+        return Path("estado_treino.pt")
+
+    @staticmethod
+    def _para_cpu(obj):
+        """Copia recursivamente tensores para a CPU.
+
+        ⚠️ Necessário para o estado do otimizador, não só para o modelo. O Adam
+        guarda dois tensores por parâmetro (`exp_avg`, `exp_avg_sq`) — ~880 MB
+        para 110 M de parâmetros — e eles ficam no dispositivo DirectML.
+        `torch.save` sobre eles morre com `MemoryError` durante o pickle, sem
+        mencionar dispositivo nenhum na mensagem.
+        """
+        if torch.is_tensor(obj):
+            return obj.detach().to("cpu")
+        if isinstance(obj, dict):
+            return {k: TreinadorEmb._para_cpu(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(TreinadorEmb._para_cpu(v) for v in obj)
+        return obj
+
+    def salvar_estado(self, saida: Path, passo: int) -> None:
+        saida.mkdir(parents=True, exist_ok=True)
+        tmp = saida / (self._estado().name + ".tmp")
+        torch.save(
+            {"passo": passo,
+             "modelo": self._para_cpu(self.mod.state_dict()),
+             "otimizador": self._para_cpu(self.opt.state_dict()),
+             "cfg": asdict(self.cfg)},
+            tmp,
+        )
+        tmp.replace(saida / self._estado().name)   # atômico: nunca meio-arquivo
+
+    def retomar(self, saida: Path) -> int:
+        """Devolve o passo de onde continuar, ou 0 se não houver estado."""
+        caminho = saida / self._estado().name
+        if not caminho.exists():
+            return 0
+        est = torch.load(caminho, map_location="cpu", weights_only=False)
+        self.mod.load_state_dict(est["modelo"])
+        self.mod.to(self.dev)
+        self.opt.load_state_dict(est["otimizador"])
+        log.info("retomando do passo %s", f"{est['passo']:,}")
+        return int(est["passo"])
 
     def salvar(self, saida: Path, m: Metricas | None = None) -> None:
         """Grava uma CÓPIA em CPU. Nunca mexe no modelo em uso.
