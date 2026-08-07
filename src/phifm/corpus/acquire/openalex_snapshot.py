@@ -66,6 +66,7 @@ por `extract_arxiv_id`.
 
 from __future__ import annotations
 
+import datetime as dt
 import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -76,6 +77,7 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from requests.adapters import HTTPAdapter
 
 from phifm.core.schema.manifest import (
     AcquisitionManifest,
@@ -160,7 +162,7 @@ class ArquivoRemoto(io.RawIOBase):
 
     **Sobre cortesia (A5).** O limitador por requisição do `PoliteSession`
     existe para APIs com cota e operador humano do outro lado. Este bucket é
-    armazenamento de objetos público, sem cota, e `_MAX_PARALELO = 6` faixas
+    armazenamento de objetos público, sem cota, e `_MAX_PARALELO` faixas
     simultâneas é uso normal de S3, não avalanche. A retentativa com recuo
     continua valendo, e os bytes continuam contados no manifesto — o que se
     dispensa é a espera fixa entre faixas da MESMA partição.
@@ -255,6 +257,28 @@ def _s3_para_https(url: str) -> str:
     return url.replace("s3://openalex/", BUCKET) if url.startswith("s3://") else url
 
 
+def _normalizar_tipos(reg: dict) -> dict:
+    """Alinha o registro do parquet ao `SCHEMA`, que foi escrito para a API.
+
+    `publication_date` é `date32[day]` no parquet e chega como `datetime.date`;
+    pela API é texto JSON, e o `SCHEMA` diz `pl.Utf8`. Sem a conversão o polars
+    aborta o `DataFrame` inteiro:
+
+        ComputeError: could not append value: 2017-01-01 of type: date
+        to the builder
+
+    **A data é o único campo divergente hoje** — conferido contra o schema real
+    do parquet: `publication_year` e `cited_by_count` são `int32` dos dois
+    lados, e o resto é `string`. Ainda assim a varredura é genérica, porque o
+    schema do snapshot muda sem avisar (foi o que aconteceu com o layout do
+    bucket) e um `date` novo em outro campo faria o mesmo estrago.
+    """
+    for chave, valor in reg.items():
+        if isinstance(valor, (dt.date, dt.datetime)):
+            reg[chave] = valor.isoformat()
+    return reg
+
+
 def _mascara_arxiv(tabela: pa.Table) -> pa.Array:
     """Pré-filtro vetorizado: quais linhas PODEM ter origem no arXiv.
 
@@ -287,6 +311,22 @@ def _mascara_arxiv(tabela: pa.Table) -> pa.Array:
 
 class OpenAlexSnapshotHarvester(ResumableHarvester):
     """Percorre as partições do snapshot, retomável por partição."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # O `requests` guarda 10 conexões por host e `prebuscar` usa
+        # `_MAX_PARALELO` threads. Com o padrão, as 6 sobrando eram descartadas
+        # a cada faixa:
+        #
+        #     WARNING  Connection pool is full, discarding connection:
+        #              openalex.s3.amazonaws.com. Connection pool size: 10
+        #
+        # Cada descarte obriga a um aperto de mão TCP+TLS novo — a latência que
+        # a paralelização existia para eliminar, reintroduzida pela porta dos
+        # fundos. As medições de 5,6 h já pagavam esse preço.
+        adaptador = HTTPAdapter(pool_connections=4, pool_maxsize=_MAX_PARALELO + 4)
+        self.http.session.mount("https://", adaptador)
+        self.http.session.mount("http://", adaptador)
 
     @staticmethod
     def make_manifest() -> AcquisitionManifest:
@@ -449,7 +489,7 @@ class OpenAlexSnapshotHarvester(ResumableHarvester):
         achados = 0
         for w in candidatas:
             if extract_arxiv_id(w):
-                buffer.append(parse_work(w))
+                buffer.append(_normalizar_tipos(parse_work(w)))
                 achados += 1
         return achados, obras, remoto.bytes_lidos
 

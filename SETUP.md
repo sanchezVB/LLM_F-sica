@@ -26,8 +26,8 @@ Verificar que funcionou:
 PYTHONPATH=src .venv/bin/python -m pytest tests/ -q
 ```
 
-Devem passar **115 testes** (28 em `tests/regression/`). Se passarem, o
-ambiente está correto.
+Devem passar **163 testes** (41 em `tests/regression/`, 122 em
+`tests/golden/`). Se passarem, o ambiente está correto.
 
 No Windows o caminho do interpretador é `.venv/Scripts/python.exe`.
 

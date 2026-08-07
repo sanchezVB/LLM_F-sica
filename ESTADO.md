@@ -11,20 +11,20 @@ com cinco dos seis verificadores.
 
 | Sprint | Estado | Observação |
 |---|---|---|
-| **S1** · espinha de metadados | 🟡 em curso | arXiv ~50%; OpenAlex bloqueado por cota |
+| **S1** · espinha de metadados | 🟡 em curso | arXiv ✅ completo; OpenAlex em coleta pelo snapshot |
 | **S2** · classificador de Física | 🟡 parcial | Subárea treinado; binária aguarda negativos |
 | **S3** · fatias do HuggingFace | ⚪ não iniciado | ~280 GB, processar em lote |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 
-Suíte: **115 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **163 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 
 ## Coletas — como retomar
 
-Ambas são **idempotentes e retomáveis**. Basta rodar de novo:
+Todas são **idempotentes e retomáveis**. Basta rodar de novo:
 
 ```bash
-./scripts/run_harvest.sh arxiv
-./scripts/run_harvest.sh openalex
+./scripts/run_harvest.sh arxiv          # macOS / Linux
+.\scripts\run_harvest.ps1 snapshot      # Windows — ver o commit 7a28508
 ```
 
 O `_manifest.json` em cada pasta guarda o cursor durável. A retomada refaz
@@ -33,8 +33,15 @@ removida pela dedup exata.
 
 | Fonte | Coletado | Situação |
 |---|---|---|
-| arXiv | ~600 mil registros, 0 falhas | Roda até o fim sozinho, ~2–3 h |
-| OpenAlex | 150 mil obras, **10,1 M arestas de citação** | ⚠️ ver abaixo |
+| arXiv | **1.595.422 registros**, 78 shards, 674 MB, 0 falhas | ✅ concluído 2026-08-07 05:44 UTC |
+| OpenAlex API | 150 mil obras, 10,1 M arestas | ⏸️ substituído pelo snapshot |
+| OpenAlex snapshot | em curso | ~5,8 h medidos, ver abaixo |
+
+A previsão de tamanho do DOC-02 §3.1 se confirmou: **422 bytes/registro** em
+parquet zstd, contra os 516–686 previstos, e 674 MB contra "~700 MB no total".
+A espinha cabe folgado em disco comum, como o documento afirmava — e o número
+de registros ficou em 1,59 M, entre o 1,2 M estimado para o set `physics` e o
+2,7 M do acervo inteiro.
 
 ### OpenAlex: resolvido pelo snapshot (2026-08-06)
 
@@ -71,8 +78,9 @@ começar a treinar o ΦEmb.
 5. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
    ou Firecracker; `exec()` com builtins restritos está descartado no próprio
    documento como trivialmente evadível, então não há atalho local
-6. **Normalizar subscrito LaTeX na ingestão** — `parse_latex` lê `E_{cin}` como
-   o produto `c·i·n`, o que faz símbolos distintos colapsarem no barramento
+
+O subscrito LaTeX saiu desta lista: está feito em `db637ed`, com o raciocínio
+registrado abaixo.
 
 ## Achados desta sessão que alteraram documentos
 
@@ -103,6 +111,45 @@ começar a treinar o ΦEmb.
 | **`Start-Process` não desacopla** | Processo criado por shell entra no job object dele e morre com ele. A 1ª coleta durou 8 min 40 s e morreu **sem traceback**. `Win32_Process.Create` por WMI escapa | `run_harvest.ps1` |
 | Layout do snapshot do OpenAlex mudou | `data/works/` → `data/parquet/works/`; 330 GB/250 M obras → **725 GB/510 M** | `openalex_snapshot.py` |
 | Snapshot: ~2 h era otimista | Medido **5,6 h** e 155 GB (21% dos bytes, por poda de colunas). Empata com a rota paga em tempo e ganha no custo — mas a margem é comparável, não de ordem de grandeza | `openalex_snapshot.py` |
+| `publication_date` é `date` no parquet | Pela API é texto, e o `SCHEMA` compartilhado diz `Utf8`. O polars abortava o `DataFrame` inteiro. **O teste de fumaça não pegou porque as 2 partições sorteadas tinham 0 obras do arXiv — o caminho de escrita nunca rodou** | `test_snapshot_tipos.py` |
+| Pool de conexões do `requests` é 10 | Com 16 threads em `prebuscar`, 6 conexões eram descartadas por faixa, cada uma custando um aperto de mão TCP+TLS novo — a latência que a paralelização eliminava, de volta pela porta dos fundos | `openalex_snapshot.py` |
+| **Subscrito nomeado virava produto** | `E_{cin}` → `E_{c*(i*n)}`, com `i` e `n` vazando como grandezas livres. E como produto comuta, `\rho_{xy}` e `\rho_{yx}` colapsavam no **mesmo símbolo** | `core/latex/subscritos.py` |
+| `v_{0}` e `v_0` eram símbolos diferentes | A forma com chaves não casava com `INEQUIVOCOS`, então a tabela de dimensões era ignorada em silêncio para a notação mais comum | `core/latex/subscritos.py` |
+
+### Subscrito nomeado: o que o commit não conta
+
+`db637ed` traz esta correção, mas a mensagem dele descreve o trabalho anterior
+no `symbolic.py` (timeout no Windows, `split_symbols`, namespace `_FISICA`).
+Optou-se por não reescrever o histórico, então o raciocínio fica aqui.
+
+**A gravidade não é o subscrito ilegível, é o colapso.** Produto comuta, nome
+não. `\rho_{xy}` e `\rho_{yx}` viravam o mesmo símbolo — e resistividade Hall é
+antissimétrica (ρ_xy = −ρ_yx). O mesmo para `g_{\mu\nu}` contra `g_{\nu\mu}`.
+Ou seja: o parser executava por baixo exatamente a transformação que o DOC-03
+§3.2 lista como **rejeitada** — "Normalizar posição de índices" — e que o
+canonicalizador se recusa a fazer de propósito. O tratamento preserva a ordem
+escrita dos índices, o que é o que separa `g_mu_nu` de `g_nu_mu`.
+
+**Por que a correção ficou em duas camadas, e não só na ingestão.** A
+normalização em si é de ingestão (DOC-03 §3), e é lá que mora: produz o
+identificador canônico e o mapa de volta ao LaTeX do autor, que é o que
+popula o `context["dimensions"]`. Mas `verify/symbolic.parse` aplica **a mesma
+função** — importada, não copiada — porque quatro dos cinco consumidores do
+barramento (rollout de RLVR, gabarito de benchmark, admissão de sintético e
+auto-checagem em inferência) entregam LaTeX que nunca passou pelo pipeline do
+DOC-03. Só o filtro de dados passa. Normalizar apenas na ingestão deixaria sem
+proteção justamente o RLVR, onde símbolo trocado vira gradiente.
+
+**Achatar sozinho pioraria.** `parse_latex('E_cin')` devolve `E_{c}*(i*n)`, o
+que colapsa `E_cin` com `E_cal` em `E_{c}`. Por isso o identificador é trocado
+por marcador de subscrito numérico antes do parse — a única forma que o ANTLR
+atravessa intacta — e a troca é desfeita nos símbolos depois.
+
+**Fica de fora, declarado no módulo:** índice contravariante (`T^{\mu}_{\nu}`,
+que o ANTLR já lia como `T**mu`, **descartando** o subscrito, antes desta
+mudança); subscrito com operador (`k_{n+1}`); e `\mathbf`, que o DOC-03 §3.2
+trata como semântico e não tipográfico. Corrigir o índice contravariante exige
+representar tensor com índices no schema — decisão de dados, não de parser.
 
 ## Onde está cada coisa
 
