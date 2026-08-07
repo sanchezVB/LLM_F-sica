@@ -62,8 +62,12 @@ build/
 dist/
 *.egg-info/
 .eggs/
-.venv/
-venv/
+# ⚠️ `.venv*/`, não `.venv/`. Em 2026-08-07 criei `.venv-treino` (Python 3.12,
+# para o torch-directml) e `git add -A` preparou 1,8 GB de torch para commit —
+# `.venv/` não casa com `.venv-treino/`. Mesma família do defeito de `corpus/`
+# sem barra inicial: padrão que não cobre o que deveria.
+.venv*/
+venv*/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -85,4 +89,7 @@ Thumbs.db
 !docs/**/*.parquet
 
 # ─── Ambiente virtual local ───────────────────────────────────────────────
-.venv/
+.venv*/
+
+# Cache de modelos (HuggingFace) — fica no HD, nunca no git
+/cache/
