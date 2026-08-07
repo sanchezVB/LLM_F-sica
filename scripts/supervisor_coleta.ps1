@@ -50,6 +50,14 @@ switch ($Fonte) {
 }
 
 $log = Join-Path $raiz "data\raw\supervisor_$Fonte.log"
+
+# Rotaciona na partida. Sem isto, o log acumula execucoes e qualquer checagem
+# por `grep` casa com HISTORIA em vez de estado — foi assim que o vigia deu
+# falso alarme em 2026-08-07 10:07, encontrando um "ABORTANDO" das 09:55 de uma
+# execucao ja substituida. Um arquivo por execucao torna a leitura inequivoca.
+if (Test-Path $log) {
+    Move-Item $log "$log.anterior" -Force -ErrorAction SilentlyContinue
+}
 $reinicios = 0
 $paradas = 0
 $progressoAnterior = -1
