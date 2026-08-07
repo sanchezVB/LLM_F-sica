@@ -20,14 +20,22 @@
 # alguém para reerguê-lo. Este supervisor é esse alguém.
 #
 # Ele NÃO mascara falha real: registra cada relançamento com horário e
-# progresso, e desiste após `-MaxReinicios` seguidos sem avanço — porque
-# relançar em laço um processo que morre na mesma partição é laço infinito, não
-# resiliência.
+# progresso, e desiste após `-MaxParado` mortes SEGUIDAS sem avanço durável —
+# porque relançar em laço um processo que morre sempre no mesmo ponto é laço
+# infinito, não resiliência.
+#
+# O `-MaxParado` era 1 e virou 4, e a razão é instrutiva: o progresso durável só
+# existe no flush, então um processo morto antes do primeiro flush parece
+# parado mesmo tendo lido partições. Com tolerância 1, este guarda abortou por
+# engano às 09:55 — no exato modo de falha que existia para sobreviver. A
+# contrapartida foi baixar `FLUSH_PARTICOES` de 10 para 3 no coletor, para que
+# progresso durável apareça a cada ~30 s em vez de ~1,5 min.
 
 param(
     [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot')][string]$Fonte = 'snapshot',
     [int]$IntervaloSegundos = 60,
-    [int]$MaxReinicios = 40
+    [int]$MaxReinicios = 40,
+    [int]$MaxParado = 4
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +51,7 @@ switch ($Fonte) {
 
 $log = Join-Path $raiz "data\raw\supervisor_$Fonte.log"
 $reinicios = 0
+$paradas = 0
 $progressoAnterior = -1
 
 function Registrar($texto) {
@@ -61,11 +70,30 @@ function ProgressoAtual {
 
 Registrar "supervisor de '$Fonte' iniciado (intervalo ${IntervaloSegundos}s, ate $MaxReinicios reinicios)"
 
-while ($true) {
-    $vivo = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -like "*$alvo*" }
+$trava = Join-Path $raiz "data\raw\.trava_$Fonte"
+$mortesSeguidas = 0
 
-    if (-not $vivo) {
+while ($true) {
+    # Vida pela TRAVA, nao por consulta de linha de comando. A consulta antiga
+    # devolvia vazio quando falhava transitoriamente, e vazio parecia "morreu":
+    # em 2026-08-07 isso acumulou TRES coletores de negativos simultaneos,
+    # triplicando a taxa vista pelo arXiv (violacao do A5). `Get-Process -Id`
+    # responde de forma binaria sobre um PID conhecido.
+    $vivo = $false
+    if (Test-Path $trava) {
+        $pidAlvo = (Get-Content $trava -Raw).Trim()
+        if ($pidAlvo -match '^\d+$') {
+            $vivo = [bool](Get-Process -Id ([int]$pidAlvo) -ErrorAction SilentlyContinue)
+        }
+    }
+
+    # Duas leituras seguidas de morte antes de agir. Uma so pode ser corrida com
+    # o lancamento, e relancar em cima de um processo vivo e o defeito que esta
+    # trava existe para impedir.
+    if (-not $vivo) { $mortesSeguidas++ } else { $mortesSeguidas = 0 }
+
+    if ($mortesSeguidas -ge 2) {
+        $mortesSeguidas = 0
         $p = ProgressoAtual
 
         # Concluida? O manifesto marca `completed_at` ao fim.
@@ -77,9 +105,20 @@ while ($true) {
             }
         }
 
-        if ($reinicios -ge 1 -and $p -eq $progressoAnterior -and $p -ge 0) {
-            Registrar "ABORTANDO: morreu sem avancar (progresso parado em $p). Nao e queda aleatoria."
-            break
+        # Uma morte sem avanco NAO prova defeito. O progresso durável só aparece
+        # no flush, então um processo morto antes do primeiro flush parece
+        # parado mesmo tendo lido partições — foi assim que este guarda abortou
+        # por engano em 2026-08-07 09:55, no exato modo de falha que existia
+        # para sobreviver. Exige-se `$MaxParado` mortes seguidas sem avanço.
+        if ($p -eq $progressoAnterior -and $p -ge 0) {
+            $paradas++
+            Registrar "morta sem avanco durável ($paradas de $MaxParado tolerados; progresso $p)"
+            if ($paradas -ge $MaxParado) {
+                Registrar "ABORTANDO: $MaxParado mortes seguidas sem avancar de $p. Nao e queda aleatoria."
+                break
+            }
+        } else {
+            $paradas = 0
         }
         if ($reinicios -ge $MaxReinicios) {
             Registrar "ABORTANDO: $MaxReinicios reinicios atingidos"

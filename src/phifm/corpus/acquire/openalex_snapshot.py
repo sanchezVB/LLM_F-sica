@@ -105,10 +105,20 @@ COLUNAS = [
 
 FLUSH_REGISTROS = 50_000
 # Teto de partições entre flushes. O cursor durável só avança em flush
-# confirmado (DOC-08 §7.2), então este número É o custo de uma interrupção:
-# 10 partições ≈ 2,6 GB de releitura. Sem o teto, as ~0,5% de aproveitamento
-# fariam o buffer levar ~25 partições para encher — 6,6 GB perdidos por queda.
-FLUSH_PARTICOES = 10
+# confirmado (DOC-08 §7.2), então este número É o custo de uma interrupção.
+# Sem o teto, as ~0,5% de aproveitamento fariam o buffer levar ~25 partições
+# para encher — 6,6 GB perdidos por queda.
+#
+# Baixado de 10 para 3 em 2026-08-07, por duas razões medidas no ambiente:
+#
+#   1. As quedas aqui são frequentes e de causa não identificada. Com 10, cada
+#      uma custava ~2,6 GB de releitura; com 3, ~0,8 GB.
+#   2. Mais importante: com 10, o progresso durável só aparecia a cada ~1,5 min,
+#      e o supervisor não conseguia distinguir "morreu antes do primeiro flush"
+#      de "morre sempre no mesmo ponto". Ele abortou por engano às 09:55 com
+#      base nessa ambiguidade. Progresso mais granular é o que torna o guarda
+#      dele confiável.
+FLUSH_PARTICOES = 3
 
 
 # Faixas separadas por menos que isto viram uma requisição só: pagar por

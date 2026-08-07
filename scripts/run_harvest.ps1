@@ -51,14 +51,28 @@ switch ($Fonte) {
                  $argumentos = '--out data/raw/openalex_snapshot' }
 }
 
-# Ja rodando? Compara a linha de comando, porque o nome do processo e sempre
-# `python.exe` e mataria a distincao entre os coletores.
-$alvo = Split-Path -Leaf $script
-$emCurso = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
-           Where-Object { $_.CommandLine -like "*$alvo*" }
-if ($emCurso) {
-    Write-Output "$Fonte ja em execucao (PID $($emCurso.ProcessId -join ' '))"
-    exit 0
+# ─── Trava por PID, e por que a checagem antiga nao servia ───────────────
+#
+# A guarda anterior filtrava `Get-CimInstance Win32_Process` pela linha de
+# comando. Quando essa consulta falha transitoriamente ela devolve VAZIO, e
+# vazio e indistinguivel de "nao esta rodando" — entao o lancador lancava de
+# novo. Medido em 2026-08-07: o supervisor acumulou TRES coletores de negativos
+# simultaneos, triplicando a taxa vista pelo arXiv, que e violacao direta do
+# principio A5.
+#
+# A trava guarda o PID do `cmd.exe` criado por WMI. Ele vive exatamente enquanto
+# o python vive (`cmd /c` espera o filho), e `Get-Process -Id` responde de forma
+# binaria e confiavel: existe ou nao existe. Sem depender de ler CommandLine.
+$trava = Join-Path $raiz "data\raw\.trava_$Fonte"
+New-Item -ItemType Directory -Force (Split-Path -Parent $trava) | Out-Null
+
+if (Test-Path $trava) {
+    $pidAntigo = (Get-Content $trava -Raw).Trim()
+    if ($pidAntigo -match '^\d+$' -and (Get-Process -Id ([int]$pidAntigo) -ErrorAction SilentlyContinue)) {
+        Write-Output "$Fonte ja em execucao (PID $pidAntigo, pela trava)"
+        exit 0
+    }
+    Remove-Item $trava -Force   # trava orfa: o processo morreu
 }
 
 $log = Join-Path $raiz "data\raw\harvest_$Fonte.log"
@@ -78,13 +92,16 @@ if ($r.ReturnValue -ne 0) {
     exit 1
 }
 
+# Trava escrita IMEDIATAMENTE, antes de qualquer espera. Escrever depois do
+# `Start-Sleep` abriria 8 s de janela para o supervisor lancar um segundo.
+Set-Content -Path $trava -Value $r.ProcessId -Encoding ascii
+
 Start-Sleep -Seconds 8
-$vivo = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
-        Where-Object { $_.CommandLine -like "*$alvo*" }
-if ($vivo) {
-    Write-Output "$Fonte iniciado (PID $($vivo.ProcessId -join ' ')) - log: $log"
+if (Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue) {
+    Write-Output "$Fonte iniciado (PID $($r.ProcessId)) - log: $log"
     Write-Output "Acompanhar:  Get-Content -Wait -Tail 20 '$log'"
 } else {
+    Remove-Item $trava -Force -ErrorAction SilentlyContinue
     Write-Output "FALHOU: o processo nao esta vivo apos 8 s - ver $log"
     exit 1
 }
