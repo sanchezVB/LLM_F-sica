@@ -23,10 +23,13 @@ python3 -m venv .venv
 Verificar que funcionou:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/regression/ -q
+PYTHONPATH=src .venv/bin/python -m pytest tests/ -q
 ```
 
-Devem passar **28 testes**. Se passarem, o ambiente está correto.
+Devem passar **115 testes** (28 em `tests/regression/`). Se passarem, o
+ambiente está correto.
+
+No Windows o caminho do interpretador é `.venv/Scripts/python.exe`.
 
 ## 2. Configurar identificação
 
