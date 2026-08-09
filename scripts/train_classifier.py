@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Sprint S2 — classificador de Física (DOC-02 §6)."""
-import argparse, logging, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
-from phifm.corpus.filter.classifier import train, save  # noqa: E402
+
+from phifm.corpus.filter.classifier import save, train  # noqa: E402
+
 
 def main() -> int:
     p = argparse.ArgumentParser()
@@ -16,7 +21,9 @@ def main() -> int:
     df = pl.read_parquet(a.spine)
     clf, rep = train(df, task="subfield", label_col="subfield", target_precision=a.precision)
     save(clf, a.out)
-    print("\n" + "="*72); print(rep); print("="*72)
+    print("\n" + "=" * 72)
+    print(rep)
+    print("=" * 72)
     c = clf.calibration
     print(f"\nCALIBRAÇÃO (alvo de precisão = {c.target_precision:.2f}, DOC-02 §6)")
     print(f"cobertura: {100*c.coverage:.1f}% dos itens passam algum limiar\n")

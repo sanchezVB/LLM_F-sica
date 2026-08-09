@@ -90,10 +90,13 @@ class PhysicsClassifier:
         for row in proba:
             i = int(row.argmax())
             cls = self.classes[i]
-            if use_thresholds and self.calibration:
-                if row[i] < self.calibration.thresholds.get(cls, 0.5):
-                    out.append(None)
-                    continue
+            if (
+                use_thresholds
+                and self.calibration
+                and row[i] < self.calibration.thresholds.get(cls, 0.5)
+            ):
+                out.append(None)
+                continue
             out.append(cls)
         return out
 

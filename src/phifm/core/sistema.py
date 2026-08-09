@@ -14,6 +14,7 @@ permanentemente impedida de dormir.
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import logging
 import sys
@@ -60,7 +61,5 @@ def liberar_suspensao() -> None:
     """Revoga o pedido. O SO já faz isso ao fim do processo; existe para quem
     queira soltar antes, e para deixar a simetria visível no código."""
     if sys.platform.startswith("win"):
-        try:
+        with contextlib.suppress(Exception):
             ctypes.windll.kernel32.SetThreadExecutionState(_ES_CONTINUOUS)
-        except Exception:
-            pass

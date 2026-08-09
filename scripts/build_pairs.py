@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Pares de citação para o ΦEmb (DOC-07 §3.1)."""
-import argparse, logging, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))

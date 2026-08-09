@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 import sympy as sp
 
-from phifm.verify.bus import Claim, VerificationResult, Verdict
+from phifm.verify.bus import Claim, Verdict, VerificationResult
 from phifm.verify.symbolic import parse
 
 BASES = ("M", "L", "T", "I", "Theta", "N", "J")
@@ -46,10 +46,10 @@ class Dim:
         object.__setattr__(self, "exp", tuple(sp.Rational(e) for e in self.exp))
 
     def __mul__(self, o: Dim) -> Dim:
-        return Dim(tuple(a + b for a, b in zip(self.exp, o.exp)))
+        return Dim(tuple(a + b for a, b in zip(self.exp, o.exp, strict=False)))
 
     def __truediv__(self, o: Dim) -> Dim:
-        return Dim(tuple(a - b for a, b in zip(self.exp, o.exp)))
+        return Dim(tuple(a - b for a, b in zip(self.exp, o.exp, strict=False)))
 
     def __pow__(self, n) -> Dim:
         r = sp.Rational(n)
@@ -76,7 +76,7 @@ class Dim:
     def __str__(self) -> str:
         partes = [
             f"{n}^{e}" if e != 1 else n
-            for n, e in zip(BASES, self.exp) if e != 0
+            for n, e in zip(BASES, self.exp, strict=False) if e != 0
         ]
         return "·".join(partes) if partes else "1"
 
@@ -250,7 +250,7 @@ def _tabela(claim: Claim) -> dict[str, Dim]:
         elif isinstance(spec, Dim):
             tab[nome] = spec
         else:
-            tab[nome] = _d(**{k: v for k, v in dict(spec).items()})
+            tab[nome] = _d(**dict(dict(spec).items()))
     return tab
 
 

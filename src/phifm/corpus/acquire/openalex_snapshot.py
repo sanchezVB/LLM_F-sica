@@ -239,7 +239,7 @@ class ArquivoRemoto(io.RawIOBase):
             return
         with ThreadPoolExecutor(max_workers=_MAX_PARALELO, thread_name_prefix="faixa") as pool:
             dados = list(pool.map(lambda f: self._buscar(*f), faixas))
-        self._cache = [(ini, fim, d) for (ini, fim), d in zip(faixas, dados)]
+        self._cache = [(ini, fim, d) for (ini, fim), d in zip(faixas, dados, strict=False)]
 
     def read(self, n: int = -1) -> bytes:
         if n is None or n < 0:

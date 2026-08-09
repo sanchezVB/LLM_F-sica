@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Sprint S1 · etapa 2 — grafo de citações via OpenAlex (DOC-02 §9)."""
-import argparse, logging, os, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.core.env import contato_obrigatorio  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.corpus.acquire.openalex import harvest_arxiv_works  # noqa: E402
+
 
 def main() -> int:
     p = argparse.ArgumentParser()

@@ -48,11 +48,7 @@ __all__ = ["normalizar_subscritos", "blindar_subscritos", "identificador"]
 # fora dela faz o subscrito inteiro ser deixado como está, em vez de virar um
 # nome que ninguém escreveu.
 _GREGAS = frozenset(
-    """alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota
-    kappa lambda mu nu xi omicron pi varpi rho varrho sigma varsigma tau
-    upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma
-    Upsilon Phi Psi Omega ell hbar infty partial nabla dagger prime perp
-    parallel star ast circ odot oplus otimes""".split()
+    ["alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta", "theta", "vartheta", "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi", "varpi", "rho", "varrho", "sigma", "varsigma", "tau", "upsilon", "phi", "varphi", "chi", "psi", "omega", "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega", "ell", "hbar", "infty", "partial", "nabla", "dagger", "prime", "perp", "parallel", "star", "ast", "circ", "odot", "oplus", "otimes"]
 )
 
 # Fontes retas — puramente tipográficas em subscrito, e a forma usual de

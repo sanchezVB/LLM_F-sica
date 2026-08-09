@@ -14,8 +14,8 @@ Regras impostas aqui, não por convenção:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
@@ -30,10 +30,10 @@ def canonical_hash(obj: Any) -> str:
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-class HarvestMethod(str, Enum):
+class HarvestMethod(StrEnum):
     OAI_PMH = "oai_pmh"
     REST_API = "rest_api"
     BULK_S3 = "bulk_s3"

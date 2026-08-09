@@ -26,8 +26,8 @@ from __future__ import annotations
 
 import sympy as sp
 
-from phifm.verify.bus import Claim, VerificationResult, Verdict
-from phifm.verify.symbolic import _Timeout, _com_limite, parse
+from phifm.verify.bus import Claim, Verdict, VerificationResult
+from phifm.verify.symbolic import _com_limite, _Timeout, parse
 
 # Sequência do cruzamento numérico. Não desce além de 1e-6 porque abaixo disso
 # o próprio cancelamento em ponto flutuante domina o resíduo que se mede.
@@ -133,7 +133,7 @@ def _cruzamento_numerico(expr: sp.Expr, esperado: sp.Expr, var: sp.Symbol, to) -
     """Avalia numa sequência convergente. Livres restantes recebem valores
     fixos e primos entre si — coincidência em valores redondos é comum."""
     livres = sorted((expr.free_symbols | esperado.free_symbols) - {var}, key=str)
-    fixos = {s: sp.Rational(p, 7) for s, p in zip(livres, (3, 5, 11, 13, 17, 19, 23))}
+    fixos = {s: sp.Rational(p, 7) for s, p in zip(livres, (3, 5, 11, 13, 17, 19, 23), strict=False)}
     for eps in SEQUENCIA:
         ponto = sp.Rational(1) / sp.Rational(str(eps)) if to is sp.oo else _ponto(to) + sp.Rational(str(eps))
         try:

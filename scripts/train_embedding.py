@@ -5,11 +5,14 @@ Roda na venv de TREINO, que é Python 3.12: o `torch-directml` não suporta 3.14
 
     .venv-treino/Scripts/python.exe scripts/train_embedding.py --max-pares 20000
 """
-import argparse, logging, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
+
 from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: E402
 
 

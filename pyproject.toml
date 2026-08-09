@@ -33,3 +33,82 @@ packages = ["src/phifm"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+# ── Fronteiras de módulo (DOC-01 §4.3) ───────────────────────────────────
+# Violação de camadas é o padrão de apodrecimento clássico em repositórios de
+# ML. Sem imposição automática, o DAG vira sugestão e em seis meses `verify/`
+# importa de `training/` — e o princípio P3 morre sem ninguém notar.
+[tool.importlinter]
+root_packages = ["phifm"]
+
+[[tool.importlinter.contracts]]
+name = "core não depende de ninguém acima"
+type = "forbidden"
+source_modules = ["phifm.core"]
+forbidden_modules = [
+    "phifm.corpus", "phifm.training", "phifm.eval",
+    "phifm.verify", "phifm.retrieval", "phifm.agents",
+    "phifm.tools", "phifm.serving", "phifm.monitoring",
+]
+
+[[tool.importlinter.contracts]]
+# O contrato que sustenta P3: `verify/` fica ABAIXO de quem o consome, para
+# que filtro de dados, recompensa de RL e corretor de benchmark não possam
+# divergir — são literalmente o mesmo código.
+name = "verify fica abaixo de seus consumidores"
+type = "forbidden"
+source_modules = ["phifm.verify"]
+forbidden_modules = [
+    "phifm.corpus", "phifm.training", "phifm.eval", "phifm.serving",
+]
+
+# Contrato pendente — `phifm.models` ainda não existe (DOC-07 é projeto, não
+# código). Reativar quando nascer; é a fronteira que sustenta o princípio P5
+# (portabilidade entre perfis de computação, DOC-01 §7).
+#
+# [[tool.importlinter.contracts]]
+# name = "models não conhece treino distribuído"
+# type = "forbidden"
+# source_modules = ["phifm.models"]
+# forbidden_modules = ["phifm.training"]
+
+[[tool.importlinter.contracts]]
+name = "camadas em ordem"
+type = "layers"
+layers = ["phifm.training", "phifm.verify", "phifm.corpus", "phifm.core"]
+
+# ── Cobertura (DOC-10 §10) ───────────────────────────────────────────────
+[tool.coverage.run]
+source = ["src/phifm"]
+omit = ["*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
+
+# ── ruff (DOC-01 §5.8) ───────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    "E501",    # comprimento tratado pelo formatador
+    "B008",    # chamada em default é padrão em FastAPI/typer
+    "SIM108",  # ternário nem sempre é mais legível
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Testes usam asserts nus e nomes longos por desenho.
+"tests/**" = ["B011", "E402"]
+# Scripts inserem sys.path antes de importar — é intencional.
+"scripts/**" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+# Bibliotecas científicas não publicam stubs. Não é motivo para desligar o
+# --strict no NOSSO código.
+[[tool.mypy.overrides]]
+module = ["sympy.*", "mpmath.*", "polars.*", "blake3.*", "sklearn.*", "numpy.*"]
+ignore_missing_imports = true

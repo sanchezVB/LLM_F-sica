@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Sprint S1 · consolidação — espinha de metadados pronta para uso."""
-import argparse, logging, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.corpus.normalize.spine import build, report  # noqa: E402
+
 
 def main() -> int:
     p = argparse.ArgumentParser()

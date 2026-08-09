@@ -25,7 +25,7 @@ import random
 import mpmath as mp
 import sympy as sp
 
-from phifm.verify.bus import Claim, VerificationResult, Verdict
+from phifm.verify.bus import Claim, Verdict, VerificationResult
 from phifm.verify.symbolic import _tem_operadores, parse
 
 N_SUBS = 20
@@ -131,7 +131,7 @@ class NumericVerifier:
                 else:
                     disc += 1
                     if contra is None:
-                        atrib = ", ".join(f"{s}={v:.3g}" for s, v in zip(simbolos, vals))
+                        atrib = ", ".join(f"{s}={v:.3g}" for s, v in zip(simbolos, vals, strict=False))
                         contra = f"{atrib} → {va} ≠ {vb}"
             except Exception:
                 indef += 1

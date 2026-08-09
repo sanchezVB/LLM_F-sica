@@ -118,6 +118,43 @@ Toda publicação de modelo dispara uma comparação automática contra o modelo
 | Noturno | Pipeline de corpus em amostra pequena, ponta a ponta | Runner próprio |
 | Manual | Avaliação completa; treino | Runner com GPU |
 
+### 5.1 Estado real da imposição (auditado em 2026-08-09)
+
+Até esta data **não havia workflow nenhum**. Este documento e o DOC-01 §4.3
+descreviam um CI que não existia, e a §8 listava "P5 — `import-linter` ativo;
+violação de camada quebra o build" como critério de aceite sem que houvesse
+build para quebrar.
+
+O que passou a ser imposto, e o que ainda não é:
+
+| Verificação | Exigido por | Estado | Observação |
+|---|---|---|---|
+| `ruff` | DOC-01 §5.8 | ✅ **ativo** | 135 violações corrigidas na auditoria |
+| **`import-linter`** | DOC-01 §4.3 | ✅ **ativo** | 3 contratos, todos passando |
+| Testes | DOC-16 §5 | ✅ **ativo** | 258 |
+| Suíte golden bloqueante | DOC-10 §5 | ✅ **ativa** | |
+| Cobertura de `verify/` | DOC-10 §10 exige **95%** | ⚠️ **piso em 80%** | real: 82% |
+| `mypy --strict` em `core/` e `verify/` | DOC-01 §8 | ❌ **não imposto** | 52 erros pendentes |
+| Pipeline noturno de corpus | DOC-16 §5 | ❌ não implementado | exige runner com dados |
+
+**Sobre o piso de cobertura.** O DOC-10 §10 exige 95% e o CI configura 80%.
+Configurar 95% faria o build falhar de imediato; configurar 80% e continuar
+afirmando 95% no documento seria pior. **Os dois números ficam declarados**,
+e fechar a diferença é o critério **J2** do Stage-Gate 9 — que continua
+válido, agora com o débito visível em vez de presumido cumprido.
+
+**Sobre o `mypy --strict`.** Dos 52 erros, boa parte é ausência de stubs em
+`sympy` e `mpmath`, já resolvida por `ignore_missing_imports`. O restante é
+anotação faltando em código nosso, e é trabalho real. Fica como dívida
+declarada, não como afirmação falsa.
+
+> **A lição desta auditoria vale além do CI.** Um documento que descreve um
+> controle inexistente é pior que um documento que não menciona o controle:
+> o primeiro cria confiança injustificada. A regra derivada — e vale para
+> todo o corpus de projeto — é que **todo controle descrito como ativo
+> precisa ter um comando que o demonstre**, ou ser marcado explicitamente
+> como pendente.
+
 **O `import-linter` é o que impede o apodrecimento arquitetural.** Sem ele, o DAG de módulos do DOC-01 §4.3 vira sugestão, e em seis meses `verify/` importa de `training/` e o princípio P3 morreu sem ninguém notar.
 
 **A suíte golden bloqueando mudanças em `verify/` é a segunda proteção mais importante.** Um bug ali é global (DOC-10 §1).

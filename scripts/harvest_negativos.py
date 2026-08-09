@@ -46,7 +46,9 @@ que o princípio A5 proíbe.
 Cada set tem manifesto próprio, então a retomada é independente: se `cs` cair
 na metade, `q-bio` e `econ` não são refeitos.
 """
-import argparse, logging, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
 
 import polars as pl

@@ -37,7 +37,7 @@ from sympy.parsing.sympy_parser import (
 )
 
 from phifm.core.latex.subscritos import blindar_subscritos, normalizar_subscritos
-from phifm.verify.bus import Claim, VerificationResult, Verdict
+from phifm.verify.bus import Claim, Verdict, VerificationResult
 
 TIMEOUT_S = 5
 

@@ -22,7 +22,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from phifm.corpus.acquire.arxiv import ArxivOAIHarvester, harvest_physics  # noqa: E402
+from phifm.corpus.acquire.arxiv import ArxivOAIHarvester  # noqa: E402
 
 PAGE = """<?xml version="1.0" encoding="UTF-8"?>
 <OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/">

@@ -20,7 +20,12 @@ import sympy as sp
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from phifm.verify.bus import Claim, Verdict, VerifierBus  # noqa: E402
-from phifm.verify.conservation import PARTICULAS, ConservationVerifier, Numeros, _somar  # noqa: E402
+from phifm.verify.conservation import (  # noqa: E402
+    PARTICULAS,
+    ConservationVerifier,
+    Numeros,
+    _somar,
+)
 from phifm.verify.dimensional import (  # noqa: E402
     ENERGIA,
     Dim,

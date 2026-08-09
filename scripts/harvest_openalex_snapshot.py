@@ -4,7 +4,9 @@
 Rota gratuita e sem cota, alternativa à API cotada. Ver a docstring de
 `phifm.corpus.acquire.openalex_snapshot` para as medições que a justificam.
 """
-import argparse, logging, sys
+import argparse
+import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))

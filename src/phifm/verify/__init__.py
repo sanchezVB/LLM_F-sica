@@ -16,8 +16,8 @@ from phifm.verify.bus import (
     REWARD,
     Claim,
     Verdict,
-    Verifier,
     VerificationResult,
+    Verifier,
     VerifierBus,
 )
 from phifm.verify.conservation import ConservationVerifier

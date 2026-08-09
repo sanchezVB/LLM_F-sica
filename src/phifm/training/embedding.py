@@ -51,6 +51,7 @@ import json
 import logging
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import UTC
 from pathlib import Path
 
 import polars as pl
@@ -230,7 +231,9 @@ class TreinadorEmb:
             perda.backward()
             self.opt.step()
             self.opt.zero_grad()
-            soma += perda.item(); n += 1; vistos += len(a)
+            soma += perda.item()
+            n += 1
+            vistos += len(a)
 
             if passo % self.cfg.passos_log == 0:
                 m.pares_por_s = vistos / (time.perf_counter() - t0)
@@ -337,9 +340,9 @@ class TreinadorEmb:
         # manifestos de coleta. Reusar o nome evita um segundo mecanismo de
         # "acabou" — e um mecanismo a menos é um ramo a menos sem teste.
         if concluido:
-            from datetime import datetime, timezone
-            meta["completed_at"] = datetime.now(timezone.utc).isoformat()
+            from datetime import datetime
+            meta["completed_at"] = datetime.now(UTC).isoformat()
         if m:
-            meta["metricas"] = {k: v for k, v in asdict(m).items()}
+            meta["metricas"] = dict(asdict(m).items())
         (saida / "phiemb.json").write_text(
             json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")

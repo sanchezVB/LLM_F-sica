@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import xml.etree.ElementTree as ET
-from datetime import date
 from pathlib import Path
 
 import polars as pl

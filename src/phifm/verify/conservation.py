@@ -25,8 +25,8 @@ from dataclasses import dataclass
 
 import sympy as sp
 
-from phifm.verify.bus import Claim, VerificationResult, Verdict
-from phifm.verify.symbolic import _Timeout, _com_limite, parse
+from phifm.verify.bus import Claim, Verdict, VerificationResult
+from phifm.verify.symbolic import _com_limite, _Timeout, parse
 
 TOL = sp.Rational(1, 10**12)
 AMOSTRAS = (sp.Rational(1, 3), sp.Rational(7, 5), sp.Rational(11, 4),
@@ -146,7 +146,7 @@ class ConservationVerifier:
                 + " — tabela incompleta por escolha, ver docstring",
             )
 
-        violadas = [(nome, va, vd) for (nome, va), (_, vd) in zip(na.itens(), nd.itens())
+        violadas = [(nome, va, vd) for (nome, va), (_, vd) in zip(na.itens(), nd.itens(), strict=False)
                     if va != vd]
         seta = f"{' + '.join(antes)} → {' + '.join(depois)}"
         if violadas:
@@ -206,7 +206,7 @@ class ConservationVerifier:
         # quando o simbólico não fecha. Símbolos livres recebem racionais
         # primos entre si — valores redondos escondem cancelamento acidental.
         livres = sorted(expr.free_symbols - {var}, key=str)
-        fixos = {s: sp.Rational(p, 7) for s, p in zip(livres, (3, 5, 11, 13, 17, 19, 23))}
+        fixos = {s: sp.Rational(p, 7) for s, p in zip(livres, (3, 5, 11, 13, 17, 19, 23), strict=False)}
         try:
             vals = [sp.N(expr.subs({var: a, **fixos}), 30) for a in AMOSTRAS]
         except Exception:

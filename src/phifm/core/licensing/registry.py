@@ -23,10 +23,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class Partition(str, Enum):
+class Partition(StrEnum):
     """Para onde o documento é fisicamente roteado (DOC-01 §6, ADR-0001 §5)."""
 
     TRAIN_OPEN = "train_open"      # treina e pode ser redistribuído  → PhysCorpus-Open
