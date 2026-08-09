@@ -208,6 +208,80 @@ exatamente o tipo de falha que o §7 existe para prevenir.
 
 ---
 
+## 6-B. Painel de verificação das afirmações (2026-08-09)
+
+Implementa a regra derivada da auditoria de CI: **toda afirmação consequente
+precisa de um estado de verificação explícito.** Sem isto, um leitor não
+distingue o que foi medido do que foi suposto — e nós também não.
+
+Legenda: ✅ verificado · ❌ falsificado e corrigido · ⚠️ parcial · ⬜ nunca testado
+
+### Fase 1 — Dados
+
+| Afirmação | Doc | Estado | Evidência / como testar |
+|---|---|---|---|
+| Endpoint OAI do arXiv | DOC-02 §3.1 | ❌→✅ | Era `export.arxiv.org`; corrigido |
+| Set `physics` filtra no servidor | DOC-02 §3.1 | ✅ | 1,59 M coletados |
+| Set `physics` inclui cross-lists | DOC-02 §2 | ✅ | 4,57% com primária fora da família |
+| **Completude do set `physics`** | DOC-02 §2 | ⬜ | Exige coletar `cs` e `math` e cruzar |
+| Volumes por arquivo | DOC-02 §2 | ❌→✅ | Erros de −26% a +59%; corrigidos |
+| OpenAlex gratuito | DOC-02 §3.1 | ❌→✅ | API passou a ser cotada |
+| Fração redistribuível | ADR-0001 §4 | ❌→✅ | 25–35% estimado → **14,8%** |
+| **LaTeXML é a escolha certa** | DOC-03 §2.3 | ⬜ | **Nunca executado.** Exige instalar Perl+LaTeXML |
+| 60–80% dos papers definem macros | DOC-03 §2.2 | ⬜ | Exige a fonte LaTeX, não só metadados |
+| Preservação de equações ≥ 0,95 | DOC-03 §10 | ⬜ | É o critério C1 do Stage-Gate 2 |
+| Filtros web rejeitam 5/5 a Lagrangiana da QED | DOC-04 §3.2 | ⚠️ | Argumentado com precisão; não executado |
+| Funil de dedup: 20% + 28% | DOC-04 §7 | ⬜ | Medido ~0% na espinha, mas ela já é única por ID. **Só testável com múltiplas fontes (S3)** |
+| Limiar de Jaccard 0,85 | DOC-04 §5.2 | ⚠️ | Implementado; o valor em si não foi calibrado |
+| Canonicalização une variantes | DOC-03 §3 | ✅ | 555 pares em 34.507 equações reais |
+| **Tokenizer: tudo** | DOC-05 | ⬜ | **Nada executado.** O bake-off do §11 é o teste |
+
+### Fase 2 — Modelos e verificação
+
+| Afirmação | Doc | Estado | Evidência / como testar |
+|---|---|---|---|
+| Fronteiras de módulo respeitadas | DOC-01 §4.3 | ✅ | `import-linter`, 3 contratos |
+| `INCONCLUSIVE` → recompensa neutra | DOC-10 §2.1 | ✅ | Teste golden |
+| SymPy comuta operadores indevidamente | DOC-10 §3.1 | ✅ | Confirmado; guarda em 2 verificadores |
+| Análise dimensional colapsa em unidades naturais | DOC-10 §3.2 | ⚠️ | Implementado; não medido em corpus |
+| Cobertura de `verify/` ≥ 95% | DOC-10 §10 | ❌ | **82%** — dívida declarada em DOC-16 §5.1 |
+| `mypy --strict` limpo | DOC-01 §8 | ❌ | 52 erros — dívida declarada |
+| CI impõe os controles | DOC-16 §5 | ❌→✅ | Não existia; implementado |
+| Tudo de CPT, RLVR, PRM, destilação | DOC-08/09 | ⬜ | Nenhum modelo treinado |
+
+### O achado que mais surpreende
+
+| Afirmação | Doc | Estado |
+|---|---|---|
+| **Stack: Dagster, Ray Data, Spark, Iceberg, TorchTitan, veRL, Qdrant** | DOC-01 §5 | ⬜ **nenhum foi usado** |
+
+Todo o Sprint S1, o S2 e o barramento de verificação foram construídos com
+**Python puro, `polars`, `numpy`, `requests` e `sympy`**. Nenhuma das sete
+escolhas de infraestrutura do DOC-01 §5 foi exercitada, e nada faltou.
+
+Isso **não** invalida as escolhas — elas foram feitas para a escala do Tier 2
+e Tier 3, e o DOC-16 §1 já estabelece que "nenhum componente é construído
+antes que a sua ausência tenha causado um problema real". Mas registra um
+dado de calibração:
+
+> **A escala real do trabalho até aqui é uma ordem de grandeza menor do que a
+> arquitetura pressupõe.** 1,59 M registros cabem em `polars` num laptop de
+> 8 GB. O Spark que o DOC-01 §5.2 reserva para o shuffle de MinHash foi
+> substituído por 51 MB de assinaturas em `numpy`.
+
+A consequência prática é para o cronograma, não para o desenho: cada
+componente de infraestrutura adiado é tempo de engenharia liberado, e o
+DOC-17 §4 identifica o tempo — não o dinheiro — como a restrição do programa.
+
+### O que este painel exige daqui em diante
+
+1. Nenhuma afirmação nova entra num documento sem estado de verificação.
+2. Um ⬜ que vira ✅ ou ❌ atualiza **o documento de origem**, não só este painel.
+3. Antes de qualquer publicação, todo ⬜ em afirmação de manchete vira
+   bloqueio — é a operacionalização do §7.
+
+---
+
 ## 7. As alegações que este programa NÃO poderá fazer
 
 Declaradas antes de os resultados existirem, para que não sejam negociadas depois.

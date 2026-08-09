@@ -69,9 +69,25 @@ A lista de áreas do briefing precisa virar um seletor executável. O mapeamento
 > três. É a contagem correta para dimensionar o corpus, porque o cross-list é
 > Física legítima, mas explica por que a soma excede o número de registros.
 >
-> `quant-ph` é a única superestimativa, e a única em que o erro NÃO é
-> explicado por cross-list. Vale investigar antes de usar a taxonomia para
-> ponderar a mistura do DOC-06.
+> **`quant-ph` investigado (2026-08-09).** Era a única superestimativa, e eu
+> havia marcado para investigar. Duas hipóteses foram testadas:
+>
+> 1. *Pouco cross-list de entrada?* Parcialmente — `quant-ph` tem razão
+>    qualquer/primária de **1,37×**, contra 1,58× do `cond-mat` e 1,62× do
+>    `hep-th`. Recebe menos cross-list, mas não o bastante para explicar −26%.
+> 2. *O set `physics` filtra por categoria primária, e perdemos Física com
+>    primária em `cs`/`math`?* **Refutado, e a refutação é a boa notícia:**
+>    **4,57% dos registros (72.849) têm primária FORA da família** — 36.856 em
+>    `math`, 17.568 em `cs`, 7.377 em `q-bio`. O set **inclui cross-lists**.
+>
+> **Conclusão: a estimativa de ~250 k estava simplesmente errada**, não houve
+> lacuna de coleta. É erro de estimativa, não defeito de pipeline.
+>
+> ⚠️ **O que continua NÃO verificado:** a *completude* do set. Saber se existe
+> Física com primária em `cs`/`math` que o set `physics` **não** inclui exige
+> coletar os sets `cs` e `math` e cruzar — o que depende de download e fica
+> para a máquina que pode baixar. Até lá, a cobertura é **plausível mas não
+> comprovada**.
 
 **Nota crítica.** Mecânica Clássica, Eletromagnetismo de graduação e Termodinâmica básica são **sub-representados no arXiv**, porque são conhecimento consolidado e ninguém publica preprints sobre eles. Isso é uma lacuna estrutural do corpus que ataca diretamente vários modos de falha do DOC-00 §2. As fontes que a cobrem são livros abertos, notas de aula, StackExchange, clássicos de domínio público e dados sintéticos (DOC-06). **Elas não são complemento — são compensação obrigatória de um viés conhecido.**
 
