@@ -140,6 +140,74 @@ O programa contém ablações cujo resultado negativo é informativo e **será p
 
 ---
 
+## 6-A. Calibração das nossas próprias estimativas (2026-08-07)
+
+O DOC-00 §6 exige que estimativas declarem confiança e como verificá-las. Com
+o Sprint S1 concluído, dá para medir **quão bem estimamos** — o que é, ele
+próprio, um dado de validade.
+
+### O placar
+
+| Previsão | Documento | Estimado | Medido | Erro |
+|---|---|---|---|---|
+| Papers de Física no arXiv | DOC-00 §4.1 | ~1,2 M | **1.595.065** | **+33%** |
+| Tokens do arXiv (texto completo) | DOC-00 §4.1 | 15–25 B | 12–20 B | −20% |
+| Tamanho da espinha em disco | DOC-02 §3.1 | 516–686 B/registro | 422 B/registro | −25% |
+| `cond-mat` | DOC-02 §2 | ~350 k | 556.487 | **+59%** |
+| `quant-ph` | DOC-02 §2 | ~250 k | 184.046 | **−26%** |
+| Fração redistribuível | ADR-0001 §4 | 25–35% | **14,8%** | **−53%** |
+| `PhysCorpus-Open` | ADR-0001 §6 | 8–15 B tokens | 1,5–3,5 B | **−4×** |
+| Snapshot do OpenAlex | DOC-02 §3.1 | ~2 h | 5,6 h | **+180%** |
+| Custo da API do OpenAlex | DOC-02 §3.1 | US$ 0 | US$ 1,83 ou 18 dias | modelo mudou |
+
+### Três padrões, e o terceiro é o que preocupa
+
+**1. Volumes de fonte erram por ±50%, sem viés consistente.** Aceitável para
+planejamento — nenhuma decisão de arquitetura dependia de precisão melhor que
+um fator 2. O DOC-00 §4.3 já argumentava sobre ordens de grandeza.
+
+**2. Tempo de execução foi subestimado sistematicamente.** O snapshot em 2 h
+virou 5,6 h; o "arXiv em ~2 h" virou horas de relógio com suspensão do SO. A
+causa é sempre a mesma: estimar a **transferência** e esquecer tudo o mais —
+descompressão, filtragem, escrita, aperto de mão TCP, e o sistema operacional
+suspendendo o processo. **Regra derivada: multiplicar toda estimativa de
+tempo de I/O por 3.**
+
+**3. ★ Estimativas de licença erraram muito, e na direção que importa.** A
+fração redistribuível veio 53% abaixo, e o `PhysCorpus-Open` ficou 4× menor.
+
+Este é o erro grave, e a causa é instrutiva: **extrapolei de uma amostra
+recente para um acervo com trinta anos de história.** A opção de licença CC
+mal existia antes de 2008 e só se tornou comum depois de 2020. Metade do
+acervo é anterior a 2012.
+
+> **A lição generalizável:** em corpora científicos, **toda fração medida numa
+> amostra recente superestima o acervo**, porque práticas de licenciamento,
+> formatação e depósito mudaram monotonicamente na direção da abertura. Toda
+> estimativa desse tipo precisa ser **estratificada por época** antes de ser
+> extrapolada.
+
+Isso vale diretamente para três previsões ainda não verificadas: a taxa de
+preservação de LaTeX (DOC-03 §10), a fração com `journal-ref`, e a cobertura
+de DOI. Todas devem ser medidas por época, não em agregado.
+
+### O que isso NÃO invalida
+
+Nenhuma decisão estrutural do programa dependia dos números que erraram:
+
+- **D-01** (CPT em vez de treino do zero) fica **mais forte**: corpus menor
+  aumenta o déficit frente ao ótimo de Chinchilla.
+- **Q3** (pesos Apache-2.0) não muda: o custo da cláusula NC foi medido em
+  2,9%, dentro da faixa estimada.
+- **A escada de degraus** não muda: os custos de GPU foram estimados por
+  aritmética de FLOPs, não por extrapolação de amostra, e seguem de pé.
+
+O que muda é uma **alegação pública**: o `PhysCorpus-Open` precisa ser
+anunciado com 1,5–3,5 B tokens, não 8–15 B. Anunciar o número errado seria
+exatamente o tipo de falha que o §7 existe para prevenir.
+
+---
+
 ## 7. As alegações que este programa NÃO poderá fazer
 
 Declaradas antes de os resultados existirem, para que não sejam negociadas depois.

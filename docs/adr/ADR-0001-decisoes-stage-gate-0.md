@@ -150,9 +150,44 @@ Decorre naturalmente de §2:
 | **Código, configs, tokenizer** | Público | Apache-2.0 | Repositório completo |
 | **PhysBench** | Público | CC BY 4.0 | Benchmarks e corretores |
 | **Manifestos do corpus** | Público | CC BY 4.0 | IDs, hashes, decisões de filtro, código de reconstrução — permite reprodução por terceiros sem redistribuir bytes |
-| **`PhysCorpus-Open`** | Público | CC BY 4.0 | O subconjunto **verdadeiramente livre** (CC BY / CC0 / domínio público / governo dos EUA) — estimativa de **8–15 B tokens**. Seria, ao que se sabe, o maior corpus de Física abertamente redistribuível já publicado |
+| **`PhysCorpus-Open`** | Público | CC BY 4.0 | O subconjunto **verdadeiramente livre** (CC BY / CC0 / domínio público / governo dos EUA). Estimativa original: 8–15 B tokens. **Medido no corpus completo: 1,5–3,5 B** — ver a nota abaixo |
 | **`PhysCorpus-Full`** | Interno | — | Corpus completo de treino, não redistribuído |
 | **`PhysEval-Restricted`** | Interno | — | Partição `train_ok=False`; livros sob copyright, uso exclusivo de avaliação |
+
+
+> ### 📉 Correção medida no corpus completo (2026-08-07)
+>
+> A medição de junho/2024 (§4) deu **45,9% redistribuível** e eu registrei ali
+> a ressalva de que ela superestimava o acervo, prevendo 25–35%. **A ressalva
+> estava certa na direção e errada na magnitude.** O corpus completo — 1.595.065
+> registros — dá:
+>
+> | | |
+> |---|---|
+> | Redistribuível (`train_open`) | **14,8%** (235.628) |
+> | Treina mas não redistribui | 82,3% (1.312.430) |
+> | Só avaliação (NC) | 2,9% (47.007) |
+>
+> A causa é uma transição abrupta, não um declínio suave:
+>
+> | Período | Registros | Redistribuível |
+> |---|---|---|
+> | 1992–2007 | 379.329 | **0,0%** |
+> | 2008–2019 | 661.442 | 1,0 – 3,0% |
+> | 2020–2023 | 294.586 | **32,9%** |
+> | 2024–2027 | 259.414 | **48,5%** |
+>
+> Metade do acervo é anterior a 2012, quando a opção CC praticamente não era
+> usada. Qualquer amostra recente superestima o todo por um fator de ~3.
+>
+> **Consequência:** o `PhysCorpus-Open` fica em **1,5–3,5 B tokens**, não os
+> 8–15 B do §6. Continua sendo um artefato publicável e provavelmente o maior
+> corpus de Física abertamente redistribuível — mas a alegação precisa ser
+> feita com o número certo.
+>
+> **Consequência de segunda ordem, e é a boa notícia:** a fatia redistribuível
+> cresce ~15 pontos percentuais a cada quatro anos. O `PhysCorpus-Open`
+> aumenta sozinho a cada recoleta.
 
 O `PhysCorpus-Open` merece destaque: mesmo sendo um terço do corpus completo, **8–15 B tokens de Física abertamente redistribuível é um artefato de valor científico próprio**, e é publicável ainda no Tier 1 — antes de qualquer modelo estar pronto. É uma entrega de baixo risco e alto retorno reputacional.
 

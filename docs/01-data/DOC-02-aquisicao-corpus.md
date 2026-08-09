@@ -48,6 +48,31 @@ A lista de áreas do briefing precisa virar um seletor executável. O mapeamento
 | Fluidos, Atômica, Química, Biofísica, Geofísica, Espacial, Aceleradores | `physics.*` restantes | ~200 k |
 | **Matemática de apoio** | `math.AP` (EDP), `math.CA` (Análise Real/Complexa), `math.DG` (Geom. Diferencial), `math.OC` (Otimização/Variacional), `math.PR` (Probabilidade), `math.ST` (Estatística), `math.NA`, `math.RA`/`math.LA` (Álgebra Linear) | ~300 k |
 
+> ### 📏 Volumes medidos (2026-08-07) — a coluna "volume relativo" acima era estimativa
+>
+> Coleta concluída: **1.595.065 registros** contra os ~1,2 M previstos (**+33%**).
+> Os volumes por arquivo, contando toda categoria atribuída e não só a primária:
+>
+> | Arquivo | Previsto | Medido | Erro |
+> |---|---|---|---|
+> | `cond-mat` | ~350 k | **556.487** | **+59%** |
+> | `math-ph` | ~60 k | **91.350** | **+52%** |
+> | `astro-ph` | ~350 k | **475.795** | **+36%** |
+> | `hep-*` (ph+ex+lat) | ~250 k | 289.768 | +16% |
+> | `hep-th` | ~160 k | 184.523 | +15% |
+> | `gr-qc` | ~110 k | 123.651 | +12% |
+> | `quant-ph` | ~250 k | 184.046 | **−26%** |
+>
+> **Erro sistemático para baixo, exceto num caso.** A causa é metodológica: as
+> estimativas vinham de contagem por categoria **primária**, e a medição conta
+> **todas** as categorias — um paper com cross-list em três arquivos entra nos
+> três. É a contagem correta para dimensionar o corpus, porque o cross-list é
+> Física legítima, mas explica por que a soma excede o número de registros.
+>
+> `quant-ph` é a única superestimativa, e a única em que o erro NÃO é
+> explicado por cross-list. Vale investigar antes de usar a taxonomia para
+> ponderar a mistura do DOC-06.
+
 **Nota crítica.** Mecânica Clássica, Eletromagnetismo de graduação e Termodinâmica básica são **sub-representados no arXiv**, porque são conhecimento consolidado e ninguém publica preprints sobre eles. Isso é uma lacuna estrutural do corpus que ataca diretamente vários modos de falha do DOC-00 §2. As fontes que a cobrem são livros abertos, notas de aula, StackExchange, clássicos de domínio público e dados sintéticos (DOC-06). **Elas não são complemento — são compensação obrigatória de um viés conhecido.**
 
 ---
