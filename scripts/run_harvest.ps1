@@ -53,11 +53,11 @@ switch ($Fonte) {
                  $argumentos = '--out data/raw/openalex_works' }
     'snapshot' { $script = 'scripts\harvest_openalex_snapshot.py'
                  $argumentos = '--out data/raw/openalex_snapshot' }
-    'phiemb'   { $script = 'scripts	rain_embedding.py'
+    'phiemb'   { $script = 'scripts/train_embedding.py'
                  # A venv de treino e Python 3.12: o torch-directml nao suporta
                  # o 3.14 da venv principal.
                  $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
-                 $argumentos = '--out models/phiemb --lote 8 --passos-aval 500' }
+                 $argumentos = '--out models/phiemb --lote 8 --passos-aval 500 --max-pares 400000' }
 }
 
 # ─── Trava por PID, e por que a checagem antiga nao servia ───────────────

@@ -33,9 +33,18 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
 
-    treino = pl.read_parquet(a.pares / "pares_treino.parquet")
+    # ⚠️ Leitura PREGUIÇOSA com o corte antes do `collect`. `pl.read_parquet`
+    # carregava os 6,56 M de pares inteiros — 2,46 GB comprimidos que expandem
+    # para 8+ GB de texto — e só depois `--max-pares` cortava. Medido em
+    # 2026-08-07: 1,0 GB de RAM livre, 31 GB de swap, e o processo morria antes
+    # do primeiro passo sem deixar traceback. O corte tem de acontecer no plano,
+    # não depois dele.
+    plano = pl.scan_parquet(a.pares / "pares_treino.parquet")
+    total = plano.select(pl.len()).collect().item()
+    treino = (plano.head(a.max_pares) if a.max_pares else plano).collect()
     val = pl.read_parquet(a.pares / "pares_validacao.parquet")
-    logging.info("pares: %s treino · %s validação", f"{treino.height:,}", f"{val.height:,}")
+    logging.info("pares: %s de %s disponíveis · %s validação",
+                 f"{treino.height:,}", f"{total:,}", f"{val.height:,}")
 
     cfg = Config(base=a.base, lote=a.lote, max_tokens=a.max_tokens, lr=a.lr,
                  max_pares=a.max_pares, passos_aval=a.passos_aval, dispositivo=a.dispositivo)

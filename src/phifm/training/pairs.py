@@ -50,18 +50,30 @@ MIN_CARACTERES = 120
 FRACAO_VALIDACAO = 0.02
 
 
-def carregar_grafo(dir_snapshot: Path) -> pl.DataFrame:
-    """Arestas `(arxiv_id da âncora, openalex_id citado)`."""
+def carregar_grafo(dir_snapshot: Path) -> pl.LazyFrame:
+    """Grafo como plano PREGUIÇOSO, nunca materializado inteiro.
+
+    ⚠️ `pl.read_parquet` aqui era inviável, e a lição vem do `spine.py`: com o
+    snapshot completo são 4,6 M de obras e `explode` sobre `referenced_works`
+    gera ~207 M de linhas. Materializar isso consome a RAM, cai no swap e o
+    processo morre — foi o que aconteceu com `build_spine` em 2026-08-07, que
+    passou 2 h 22 no swap e morreu sem gravar nada.
+
+    Com `scan_parquet` o polars empurra filtros e projeções para a leitura e
+    processa em fluxo, então o pico de memória é do bloco, não do total.
+    """
     shards = sorted(dir_snapshot.glob("part-*.parquet"))
     if not shards:
         raise FileNotFoundError(f"nenhum shard em {dir_snapshot}")
-    df = pl.read_parquet(shards, columns=["openalex_id", "arxiv_id", "referenced_works"])
-    df = df.filter(pl.col("arxiv_id").is_not_null())
-    log.info("grafo: %s obras com arxiv_id", f"{df.height:,}")
-    return df
+    log.info("grafo: %d shards em leitura preguiçosa", len(shards))
+    return (
+        pl.scan_parquet(shards)
+        .select("openalex_id", "arxiv_id", "referenced_works")
+        .filter(pl.col("arxiv_id").is_not_null())
+    )
 
 
-def montar_pares(grafo: pl.DataFrame, espinha: pl.DataFrame, semente: int = 17) -> pl.DataFrame:
+def montar_pares(grafo: pl.LazyFrame, espinha: pl.LazyFrame, semente: int = 17) -> pl.DataFrame:
     """Constrói os pares e anexa os textos das duas pontas."""
     # openalex_id → arxiv_id, para traduzir `referenced_works`.
     mapa = grafo.select("openalex_id", pl.col("arxiv_id").alias("arxiv_citado"))
@@ -76,17 +88,18 @@ def montar_pares(grafo: pl.DataFrame, espinha: pl.DataFrame, semente: int = 17) 
         .select("arxiv_id", "arxiv_citado")
         .unique()
     )
-    log.info("arestas resolvidas: %s", f"{arestas.height:,}")
 
-    # Teto por âncora, com ordem embaralhada para não pegar sempre as primeiras
-    # referências — que num paper tendem a ser as introdutórias e genéricas.
+    # Teto por âncora. A ordem vem de um HASH e não de `sample`, por duas razões:
+    # `sample` não existe em plano preguiçoso, e ordenar por hash é determinístico
+    # sem precisar materializar. O embaralhamento importa — pegar as primeiras
+    # referências de um paper traz as introdutórias e genéricas.
     arestas = (
-        arestas.sample(fraction=1.0, shuffle=True, seed=semente)
+        arestas.with_columns(pl.col("arxiv_citado").hash(seed=semente).alias("_ordem"))
+        .sort("_ordem")
         .with_columns(pl.int_range(pl.len()).over("arxiv_id").alias("_i"))
         .filter(pl.col("_i") < MAX_POR_ANCORA)
-        .drop("_i")
+        .drop("_i", "_ordem")
     )
-    log.info("após teto de %d por âncora: %s", MAX_POR_ANCORA, f"{arestas.height:,}")
 
     textos = (
         espinha.select("arxiv_id", "title", "abstract")
@@ -107,6 +120,7 @@ def montar_pares(grafo: pl.DataFrame, espinha: pl.DataFrame, semente: int = 17) 
         .join(textos.rename({"arxiv_id": "arxiv_citado", "texto": "positivo"}),
               on="arxiv_citado", how="inner")
         .select("arxiv_id", "arxiv_citado", "ancora", "positivo")
+        .collect(engine="streaming")   # única materialização do pipeline
     )
     log.info("pares com texto nas duas pontas: %s", f"{pares.height:,}")
     return pares
@@ -138,7 +152,9 @@ def dividir(pares: pl.DataFrame, semente: int = 17) -> tuple[pl.DataFrame, pl.Da
 
 def construir(dir_snapshot: Path, espinha: Path, saida: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
     grafo = carregar_grafo(dir_snapshot)
-    esp = pl.read_parquet(espinha, columns=["arxiv_id", "title", "abstract"])
+    # Preguiçoso também aqui: são 1,59 M de resumos, e o `join` só precisa das
+    # linhas que casam com alguma aresta.
+    esp = pl.scan_parquet(espinha).select("arxiv_id", "title", "abstract")
     tr, val = dividir(montar_pares(grafo, esp))
 
     saida.mkdir(parents=True, exist_ok=True)

@@ -118,15 +118,28 @@ def escolher_dispositivo(pedido: str = "auto") -> torch.device:
 
 
 class ParesDataset(Dataset):
+    """Mantém as colunas em Arrow e materializa uma linha por vez.
+
+    ⚠️ A versão anterior fazia `df["ancora"].to_list()` nas duas colunas. Com
+    6,5 M de pares isso são **13 milhões de strings Python** de ~1,5 KB cada —
+    cerca de 20 GB, contra 15,9 GB de RAM na máquina. O treino morria em
+    silêncio antes do primeiro passo, sem traceback, logo depois de registrar o
+    dispositivo. Funcionou no piloto só porque `--max-pares 6400` cortava antes.
+
+    Em Arrow os mesmos dados ocupam o tamanho do parquet descomprimido e cada
+    `__getitem__` cria duas strings, não treze milhões.
+    """
+
     def __init__(self, df: pl.DataFrame):
-        self.a = df["ancora"].to_list()
-        self.p = df["positivo"].to_list()
+        self.a = df["ancora"].to_arrow()
+        self.p = df["positivo"].to_arrow()
+        self.n = df.height
 
     def __len__(self) -> int:
-        return len(self.a)
+        return self.n
 
     def __getitem__(self, i: int) -> tuple[str, str]:
-        return self.a[i], self.p[i]
+        return self.a[i].as_py(), self.p[i].as_py()
 
 
 def media_mascarada(saida, mascara) -> torch.Tensor:

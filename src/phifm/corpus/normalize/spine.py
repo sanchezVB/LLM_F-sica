@@ -95,11 +95,22 @@ def attach_citations(df: pl.DataFrame, oa_dir: Path) -> pl.DataFrame:
             pl.lit(None, dtype=pl.Int32).alias("n_references"),
             pl.lit(None, dtype=pl.Int32).alias("cited_by_count"),
         )
+    # ⚠️ `referenced_works` NÃO entra, e a poda acontece no `select` ANTES do
+    # filtro para que a coluna nunca seja lida do disco.
+    #
+    # Ela era produzida aqui e consumida em lugar nenhum: quem precisa do grafo
+    # é `training/pairs.py`, que lê os shards do snapshot direto. Na espinha ela
+    # só custava — 4,6 M de obras × ~45 identificadores é ~207 M de strings.
+    #
+    # Medido em 2026-08-07: com ela, `build_spine` sobre 692 shards consumiu a
+    # RAM, foi para 14,2 GB de swap e o processo morreu depois de 2 h 22 sem
+    # gravar nada. `scan_parquet` com motor de fluxo e a coluna fora resolve.
     oa = (
-        pl.read_parquet(str(oa_dir / "*.parquet"))
+        pl.scan_parquet(str(oa_dir / "*.parquet"))
+        .select("arxiv_id", "n_references", "cited_by_count")
         .filter(pl.col("arxiv_id").is_not_null())
         .unique(subset=["arxiv_id"], keep="first")
-        .select("arxiv_id", "n_references", "cited_by_count", "referenced_works")
+        .collect(engine="streaming")
     )
     out = df.join(oa, on="arxiv_id", how="left")
     matched = out["n_references"].is_not_null().sum()
