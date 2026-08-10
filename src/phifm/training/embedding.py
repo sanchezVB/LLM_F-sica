@@ -253,15 +253,19 @@ class TreinadorEmb:
                 log.info("passo %d | perda %.4f | %.1f pares/s", passo, soma / n, m.pares_por_s)
                 soma, n = 0.0, 0
 
+            m.passo = passo
+
             if passo % self.cfg.passos_aval == 0:
                 r1, r10, mrr = self.avaliar(val)
                 log.info("  aval: recall@1 %.3f · recall@10 %.3f · MRR %.3f", r1, r10, mrr)
+                m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
                 m.historico.append({"passo": passo, "recall_1": r1, "recall_10": r10,
                                     "mrr": mrr, "perda": perda.item()})
-                self.salvar(saida, passo=passo)
+                # `m` vai junto: sem ele o `phiemb.json` do checkpoint não levava
+                # `metricas`, e a curva existia só no log. Conferido em execução —
+                # `historico` chegou vazio ao json depois de 27 avaliações.
+                self.salvar(saida, m, passo=passo)
                 self.salvar_estado(saida, passo)   # queda não custa o treino todo
-
-            m.passo = passo
 
         r1, r10, mrr = self.avaliar(val)
         m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
