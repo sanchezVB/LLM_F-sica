@@ -258,7 +258,7 @@ class TreinadorEmb:
                 log.info("  aval: recall@1 %.3f · recall@10 %.3f · MRR %.3f", r1, r10, mrr)
                 m.historico.append({"passo": passo, "recall_1": r1, "recall_10": r10,
                                     "mrr": mrr, "perda": perda.item()})
-                self.salvar(saida)
+                self.salvar(saida, passo=passo)
                 self.salvar_estado(saida, passo)   # queda não custa o treino todo
 
             m.passo = passo
@@ -328,7 +328,7 @@ class TreinadorEmb:
         return int(est["passo"])
 
     def salvar(self, saida: Path, m: Metricas | None = None,
-               concluido: bool = False) -> None:
+               concluido: bool = False, passo: int = 0) -> None:
         """Grava uma CÓPIA em CPU. Nunca mexe no modelo em uso.
 
         ⚠️ A versão anterior fazia `self.mod.to("cpu").save_pretrained(...)` e
@@ -349,6 +349,12 @@ class TreinadorEmb:
         self.mod.save_pretrained(saida, state_dict=pesos)
         self.tok.save_pretrained(saida)
         meta = {"config": asdict(self.cfg), "base": self.cfg.base}
+        # `actual_count` é a MESMA chave que o supervisor lê nos manifestos de
+        # coleta para decidir se o processo AVANÇOU entre duas mortes. Sem ela o
+        # progresso lido era sempre -1, então quatro quedas seguidas abortavam o
+        # treino mesmo tendo havido avanço entre elas — num run de 31 h com
+        # quedas aleatórias, isso é desistir do trabalho já feito.
+        meta["actual_count"] = m.passo if m else passo
         # `completed_at` é a MESMA chave que o supervisor já procura nos
         # manifestos de coleta. Reusar o nome evita um segundo mecanismo de
         # "acabou" — e um mecanismo a menos é um ramo a menos sem teste.
