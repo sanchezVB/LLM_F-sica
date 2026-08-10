@@ -170,6 +170,7 @@ class TreinadorEmb:
             self.mod.gradient_checkpointing_enable()
             self.mod.config.use_cache = False
         self.opt = torch.optim.AdamW(self.mod.parameters(), lr=cfg.lr)
+        self._melhor_mrr = -1.0   # reconstruído em `retomar`, ver o aviso lá
 
     def _codificar(self, textos: list[str]) -> torch.Tensor:
         lote = self.tok(list(textos), padding="max_length", truncation=True,
@@ -266,6 +267,7 @@ class TreinadorEmb:
                 # `historico` chegou vazio ao json depois de 27 avaliações.
                 self.salvar(saida, m, passo=passo)
                 self.salvar_estado(saida, passo)   # queda não custa o treino todo
+                self._talvez_melhor(saida, m, passo, r1, r10, mrr)
 
         r1, r10, mrr = self.avaliar(val)
         m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
@@ -275,6 +277,44 @@ class TreinadorEmb:
                             "mrr": mrr, "perda": m.perda, "nota": "final"})
         self.salvar(saida, m, concluido=True)
         return m
+
+    # ── melhor checkpoint ─────────────────────────────────────────────────
+    #
+    # ⚠️ `salvar` grava sempre no mesmo diretório. No treino de 2026-08-09 o pico
+    # de recall@1 foi 0,461 no passo ~38.000, e o modelo entregue no fim media
+    # 0,441 — o melhor tinha sido SOBRESCRITO. Naquele caso a diferença era
+    # ruído (±0,031 de erro padrão), então não se perdeu nada de verdade. Foi
+    # sorte, não projeto.
+    #
+    # ## Por que o critério é MRR e não recall@1
+    #
+    # `recall@1` é uma proporção binária: com 256 candidatos, cada acerto vale
+    # 0,004 e a métrica pula em degraus grosseiros. MRR usa a POSIÇÃO de cada
+    # acerto, então varia continuamente e é muito menos ruidosa com a mesma
+    # amostra. Escolher o melhor por recall@1 seria escolher pelo maior ruído.
+    #
+    # ## Por que uma CÓPIA e não um link
+    #
+    # O melhor tem de sobreviver ao fim do treino, e o diretório principal segue
+    # sendo sobrescrito. Custa ~440 MB de disco, contra perder o único artefato
+    # que passou o portão.
+
+    def _talvez_melhor(self, saida: Path, m: Metricas, passo: int,
+                       r1: float, r10: float, mrr: float) -> None:
+        if mrr <= self._melhor_mrr:
+            return
+        self._melhor_mrr = mrr
+        destino = saida.parent / f"{saida.name}-melhor"
+        destino.mkdir(parents=True, exist_ok=True)
+        self.mod.save_pretrained(destino, state_dict=self._para_cpu(self.mod.state_dict()))
+        self.tok.save_pretrained(destino)
+        (destino / "melhor.json").write_text(
+            json.dumps({"passo": passo, "recall_1": r1, "recall_10": r10, "mrr": mrr,
+                        "n_candidatos": self.cfg.n_candidatos, "base": self.cfg.base,
+                        "criterio": "MRR — menos ruidoso que recall@1 com a mesma amostra"},
+                       indent=2, ensure_ascii=False),
+            encoding="utf-8")
+        log.info("  ★ melhor até agora (MRR %.3f) → %s", mrr, destino.name)
 
     # ── retomada ──────────────────────────────────────────────────────────
     #
@@ -321,6 +361,19 @@ class TreinadorEmb:
 
     def retomar(self, saida: Path) -> int:
         """Devolve o passo de onde continuar, ou 0 se não houver estado."""
+        # ⚠️ O melhor MRR tem de ser reconstruído ANTES de qualquer avaliação.
+        # Sem isto, `_melhor_mrr` começaria em -1 numa retomada e a PRIMEIRA
+        # avaliação sobrescreveria o melhor checkpoint com um pior — e o treino
+        # deste projeto foi retomado dez vezes num único dia, então isso não é
+        # hipótese remota.
+        anterior = saida.parent / f"{saida.name}-melhor" / "melhor.json"
+        if anterior.exists():
+            try:
+                self._melhor_mrr = float(json.loads(anterior.read_text(encoding="utf-8"))["mrr"])
+                log.info("melhor anterior preservado: MRR %.3f", self._melhor_mrr)
+            except Exception as exc:
+                log.warning("melhor.json ilegível (%s) — recomeçando a busca do melhor", exc)
+
         caminho = saida / self._estado().name
         if not caminho.exists():
             return 0
