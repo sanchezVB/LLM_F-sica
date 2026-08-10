@@ -263,29 +263,35 @@ A arquitetura é parametrizada sobre três perfis de infraestrutura.
 
 Vinte documentos em cinco fases, cobrindo os vinte pipelines solicitados. Cada um é revisado em um stage-gate antes do próximo começar.
 
-| # | Documento | Cobre | Fase | Status |
-|---|---|---|---|---|
-| **00** | **Carta do Projeto e Roteiro** *(este doc)* | Posicionamento, escada, portões | 0 | 🟡 **Em revisão** |
-| **01** | **Arquitetura do Sistema e Organização do Repositório** | Pipelines 1–2; modelo de camadas, DAG, stack, contratos de dados | 0 | 🟡 **Em revisão** |
-| **02** | **Plano Mestre de Aquisição de Corpus** | Pipeline 3; todas as fontes, postura legal, volumes | 1 | 🟡 **Em revisão** |
-| **03** | **Ingestão, Parsing e Normalização** | Pipeline 4; LaTeX/PDF/OCR, projeto do ΦOCR | 1 | 🟡 **Em revisão** |
-| **04** | **Filtragem de Qualidade, Deduplicação e Descontaminação** | Pipelines 5, 16 (parte) | 1 | 🟡 **Em revisão** |
-| **05** | **Projeto do Tokenizer e Vocabulário Físico-Matemático** | Pipeline 6; BPE/Unigram/WordPiece, vocab, LaTeX e dígitos | 1 | 🟡 **Em revisão** |
-| **06** | **Mistura de Dados, Currículo e Motor de Dados Sintéticos** | Curriculum learning, geração sintética | 1 | 🟡 **Em revisão** |
-| **07** | **Especificação da Família de Modelos** | ΦEnc/ΦEmb/ΦRank/ΦGen/ΦMath/ΦVis/ΦOCR/ΦCode/ΦAgent; MoE | 2 | 🟡 **Em revisão** |
-| **08** | **Infraestrutura de Pretraining e Continual Pretraining** | Pipelines 7, 9; paralelismo, replay, estabilidade | 2 | 🟡 **Em revisão** |
-| **09** | **Pós-treino: SFT, DPO, RLVR, Destilação** | Pipelines 8, 10 | 2 | 🟡 **Em revisão** |
-| **10** | **Raciocínio, Verificação e Treino Integrado a Ferramentas** | CoT longo, recompensas de processo, projeto de verificadores | 2 | 🟡 **Em revisão** |
-| **11** | **PhysBench — Projeto da Suíte de Benchmarks** | Pipelines 11, 16 | 3 | 🟡 **Em revisão** |
-| **12** | **Harness de Avaliação e Protocolo Estatístico** | Pipeline 11; correção por CAS, descontaminação, avaliação humana | 3 | 🟡 **Em revisão** |
-| **13** | **Recuperação, Embeddings e Stack de RAG** | Pipelines 17, 18 | 4 | 🟡 **Em revisão** |
-| **14** | **Framework de Agentes e Ferramentas Matemáticas/Científicas** | Pipelines 19, 20 (SymPy…COMSOL) | 4 | 🟡 **Em revisão** |
-| **15** | **Inferência e Serving** | Pipeline 12; quantização, decodificação especulativa | 4 | 🟡 **Em revisão** |
-| **16** | **Deployment, MLOps, Monitoramento e Versionamento** | Pipelines 13, 14, 15 | 4 | 🟡 **Em revisão** |
-| **17** | **Orçamento Computacional, Modelo de Custos e Cronograma Mestre** | Modelo financeiro e de prazos completo | 5 | 🟡 **Em revisão** |
-| **18** | **Licenciamento, Segurança, Ética e Estratégia de Release** | Postura legal, uso dual, model cards | 5 | 🟡 **Em revisão** |
-| **19** | **Registro de Riscos e Protocolo de Validade Científica** | Modos de falha, resultados negativos, mitigações | 5 | 🟡 **Em revisão** |
+> **O estado de cada documento NÃO é mantido aqui.** A fonte única é
+> [`docs/README.md`](../README.md), com legenda definida. Esta tabela existia com
+> uma coluna `Status` que duplicava a do índice e a do `README.md` da raiz — as
+> três divergiram e as três marcavam 19 de 20 como "em revisão" ao lado da
+> afirmação "corpus completo". A coluna saiu; o roteiro (fase e cobertura)
+> continua, porque isso é da alçada da carta.
 
+| # | Documento | Cobre | Fase |
+|---|---|---|---|
+| **00** | **Carta do Projeto e Roteiro** *(este doc)* | Posicionamento, escada, portões | 0 |
+| **01** | **Arquitetura do Sistema e Organização do Repositório** | Pipelines 1–2; modelo de camadas, DAG, stack, contratos de dados | 0 |
+| **02** | **Plano Mestre de Aquisição de Corpus** | Pipeline 3; todas as fontes, postura legal, volumes | 1 |
+| **03** | **Ingestão, Parsing e Normalização** | Pipeline 4; LaTeX/PDF/OCR, projeto do ΦOCR | 1 |
+| **04** | **Filtragem de Qualidade, Deduplicação e Descontaminação** | Pipelines 5, 16 (parte) | 1 |
+| **05** | **Projeto do Tokenizer e Vocabulário Físico-Matemático** | Pipeline 6; BPE/Unigram/WordPiece, vocab, LaTeX e dígitos | 1 |
+| **06** | **Mistura de Dados, Currículo e Motor de Dados Sintéticos** | Curriculum learning, geração sintética | 1 |
+| **07** | **Especificação da Família de Modelos** | ΦEnc/ΦEmb/ΦRank/ΦGen/ΦMath/ΦVis/ΦOCR/ΦCode/ΦAgent; MoE | 2 |
+| **08** | **Infraestrutura de Pretraining e Continual Pretraining** | Pipelines 7, 9; paralelismo, replay, estabilidade | 2 |
+| **09** | **Pós-treino: SFT, DPO, RLVR, Destilação** | Pipelines 8, 10 | 2 |
+| **10** | **Raciocínio, Verificação e Treino Integrado a Ferramentas** | CoT longo, recompensas de processo, projeto de verificadores | 2 |
+| **11** | **PhysBench — Projeto da Suíte de Benchmarks** | Pipelines 11, 16 | 3 |
+| **12** | **Harness de Avaliação e Protocolo Estatístico** | Pipeline 11; correção por CAS, descontaminação, avaliação humana | 3 |
+| **13** | **Recuperação, Embeddings e Stack de RAG** | Pipelines 17, 18 | 4 |
+| **14** | **Framework de Agentes e Ferramentas Matemáticas/Científicas** | Pipelines 19, 20 (SymPy…COMSOL) | 4 |
+| **15** | **Inferência e Serving** | Pipeline 12; quantização, decodificação especulativa | 4 |
+| **16** | **Deployment, MLOps, Monitoramento e Versionamento** | Pipelines 13, 14, 15 | 4 |
+| **17** | **Orçamento Computacional, Modelo de Custos e Cronograma Mestre** | Modelo financeiro e de prazos completo | 5 |
+| **18** | **Licenciamento, Segurança, Ética e Estratégia de Release** | Postura legal, uso dual, model cards | 5 |
+| **19** | **Registro de Riscos e Protocolo de Validade Científica** | Modos de falha, resultados negativos, mitigações | 5 |
 ---
 
 ## 9. Stage-Gate 0 — decisões do sponsor (RESOLVIDAS em 2026-08-03)

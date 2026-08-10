@@ -17,55 +17,59 @@ Programa de pesquisa para projetar e construir uma família de foundation models
 
 Vinte documentos, escritos em nível de publicação, cada um revisado antes do próximo começar.
 
+**O estado de cada um vive em [`docs/README.md`](docs/README.md)**, com legenda definida — e não aqui. Havia três cópias da mesma tabela de estado (aqui, no índice e no DOC-00 §11), e elas divergiram: as três marcavam 19 de 20 documentos como "em revisão" ao lado da afirmação "corpus de projeto completo". Uma cópia é uma fonte; três são um convite ao desacordo.
+
+O que a legenda de lá distingue, e importa: **🟢 confrontado com execução** (afirmações checadas contra medida) contra **🟡 escrito e nunca posto à prova**. Quatro documentos são 🟢 hoje; dezessete são 🟡. Por afirmação, a granularidade que decide, o rastreio é o [painel do DOC-19 §6-B](docs/05-governance/DOC-19-riscos-validade-cientifica.md).
+
 ### Fase 0 — Fundamentos
-| Doc | Título | Status |
-|---|---|---|
-| [DOC-00](docs/00-foundations/DOC-00-project-charter.md) | Carta do Projeto, Posicionamento Científico e Roteiro | 🟡 Em revisão |
-| [DOC-01](docs/00-foundations/DOC-01-system-architecture.md) | Arquitetura do Sistema e Organização do Repositório | 🟡 Em revisão |
-| [ADR-0001](docs/adr/ADR-0001-decisoes-stage-gate-0.md) | Decisões do Stage-Gate 0 e análise jurídica do corpus | 🟡 Em revisão |
-| [DOC-17A](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md) | Custo-benefício de GPU e armazenamento (RunPod) — *extrato antecipado* | 🟢 Entregue |
+| Doc | Título |
+|---|---|
+| [DOC-00](docs/00-foundations/DOC-00-project-charter.md) | Carta do Projeto, Posicionamento Científico e Roteiro |
+| [DOC-01](docs/00-foundations/DOC-01-system-architecture.md) | Arquitetura do Sistema e Organização do Repositório |
+| [ADR-0001](docs/adr/ADR-0001-decisoes-stage-gate-0.md) | Decisões do Stage-Gate 0 e análise jurídica do corpus |
+| [DOC-17A](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md) | Custo-benefício de GPU e armazenamento (RunPod) — *extrato antecipado* |
 
 ### Fase 1 — Dados
-| Doc | Título | Status |
-|---|---|---|
-| [DOC-02](docs/01-data/DOC-02-aquisicao-corpus.md) | Plano Mestre de Aquisição de Corpus | 🟡 Em revisão |
-| [DOC-03](docs/01-data/DOC-03-ingestao-parsing-normalizacao.md) | Ingestão, Parsing e Normalização | 🟡 Em revisão |
-| [DOC-04](docs/01-data/DOC-04-filtragem-dedup-descontaminacao.md) | Filtragem, Deduplicação e Descontaminação | 🟡 Em revisão |
-| [DOC-05](docs/01-data/DOC-05-tokenizer.md) | Projeto do Tokenizer e Vocabulário Físico-Matemático | 🟡 Em revisão |
-| [DOC-06](docs/01-data/DOC-06-mistura-curriculo-dados-sinteticos.md) | Mistura de Dados, Currículo e Dados Sintéticos | 🟡 Em revisão |
+| Doc | Título |
+|---|---|
+| [DOC-02](docs/01-data/DOC-02-aquisicao-corpus.md) | Plano Mestre de Aquisição de Corpus |
+| [DOC-03](docs/01-data/DOC-03-ingestao-parsing-normalizacao.md) | Ingestão, Parsing e Normalização |
+| [DOC-04](docs/01-data/DOC-04-filtragem-dedup-descontaminacao.md) | Filtragem, Deduplicação e Descontaminação |
+| [DOC-05](docs/01-data/DOC-05-tokenizer.md) | Projeto do Tokenizer e Vocabulário Físico-Matemático |
+| [DOC-06](docs/01-data/DOC-06-mistura-curriculo-dados-sinteticos.md) | Mistura de Dados, Currículo e Dados Sintéticos |
 
 **Fase 1 completa.** Custo total dos cinco documentos, do corpus bruto aos shards prontos: **< US$ 60**.
 
 ### Fase 2 — Modelos
-| Doc | Título | Status |
-|---|---|---|
-| [DOC-07](docs/02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos | 🟡 Em revisão |
-| [DOC-08](docs/02-models/DOC-08-pretraining-cpt.md) | Pretraining e Continual Pretraining | 🟡 Em revisão |
-| [DOC-09](docs/02-models/DOC-09-pos-treino-sft-dpo-rlvr.md) | Pós-treino: SFT, DPO, RLVR, Destilação | 🟡 Em revisão |
-| [DOC-10](docs/02-models/DOC-10-raciocinio-verificacao-ferramentas.md) | Raciocínio, Verificação e Ferramentas | 🟡 Em revisão |
+| Doc | Título |
+|---|---|
+| [DOC-07](docs/02-models/DOC-07-familia-de-modelos.md) | Especificação da Família de Modelos |
+| [DOC-08](docs/02-models/DOC-08-pretraining-cpt.md) | Pretraining e Continual Pretraining |
+| [DOC-09](docs/02-models/DOC-09-pos-treino-sft-dpo-rlvr.md) | Pós-treino: SFT, DPO, RLVR, Destilação |
+| [DOC-10](docs/02-models/DOC-10-raciocinio-verificacao-ferramentas.md) | Raciocínio, Verificação e Ferramentas |
 
 **Fase 2 completa.** Quatro troncos treinados, não dez modelos. Barramento de verificação especificado: o ativo central custa **~US$ 50** em computação.
 
 ### Fase 3 — Avaliação
-| Doc | Título | Status |
-|---|---|---|
-| [DOC-11](docs/03-evaluation/DOC-11-physbench.md) | PhysBench — Suíte de Benchmarks | 🟡 Em revisão |
-| [DOC-12](docs/03-evaluation/DOC-12-harness-protocolo-estatistico.md) | Harness de Avaliação e Protocolo Estatístico | 🟡 Em revisão |
+| Doc | Título |
+|---|---|
+| [DOC-11](docs/03-evaluation/DOC-11-physbench.md) | PhysBench — Suíte de Benchmarks |
+| [DOC-12](docs/03-evaluation/DOC-12-harness-protocolo-estatistico.md) | Harness de Avaliação e Protocolo Estatístico |
 
 ### Fase 4 — Sistemas
-| Doc | Título | Status |
-|---|---|---|
-| [DOC-13](docs/04-systems/DOC-13-recuperacao-embeddings-rag.md) | Recuperação, Embeddings e RAG | 🟡 Em revisão |
-| [DOC-14](docs/04-systems/DOC-14-agentes-ferramentas.md) | Agentes e Ferramentas Científicas | 🟡 Em revisão |
-| [DOC-15](docs/04-systems/DOC-15-inferencia-serving.md) | Inferência e Serving | 🟡 Em revisão |
-| [DOC-16](docs/04-systems/DOC-16-deployment-mlops-monitoramento.md) | Deployment, MLOps e Monitoramento | 🟡 Em revisão |
+| Doc | Título |
+|---|---|
+| [DOC-13](docs/04-systems/DOC-13-recuperacao-embeddings-rag.md) | Recuperação, Embeddings e RAG |
+| [DOC-14](docs/04-systems/DOC-14-agentes-ferramentas.md) | Agentes e Ferramentas Científicas |
+| [DOC-15](docs/04-systems/DOC-15-inferencia-serving.md) | Inferência e Serving |
+| [DOC-16](docs/04-systems/DOC-16-deployment-mlops-monitoramento.md) | Deployment, MLOps e Monitoramento |
 
 ### Fase 5 — Governança
-| Doc | Título | Status |
-|---|---|---|
-| [DOC-17](docs/05-governance/DOC-17-orcamento-cronograma.md) | Orçamento Consolidado e Cronograma Mestre | 🟡 Em revisão |
-| [DOC-18](docs/05-governance/DOC-18-licenciamento-seguranca-etica-release.md) | Licenciamento, Segurança, Ética e Release | 🟡 Em revisão |
-| [DOC-19](docs/05-governance/DOC-19-riscos-validade-cientifica.md) | Riscos e Protocolo de Validade Científica | 🟡 Em revisão |
+| Doc | Título |
+|---|---|
+| [DOC-17](docs/05-governance/DOC-17-orcamento-cronograma.md) | Orçamento Consolidado e Cronograma Mestre |
+| [DOC-18](docs/05-governance/DOC-18-licenciamento-seguranca-etica-release.md) | Licenciamento, Segurança, Ética e Release |
+| [DOC-19](docs/05-governance/DOC-19-riscos-validade-cientifica.md) | Riscos e Protocolo de Validade Científica |
 
 Índice completo com ordem de leitura em [`docs/README.md`](docs/README.md).
 
