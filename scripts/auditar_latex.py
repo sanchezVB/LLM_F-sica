@@ -42,8 +42,12 @@ def main() -> int:
     print(f"  papers abaixo de 90%       : {r['papers_abaixo_de_90pc']} de {r['papers_comparados']}")
     print(f"  papers com erro de coleta  : {r['papers_com_erro']}")
     print()
-    print(f"  DEGRADAÇÃO: {100*r['degradacao_por_equacao']:.1f}%  "
+    print(f"  DEGRADAÇÃO TOTAL: {100*r['degradacao_total']:.1f}%   "
           f"(limiar do DOC-02: {100*r['limiar_do_doc02']:.0f}%)")
+    print(f"    por AUSÊNCIA     : {100*r['degradacao_por_ausencia']:.1f}%  "
+          "← perda real de conteúdo; só isto justifica pagar")
+    print(f"    por DISCORDÂNCIA : {100*r['degradacao_por_discordancia']:.1f}%  "
+          "← notação, ou resíduo do nosso comparador")
     print("=" * 68)
     print(r["veredito"])
     print(f"\ndetalhe por paper em {a.out}")

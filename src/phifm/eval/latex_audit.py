@@ -107,6 +107,40 @@ class Auditoria:
         por_eq = tp / tf
         taxas = sorted(c.taxa for c in u)
         med = taxas[len(taxas) // 2]
+        # ── decomposição, que é o que torna o número acionável ────────────
+        #
+        # Um número único de "degradação" mistura duas coisas com consequências
+        # opostas, e a decisão de gastar US$ 180 depende de qual delas domina:
+        #
+        #   AUSENTES    o RedPajama tem MENOS equações que a fonte. É perda de
+        #               conteúdo: a equação não está lá de forma nenhuma. Só isto
+        #               justifica pagar o bulk.
+        #   DISCORDAM   contagens parecidas e formas canônicas diferentes. É
+        #               notação — ou resíduo do NOSSO comparador. Pagar por isto
+        #               seria comprar a solução de um problema nosso.
+        #
+        # Medido em 199 papers: 13,4% ausentes e 14,0% discordantes. Reportar
+        # 27,4% e mandar gastar seria juntar as duas.
+        ausentes = sum(max(0, c.eq_fonte - c.eq_redpajama) for c in u)
+        discordam = sum(max(0, min(c.eq_fonte, c.eq_redpajama) - c.preservadas) for c in u)
+        f_aus, f_dis = ausentes / tf, discordam / tf
+
+        # ⚠️ `f_aus` é COTA SUPERIOR da perda real. `juntar_fontes` concatena
+        # todos os `.tex` da submissão, inclusive os que o documento principal
+        # não inclui — rascunhos e versões alternativas inflam a contagem da
+        # fonte e aparecem como ausência. Seguir `\input`/`\include` a partir do
+        # arquivo principal resolveria; está registrado, não feito.
+        if f_aus <= 0.10 and f_aus + f_dis > 0.10:
+            v = (f"INCONCLUSIVO — perda REAL de {100*f_aus:.1f}% está abaixo do limiar, "
+                 f"mas {100*f_dis:.1f}% de discordância de notação impede afirmar. "
+                 "Resolver o comparador antes de decidir.")
+        elif f_aus > 0.10:
+            v = (f"RedPajama DEGRADA — perda real de {100*f_aus:.1f}% acima do limiar de 10%. "
+                 "COTA SUPERIOR: a contagem da fonte pode estar inflada por `.tex` não "
+                 "incluídos (ver aviso no código). Confirmar antes de gastar US$ 100–180.")
+        else:
+            v = f"RedPajama SERVE — perda real de {100*f_aus:.1f}%, abaixo do limiar de 10%"
+
         return {
             "papers_comparados": len(u),
             "papers_com_erro": sum(1 for c in self.comparacoes if c.erro),
@@ -114,15 +148,12 @@ class Auditoria:
             "equacoes_preservadas": tp,
             "preservacao_por_equacao": round(por_eq, 4),
             "preservacao_mediana_por_paper": round(med, 4),
-            "degradacao_por_equacao": round(1 - por_eq, 4),
+            "degradacao_total": round(1 - por_eq, 4),
+            "degradacao_por_ausencia": round(f_aus, 4),
+            "degradacao_por_discordancia": round(f_dis, 4),
             "papers_abaixo_de_90pc": sum(1 for t in taxas if t < 0.90),
             "limiar_do_doc02": 0.10,
-            "veredito": (
-                "RedPajama SERVE — degradação abaixo do limiar de 10%"
-                if 1 - por_eq <= 0.10 else
-                "RedPajama DEGRADA além do limiar — o bulk pago do arXiv "
-                "(US$ 100–180) passa a se justificar (DOC-02 §3.2)"
-            ),
+            "veredito": v,
         }
 
 
