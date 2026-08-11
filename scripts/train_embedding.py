@@ -27,6 +27,8 @@ def main() -> int:
     p.add_argument("--max-pares", type=int, default=None,
                    help="teto de pares nesta execução; 1,65 M leva ~90 h aqui")
     p.add_argument("--passos-aval", type=int, default=500)
+    p.add_argument("--n-candidatos", type=int, default=256,
+                   help="pool da avaliação; 256 dá erro padrão de ±0,031")
     p.add_argument("--dispositivo", default="auto", choices=["auto", "dml", "cpu"])
     a = p.parse_args()
 
@@ -47,7 +49,8 @@ def main() -> int:
                  f"{treino.height:,}", f"{total:,}", f"{val.height:,}")
 
     cfg = Config(base=a.base, lote=a.lote, max_tokens=a.max_tokens, lr=a.lr,
-                 max_pares=a.max_pares, passos_aval=a.passos_aval, dispositivo=a.dispositivo)
+                 max_pares=a.max_pares, passos_aval=a.passos_aval,
+                 n_candidatos=a.n_candidatos, dispositivo=a.dispositivo)
     m = TreinadorEmb(cfg).treinar(treino, val, a.out)
 
     antes = m.historico[0]

@@ -32,7 +32,7 @@
 # progresso durável apareça a cada ~30 s em vez de ~1,5 min.
 
 param(
-    [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb')][string]$Fonte = 'snapshot',
+    [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini')][string]$Fonte = 'snapshot',
     [int]$IntervaloSegundos = 60,
     [int]$MaxReinicios = 40,
     [int]$MaxParado = 4
@@ -62,6 +62,8 @@ switch ($Fonte) {
                   # `actual_count`, entao o progresso e -1 e o guarda de "nao
                   # avanca" tolera isso pelas 4 mortes de folga.
                   $manifestos = @('models\phiemb\phiemb.json') }
+    'phiemb-mini' { $alvo = 'train_embedding.py'
+                    $manifestos = @('models\phiemb-minilm\phiemb.json') }
     'snapshot'  { $alvo = 'harvest_openalex_snapshot.py'
                   $manifestos = @('data\raw\openalex_snapshot\_manifest.json') }
 }

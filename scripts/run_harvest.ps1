@@ -35,7 +35,7 @@
 # treino tambem ('phiemb'). O nome ficou estreito, mas a alternativa era um
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
-param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb')][string]$Fonte = 'arxiv')
+param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -58,6 +58,23 @@ switch ($Fonte) {
                  # o 3.14 da venv principal.
                  $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
                  $argumentos = '--out models/phiemb --lote 8 --passos-aval 500 --max-pares 400000' }
+    'phiemb-mini' { $script = 'scripts/train_embedding.py'
+                    $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
+                    # Lote 128 medido no DirectML: 16,2 pares/s e 127 negativos
+                    # por ancora, contra 4,1 e 7 do SciBERT. Negativos no lote
+                    # sao o limite de QUALIDADE do contrastivo, nao so de
+                    # velocidade — 127 esta na faixa de 64-256 da literatura.
+                    #
+                    # Mesmos 400 mil pares do treino anterior, de proposito: a
+                    # comparacao isola a mudanca de base e de lote.
+                    #
+                    # `n-candidatos 1000` porque a escolha do melhor checkpoint
+                    # se baseia no MRR da avaliacao, e 256 candidatos davam
+                    # ruido de +-0,031.
+                    $argumentos = '--out models/phiemb-minilm ' +
+                                  '--base sentence-transformers/all-MiniLM-L6-v2 ' +
+                                  '--lote 128 --passos-aval 200 --max-pares 400000 ' +
+                                  '--n-candidatos 1000' }
 }
 
 # ─── Trava por PID, e por que a checagem antiga nao servia ───────────────

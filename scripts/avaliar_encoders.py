@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
-from phifm.eval.encoders import comparar, tabela, veredito  # noqa: E402
+from phifm.eval.encoders import comparar, tabela, tabela_pareada, veredito  # noqa: E402
 
 
 def main() -> int:
@@ -22,7 +22,8 @@ def main() -> int:
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
     p.add_argument("--phiemb", type=Path, default=Path("models/phiemb"),
                    help="checkpoint do ΦEmb; omitido se não existir")
-    p.add_argument("--n", type=int, default=256, help="candidatos na avaliação")
+    p.add_argument("--n", type=int, default=2000,
+                   help="candidatos na avaliação; 256 não separa margens de ~0,02")
     p.add_argument("--max-tokens", type=int, default=192)
     p.add_argument("--lote", type=int, default=16)
     p.add_argument("--dispositivo", default="cpu", choices=["cpu", "dml"])
@@ -47,6 +48,9 @@ def main() -> int:
     print(tabela(rs, a.n))
     print("=" * 68)
     print()
+    print(tabela_pareada(rs))
+    print()
+    print("=" * 68)
     print(veredito(rs, a.n))
     return 0
 

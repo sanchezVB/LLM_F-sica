@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import polars as pl
@@ -69,6 +69,10 @@ class Resultado:
     # de contra o nosso resultado, e anunciava "G1 NAO PASSOU" com o modelo
     # errado no papel de candidato.
     nosso: bool = False
+    # Posição do acerto POR ITEM. Guardar isto é o que permite comparação
+    # pareada — ver `comparar_pareado`, que extrai muito mais sinal dos mesmos
+    # dados do que confrontar duas proporções soltas.
+    posicoes: list[int] = field(default_factory=list)
 
 
 @torch.no_grad()
@@ -110,6 +114,7 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
         (1.0 / pos).mean().item(),
         sum(p.numel() for p in mod.parameters()) / 1e6,
         time.perf_counter() - t0,
+        posicoes=pos.tolist(),
     )
 
 
@@ -143,6 +148,84 @@ def tabela(rs: list[Resultado], n: int) -> str:
     for r in rs:
         if r.erro:
             L.append(f"{r.nome[:30]:30}   FALHOU: {r.erro[:60]}")
+    return "\n".join(L)
+
+
+def comparar_pareado(a: Resultado, b: Resultado) -> dict:
+    """Comparação PAREADA em recall@1 — muito mais sensível que duas proporções.
+
+    ## Por que pareado muda tudo
+
+    Confrontar 0,402 contra 0,398 como proporções independentes dá erro padrão de
+    ±0,031 com 256 itens, e a margem desaparece no ruído. Mas os dois modelos
+    foram medidos nos **mesmos itens**, e a maioria deles os dois acertam ou os
+    dois erram — esses **não carregam informação sobre a diferença**. O que
+    importa são os discordantes: itens que um acerta e o outro não.
+
+    Se de 256 itens 40 são discordantes e o placar é 28 a 12, isso é evidência
+    forte. Tratado como proporções soltas, o mesmo dado pareceria empate. É o
+    teste de McNemar, e a versão exata dele é uma binomial sobre os discordantes.
+
+    ## Limite declarado
+
+    Com poucos discordantes o teste não decide, e dizer isso é melhor que
+    inventar significância. `p` é bicaudal e exato — sem aproximação normal, que
+    é ruim justamente quando os números são pequenos.
+    """
+    if not a.posicoes or not b.posicoes:
+        return {"erro": "faltam posições por item — reavalie com esta versão"}
+    if len(a.posicoes) != len(b.posicoes):
+        return {"erro": f"conjuntos de tamanhos diferentes: {len(a.posicoes)} vs {len(b.posicoes)}"}
+
+    ganha_a = sum(1 for x, y in zip(a.posicoes, b.posicoes) if x == 1 and y != 1)
+    ganha_b = sum(1 for x, y in zip(a.posicoes, b.posicoes) if y == 1 and x != 1)
+    disc = ganha_a + ganha_b
+
+    if disc == 0:
+        return {"a": a.nome, "b": b.nome, "ganha_a": 0, "ganha_b": 0, "discordantes": 0,
+                "p": 1.0, "veredito": "idênticos item a item — nada a decidir"}
+
+    # Binomial exata bicaudal com p=0,5 sobre os discordantes.
+    from math import comb
+    k = min(ganha_a, ganha_b)
+    cauda = sum(comb(disc, i) for i in range(k + 1)) / 2 ** disc
+    p = min(1.0, 2 * cauda)
+
+    vencedor = a.nome if ganha_a > ganha_b else b.nome
+    if p < 0.05:
+        v = f"{vencedor} vence em recall@1 (p={p:.4f})"
+    elif disc < 20:
+        v = f"indeciso — só {disc} itens discordantes, amostra insuficiente (p={p:.3f})"
+    else:
+        v = f"empate — {disc} discordantes não separam os dois (p={p:.3f})"
+
+    return {"a": a.nome, "b": b.nome, "ganha_a": ganha_a, "ganha_b": ganha_b,
+            "discordantes": disc, "p": p, "veredito": v}
+
+
+def tabela_pareada(rs: list[Resultado]) -> str:
+    """Todos contra o nosso, pareado."""
+    ok = [r for r in rs if not r.erro]
+    nosso = next((r for r in ok if r.nosso), None)
+    if nosso is None:
+        return "(sem modelo nosso na comparação)"
+
+    L = ["Comparação PAREADA em recall@1 — teste de McNemar exato", "",
+         f"{'contra':30} {'nós':>5} {'eles':>5} {'disc':>5} {'p':>8}  veredito"]
+    L.append("-" * 92)
+    for r in ok:
+        if r is nosso:
+            continue
+        c = comparar_pareado(nosso, r)
+        if "erro" in c:
+            L.append(f"{r.nome[:30]:30}  {c['erro']}")
+            continue
+        L.append(f"{r.nome[:30]:30} {c['ganha_a']:5} {c['ganha_b']:5} "
+                 f"{c['discordantes']:5} {c['p']:8.4f}  {c['veredito']}")
+    L.append("")
+    L.append("Itens que ambos acertam ou ambos erram não informam sobre a diferença;")
+    L.append("só os discordantes decidem. É por isso que o pareado enxerga o que")
+    L.append("duas proporções soltas não enxergam.")
     return "\n".join(L)
 
 
