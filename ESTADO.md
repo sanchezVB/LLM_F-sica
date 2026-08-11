@@ -68,6 +68,74 @@ progressão de 40 h a 5,6 h e o que dominava cada etapa.
 Não é bloqueio imediato: os 10,1 M de arestas já coletados bastam para
 começar a treinar o ΦEmb.
 
+## Sessão de 2026-08-10 — quatro passos, e o que está rodando
+
+Ordem de execução trocada em relação à de retorno: o passo 3 é **pré-requisito**
+do 1 (sem ele o treino novo perde o pico igual ao anterior), e o 2 é o que
+permite julgar o resultado do 1.
+
+| Passo | Estado | Onde |
+|---|---|---|
+| 3. Guardar o melhor checkpoint | ✅ `817c427` | `training/embedding.py` |
+| 2. Comparação pareada | ✅ `f7ed572` | `eval/encoders.py` |
+| 1. ΦEmb sobre MiniLM | 🔄 rodando, fim ~04:10 | `models/phiemb-minilm` |
+| 4a. S3b — auditoria de LaTeX | 🔄 200 papers rodando | `data/processed/avaliacao/s3b_latex.json` |
+| 4b–4d. RedPajama, classificadora, peS2o | ⬜ | — |
+
+### O achado que mais importa: os 19,6% eram meus
+
+A primeira medição do S3b acusava **19,6% de degradação** do RedPajama, acima do
+limiar de 10% que o DOC-02 usa para justificar US$ 100–180 de egress pago.
+
+Era defeito da medição. O paper fora da curva tinha 585 equações na fonte e 568
+no RedPajama — quase todas lá — mas só 392 casavam por forma canônica. O teste
+que decidiu:
+
+| grupo | n | usam macro do autor |
+|---|---|---|
+| casaram | 571 | **20%** |
+| NÃO casaram | 239 | **97%** |
+
+A fonte escreve `\Ecal_\mu`, o RedPajama escreve `\mathcal{E}_\mu`. Com
+`core/latex/macros.py` expandindo as 49 macros do autor, o mesmo dado dá
+**2,6% de degradação** e o veredito inverte para **"RedPajama SERVE"**.
+
+Conclusão anterior teria mandado gastar US$ 180 por um bug meu.
+
+De passagem, confirma o DOC-03 §2.2 ("60–80% dos papers definem macros"), que o
+painel do DOC-19 marcava ⬜ nunca testado.
+
+### Parâmetros do treino novo, medidos antes de lançar
+
+| Lote | pares/s | negativos por âncora |
+|---|---|---|
+| 8 (o que o SciBERT aguentava) | 4,1 | 7 |
+| 32 | 11,6 | 31 |
+| **128 (escolhido)** | **16,2** | **127** |
+
+Negativos no lote são o limite de **qualidade** do contrastivo, não só de
+velocidade — 127 está na faixa de 64–256 da literatura, e é a metade do portão
+T1 que faltava atacar. Mesmos 400 mil pares do treino anterior de propósito: a
+comparação isola a mudança de base e de lote.
+
+⚠️ **A perda não é comparável entre lotes.** O MiniLM registra ~1,5 contra
+0,3–0,5 do SciBERT, e isso não é pior: InfoNCE com 128 negativos tem piso mais
+alto que com 8 (ln 128 ≈ 4,85 contra ln 8 ≈ 2,08). Comparar perdas de lotes
+diferentes é erro de leitura.
+
+### Por que aumentar o conjunto de avaliação não bastava
+
+| n | erro padrão | margem mínima detectável |
+|---|---|---|
+| 256 | ±0,031 | ~0,061 |
+| 2.000 | ±0,011 | ~0,022 |
+| 4.000 | ±0,008 | ~0,015 |
+
+A margem entre ΦEmb e MiniLM era **0,004**. Nem com 4.000 candidatos ela sairia
+do ruído. O que resolve é comparação **pareada**: os modelos são medidos nos
+mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 32 a
+8 em 40 discordantes é evidência que o teste não pareado descarta.
+
 ## O que fazer a seguir, em ordem
 
 1. **Terminar o S1** — deixar o arXiv completar (~5 h, em curso)

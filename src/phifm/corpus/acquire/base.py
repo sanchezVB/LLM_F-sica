@@ -111,8 +111,30 @@ class PoliteSession:
                     time.sleep(delay)
                     continue
 
+                # ⚠️ 4xx que não seja 429 é DEFINITIVO: repetir não muda a
+                # resposta. Medido em 2026-08-10 na auditoria do S3b — papers
+                # sem fonte no arXiv davam 404 e cada um custava seis tentativas
+                # com recuo exponencial, ~25 s desperdiçados por paper ausente.
+                #
+                # Pior que o desperdício: o log enchia de "Falha de rede" para
+                # algo que não é falha de rede, e sim ausência legítima do
+                # recurso. Confundir os dois esconde problema de rede real.
+                if 400 <= r.status_code < 500 and r.status_code != 429:
+                    r.raise_for_status()
+
                 r.raise_for_status()
                 return r
+
+            except requests.HTTPError as exc:
+                # Já sabemos que é definitivo (a guarda acima só deixa passar
+                # 4xx não-429); propagar sem repetir.
+                if exc.response is not None and 400 <= exc.response.status_code < 500 \
+                        and exc.response.status_code != 429:
+                    raise
+                last_exc = exc
+                delay = self.throttle.backoff(attempt)
+                log.warning("HTTP %s — aguardando %.1fs", exc, delay)
+                time.sleep(delay)
 
             except requests.RequestException as exc:
                 last_exc = exc
