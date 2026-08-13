@@ -223,6 +223,31 @@ def comparar(val: pl.DataFrame, extras: dict[str, str] | None = None,
     return out
 
 
+def salvar(rs: list[Resultado], destino: Path, n: int) -> dict:
+    """Grava o RESULTADO, que é coisa diferente do cache.
+
+    O cache guarda posições por item e é chaveado pelo protocolo: existe para não
+    remedir, e é descartado quando o protocolo muda. Isto é a evidência das
+    afirmações do ESTADO.md, e por isso é versionado.
+
+    Existe porque o resultado morava só no log de quem lançou o script — e o log
+    do lançador vive em `data/raw/`, que é ignorado. Script que produz afirmação
+    tem de ser dono do artefato que a sustenta.
+    """
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    d = {
+        "n_candidatos": n,
+        "modelos": [{k: v for k, v in asdict(r).items() if k != "posicoes"} for r in rs],
+        "pareado": [comparar_pareado(campeao(rs), r)
+                    for r in rs if not r.erro and r is not campeao(rs)]
+        if campeao(rs) else [],
+        "veredito": veredito(rs, n),
+    }
+    destino.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+    log.info("resultado → %s", destino)
+    return d
+
+
 def campeao(rs: list[Resultado]) -> Resultado | None:
     """O MELHOR dos nossos, não o primeiro.
 

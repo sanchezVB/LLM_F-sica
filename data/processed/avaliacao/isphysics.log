@@ -1,0 +1,27 @@
+INFO    is_physics: 300,000 física · 300,000 não-física
+INFO    treino: 510,000 | validação: 90,000 | classes: 2
+INFO    → models\isphysics-clf
+
+========================================================================
+              precision    recall  f1-score   support
+
+      fisica      0.976     0.968     0.972     45012
+  nao_fisica      0.968     0.976     0.972     44988
+
+    accuracy                          0.972     90000
+   macro avg      0.972     0.972     0.972     90000
+weighted avg      0.972     0.972     0.972     90000
+
+========================================================================
+
+CALIBRAÇÃO (alvo de precisão = 0.95, DOC-02 §6)
+cobertura: 100.0% dos itens passam algum limiar
+
+classe                              limiar  precisão  revocação
+nao_fisica                            0.33    0.951     0.988
+fisica                                0.29    0.950     0.982
+
+⚠️  LIMITE DE DOMÍNIO — estes números valem para o arXiv.
+    Os negativos são resumos de cs/econ/q-bio. `math` NÃO está
+    entre eles, e é a vizinha mais confundível da Física. No
+    OpenWebMath espere pior até que negativos de math existam.

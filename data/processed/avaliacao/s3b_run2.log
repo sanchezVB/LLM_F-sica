@@ -1,0 +1,34 @@
+08:05:20 INFO    RedPajama: 200 papers amostrados de 271 linhas do primeiro shard (do cache)
+08:06:25 INFO    20/200 · 1607.04640 · fonte 232 eq · rp 230 eq · preservação 0.97 · seguido-ambiguo
+08:07:28 INFO    40/200 · 1607.04518 · fonte 2 eq · rp 2 eq · preservação 1.00 · seguido
+08:08:26 INFO    60/200 · 1607.04540 · fonte 261 eq · rp 221 eq · preservação 0.68 · seguido
+08:09:27 INFO    80/200 · 1607.04778 · fonte 371 eq · rp 367 eq · preservação 0.99 · seguido
+08:10:27 INFO    100/200 · 1607.04573 · fonte 11 eq · rp 10 eq · preservação 0.91 · seguido
+08:11:28 INFO    120/200 · 1607.04530 · fonte 240 eq · rp 240 eq · preservação 1.00 · seguido
+08:12:27 INFO    140/200 · 1607.04878 · fonte 138 eq · rp 36 eq · preservação 0.26 · seguido
+08:13:31 INFO    160/200 · 1607.04569 · fonte 393 eq · rp 268 eq · preservação 0.68 · seguido
+08:14:23 INFO    178/200 · 1607.04717 · fonte 0 eq · rp 0 eq · preservação — ·  · HTTPError: 404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717
+08:14:29 INFO    180/200 · 1607.04534 · fonte 235 eq · rp 233 eq · preservação 0.99 · seguido-ambiguo
+08:15:29 INFO    200/200 · 1607.04842 · fonte 219 eq · rp 218 eq · preservação 0.93 · seguido
+08:15:29 INFO    montagem da fonte: {'seguido': 193, 'seguido-ambiguo': 5, 'concatenado': 1, 'erro': 1}
+
+====================================================================
+S3b — preservação de equações do RedPajama-arXiv (197 papers)
+
+  equações na fonte          : 57,534
+  preservadas no RedPajama   : 42,369
+  preservação por equação    : 73.6%
+  mediana por paper          : 91.1%
+  papers abaixo de 90%       : 94 de 197
+  papers com erro de coleta  : 1
+  excluídos (fonte montada por concatenação, contagem inflável)
+                             : 1
+
+  DEGRADAÇÃO TOTAL: 26.4%   (limiar do DOC-02: 10%)
+    por AUSÊNCIA     : 13.4%  ← perda real de conteúdo; só isto justifica pagar
+    por DISCORDÂNCIA : 13.0%  ← notação, ou resíduo do nosso comparador
+    (sem filtrar por montagem daria 26.3% — a diferença É o viés da concatenação)
+====================================================================
+RedPajama DEGRADA — perda real de 13.4% acima do limiar de 10%; o bulk pago do arXiv (US$ 100–180) se justifica (DOC-02 §3.2)
+
+detalhe por paper em data\processed\avaliacao\s3b_latex.json

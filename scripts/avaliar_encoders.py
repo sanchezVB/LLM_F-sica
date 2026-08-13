@@ -19,7 +19,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
-from phifm.eval.encoders import comparar, tabela, tabela_pareada, veredito  # noqa: E402
+from phifm.eval.encoders import (  # noqa: E402
+    comparar,
+    salvar,
+    tabela,
+    tabela_pareada,
+    veredito,
+)
 
 # Nossos candidatos. O `-melhor` é o checkpoint de pico, não o último passo — no
 # treino sobre MiniLM o pico deu MRR 0,477 contra 0,469 do fim.
@@ -41,7 +47,10 @@ def main() -> int:
     p.add_argument("--dispositivo", default="cpu", choices=["cpu", "dml"])
     p.add_argument("--cache", type=Path,
                    default=Path("data/processed/avaliacao/g1_cache.json"),
-                   help="resultados por modelo, com posições por item")
+                   help="posições por item, para não remedir; NÃO é o resultado")
+    p.add_argument("--out", type=Path,
+                   default=Path("data/processed/avaliacao/g1_resultado.json"),
+                   help="o resultado, que é versionado — o log do lançador não é")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
@@ -79,6 +88,7 @@ def main() -> int:
     print()
     print("=" * 78)
     print(veredito(rs, a.n))
+    salvar(rs, a.out, a.n)
     return 0
 
 

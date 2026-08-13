@@ -1,0 +1,125 @@
+{
+  "n_candidatos": 2000,
+  "modelos": [
+    {
+      "nome": "SciBERT (base do ΦEmb)",
+      "caminho": "allenai/scibert_scivocab_uncased",
+      "recall_1": 0.10949999839067459,
+      "recall_10": 0.328000009059906,
+      "mrr": 0.18454177677631378,
+      "ndcg_10": 0.20737257599830627,
+      "parametros_m": 109.918464,
+      "segundos": 540.272868,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "PhysBERT (alvo do G1.1)",
+      "caminho": "thellert/physbert_cased",
+      "recall_1": 0.14550000429153442,
+      "recall_10": 0.42500001192092896,
+      "mrr": 0.23945727944374084,
+      "ndcg_10": 0.27520227432250977,
+      "parametros_m": 109.48224,
+      "segundos": 523.8679645,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "MiniLM-L6 (genérico 23M)",
+      "caminho": "sentence-transformers/all-MiniLM-L6-v2",
+      "recall_1": 0.20499999821186066,
+      "recall_10": 0.5600000023841858,
+      "mrr": 0.3237091600894928,
+      "ndcg_10": 0.370066374540329,
+      "parametros_m": 22.713216,
+      "segundos": 95.01466809999988,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "GTE-large (genérico 335M)",
+      "caminho": "thenlper/gte-large",
+      "recall_1": 0.2775000035762787,
+      "recall_10": 0.6765000224113464,
+      "mrr": 0.40669354796409607,
+      "ndcg_10": 0.46281054615974426,
+      "parametros_m": 335.141888,
+      "segundos": 1882.9374334,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "ΦEmb/SciBERT (110M)",
+      "caminho": "models\\phiemb",
+      "recall_1": 0.226500004529953,
+      "recall_10": 0.6729999780654907,
+      "mrr": 0.36694395542144775,
+      "ndcg_10": 0.42915868759155273,
+      "parametros_m": 109.918464,
+      "segundos": 521.7871205000001,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "ΦEmb/MiniLM (23M)",
+      "caminho": "models\\phiemb-minilm-melhor",
+      "recall_1": 0.2535000145435333,
+      "recall_10": 0.699999988079071,
+      "mrr": 0.39485806226730347,
+      "ndcg_10": 0.45790472626686096,
+      "parametros_m": 22.713216,
+      "segundos": 97.4646746999997,
+      "erro": "",
+      "nosso": true
+    }
+  ],
+  "pareado": [
+    {
+      "a": "ΦEmb/MiniLM (23M)",
+      "b": "SciBERT (base do ΦEmb)",
+      "ganha_a": 367,
+      "ganha_b": 79,
+      "discordantes": 446,
+      "p": 1.9880486190314334e-45,
+      "veredito": "ΦEmb/MiniLM (23M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb/MiniLM (23M)",
+      "b": "PhysBERT (alvo do G1.1)",
+      "ganha_a": 334,
+      "ganha_b": 118,
+      "discordantes": 452,
+      "p": 5.782683887172397e-25,
+      "veredito": "ΦEmb/MiniLM (23M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb/MiniLM (23M)",
+      "b": "MiniLM-L6 (genérico 23M)",
+      "ganha_a": 192,
+      "ganha_b": 95,
+      "discordantes": 287,
+      "p": 1.0647024222786065e-08,
+      "veredito": "ΦEmb/MiniLM (23M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb/MiniLM (23M)",
+      "b": "GTE-large (genérico 335M)",
+      "ganha_a": 157,
+      "ganha_b": 205,
+      "discordantes": 362,
+      "p": 0.013391547593522204,
+      "veredito": "GTE-large (genérico 335M) vence em recall@1 (p=0.0134)"
+    },
+    {
+      "a": "ΦEmb/MiniLM (23M)",
+      "b": "ΦEmb/SciBERT (110M)",
+      "ganha_a": 209,
+      "ganha_b": 155,
+      "discordantes": 364,
+      "p": 0.005398199451774124,
+      "veredito": "ΦEmb/MiniLM (23M) vence em recall@1 (p=0.0054)"
+    }
+  ],
+  "veredito": "nosso candidato: ΦEmb/MiniLM (23M) · 23M params · nDCG@10 0.458\n\nG1.1: PASSOU — nDCG@10 +0.183 sobre o PhysBERT (limiar +0.05) · pareado em recall@1: ΦEmb/MiniLM (23M) vence em recall@1 (p=0.0000)\nG1.2: NÃO PASSOU — melhor genérico é GTE-large (genérico 335M) (335M, nDCG@10 0.463); nDCG@10 -0.005, razão de params 1/14.8 (≤ 1/10 exigido)\n\nRESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:\n  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado\n  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)\n    não são tocados por esta medição\n  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);\n    um benchmark com julgamentos graduados daria outro número"
+}

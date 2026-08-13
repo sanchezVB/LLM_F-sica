@@ -1,0 +1,34 @@
+21:38:17 INFO    RedPajama: 200 papers amostrados de 17 MB do primeiro shard
+21:39:17 INFO    20/200 · 1607.04640 · fonte 285 eq · rp 230 eq · preservação 0.79 
+21:40:27 INFO    40/200 · 1607.04518 · fonte 2 eq · rp 2 eq · preservação 1.00 
+21:41:27 INFO    60/200 · 1607.04540 · fonte 261 eq · rp 221 eq · preservação 0.68 
+21:42:27 INFO    80/200 · 1607.04778 · fonte 371 eq · rp 367 eq · preservação 0.99 
+21:43:32 INFO    100/200 · 1607.04573 · fonte 11 eq · rp 10 eq · preservação 0.91 
+21:44:33 INFO    120/200 · 1607.04530 · fonte 240 eq · rp 240 eq · preservação 1.00 
+21:45:35 INFO    140/200 · 1607.04878 · fonte 138 eq · rp 36 eq · preservação 0.26 
+21:46:39 INFO    160/200 · 1607.04569 · fonte 393 eq · rp 268 eq · preservação 0.68 
+21:47:34 WARNING Falha de rede (404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717) — aguardando 1.1s
+21:47:36 WARNING Falha de rede (404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717) — aguardando 2.0s
+21:47:39 WARNING Falha de rede (404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717) — aguardando 5.3s
+21:47:44 WARNING Falha de rede (404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717) — aguardando 6.2s
+21:47:51 WARNING Falha de rede (404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717) — aguardando 9.7s
+21:48:00 WARNING Falha de rede (404 Client Error: Not Found for url: https://arxiv.org/src/1607.04717) — aguardando 41.1s
+21:48:42 INFO    178/200 · 1607.04717 · fonte 0 eq · rp 0 eq · preservação — · RuntimeError: Esgotadas 6 tentativas para https://arxiv.org/e-print/1607.04717
+21:48:46 INFO    180/200 · 1607.04534 · fonte 235 eq · rp 233 eq · preservação 0.99 
+21:49:46 INFO    200/200 · 1607.04842 · fonte 219 eq · rp 218 eq · preservação 0.93 
+
+====================================================================
+S3b — preservação de equações do RedPajama-arXiv (199 papers)
+
+  equações na fonte          : 58,906
+  preservadas no RedPajama   : 42,743
+  preservação por equação    : 72.6%
+  mediana por paper          : 90.9%
+  papers abaixo de 90%       : 96 de 199
+  papers com erro de coleta  : 1
+
+  DEGRADAÇÃO: 27.4%  (limiar do DOC-02: 10%)
+====================================================================
+RedPajama DEGRADA além do limiar — o bulk pago do arXiv (US$ 100–180) passa a se justificar (DOC-02 §3.2)
+
+detalhe por paper em data\processed\avaliacao\s3b_latex.json

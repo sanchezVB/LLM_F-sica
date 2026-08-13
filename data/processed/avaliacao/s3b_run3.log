@@ -1,0 +1,41 @@
+08:24:30 INFO    RedPajama: 900 papers amostrados de 1096 linhas do primeiro shard (do cache)
+08:24:35 INFO    amostra: 388 de 900 são Física pelo spine (512 descartados: o shard do RedPajama é o arXiv inteiro)
+08:24:37 INFO    20/300 · 1607.04649 · fonte 256 eq · rp 185 eq · preservação 0.72 · seguido
+08:24:38 INFO    40/300 · 1607.04872 · fonte 418 eq · rp 417 eq · preservação 0.66 · seguido
+08:24:39 INFO    60/300 · 1607.04919 · fonte 155 eq · rp 133 eq · preservação 0.85 · seguido
+08:24:40 INFO    80/300 · 1607.04937 · fonte 209 eq · rp 176 eq · preservação 0.84 · seguido
+08:24:41 INFO    100/300 · 1607.04686 · fonte 114 eq · rp 108 eq · preservação 0.83 · seguido
+08:25:31 INFO    120/300 · 1607.04935 · fonte 294 eq · rp 221 eq · preservação 0.75 · seguido
+08:26:26 INFO    138/300 · 1607.04694 · fonte 0 eq · rp 0 eq · preservação — ·  · HTTPError: 404 Client Error: Not Found for url: https://arxiv.org/src/1607.04694
+08:26:38 INFO    140/300 · 1607.04598 · fonte 298 eq · rp 298 eq · preservação 1.00 · seguido
+08:27:42 INFO    160/300 · 2203.01957 · fonte 483 eq · rp 195 eq · preservação 0.13 · seguido
+08:29:21 INFO    180/300 · 2203.01985 · fonte 194 eq · rp 286 eq · preservação 0.89 · seguido
+08:31:39 INFO    200/300 · 2209.14510 · fonte 212 eq · rp 23 eq · preservação 0.11 · seguido
+08:32:57 INFO    220/300 · 2209.14486 · fonte 101 eq · rp 91 eq · preservação 0.74 · seguido
+08:34:34 INFO    240/300 · 2209.14574 · fonte 53 eq · rp 38 eq · preservação 0.72 · seguido
+08:36:11 INFO    260/300 · 2012.08691 · fonte 44 eq · rp 0 eq · preservação 0.00 · seguido
+08:37:39 INFO    280/300 · 2012.08817 · fonte 126 eq · rp 75 eq · preservação 0.60 · seguido
+08:38:57 INFO    300/300 · 2005.14392 · fonte 59 eq · rp 60 eq · preservação 0.98 · seguido
+08:38:57 INFO    montagem da fonte: {'seguido': 279, 'seguido-ambiguo': 20, 'erro': 1}
+
+====================================================================
+S3b — preservação de equações do RedPajama-arXiv (298 papers)
+
+  equações na fonte          : 55,780
+  preservadas no RedPajama   : 41,424
+  preservação por equação    : 74.3%
+  mediana por paper          : 88.7%
+  papers abaixo de 90%       : 155 de 298
+  papers com erro de coleta  : 1
+  excluídos (fonte montada por concatenação, contagem inflável)
+                             : 0
+
+  DEGRADAÇÃO TOTAL: 25.7%   (limiar do DOC-02: 10%)
+    por AUSÊNCIA     : 16.6%  ← perda real de conteúdo; só isto justifica pagar
+    por DISCORDÂNCIA : 9.1%  ← notação, ou resíduo do nosso comparador
+    IC 95% da ausência: [12.9%, 20.8%] · P(>10%) = 100%
+    (sem filtrar por montagem daria 25.7% — a diferença É o viés da concatenação)
+====================================================================
+RedPajama DEGRADA — perda real de 16.6%, IC 95% [12.9%, 20.8%], inteiramente acima do limiar de 10%; o bulk pago do arXiv (US$ 100–180) se justifica (DOC-02 §3.2)
+
+detalhe por paper em data\processed\avaliacao\s3b_latex.json

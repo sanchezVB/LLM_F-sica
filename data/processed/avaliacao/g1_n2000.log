@@ -1,0 +1,35 @@
+21:06:30 INFO    validação: 133,540 pares · usando os 2000 primeiros
+21:06:30 INFO    avaliando SciBERT (base do ΦEmb) (allenai/scibert_scivocab_uncased)
+21:21:17 INFO      recall@1 0.109 · recall@10 0.328 · MRR 0.185 (887s)
+21:21:17 INFO    avaliando PhysBERT (alvo do G1) (thellert/physbert_cased)
+21:42:51 INFO      recall@1 0.146 · recall@10 0.425 · MRR 0.239 (1294s)
+21:42:51 INFO    avaliando MiniLM-L6 (genérico) (sentence-transformers/all-MiniLM-L6-v2)
+21:46:05 INFO      recall@1 0.205 · recall@10 0.560 · MRR 0.324 (195s)
+21:46:05 INFO    avaliando ΦEmb (nosso) (models\phiemb)
+21:59:50 INFO      recall@1 0.227 · recall@10 0.673 · MRR 0.367 (824s)
+
+====================================================================
+Recuperação por citação · 2000 candidatos · média mascarada · 192 tokens
+
+modelo                           params  recall@1  recall@10     MRR
+--------------------------------------------------------------------
+ΦEmb (nosso)                       110M     0.227      0.673   0.367
+MiniLM-L6 (genérico)                23M     0.205      0.560   0.324
+PhysBERT (alvo do G1)              109M     0.146      0.425   0.239
+SciBERT (base do ΦEmb)             110M     0.109      0.328   0.185
+====================================================================
+
+Comparação PAREADA em recall@1 — teste de McNemar exato
+
+contra                           nós  eles  disc        p  veredito
+--------------------------------------------------------------------------------------------
+SciBERT (base do ΦEmb)           325    91   416   0.0000  ΦEmb (nosso) vence em recall@1 (p=0.0000)
+PhysBERT (alvo do G1)            299   137   436   0.0000  ΦEmb (nosso) vence em recall@1 (p=0.0000)
+MiniLM-L6 (genérico)             207   164   371   0.0291  ΦEmb (nosso) vence em recall@1 (p=0.0291)
+
+Itens que ambos acertam ou ambos erram não informam sobre a diferença;
+só os discordantes decidem. É por isso que o pareado enxerga o que
+duas proporções soltas não enxergam.
+
+====================================================================
+G1: PASSOU sobre quem foi medido — margem mínima de +0.022 em recall@1, acima do erro padrão de ±0.009

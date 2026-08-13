@@ -6,7 +6,23 @@
 # assim que `src/phifm/corpus/` (o módulo de coleta) ficou fora do git sem
 # ninguém notar: na máquina de origem os arquivos existiam em disco, apenas
 # não rastreados, então os testes passavam lá e falhavam em clone limpo.
-/data/
+#
+# ⚠️ `/data/*` e não `/data/`. O git NÃO DESCE num diretório excluído, então
+# `!/data/processed/avaliacao/*.json` sob um `/data/` seria ignorado em silêncio —
+# a negação só funciona reabrindo cada nível do caminho. É a mesma família de
+# armadilha do `corpus/` sem barra: padrão que parece certo e não é.
+/data/*
+!/data/processed/
+/data/processed/*
+!/data/processed/avaliacao/
+/data/processed/avaliacao/*
+# Resultados de medição SÃO versionados: são a evidência das afirmações do
+# ESTADO.md e dos painéis dos DOCs. São 84 KB — o corpus é que não cabe, não isto.
+!/data/processed/avaliacao/*.json
+!/data/processed/avaliacao/*.log
+# ...menos o cache, que é derivado e chaveado pelo protocolo de avaliação.
+# Versionar cache é convidar a comparar números medidos com protocolos diferentes.
+/data/processed/avaliacao/*_cache.json
 /corpus/
 /raw/
 *.parquet

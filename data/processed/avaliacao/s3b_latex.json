@@ -1,0 +1,2725 @@
+{
+  "resumo": {
+    "papers_comparados": 298,
+    "papers_por_concatenacao_excluidos": 0,
+    "papers_com_erro": 1,
+    "equacoes_na_fonte": 55780,
+    "equacoes_preservadas": 41424,
+    "preservacao_por_equacao": 0.7426,
+    "preservacao_mediana_por_paper": 0.8871,
+    "degradacao_total": 0.2574,
+    "degradacao_por_ausencia": 0.1659,
+    "degradacao_por_discordancia": 0.0914,
+    "degradacao_total_sem_filtro": 0.2574,
+    "papers_abaixo_de_90pc": 155,
+    "ausencia_ic95": [
+      0.1294,
+      0.2084
+    ],
+    "ausencia_p_acima_do_limiar": 1.0,
+    "limiar_do_doc02": 0.1,
+    "veredito": "RedPajama DEGRADA — perda real de 16.6%, IC 95% [12.9%, 20.8%], inteiramente acima do limiar de 10%; o bulk pago do arXiv (US$ 100–180) se justifica (DOC-02 §3.2)"
+  },
+  "por_paper": [
+    {
+      "arxiv_id": "1607.04531",
+      "eq_fonte": 25,
+      "eq_redpajama": 23,
+      "preservadas": 23,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04828",
+      "eq_fonte": 157,
+      "eq_redpajama": 153,
+      "preservadas": 153,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04617",
+      "eq_fonte": 136,
+      "eq_redpajama": 141,
+      "preservadas": 128,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04724",
+      "eq_fonte": 250,
+      "eq_redpajama": 219,
+      "preservadas": 218,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04921",
+      "eq_fonte": 124,
+      "eq_redpajama": 124,
+      "preservadas": 124,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04707",
+      "eq_fonte": 133,
+      "eq_redpajama": 131,
+      "preservadas": 131,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04608",
+      "eq_fonte": 125,
+      "eq_redpajama": 120,
+      "preservadas": 120,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04821",
+      "eq_fonte": 209,
+      "eq_redpajama": 209,
+      "preservadas": 209,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04618",
+      "eq_fonte": 73,
+      "eq_redpajama": 72,
+      "preservadas": 72,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04669",
+      "eq_fonte": 69,
+      "eq_redpajama": 10,
+      "preservadas": 10,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 10
+    },
+    {
+      "arxiv_id": "1607.04784",
+      "eq_fonte": 38,
+      "eq_redpajama": 36,
+      "preservadas": 36,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04640",
+      "eq_fonte": 232,
+      "eq_redpajama": 230,
+      "preservadas": 226,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "1607.04642",
+      "eq_fonte": 47,
+      "eq_redpajama": 47,
+      "preservadas": 47,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04733",
+      "eq_fonte": 93,
+      "eq_redpajama": 92,
+      "preservadas": 92,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04716",
+      "eq_fonte": 279,
+      "eq_redpajama": 273,
+      "preservadas": 273,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04670",
+      "eq_fonte": 75,
+      "eq_redpajama": 68,
+      "preservadas": 68,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04762",
+      "eq_fonte": 106,
+      "eq_redpajama": 43,
+      "preservadas": 43,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04718",
+      "eq_fonte": 181,
+      "eq_redpajama": 180,
+      "preservadas": 171,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04914",
+      "eq_fonte": 295,
+      "eq_redpajama": 293,
+      "preservadas": 293,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04649",
+      "eq_fonte": 256,
+      "eq_redpajama": 185,
+      "preservadas": 185,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04595",
+      "eq_fonte": 28,
+      "eq_redpajama": 27,
+      "preservadas": 27,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04922",
+      "eq_fonte": 68,
+      "eq_redpajama": 68,
+      "preservadas": 68,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04891",
+      "eq_fonte": 285,
+      "eq_redpajama": 218,
+      "preservadas": 122,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04518",
+      "eq_fonte": 2,
+      "eq_redpajama": 2,
+      "preservadas": 2,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04654",
+      "eq_fonte": 6,
+      "eq_redpajama": 5,
+      "preservadas": 5,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04560",
+      "eq_fonte": 179,
+      "eq_redpajama": 116,
+      "preservadas": 116,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04839",
+      "eq_fonte": 493,
+      "eq_redpajama": 485,
+      "preservadas": 480,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04585",
+      "eq_fonte": 199,
+      "eq_redpajama": 193,
+      "preservadas": 140,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04568",
+      "eq_fonte": 171,
+      "eq_redpajama": 169,
+      "preservadas": 169,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04577",
+      "eq_fonte": 153,
+      "eq_redpajama": 153,
+      "preservadas": 153,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04563",
+      "eq_fonte": 68,
+      "eq_redpajama": 0,
+      "preservadas": 0,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04689",
+      "eq_fonte": 139,
+      "eq_redpajama": 119,
+      "preservadas": 119,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04637",
+      "eq_fonte": 154,
+      "eq_redpajama": 117,
+      "preservadas": 117,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04897",
+      "eq_fonte": 57,
+      "eq_redpajama": 57,
+      "preservadas": 57,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04900",
+      "eq_fonte": 21,
+      "eq_redpajama": 20,
+      "preservadas": 20,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04895",
+      "eq_fonte": 74,
+      "eq_redpajama": 74,
+      "preservadas": 63,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04779",
+      "eq_fonte": 141,
+      "eq_redpajama": 141,
+      "preservadas": 141,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04845",
+      "eq_fonte": 201,
+      "eq_redpajama": 140,
+      "preservadas": 109,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04638",
+      "eq_fonte": 114,
+      "eq_redpajama": 37,
+      "preservadas": 37,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04872",
+      "eq_fonte": 418,
+      "eq_redpajama": 417,
+      "preservadas": 277,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04639",
+      "eq_fonte": 129,
+      "eq_redpajama": 118,
+      "preservadas": 118,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04539",
+      "eq_fonte": 82,
+      "eq_redpajama": 82,
+      "preservadas": 82,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04859",
+      "eq_fonte": 296,
+      "eq_redpajama": 298,
+      "preservadas": 291,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04541",
+      "eq_fonte": 133,
+      "eq_redpajama": 133,
+      "preservadas": 133,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04657",
+      "eq_fonte": 103,
+      "eq_redpajama": 89,
+      "preservadas": 70,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04799",
+      "eq_fonte": 512,
+      "eq_redpajama": 261,
+      "preservadas": 261,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04701",
+      "eq_fonte": 99,
+      "eq_redpajama": 84,
+      "preservadas": 70,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04854",
+      "eq_fonte": 98,
+      "eq_redpajama": 98,
+      "preservadas": 98,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04782",
+      "eq_fonte": 96,
+      "eq_redpajama": 93,
+      "preservadas": 93,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04886",
+      "eq_fonte": 101,
+      "eq_redpajama": 100,
+      "preservadas": 67,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04599",
+      "eq_fonte": 122,
+      "eq_redpajama": 104,
+      "preservadas": 68,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04591",
+      "eq_fonte": 1049,
+      "eq_redpajama": 950,
+      "preservadas": 666,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04726",
+      "eq_fonte": 251,
+      "eq_redpajama": 194,
+      "preservadas": 194,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04561",
+      "eq_fonte": 225,
+      "eq_redpajama": 225,
+      "preservadas": 209,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04752",
+      "eq_fonte": 234,
+      "eq_redpajama": 234,
+      "preservadas": 234,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04833",
+      "eq_fonte": 96,
+      "eq_redpajama": 96,
+      "preservadas": 96,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04516",
+      "eq_fonte": 189,
+      "eq_redpajama": 88,
+      "preservadas": 83,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04712",
+      "eq_fonte": 32,
+      "eq_redpajama": 31,
+      "preservadas": 31,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04882",
+      "eq_fonte": 698,
+      "eq_redpajama": 565,
+      "preservadas": 540,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 3
+    },
+    {
+      "arxiv_id": "1607.04919",
+      "eq_fonte": 155,
+      "eq_redpajama": 133,
+      "preservadas": 131,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04652",
+      "eq_fonte": 135,
+      "eq_redpajama": 90,
+      "preservadas": 90,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04837",
+      "eq_fonte": 148,
+      "eq_redpajama": 139,
+      "preservadas": 139,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04838",
+      "eq_fonte": 116,
+      "eq_redpajama": 99,
+      "preservadas": 99,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04524",
+      "eq_fonte": 194,
+      "eq_redpajama": 194,
+      "preservadas": 192,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04625",
+      "eq_fonte": 489,
+      "eq_redpajama": 353,
+      "preservadas": 316,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04840",
+      "eq_fonte": 249,
+      "eq_redpajama": 249,
+      "preservadas": 249,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04708",
+      "eq_fonte": 41,
+      "eq_redpajama": 34,
+      "preservadas": 34,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04714",
+      "eq_fonte": 166,
+      "eq_redpajama": 166,
+      "preservadas": 166,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04705",
+      "eq_fonte": 84,
+      "eq_redpajama": 84,
+      "preservadas": 84,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04878",
+      "eq_fonte": 138,
+      "eq_redpajama": 36,
+      "preservadas": 36,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04574",
+      "eq_fonte": 87,
+      "eq_redpajama": 86,
+      "preservadas": 86,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04552",
+      "eq_fonte": 107,
+      "eq_redpajama": 30,
+      "preservadas": 30,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04916",
+      "eq_fonte": 81,
+      "eq_redpajama": 78,
+      "preservadas": 65,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04864",
+      "eq_fonte": 1468,
+      "eq_redpajama": 1469,
+      "preservadas": 1456,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04678",
+      "eq_fonte": 77,
+      "eq_redpajama": 78,
+      "preservadas": 70,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04665",
+      "eq_fonte": 234,
+      "eq_redpajama": 183,
+      "preservadas": 182,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04846",
+      "eq_fonte": 78,
+      "eq_redpajama": 78,
+      "preservadas": 78,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04580",
+      "eq_fonte": 25,
+      "eq_redpajama": 0,
+      "preservadas": 0,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04664",
+      "eq_fonte": 81,
+      "eq_redpajama": 62,
+      "preservadas": 62,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04937",
+      "eq_fonte": 209,
+      "eq_redpajama": 176,
+      "preservadas": 176,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04578",
+      "eq_fonte": 391,
+      "eq_redpajama": 119,
+      "preservadas": 114,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04643",
+      "eq_fonte": 355,
+      "eq_redpajama": 344,
+      "preservadas": 344,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04761",
+      "eq_fonte": 164,
+      "eq_redpajama": 159,
+      "preservadas": 159,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04569",
+      "eq_fonte": 393,
+      "eq_redpajama": 268,
+      "preservadas": 268,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04774",
+      "eq_fonte": 179,
+      "eq_redpajama": 82,
+      "preservadas": 82,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04929",
+      "eq_fonte": 107,
+      "eq_redpajama": 69,
+      "preservadas": 69,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04562",
+      "eq_fonte": 122,
+      "eq_redpajama": 95,
+      "preservadas": 95,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04832",
+      "eq_fonte": 135,
+      "eq_redpajama": 135,
+      "preservadas": 126,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04857",
+      "eq_fonte": 205,
+      "eq_redpajama": 200,
+      "preservadas": 197,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04865",
+      "eq_fonte": 149,
+      "eq_redpajama": 147,
+      "preservadas": 147,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04605",
+      "eq_fonte": 180,
+      "eq_redpajama": 166,
+      "preservadas": 166,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04672",
+      "eq_fonte": 104,
+      "eq_redpajama": 53,
+      "preservadas": 53,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04519",
+      "eq_fonte": 245,
+      "eq_redpajama": 199,
+      "preservadas": 190,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04592",
+      "eq_fonte": 73,
+      "eq_redpajama": 46,
+      "preservadas": 46,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "1607.04534",
+      "eq_fonte": 235,
+      "eq_redpajama": 233,
+      "preservadas": 233,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "1607.04588",
+      "eq_fonte": 19,
+      "eq_redpajama": 19,
+      "preservadas": 19,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04635",
+      "eq_fonte": 93,
+      "eq_redpajama": 92,
+      "preservadas": 92,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04677",
+      "eq_fonte": 297,
+      "eq_redpajama": 291,
+      "preservadas": 291,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04630",
+      "eq_fonte": 137,
+      "eq_redpajama": 139,
+      "preservadas": 120,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04686",
+      "eq_fonte": 114,
+      "eq_redpajama": 108,
+      "preservadas": 95,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04863",
+      "eq_fonte": 39,
+      "eq_redpajama": 37,
+      "preservadas": 37,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04621",
+      "eq_fonte": 214,
+      "eq_redpajama": 176,
+      "preservadas": 176,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04674",
+      "eq_fonte": 262,
+      "eq_redpajama": 261,
+      "preservadas": 261,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 2
+    },
+    {
+      "arxiv_id": "1607.04804",
+      "eq_fonte": 227,
+      "eq_redpajama": 243,
+      "preservadas": 173,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04740",
+      "eq_fonte": 205,
+      "eq_redpajama": 205,
+      "preservadas": 198,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04600",
+      "eq_fonte": 316,
+      "eq_redpajama": 316,
+      "preservadas": 316,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04743",
+      "eq_fonte": 123,
+      "eq_redpajama": 118,
+      "preservadas": 118,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04928",
+      "eq_fonte": 101,
+      "eq_redpajama": 101,
+      "preservadas": 101,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04554",
+      "eq_fonte": 17,
+      "eq_redpajama": 15,
+      "preservadas": 15,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04610",
+      "eq_fonte": 322,
+      "eq_redpajama": 322,
+      "preservadas": 249,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04843",
+      "eq_fonte": 100,
+      "eq_redpajama": 100,
+      "preservadas": 100,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04706",
+      "eq_fonte": 38,
+      "eq_redpajama": 37,
+      "preservadas": 37,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04806",
+      "eq_fonte": 163,
+      "eq_redpajama": 89,
+      "preservadas": 89,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04668",
+      "eq_fonte": 21,
+      "eq_redpajama": 21,
+      "preservadas": 21,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04633",
+      "eq_fonte": 254,
+      "eq_redpajama": 241,
+      "preservadas": 241,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04584",
+      "eq_fonte": 132,
+      "eq_redpajama": 131,
+      "preservadas": 131,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04906",
+      "eq_fonte": 249,
+      "eq_redpajama": 218,
+      "preservadas": 218,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04646",
+      "eq_fonte": 218,
+      "eq_redpajama": 218,
+      "preservadas": 169,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04628",
+      "eq_fonte": 625,
+      "eq_redpajama": 484,
+      "preservadas": 484,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04935",
+      "eq_fonte": 294,
+      "eq_redpajama": 221,
+      "preservadas": 221,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04641",
+      "eq_fonte": 144,
+      "eq_redpajama": 126,
+      "preservadas": 126,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04924",
+      "eq_fonte": 237,
+      "eq_redpajama": 14,
+      "preservadas": 12,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04644",
+      "eq_fonte": 74,
+      "eq_redpajama": 74,
+      "preservadas": 74,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04738",
+      "eq_fonte": 22,
+      "eq_redpajama": 40,
+      "preservadas": 7,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04861",
+      "eq_fonte": 107,
+      "eq_redpajama": 107,
+      "preservadas": 107,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04835",
+      "eq_fonte": 120,
+      "eq_redpajama": 120,
+      "preservadas": 120,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04675",
+      "eq_fonte": 152,
+      "eq_redpajama": 151,
+      "preservadas": 150,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04570",
+      "eq_fonte": 108,
+      "eq_redpajama": 201,
+      "preservadas": 18,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "1607.04567",
+      "eq_fonte": 82,
+      "eq_redpajama": 82,
+      "preservadas": 82,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04536",
+      "eq_fonte": 136,
+      "eq_redpajama": 135,
+      "preservadas": 135,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04572",
+      "eq_fonte": 111,
+      "eq_redpajama": 111,
+      "preservadas": 108,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04687",
+      "eq_fonte": 167,
+      "eq_redpajama": 167,
+      "preservadas": 167,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04702",
+      "eq_fonte": 834,
+      "eq_redpajama": 813,
+      "preservadas": 678,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04601",
+      "eq_fonte": 47,
+      "eq_redpajama": 45,
+      "preservadas": 45,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04874",
+      "eq_fonte": 333,
+      "eq_redpajama": 198,
+      "preservadas": 193,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04856",
+      "eq_fonte": 83,
+      "eq_redpajama": 72,
+      "preservadas": 72,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04533",
+      "eq_fonte": 15,
+      "eq_redpajama": 15,
+      "preservadas": 15,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04694",
+      "eq_fonte": 0,
+      "eq_redpajama": 0,
+      "preservadas": 0,
+      "erro": "HTTPError: 404 Client Error: Not Found for url: https://arxiv.org/src/1607.04694",
+      "modo": "",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04802",
+      "eq_fonte": 53,
+      "eq_redpajama": 52,
+      "preservadas": 52,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04598",
+      "eq_fonte": 298,
+      "eq_redpajama": 298,
+      "preservadas": 298,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04896",
+      "eq_fonte": 20,
+      "eq_redpajama": 19,
+      "preservadas": 19,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04613",
+      "eq_fonte": 231,
+      "eq_redpajama": 132,
+      "preservadas": 132,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04528",
+      "eq_fonte": 177,
+      "eq_redpajama": 133,
+      "preservadas": 133,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04918",
+      "eq_fonte": 304,
+      "eq_redpajama": 303,
+      "preservadas": 303,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04587",
+      "eq_fonte": 71,
+      "eq_redpajama": 71,
+      "preservadas": 71,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04538",
+      "eq_fonte": 169,
+      "eq_redpajama": 133,
+      "preservadas": 80,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04647",
+      "eq_fonte": 106,
+      "eq_redpajama": 39,
+      "preservadas": 39,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04602",
+      "eq_fonte": 116,
+      "eq_redpajama": 115,
+      "preservadas": 115,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "1607.04749",
+      "eq_fonte": 202,
+      "eq_redpajama": 194,
+      "preservadas": 194,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02010",
+      "eq_fonte": 31,
+      "eq_redpajama": 30,
+      "preservadas": 30,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01950",
+      "eq_fonte": 232,
+      "eq_redpajama": 232,
+      "preservadas": 232,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02003",
+      "eq_fonte": 161,
+      "eq_redpajama": 141,
+      "preservadas": 141,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01982",
+      "eq_fonte": 543,
+      "eq_redpajama": 261,
+      "preservadas": 242,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 2
+    },
+    {
+      "arxiv_id": "2203.01959",
+      "eq_fonte": 63,
+      "eq_redpajama": 58,
+      "preservadas": 58,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2203.02041",
+      "eq_fonte": 554,
+      "eq_redpajama": 554,
+      "preservadas": 552,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02012",
+      "eq_fonte": 62,
+      "eq_redpajama": 89,
+      "preservadas": 55,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2203.01984",
+      "eq_fonte": 203,
+      "eq_redpajama": 96,
+      "preservadas": 82,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01964",
+      "eq_fonte": 296,
+      "eq_redpajama": 455,
+      "preservadas": 112,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01953",
+      "eq_fonte": 107,
+      "eq_redpajama": 97,
+      "preservadas": 97,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01957",
+      "eq_fonte": 483,
+      "eq_redpajama": 195,
+      "preservadas": 61,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02024",
+      "eq_fonte": 60,
+      "eq_redpajama": 60,
+      "preservadas": 58,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01951",
+      "eq_fonte": 528,
+      "eq_redpajama": 443,
+      "preservadas": 313,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02033",
+      "eq_fonte": 112,
+      "eq_redpajama": 0,
+      "preservadas": 0,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01965",
+      "eq_fonte": 57,
+      "eq_redpajama": 52,
+      "preservadas": 52,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01949",
+      "eq_fonte": 191,
+      "eq_redpajama": 178,
+      "preservadas": 178,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01954",
+      "eq_fonte": 32,
+      "eq_redpajama": 31,
+      "preservadas": 31,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01998",
+      "eq_fonte": 3,
+      "eq_redpajama": 2,
+      "preservadas": 2,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02007",
+      "eq_fonte": 237,
+      "eq_redpajama": 237,
+      "preservadas": 237,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01956",
+      "eq_fonte": 238,
+      "eq_redpajama": 237,
+      "preservadas": 186,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01958",
+      "eq_fonte": 168,
+      "eq_redpajama": 168,
+      "preservadas": 168,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01960",
+      "eq_fonte": 30,
+      "eq_redpajama": 30,
+      "preservadas": 30,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01981",
+      "eq_fonte": 209,
+      "eq_redpajama": 156,
+      "preservadas": 148,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 12
+    },
+    {
+      "arxiv_id": "2203.02022",
+      "eq_fonte": 13,
+      "eq_redpajama": 12,
+      "preservadas": 12,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01972",
+      "eq_fonte": 210,
+      "eq_redpajama": 210,
+      "preservadas": 197,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 3
+    },
+    {
+      "arxiv_id": "2203.01952",
+      "eq_fonte": 145,
+      "eq_redpajama": 131,
+      "preservadas": 130,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01986",
+      "eq_fonte": 155,
+      "eq_redpajama": 120,
+      "preservadas": 120,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2203.02008",
+      "eq_fonte": 327,
+      "eq_redpajama": 329,
+      "preservadas": 245,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02002",
+      "eq_fonte": 127,
+      "eq_redpajama": 177,
+      "preservadas": 8,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01988",
+      "eq_fonte": 196,
+      "eq_redpajama": 138,
+      "preservadas": 86,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01985",
+      "eq_fonte": 194,
+      "eq_redpajama": 286,
+      "preservadas": 173,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 5
+    },
+    {
+      "arxiv_id": "2203.01961",
+      "eq_fonte": 424,
+      "eq_redpajama": 394,
+      "preservadas": 338,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01995",
+      "eq_fonte": 56,
+      "eq_redpajama": 55,
+      "preservadas": 55,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01979",
+      "eq_fonte": 173,
+      "eq_redpajama": 143,
+      "preservadas": 46,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02030",
+      "eq_fonte": 66,
+      "eq_redpajama": 66,
+      "preservadas": 65,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01980",
+      "eq_fonte": 134,
+      "eq_redpajama": 137,
+      "preservadas": 125,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02029",
+      "eq_fonte": 19,
+      "eq_redpajama": 21,
+      "preservadas": 19,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02004",
+      "eq_fonte": 280,
+      "eq_redpajama": 247,
+      "preservadas": 226,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01948",
+      "eq_fonte": 214,
+      "eq_redpajama": 146,
+      "preservadas": 118,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2203.01967",
+      "eq_fonte": 776,
+      "eq_redpajama": 662,
+      "preservadas": 626,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01962",
+      "eq_fonte": 314,
+      "eq_redpajama": 168,
+      "preservadas": 168,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02019",
+      "eq_fonte": 51,
+      "eq_redpajama": 103,
+      "preservadas": 28,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.01975",
+      "eq_fonte": 138,
+      "eq_redpajama": 228,
+      "preservadas": 81,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 3
+    },
+    {
+      "arxiv_id": "2203.01963",
+      "eq_fonte": 177,
+      "eq_redpajama": 179,
+      "preservadas": 155,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2203.02028",
+      "eq_fonte": 47,
+      "eq_redpajama": 31,
+      "preservadas": 19,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14533",
+      "eq_fonte": 410,
+      "eq_redpajama": 400,
+      "preservadas": 400,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14530",
+      "eq_fonte": 285,
+      "eq_redpajama": 224,
+      "preservadas": 167,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14531",
+      "eq_fonte": 90,
+      "eq_redpajama": 89,
+      "preservadas": 77,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14481",
+      "eq_fonte": 497,
+      "eq_redpajama": 447,
+      "preservadas": 220,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14585",
+      "eq_fonte": 140,
+      "eq_redpajama": 136,
+      "preservadas": 134,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14510",
+      "eq_fonte": 212,
+      "eq_redpajama": 23,
+      "preservadas": 23,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14526",
+      "eq_fonte": 196,
+      "eq_redpajama": 148,
+      "preservadas": 148,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14623",
+      "eq_fonte": 125,
+      "eq_redpajama": 115,
+      "preservadas": 115,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14607",
+      "eq_fonte": 156,
+      "eq_redpajama": 155,
+      "preservadas": 154,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14592",
+      "eq_fonte": 432,
+      "eq_redpajama": 416,
+      "preservadas": 294,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14600",
+      "eq_fonte": 21,
+      "eq_redpajama": 20,
+      "preservadas": 20,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14523",
+      "eq_fonte": 144,
+      "eq_redpajama": 101,
+      "preservadas": 101,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14620",
+      "eq_fonte": 112,
+      "eq_redpajama": 72,
+      "preservadas": 72,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14492",
+      "eq_fonte": 388,
+      "eq_redpajama": 233,
+      "preservadas": 215,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14501",
+      "eq_fonte": 1524,
+      "eq_redpajama": 488,
+      "preservadas": 399,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14489",
+      "eq_fonte": 28,
+      "eq_redpajama": 28,
+      "preservadas": 28,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14560",
+      "eq_fonte": 86,
+      "eq_redpajama": 83,
+      "preservadas": 50,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14493",
+      "eq_fonte": 64,
+      "eq_redpajama": 63,
+      "preservadas": 60,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14487",
+      "eq_fonte": 15,
+      "eq_redpajama": 15,
+      "preservadas": 15,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14506",
+      "eq_fonte": 32,
+      "eq_redpajama": 32,
+      "preservadas": 32,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14617",
+      "eq_fonte": 942,
+      "eq_redpajama": 873,
+      "preservadas": 376,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14589",
+      "eq_fonte": 72,
+      "eq_redpajama": 69,
+      "preservadas": 69,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14616",
+      "eq_fonte": 99,
+      "eq_redpajama": 99,
+      "preservadas": 99,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14507",
+      "eq_fonte": 165,
+      "eq_redpajama": 86,
+      "preservadas": 85,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14582",
+      "eq_fonte": 373,
+      "eq_redpajama": 92,
+      "preservadas": 65,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14486",
+      "eq_fonte": 101,
+      "eq_redpajama": 91,
+      "preservadas": 75,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2209.14551",
+      "eq_fonte": 210,
+      "eq_redpajama": 112,
+      "preservadas": 93,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14495",
+      "eq_fonte": 28,
+      "eq_redpajama": 28,
+      "preservadas": 28,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14484",
+      "eq_fonte": 85,
+      "eq_redpajama": 26,
+      "preservadas": 23,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14564",
+      "eq_fonte": 253,
+      "eq_redpajama": 121,
+      "preservadas": 114,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14606",
+      "eq_fonte": 162,
+      "eq_redpajama": 94,
+      "preservadas": 93,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14576",
+      "eq_fonte": 54,
+      "eq_redpajama": 48,
+      "preservadas": 48,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14572",
+      "eq_fonte": 545,
+      "eq_redpajama": 549,
+      "preservadas": 477,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14482",
+      "eq_fonte": 207,
+      "eq_redpajama": 196,
+      "preservadas": 155,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2209.14597",
+      "eq_fonte": 66,
+      "eq_redpajama": 65,
+      "preservadas": 65,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14539",
+      "eq_fonte": 141,
+      "eq_redpajama": 141,
+      "preservadas": 141,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14556",
+      "eq_fonte": 80,
+      "eq_redpajama": 41,
+      "preservadas": 41,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14497",
+      "eq_fonte": 63,
+      "eq_redpajama": 63,
+      "preservadas": 57,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14565",
+      "eq_fonte": 238,
+      "eq_redpajama": 132,
+      "preservadas": 130,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14527",
+      "eq_fonte": 0,
+      "eq_redpajama": 0,
+      "preservadas": 0,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14485",
+      "eq_fonte": 162,
+      "eq_redpajama": 118,
+      "preservadas": 118,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14528",
+      "eq_fonte": 86,
+      "eq_redpajama": 59,
+      "preservadas": 59,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14563",
+      "eq_fonte": 404,
+      "eq_redpajama": 402,
+      "preservadas": 402,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14509",
+      "eq_fonte": 249,
+      "eq_redpajama": 159,
+      "preservadas": 143,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14595",
+      "eq_fonte": 189,
+      "eq_redpajama": 176,
+      "preservadas": 175,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14574",
+      "eq_fonte": 53,
+      "eq_redpajama": 38,
+      "preservadas": 38,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14570",
+      "eq_fonte": 322,
+      "eq_redpajama": 260,
+      "preservadas": 214,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14584",
+      "eq_fonte": 81,
+      "eq_redpajama": 33,
+      "preservadas": 15,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2209.14542",
+      "eq_fonte": 74,
+      "eq_redpajama": 46,
+      "preservadas": 45,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 2
+    },
+    {
+      "arxiv_id": "2209.14605",
+      "eq_fonte": 100,
+      "eq_redpajama": 63,
+      "preservadas": 51,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08802",
+      "eq_fonte": 31,
+      "eq_redpajama": 31,
+      "preservadas": 31,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08722",
+      "eq_fonte": 128,
+      "eq_redpajama": 84,
+      "preservadas": 84,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08771",
+      "eq_fonte": 203,
+      "eq_redpajama": 202,
+      "preservadas": 202,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08826",
+      "eq_fonte": 489,
+      "eq_redpajama": 483,
+      "preservadas": 483,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08831",
+      "eq_fonte": 12,
+      "eq_redpajama": 12,
+      "preservadas": 12,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08785",
+      "eq_fonte": 138,
+      "eq_redpajama": 51,
+      "preservadas": 51,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08769",
+      "eq_fonte": 28,
+      "eq_redpajama": 27,
+      "preservadas": 27,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08702",
+      "eq_fonte": 92,
+      "eq_redpajama": 61,
+      "preservadas": 61,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08708",
+      "eq_fonte": 91,
+      "eq_redpajama": 76,
+      "preservadas": 39,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08761",
+      "eq_fonte": 274,
+      "eq_redpajama": 203,
+      "preservadas": 189,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08775",
+      "eq_fonte": 201,
+      "eq_redpajama": 200,
+      "preservadas": 200,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08759",
+      "eq_fonte": 1093,
+      "eq_redpajama": 1093,
+      "preservadas": 923,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08818",
+      "eq_fonte": 27,
+      "eq_redpajama": 27,
+      "preservadas": 27,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08820",
+      "eq_fonte": 171,
+      "eq_redpajama": 170,
+      "preservadas": 170,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08737",
+      "eq_fonte": 117,
+      "eq_redpajama": 112,
+      "preservadas": 108,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08691",
+      "eq_fonte": 44,
+      "eq_redpajama": 0,
+      "preservadas": 0,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08681",
+      "eq_fonte": 135,
+      "eq_redpajama": 132,
+      "preservadas": 120,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08754",
+      "eq_fonte": 25,
+      "eq_redpajama": 25,
+      "preservadas": 25,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08745",
+      "eq_fonte": 78,
+      "eq_redpajama": 66,
+      "preservadas": 66,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 2
+    },
+    {
+      "arxiv_id": "2012.08710",
+      "eq_fonte": 30,
+      "eq_redpajama": 30,
+      "preservadas": 30,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08756",
+      "eq_fonte": 93,
+      "eq_redpajama": 71,
+      "preservadas": 71,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2012.08758",
+      "eq_fonte": 163,
+      "eq_redpajama": 156,
+      "preservadas": 146,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08747",
+      "eq_fonte": 167,
+      "eq_redpajama": 167,
+      "preservadas": 167,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08750",
+      "eq_fonte": 202,
+      "eq_redpajama": 182,
+      "preservadas": 116,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08716",
+      "eq_fonte": 192,
+      "eq_redpajama": 126,
+      "preservadas": 124,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08792",
+      "eq_fonte": 579,
+      "eq_redpajama": 561,
+      "preservadas": 561,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08712",
+      "eq_fonte": 198,
+      "eq_redpajama": 193,
+      "preservadas": 162,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08714",
+      "eq_fonte": 729,
+      "eq_redpajama": 639,
+      "preservadas": 259,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08799",
+      "eq_fonte": 337,
+      "eq_redpajama": 336,
+      "preservadas": 335,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08760",
+      "eq_fonte": 93,
+      "eq_redpajama": 263,
+      "preservadas": 38,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 2
+    },
+    {
+      "arxiv_id": "2012.08800",
+      "eq_fonte": 366,
+      "eq_redpajama": 261,
+      "preservadas": 181,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08832",
+      "eq_fonte": 40,
+      "eq_redpajama": 40,
+      "preservadas": 40,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08798",
+      "eq_fonte": 56,
+      "eq_redpajama": 51,
+      "preservadas": 51,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08825",
+      "eq_fonte": 105,
+      "eq_redpajama": 65,
+      "preservadas": 13,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2012.08706",
+      "eq_fonte": 124,
+      "eq_redpajama": 101,
+      "preservadas": 63,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08817",
+      "eq_fonte": 126,
+      "eq_redpajama": 75,
+      "preservadas": 75,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08748",
+      "eq_fonte": 114,
+      "eq_redpajama": 112,
+      "preservadas": 112,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08794",
+      "eq_fonte": 312,
+      "eq_redpajama": 253,
+      "preservadas": 245,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08719",
+      "eq_fonte": 44,
+      "eq_redpajama": 39,
+      "preservadas": 39,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2012.08774",
+      "eq_fonte": 6,
+      "eq_redpajama": 6,
+      "preservadas": 6,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08781",
+      "eq_fonte": 80,
+      "eq_redpajama": 21,
+      "preservadas": 21,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08806",
+      "eq_fonte": 73,
+      "eq_redpajama": 73,
+      "preservadas": 73,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08812",
+      "eq_fonte": 95,
+      "eq_redpajama": 80,
+      "preservadas": 79,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08744",
+      "eq_fonte": 45,
+      "eq_redpajama": 78,
+      "preservadas": 24,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 3
+    },
+    {
+      "arxiv_id": "2012.08768",
+      "eq_fonte": 1,
+      "eq_redpajama": 1,
+      "preservadas": 1,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08686",
+      "eq_fonte": 165,
+      "eq_redpajama": 216,
+      "preservadas": 97,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08684",
+      "eq_fonte": 31,
+      "eq_redpajama": 29,
+      "preservadas": 28,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 2
+    },
+    {
+      "arxiv_id": "2012.08827",
+      "eq_fonte": 265,
+      "eq_redpajama": 216,
+      "preservadas": 214,
+      "erro": "",
+      "modo": "seguido-ambiguo",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2012.08767",
+      "eq_fonte": 98,
+      "eq_redpajama": 66,
+      "preservadas": 66,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08764",
+      "eq_fonte": 99,
+      "eq_redpajama": 99,
+      "preservadas": 99,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08727",
+      "eq_fonte": 39,
+      "eq_redpajama": 37,
+      "preservadas": 37,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08725",
+      "eq_fonte": 39,
+      "eq_redpajama": 39,
+      "preservadas": 33,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08755",
+      "eq_fonte": 84,
+      "eq_redpajama": 84,
+      "preservadas": 84,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2012.08711",
+      "eq_fonte": 244,
+      "eq_redpajama": 244,
+      "preservadas": 164,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    },
+    {
+      "arxiv_id": "2005.14417",
+      "eq_fonte": 596,
+      "eq_redpajama": 578,
+      "preservadas": 576,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 1
+    },
+    {
+      "arxiv_id": "2005.14392",
+      "eq_fonte": 59,
+      "eq_redpajama": 60,
+      "preservadas": 58,
+      "erro": "",
+      "modo": "seguido",
+      "tex_ignorados": 0
+    }
+  ]
+}
