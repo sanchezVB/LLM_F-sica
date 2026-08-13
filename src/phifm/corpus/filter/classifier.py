@@ -34,6 +34,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+# Aparece nos avisos do módulo; declarado aqui para não repetir a lista.
+NEGATIVO_AUSENTE = "math"
+
 import numpy as np
 import polars as pl
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -99,6 +102,81 @@ class PhysicsClassifier:
                 continue
             out.append(cls)
         return out
+
+
+def montar_binario(
+    spine: Path,
+    negativos: Path,
+    max_por_classe: int = 400_000,
+    seed: int = 17,
+) -> pl.DataFrame:
+    """Dataset rotulado para `is_physics`, com a regra autoritativa.
+
+    ## O rótulo negativo não é "veio de cs/econ/q-bio"
+
+    Coletamos negativos dos conjuntos `cs`, `econ` e `q-bio`. Mas um paper de
+    `cs.LG` com cross-list em `quant-ph` **é** Física, e usá-lo como negativo
+    ensina o classificador a rejeitar Física. Medido em 2026-08-11 nos negativos
+    coletados:
+
+        cs      988.244   5,7% com cross-list de Física
+        econ     16.984   5,5%
+        q-bio    56.142  32,8%   ← um terço
+
+    ## Por que a regra é «fora do spine» e não uma lista de prefixos
+
+    Testei as duas. Dos 1.041.652 negativos únicos, 72.919 têm cross-list de
+    Física — e **exatamente** esses 72.919 estão no spine, com **zero** fora.
+    Os conjuntos OAI-PMH do arXiv são consistentes com as listas de categoria, o
+    que valida as duas coletas de uma vez.
+
+    Então a pertinência ao spine é o rótulo autoritativo, e usá-la dispensa
+    manter uma lista de prefixos — que é justamente onde eu erraria: a nossa
+    `PHYSICS_PREFIXES` não inclui os arquivos legados (`adap-org`, `chao-dyn`,
+    `patt-sol`, `solv-int`, `acc-phys`, `atom-ph`, `chem-ph`, `plasm-ph`,
+    `supr-con`…). Nesse caso específico não custou nada — o arXiv retroagiu
+    cross-lists atuais em todos os 5.5 mil papers legados, e nenhum ficou sem
+    prefixo atual — mas a lista continua sendo dívida esperando um caso novo.
+
+    ## ⚠️ Limite de domínio, declarado
+
+    Os negativos são resumos do arXiv de cs/econ/q-bio. O classificador vai ser
+    aplicado ao peS2o e ao OpenWebMath, cuja distribuição negativa é muito mais
+    ampla — química, biologia, medicina, humanidades, texto de web.
+
+    Pior: **`math` não está nos negativos**, e matemática é a vizinha mais
+    confundível da Física. O OpenWebMath é cheio dela. Esperar alta precisão ali
+    sem negativos de `math` é otimismo, não medição.
+    """
+    ids_fisica = pl.scan_parquet(spine).select("arxiv_id")
+
+    # ── negativos: fora do spine, deduplicados ────────────────────────────
+    neg = (
+        pl.scan_parquet(str(negativos / "*" / "*.parquet"))
+        .unique(subset=["arxiv_id"])
+        .join(ids_fisica.with_columns(pl.lit(True).alias("_fis")),
+              on="arxiv_id", how="anti")
+        .select("arxiv_id", "title", "abstract")
+        .with_columns(pl.lit("nao_fisica").alias("is_physics"))
+    )
+    pos = (
+        pl.scan_parquet(spine)
+        .select("arxiv_id", "title", "abstract")
+        .with_columns(pl.lit("fisica").alias("is_physics"))
+    )
+
+    # Amostragem determinística por hash. `sample` não existe em plano lazy, e
+    # materializar 2,6 M de títulos+resumos para poder sortear é exatamente o
+    # erro que já custou quatro travamentos de memória neste projeto.
+    def cortar(lf: pl.LazyFrame) -> pl.LazyFrame:
+        return (lf.with_columns(pl.col("arxiv_id").hash(seed=seed).alias("_h"))
+                  .sort("_h").head(max_por_classe).drop("_h"))
+
+    df = pl.concat([cortar(pos), cortar(neg)]).collect(engine="streaming")
+    log.info("is_physics: %s física · %s não-física",
+             f"{df.filter(pl.col('is_physics') == 'fisica').height:,}",
+             f"{df.filter(pl.col('is_physics') == 'nao_fisica').height:,}")
+    return df
 
 
 def build_text(df: pl.DataFrame) -> list[str]:

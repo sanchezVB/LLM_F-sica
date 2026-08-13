@@ -22,6 +22,10 @@ def main() -> int:
                    help="papers a auditar; 200 já dá erro padrão de ~2%% por paper")
     p.add_argument("--out", type=Path,
                    default=Path("data/processed/avaliacao/s3b_latex.json"))
+    p.add_argument("--spine", type=Path, default=Path("data/processed/spine.parquet"),
+                   # `%%` porque argparse formata a ajuda com o operador `%`.
+                   help="restringe a amostra a Física; o shard do RedPajama é o "
+                        "arXiv INTEIRO e 52%% dele não é Física")
     p.add_argument("--cache", type=Path, default=Path("data/raw/arxiv_fontes"),
                    help="tarballs e amostra do RedPajama; evita rebaixar a cada "
                         "iteração no comparador (cortesia, princípio A5)")
@@ -31,7 +35,7 @@ def main() -> int:
                         datefmt="%H:%M:%S", stream=sys.stdout)
     contato_obrigatorio()          # cortesia com o arXiv, igual às coletas
 
-    r = salvar(auditar(a.n, cache=a.cache), a.out)
+    r = salvar(auditar(a.n, cache=a.cache, spine=a.spine), a.out)
     print("\n" + "=" * 68)
     if "erro" in r:
         print(r["erro"])
@@ -53,6 +57,10 @@ def main() -> int:
           "← perda real de conteúdo; só isto justifica pagar")
     print(f"    por DISCORDÂNCIA : {100*r['degradacao_por_discordancia']:.1f}%  "
           "← notação, ou resíduo do nosso comparador")
+    ic = r.get("ausencia_ic95") or [None, None]
+    if ic[0] is not None:
+        print(f"    IC 95% da ausência: [{100*ic[0]:.1f}%, {100*ic[1]:.1f}%] "
+              f"· P(>10%) = {100*r['ausencia_p_acima_do_limiar']:.0f}%")
     if r.get("degradacao_total_sem_filtro") is not None:
         print(f"    (sem filtrar por montagem daria {100*r['degradacao_total_sem_filtro']:.1f}% "
               "— a diferença É o viés da concatenação)")

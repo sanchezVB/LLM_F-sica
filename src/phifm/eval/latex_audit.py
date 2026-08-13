@@ -50,6 +50,7 @@ import tarfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+import polars as pl
 import requests
 
 from phifm.core.latex.canonical import hash_canonico
@@ -68,8 +69,12 @@ EPRINT = "https://arxiv.org/e-print/"
 
 # Ver §"por que 200" na docstring.
 N_PAPERS = 200
-# Só o começo do shard: 3 MB dão ~54 registros, então 12 MB bastam para 200.
-BYTES_DO_SHARD = 16 * 1024 * 1024
+# ⚠️ O shard do RedPajama-arXiv é o arXiv INTEIRO, não Física: medido, 52% dos
+# registros amostrados não estão no nosso spine. Para chegar a N papers de Física
+# é preciso ler ~2x isso. 16 MB davam 271 registros e só 103 de Física — perto do
+# limite para decidir, e foi por isso que o intervalo de confiança cruzou o
+# limiar. 64 MB dão ~1.100 registros.
+BYTES_DO_SHARD = 64 * 1024 * 1024
 
 
 @dataclass
@@ -94,6 +99,31 @@ class Comparacao:
     @property
     def confiavel(self) -> bool:
         return self.modo != "concatenado"
+
+
+def _bootstrap_ausencia(
+    papers: list[Comparacao], reamostras: int = 20_000, seed: int = 17
+) -> tuple[float | None, float | None, float | None]:
+    """IC 95% da fração de ausência, reamostrando PAPERS.
+
+    Devolve `(None, None, None)` com menos de 30 papers: um IC de bootstrap sobre
+    amostra pequena é largo e enviesado, e apresentá-lo dá aparência de rigor a
+    um número que não tem.
+    """
+    if len(papers) < 30:
+        return None, None, None
+    import random
+    rng = random.Random(seed)
+
+    def frac(am: list[Comparacao]) -> float:
+        tf = sum(c.eq_fonte for c in am)
+        return sum(max(0, c.eq_fonte - c.eq_redpajama) for c in am) / tf if tf else 0.0
+
+    n = len(papers)
+    bs = sorted(frac([papers[rng.randrange(n)] for _ in range(n)])
+                for _ in range(reamostras))
+    lo, hi = bs[int(0.025 * reamostras)], bs[int(0.975 * reamostras)]
+    return lo, hi, sum(1 for b in bs if b > 0.10) / reamostras
 
 
 @dataclass
@@ -149,15 +179,34 @@ class Auditoria:
         discordam = sum(max(0, min(c.eq_fonte, c.eq_redpajama) - c.preservadas) for c in u)
         f_aus, f_dis = ausentes / tf, discordam / tf
 
-        if f_aus <= 0.10 and f_aus + f_dis > 0.10:
+        # ── incerteza, sem a qual a estimativa pontual não decide ─────────
+        #
+        # A unidade de amostragem é o PAPER, não a equação: sorteamos papers do
+        # shard, e as equações de um mesmo paper compartilham o destino que o
+        # pipeline do RedPajama lhe deu. Tratar 19 mil equações como 19 mil
+        # observações independentes daria um intervalo falsamente estreito.
+        #
+        # Daí o bootstrap reamostrar PAPERS. Ele é largo de propósito: poucos
+        # papers densos em equações dominam a razão, e essa instabilidade é real,
+        # não defeito do método.
+        lo, hi, p_acima = _bootstrap_ausencia(u)
+
+        if p_acima is not None and lo <= 0.10 <= hi:
+            v = (f"INDECISO — ausência de {100*f_aus:.1f}%, IC 95% "
+                 f"[{100*lo:.1f}%, {100*hi:.1f}%], cruza o limiar de 10%. "
+                 f"{100*p_acima:.0f}% das reamostragens ficam acima. "
+                 f"Ampliar a amostra decide; gastar agora seria apostar.")
+        elif f_aus <= 0.10 and f_aus + f_dis > 0.10:
             v = (f"INCONCLUSIVO — perda REAL de {100*f_aus:.1f}% está abaixo do limiar, "
                  f"mas {100*f_dis:.1f}% de discordância de notação impede afirmar. "
                  "Resolver o comparador antes de decidir.")
         elif f_aus > 0.10:
-            v = (f"RedPajama DEGRADA — perda real de {100*f_aus:.1f}% acima do limiar de "
+            v = (f"RedPajama DEGRADA — perda real de {100*f_aus:.1f}%, IC 95% "
+                 f"[{100*lo:.1f}%, {100*hi:.1f}%], inteiramente acima do limiar de "
                  "10%; o bulk pago do arXiv (US$ 100–180) se justifica (DOC-02 §3.2)")
         else:
-            v = f"RedPajama SERVE — perda real de {100*f_aus:.1f}%, abaixo do limiar de 10%"
+            v = (f"RedPajama SERVE — perda real de {100*f_aus:.1f}%, IC 95% "
+                 f"[{100*lo:.1f}%, {100*hi:.1f}%], abaixo do limiar de 10%")
 
         # Contraste com a medição ANTIGA, sobre todos os papers. Se os dois
         # números divergirem muito, a diferença É o viés da concatenação — e
@@ -181,6 +230,9 @@ class Auditoria:
             # contraste, não de resultado.
             "degradacao_total_sem_filtro": contraste,
             "papers_abaixo_de_90pc": sum(1 for t in taxas if t < 0.90),
+            "ausencia_ic95": [None if lo is None else round(lo, 4),
+                              None if hi is None else round(hi, 4)],
+            "ausencia_p_acima_do_limiar": None if p_acima is None else round(p_acima, 4),
             "limiar_do_doc02": 0.10,
             "veredito": v,
         }
@@ -296,12 +348,56 @@ def comparar_um(http: PoliteSession, arxiv_id: str, texto_rp: str,
     return c
 
 
+def so_fisica(amostra: dict[str, str], spine: Path) -> dict[str, str]:
+    """Restringe a amostra aos papers de Física, pelo spine.
+
+    ## O defeito que isto corrige
+
+    O shard do RedPajama-arXiv é o **arXiv inteiro**. Eu amostrava dele e
+    reportava "degradação do RedPajama" como se fosse resposta à pergunta do
+    DOC-02, que é sobre equações de **Física**. Medido: 52% da amostra não estava
+    no spine — metade do resultado vinha de math, cs e afins.
+
+    Não era só população errada, era população com patologia própria. O paper que
+    mais contribuía para a perda (`1607.04847`, 1.418 equações na fonte contra
+    331 no RedPajama) é de teoria de grafos, e as "equações perdidas" eram tabelas
+    de ciclos de permutação num apêndice — listas de inteiros como
+    `(52,0,22,47,31,...)`. O RedPajama descartou o apêndice, o que para Física não
+    diz nada.
+
+    Restringir muda os números na direção que importa:
+
+        população          total   ausência   discordância
+        arXiv inteiro      26,4%     13,4%          13,0%
+        só Física          19,1%     14,2%           4,9%
+
+    A discordância cai de 13% para 4,9% — o comparador foi escrito para notação
+    de Física e funciona nela. E a ausência, que é o que decide o gasto, fica
+    ligeiramente MAIOR.
+    """
+    ids = pl.Series(list(amostra))
+    fis = set(
+        pl.scan_parquet(spine)
+        .filter(pl.col("arxiv_id").is_in(ids.implode()))
+        .select("arxiv_id")
+        .collect()["arxiv_id"]
+    )
+    fora = len(amostra) - len(fis)
+    log.info("amostra: %d de %d são Física pelo spine (%d descartados: o shard "
+             "do RedPajama é o arXiv inteiro)", len(fis), len(amostra), fora)
+    return {k: v for k, v in amostra.items() if k in fis}
+
+
 def auditar(n: int = N_PAPERS, contato: str = CONTACT,
-            cache: Path | None = None) -> Auditoria:
+            cache: Path | None = None,
+            spine: Path | None = None) -> Auditoria:
     # 1 req/3 s é o pedido do arXiv (DOC-02 §8.2) e vale para `/e-print/` também.
     http = PoliteSession(RateLimit(requests_per_second=1 / 3, max_retries=6,
                                    backoff_max_s=300), contato)
-    amostra = amostrar_redpajama(http, n, cache)
+    # Amostra com folga: só ~metade do shard é Física, e o filtro vem depois.
+    amostra = amostrar_redpajama(http, n * 3 if spine else n, cache)
+    if spine is not None:
+        amostra = dict(list(so_fisica(amostra, spine).items())[:n])
     a = Auditoria()
     for i, (aid, texto) in enumerate(amostra.items(), 1):
         c = comparar_um(http, aid, texto, cache)
