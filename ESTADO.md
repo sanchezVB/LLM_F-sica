@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-08-06
+# Estado do projeto — 2026-08-11
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -6,17 +6,17 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 
 **Corpus de projeto:** completo. 19 documentos + 1 ADR, cobrindo os 20 pipelines.
 
-**Execução:** Sprint S1 em andamento, S2 parcial, barramento de verificação
-com cinco dos seis verificadores.
-
 | Sprint | Estado | Observação |
 |---|---|---|
-| **S1** · espinha de metadados | 🟡 em curso | arXiv ✅ completo; OpenAlex em coleta pelo snapshot |
-| **S2** · classificador de Física | 🟡 parcial | Subárea treinado; binária aguarda negativos |
-| **S3** · fatias do HuggingFace | ⚪ não iniciado | ~280 GB, processar em lote |
+| **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
+| **S2** · classificador de Física | 🟢 completo | subárea + `is_physics` (F1 0,972) — mas ver §transferência |
+| **S3** · fatias do HuggingFace | 🟡 decidido | S3b respondido: o RedPajama **degrada 16,6%**, pagar o bulk |
+| **ΦEmb** | 🟡 medido | vence PhysBERT e MiniLM; G1.2 depende do GTE-large |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 
-Suíte: **163 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **305 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Os que dependem de torch rodam na venv de treino:
+`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py -q`
 
 ## Coletas — como retomar
 
@@ -68,7 +68,7 @@ progressão de 40 h a 5,6 h e o que dominava cada etapa.
 Não é bloqueio imediato: os 10,1 M de arestas já coletados bastam para
 começar a treinar o ΦEmb.
 
-## Sessão de 2026-08-10 — quatro passos, e o que está rodando
+## Sessão de 2026-08-10/11 — os quatro passos
 
 Ordem de execução trocada em relação à de retorno: o passo 3 é **pré-requisito**
 do 1 (sem ele o treino novo perde o pico igual ao anterior), e o 2 é o que
@@ -78,32 +78,141 @@ permite julgar o resultado do 1.
 |---|---|---|
 | 3. Guardar o melhor checkpoint | ✅ `817c427` | `training/embedding.py` |
 | 2. Comparação pareada | ✅ `f7ed572` | `eval/encoders.py` |
-| 1. ΦEmb sobre MiniLM | 🔄 rodando, fim ~04:10 | `models/phiemb-minilm` |
-| 4a. S3b — auditoria de LaTeX | 🔄 200 papers rodando | `data/processed/avaliacao/s3b_latex.json` |
-| 4b–4d. RedPajama, classificadora, peS2o | ⬜ | — |
+| 1. ΦEmb sobre MiniLM | ✅ concluído 01:17 | `models/phiemb-minilm-melhor` |
+| 4a. S3b — auditoria de LaTeX | ✅ **decidido**, ver abaixo | `data/processed/avaliacao/s3b_latex.json` |
+| 4c. Classificador `is_physics` | ✅ treinado | `models/isphysics-clf` |
+| 4b. RedPajama filtrado pelo spine | ⬜ | — |
+| 4d. peS2o + OpenWebMath | ⬜ bloqueado, ver §transferência | — |
 
-### O achado que mais importa: os 19,6% eram meus
+### S3b — a resposta é PAGAR, e o caminho até ela tem cinco correções
 
-A primeira medição do S3b acusava **19,6% de degradação** do RedPajama, acima do
-limiar de 10% que o DOC-02 usa para justificar US$ 100–180 de egress pago.
+O número mudou cinco vezes. Só o último vale, e o que o torna confiável não é ser
+o último: é ser o único que mede a população certa e declara um intervalo.
 
-Era defeito da medição. O paper fora da curva tinha 585 equações na fonte e 568
-no RedPajama — quase todas lá — mas só 392 casavam por forma canônica. O teste
-que decidiu:
-
-| grupo | n | usam macro do autor |
+| medição | degradação | por que estava errada |
 |---|---|---|
-| casaram | 571 | **20%** |
-| NÃO casaram | 239 | **97%** |
+| n=6, sem macros | 19,6% | macros do autor contadas como perda |
+| n=6, com macros | **2,6%** | amostra de 6 papers |
+| n=199 | 27,4% | número único, mistura perda com notação |
+| decomposto | 13,4% ausência + 14,0% notação | fonte = tarball, não documento |
+| montagem corrigida | 13,4% + 13,0% | população = arXiv inteiro, não Física |
+| **n=298, só Física** | **16,6% ausência**, IC [12,9%–20,8%] | ← este |
 
-A fonte escreve `\Ecal_\mu`, o RedPajama escreve `\mathcal{E}_\mu`. Com
-`core/latex/macros.py` expandindo as 49 macros do autor, o mesmo dado dá
-**2,6% de degradação** e o veredito inverte para **"RedPajama SERVE"**.
+**Veredito: o RedPajama perde 16,6% das equações de Física, o IC 95% inteiro está
+acima do limiar de 10%, e o bulk pago do arXiv (US$ 100–180) se justifica**
+(DOC-02 §3.2).
 
-Conclusão anterior teria mandado gastar US$ 180 por um bug meu.
+O que cada correção ensinou, porque nenhuma foi cosmética:
 
-De passagem, confirma o DOC-03 §2.2 ("60–80% dos papers definem macros"), que o
+**As macros do autor.** A fonte escreve `\Ecal_\mu`, o RedPajama escreve
+`\mathcal{E}_\mu`. Das equações que NÃO casavam, 97% usavam macro; das que
+casavam, 20%. Confirma o DOC-03 §2.2 ("60–80% dos papers definem macros"), que o
 painel do DOC-19 marcava ⬜ nunca testado.
+
+**O número único mandava gastar por engano.** "Ausente" é a equação que o
+RedPajama não tem — só isso justifica pagar. "Discordante" é a que está lá com
+outra notação, e pagar por ela seria comprar a solução de um problema nosso.
+Reportar 27,4% juntava as duas.
+
+**A fonte era o tarball, não o documento.** Eu concatenava todos os `.tex` do
+pacote, inclusive rascunhos que o documento não inclui, e contava o texto depois
+de `\end{document}`. O viés é assimétrico: inflar a fonte **aumenta** a
+degradação, empurrando para gastar. Corrigido em `montar_documento`, que segue
+`\input`/`\include` a partir do `\documentclass`.
+**E não mudou nada** — a ausência ficou nos mesmos 13,4%. A hipótese estava
+errada, e valia mais saber disso que acertar.
+
+**Eu media o arXiv inteiro e chamava de Física.** O shard do RedPajama-arXiv é o
+arXiv todo; 52% da amostra não estava no spine. O paper que mais contribuía para
+a perda é de **teoria de grafos**, e as "equações perdidas" eram tabelas de ciclos
+de permutação num apêndice — listas de inteiros como `(52,0,22,47,31,...)`.
+Restringir a Física derruba a discordância de 13% para 9,1% (o comparador foi
+escrito para notação de Física) e **sobe** a ausência.
+
+**A estimativa pontual não decidia.** Com 103 papers o IC era [9,9%, 19,1%] —
+cruzava o limiar por 0,1 ponto. "97% provável" não é como se autoriza um gasto.
+Ampliar para 298 papers de Física fechou: [12,9%, 20,8%], P(>10%) = 100%.
+O bootstrap reamostra **papers**, não equações: as equações de um paper
+compartilham o destino que o pipeline lhe deu, e tratá-las como independentes
+daria intervalo falsamente estreito.
+
+Hipótese testada e **rejeitada**: o RedPajama não trunca por tamanho fixo (não há
+acúmulo no topo da distribuição, e o pior paper tem 52 mil caracteres contra um
+máximo de 313 mil). Não há atalho de mirar só os papers longos.
+
+### Passo 4c — o classificador, e por que o 4d está bloqueado
+
+`is_physics` treinado: **F1 0,972** nas duas classes, 600 mil documentos.
+
+O rótulo negativo é a regra **autoritativa**, não a lista de prefixos. Negativo
+não é "veio do conjunto cs/econ/q-bio" — conjunto do arXiv é por categoria, e um
+`cs.LG` com cross-list em `quant-ph` está nos dois:
+
+| conjunto | registros | com cross-list de Física |
+|---|---|---|
+| cs | 988.244 | 5,7% |
+| econ | 16.984 | 5,5% |
+| q-bio | 56.142 | **32,8%** |
+
+Dos 72.919 negativos com cross-list de Física, **exatamente** 72.919 estão no
+spine e **zero** ficaram fora — os conjuntos OAI-PMH batem com as listas de
+categoria, o que valida as duas coletas de uma vez.
+
+#### ⚠️ Transferência de domínio: o 0,972 não transfere
+
+Deixa-um-domínio-de-fora — treinar sem `q-bio` e testar nele:
+
+| teste | precisão | falsos positivos no negativo |
+|---|---|---|
+| dentro do domínio (cs novos) | 0,981 | **1,9%** |
+| domínio nunca visto (q-bio) | 0,903 | **32,9%** |
+
+**17× mais falsos positivos.** E subir o limiar quase não ajuda: de 0,5 para
+0,999 a taxa cai de 32,9% para 10,0% e **estanca** — `modified_huber` satura as
+probabilidades, então o limiar tem pouca resolução. O piso de ~10% é estrutural.
+
+Duas consequências para o 4d:
+
+1. **`math` não está nos negativos**, e é a vizinha mais confundível da Física.
+   O OpenWebMath é cheio dela. Falta coletar (`~600 mil registros, ~4 h`).
+2. q-bio é o vizinho mais difícil possível (biofísica), então 10% é cota
+   pessimista — mas não medida em texto de web, que é o que o 4d filtra.
+
+### Passos 1–2 — o ΦEmb sobre MiniLM
+
+| | recall@1 | recall@10 | MRR |
+|---|---|---|---|
+| MiniLM-L6 cru | 0,265 | 0,665 | 0,400 |
+| **ΦEmb/MiniLM (pico, passo 2.800)** | **0,322** | **0,804** | **0,477** |
+| último passo (3.125) | 0,303 | 0,809 | 0,469 |
+
+O passo 3 pagou na primeira execução: o pico deu MRR 0,477 e o último passo
+0,469. Sem guardar o melhor, 0,008 iriam embora.
+
+| Lote | pares/s | negativos por âncora |
+|---|---|---|
+| 8 (o que o SciBERT aguentava) | 4,1 | 7 |
+| **128 (escolhido)** | **16,2** | **127** |
+
+⚠️ **A perda não é comparável entre lotes.** O MiniLM registra ~1,5 contra
+0,3–0,5 do SciBERT, e isso não é pior: InfoNCE com 128 negativos tem piso mais
+alto que com 8 (ln 128 ≈ 4,85 contra ln 8 ≈ 2,08).
+
+### O portão G1 era julgado por métrica que ele não menciona
+
+O DOC-00 §5 pede **nDCG@10**, eu media recall@1. E o G1.2 pede superar o melhor
+embedder **geral** com **≤ 1/10 dos parâmetros** — cláusula relativa ao rival:
+vencer o MiniLM de 23M com um modelo de 23M dá razão 1/1 e **não fecha nada**.
+Entrou o GTE-large (335M) como genérico forte; contra ele o ΦEmb/MiniLM dá 1/14,6.
+
+A comparação pareada já mostrou o que duas proporções soltas descartavam: o que
+era empate a n=256 (+0,004 contra ±0,031) virou **vitória sobre o MiniLM com
+p=0,029** a n=2.000.
+
+| n | erro padrão | margem mínima detectável |
+|---|---|---|
+| 256 | ±0,031 | ~0,061 |
+| 2.000 | ±0,011 | ~0,022 |
 
 ### Parâmetros do treino novo, medidos antes de lançar
 
@@ -138,14 +247,27 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
 
 ## O que fazer a seguir, em ordem
 
-1. **Terminar o S1** — deixar o arXiv completar (~5 h, em curso)
-2. **Rodar o snapshot do OpenAlex** — implementado, `run_harvest.ps1 snapshot`
-3. **Coletar negativos** (arXiv `cs`, `q-bio`, `econ`) para a binária do S2 —
-   só depois que a coleta de Física terminar, por A5
-4. **Sprint S3** — fatias do HuggingFace, em lote
-5. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
+1. **Coletar negativos de `math`** (~600 mil registros, ~4 h). É o que destrava o
+   4d com número honesto: sem eles a filtragem do OpenWebMath opera às cegas no
+   vizinho mais confundível. `run_harvest.ps1` precisa de um modo novo.
+2. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
+   (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
+3. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
+   e imediato, e serve de linha de base contra a qual medir o bulk pago.
+4. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
    ou Firecracker; `exec()` com builtins restritos está descartado no próprio
-   documento como trivialmente evadível, então não há atalho local
+   documento como trivialmente evadível, então não há atalho local.
+
+Dívidas registradas, nenhuma bloqueante:
+
+- `PHYSICS_PREFIXES` (`normalize/spine.py`) não tem os arquivos legados
+  (`adap-org`, `chao-dyn`, `patt-sol`, `solv-int`, `acc-phys`, `atom-ph`,
+  `chem-ph`, `plasm-ph`, `supr-con`). Medido: custou **zero** até agora, porque o
+  arXiv retroagiu cross-list atual em todos os 5.478 papers legados do spine. O
+  rótulo do `is_physics` não depende dela de propósito.
+- `montar_documento` não avalia condicionais (`\if…\else`) nem `\includeonly`.
+  Ambos erram para o lado de incluir mais, o que **infla** a fonte — direção
+  conservadora para a decisão de gastar.
 
 O subscrito LaTeX saiu desta lista: está feito em `db637ed`, com o raciocínio
 registrado abaixo.
