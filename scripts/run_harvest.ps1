@@ -35,7 +35,7 @@
 # treino tambem ('phiemb'). O nome ficou estreito, mas a alternativa era um
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
-param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini')][string]$Fonte = 'arxiv')
+param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini', 'g1')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -75,6 +75,16 @@ switch ($Fonte) {
                                   '--base sentence-transformers/all-MiniLM-L6-v2 ' +
                                   '--lote 128 --passos-aval 200 --max-pares 400000 ' +
                                   '--n-candidatos 1000' }
+    'g1'       { $script = 'scripts/avaliar_encoders.py'
+                 $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
+                 # ~2,5 h de CPU: o GTE-large de 335M leva ~45 min sozinho. Vai
+                 # por aqui e nao por `Start-Process` porque o lancador ja tem
+                 # trava por PID e escapa do job object do shell — sem isso a
+                 # avaliacao morre junto com a sessao que a disparou.
+                 #
+                 # O cache guarda as posicoes por item, entao a proxima rodada
+                 # so paga pelos modelos novos.
+                 $argumentos = '--n 2000' }
 }
 
 # ─── Trava por PID, e por que a checagem antiga nao servia ───────────────

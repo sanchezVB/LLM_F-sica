@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Portão G1 — ΦEmb contra PhysBERT e embedders gerais (DOC-07 §3).
+"""Portão G1 — ΦEmb contra PhysBERT e embedders gerais (DOC-00 §5, DOC-07 §3).
 
 Roda na venv de TREINO (Python 3.12), e em CPU por padrão para não disputar VRAM
 com um treino em curso.
 
     .venv-treino/Scripts/python.exe scripts/avaliar_encoders.py
+
+O cache (`--cache`) guarda as posições por item de cada modelo. Uma passada a
+2.000 candidatos custa ~2,5 h de CPU e o PhysBERT sozinho leva 22 min; somar UM
+modelo à comparação não deve custar a soma de todos. É invalidado inteiro se o
+protocolo mudar — ver `comparar` em `phifm.eval.encoders`.
 """
 import argparse
 import logging
@@ -16,17 +21,27 @@ import polars as pl  # noqa: E402
 
 from phifm.eval.encoders import comparar, tabela, tabela_pareada, veredito  # noqa: E402
 
+# Nossos candidatos. O `-melhor` é o checkpoint de pico, não o último passo — no
+# treino sobre MiniLM o pico deu MRR 0,477 contra 0,469 do fim.
+NOSSOS = {
+    "ΦEmb/SciBERT (110M)": Path("models/phiemb"),
+    "ΦEmb/MiniLM (23M)": Path("models/phiemb-minilm-melhor"),
+}
+
 
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
-    p.add_argument("--phiemb", type=Path, default=Path("models/phiemb"),
-                   help="checkpoint do ΦEmb; omitido se não existir")
+    p.add_argument("--modelo", action="append", default=[], metavar="ROTULO=CAMINHO",
+                   help="acrescenta um modelo nosso; repetível. Sem isto usa os padrões.")
     p.add_argument("--n", type=int, default=2000,
                    help="candidatos na avaliação; 256 não separa margens de ~0,02")
     p.add_argument("--max-tokens", type=int, default=192)
     p.add_argument("--lote", type=int, default=16)
     p.add_argument("--dispositivo", default="cpu", choices=["cpu", "dml"])
+    p.add_argument("--cache", type=Path,
+                   default=Path("data/processed/avaliacao/g1_cache.json"),
+                   help="resultados por modelo, com posições por item")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
@@ -35,22 +50,34 @@ def main() -> int:
     val = pl.read_parquet(a.pares / "pares_validacao.parquet")
     logging.info("validação: %s pares · usando os %d primeiros", f"{val.height:,}", a.n)
 
-    extras = {}
-    if (a.phiemb / "config.json").exists():
-        extras["ΦEmb (nosso)"] = str(a.phiemb)
-    else:
-        logging.warning("%s não tem config.json — ΦEmb fora da comparação", a.phiemb)
+    pedidos = dict(NOSSOS)
+    for spec in a.modelo:
+        rotulo, _, caminho = spec.partition("=")
+        if not caminho:
+            logging.error("--modelo espera ROTULO=CAMINHO, recebi %r", spec)
+            return 2
+        pedidos[rotulo] = Path(caminho)
 
-    rs = comparar(val, extras, n=a.n, max_tokens=a.max_tokens,
+    extras = {}
+    for rotulo, caminho in pedidos.items():
+        if (caminho / "config.json").exists():
+            extras[rotulo] = str(caminho)
+        else:
+            logging.warning("%s sem config.json — %s fora da comparação", caminho, rotulo)
+    if not extras:
+        logging.error("nenhum modelo nosso disponível; nada a comparar")
+        return 1
+
+    rs = comparar(val, extras, cache=a.cache, n=a.n, max_tokens=a.max_tokens,
                   lote=a.lote, dispositivo=a.dispositivo)
 
-    print("\n" + "=" * 68)
+    print("\n" + "=" * 78)
     print(tabela(rs, a.n))
-    print("=" * 68)
+    print("=" * 78)
     print()
     print(tabela_pareada(rs))
     print()
-    print("=" * 68)
+    print("=" * 78)
     print(veredito(rs, a.n))
     return 0
 

@@ -17,6 +17,7 @@ dela.
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -36,6 +37,9 @@ def res(nome: str, posicoes: list[int], nosso: bool = False) -> Resultado:
         recall_1=sum(1 for p in posicoes if p == 1) / n,
         recall_10=sum(1 for p in posicoes if p <= 10) / n,
         mrr=sum(1 / p for p in posicoes) / n,
+        # nDCG@10 com um relevante por consulta. É a métrica que o G1.1 nomeia;
+        # aqui entra por completude, porque o que este arquivo testa é o pareado.
+        ndcg_10=sum(1 / math.log2(1 + p) for p in posicoes if p <= 10) / n,
         parametros_m=0.0, segundos=0.0, nosso=nosso, posicoes=posicoes,
     )
 
@@ -102,8 +106,8 @@ def test_tamanhos_diferentes_sao_recusados():
 def test_sem_posicoes_avisa_em_vez_de_mentir():
     """Resultado de uma versão antiga não tem `posicoes`. Devolver zero seria
     dizer 'empate' onde o dado não existe."""
-    a = Resultado("A", "A", 0.4, 0.9, 0.5, 0.0, 0.0)
-    b = Resultado("B", "B", 0.3, 0.8, 0.4, 0.0, 0.0)
+    a = Resultado("A", "A", 0.4, 0.9, 0.5, 0.6, 0.0, 0.0)
+    b = Resultado("B", "B", 0.3, 0.8, 0.4, 0.5, 0.0, 0.0)
     c = comparar_pareado(a, b)
     assert "erro" in c
     assert "posições" in c["erro"]

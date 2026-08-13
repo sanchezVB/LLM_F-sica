@@ -31,9 +31,10 @@ gradiente é barato; disputar VRAM com um treino de horas não é.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import polars as pl
@@ -46,11 +47,35 @@ from phifm.training.embedding import media_mascarada
 log = logging.getLogger(__name__)
 
 # O alvo do G1 e as referências. `models/phiemb` entra por caminho local.
+#
+# ⚠️ O G1.2 exige superar «o melhor embedder GERAL com ≤ 1/10 dos parâmetros».
+# A cláusula de tamanho é relativa ao RIVAL, então bater o MiniLM-L6 de 23M com
+# um modelo de 23M não a satisfaz — ela só fecha contra um rival de ≥ 230M. Por
+# isso entra um genérico FORTE de 335M: é ele quem torna o critério verificável.
+#
+# `gte-large` e não `e5-large`/`bge-large` porque estes dois pedem prefixo
+# («query: » / «Represent this sentence…») para render o que rendem. Usá-los sem
+# prefixo os handicapa e inflaria o nosso resultado; usá-los com prefixo quebra
+# o «mesma entrada para todos». O gte não precisa de nenhum.
 CONCORRENTES = {
     "SciBERT (base do ΦEmb)": "allenai/scibert_scivocab_uncased",
-    "PhysBERT (alvo do G1)": "thellert/physbert_cased",
-    "MiniLM-L6 (genérico)": "sentence-transformers/all-MiniLM-L6-v2",
+    "PhysBERT (alvo do G1.1)": "thellert/physbert_cased",
+    "MiniLM-L6 (genérico 23M)": "sentence-transformers/all-MiniLM-L6-v2",
+    "GTE-large (genérico 335M)": "thenlper/gte-large",
 }
+
+# Parâmetros do rival ≥ 10× os nossos é o que o G1.2 pede.
+RAZAO_G1_2 = 10.0
+# 5 pontos de nDCG@10 é o limiar do G1.1 (DOC-00 §5).
+MARGEM_G1_1 = 0.05
+# Quem é quem nos critérios. Sem isto o veredito teria de adivinhar pelo rótulo,
+# que foi exatamente o defeito que fez «SciBERT (base do ΦEmb)» ser tomado pelo
+# nosso modelo.
+ALVO_DOMINIO = "thellert/physbert_cased"
+GENERICOS = frozenset({
+    "sentence-transformers/all-MiniLM-L6-v2",
+    "thenlper/gte-large",
+})
 
 
 @dataclass
@@ -60,6 +85,11 @@ class Resultado:
     recall_1: float
     recall_10: float
     mrr: float
+    # A métrica que o G1.1 nomeia. Com UM documento relevante por consulta o
+    # nDCG@10 se reduz a 1/log2(1+posição) quando a posição é ≤ 10 e a 0 depois:
+    # o ganho ideal é um único acerto, então o denominador (IDCG) vale 1. Sai de
+    # graça das posições — e sem ela o portão estava sendo julgado por proxy.
+    ndcg_10: float
     parametros_m: float
     segundos: float
     erro: str = ""
@@ -95,7 +125,7 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
         tok = AutoTokenizer.from_pretrained(caminho)
         mod = AutoModel.from_pretrained(caminho, attn_implementation="eager").to(dev).eval()
     except Exception as exc:
-        return Resultado(nome, caminho, 0.0, 0.0, 0.0, 0.0, 0.0,
+        return Resultado(nome, caminho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                          erro=f"{type(exc).__name__}: {str(exc)[:120]}")
 
     amostra = val.head(n)
@@ -107,44 +137,114 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
     ordem = sim.argsort(dim=1, descending=True)
     pos = (ordem == alvo.unsqueeze(1)).float().argmax(dim=1) + 1
 
+    # nDCG@10 com um único relevante: ganho descontado só se caiu no top-10.
+    dcg = torch.where(pos <= 10, 1.0 / torch.log2(pos.float() + 1.0),
+                      torch.zeros_like(pos, dtype=torch.float))
+
     return Resultado(
         nome, caminho,
         (pos == 1).float().mean().item(),
         (pos <= 10).float().mean().item(),
         (1.0 / pos).mean().item(),
+        dcg.mean().item(),
         sum(p.numel() for p in mod.parameters()) / 1e6,
         time.perf_counter() - t0,
         posicoes=pos.tolist(),
     )
 
 
-def comparar(val: pl.DataFrame, extras: dict[str, str] | None = None, **kw) -> list[Resultado]:
-    """`extras` sao NOSSOS modelos; `CONCORRENTES` sao os de fora."""
+def _digesto(val: pl.DataFrame, n: int) -> str:
+    """Impressão digital da amostra avaliada.
+
+    O cache só vale se a amostra for a MESMA. Comparar um modelo medido nos
+    pares de ontem com outro medido nos de hoje seria o pior tipo de erro: a
+    tabela pareceria válida e não seria.
+    """
+    import hashlib
+    h = hashlib.sha256()
+    for c in ("ancora", "positivo"):
+        for s in val.head(n)[c].to_list():
+            h.update(s.encode("utf-8", "replace"))
+    return h.hexdigest()[:16]
+
+
+def comparar(val: pl.DataFrame, extras: dict[str, str] | None = None,
+             cache: Path | None = None, **kw) -> list[Resultado]:
+    """`extras` sao NOSSOS modelos; `CONCORRENTES` sao os de fora.
+
+    ## Por que existe cache
+
+    Uma passada a 2.000 candidatos custa ~57 min de CPU, e a maior parte é gasta
+    remedindo modelos que não mudaram — o PhysBERT sozinho leva 22 min. Somar UM
+    modelo à comparação não deve custar a soma de todos.
+
+    O cache é invalidado inteiro se `n`, `max_tokens` ou o **digesto da amostra**
+    mudarem, porque nesse caso os números deixam de ser comparáveis entre si. Um
+    cache que mistura protocolos é pior que nenhum: ele produz uma tabela que
+    parece válida.
+    """
     nossos = set(extras or {})
     alvos = {**CONCORRENTES, **(extras or {})}
+    n, mt = kw.get("n", 256), kw.get("max_tokens", 192)
+    dig = _digesto(val, n)
+
+    guardado: dict[str, dict] = {}
+    if cache and cache.exists():
+        d = json.loads(cache.read_text(encoding="utf-8"))
+        if (d.get("digesto"), d.get("n"), d.get("max_tokens")) == (dig, n, mt):
+            guardado = d.get("resultados", {})
+            log.info("cache: %d modelo(s) já medidos no mesmo protocolo", len(guardado))
+        else:
+            log.info("cache descartado — protocolo diferente (n/max_tokens/amostra)")
+
     out = []
     for nome, caminho in alvos.items():
-        log.info("avaliando %s (%s)", nome, caminho)
-        r = avaliar_um(caminho, nome, val, **kw)
-        r.nosso = nome in nossos
-        if r.erro:
-            log.warning("  %s FALHOU: %s", nome, r.erro)
+        g = guardado.get(str(caminho))
+        if g and not g.get("erro"):
+            r = Resultado(**{**g, "nome": nome})
+            log.info("%s · do cache: recall@1 %.3f · MRR %.3f", nome, r.recall_1, r.mrr)
         else:
-            log.info("  recall@1 %.3f · recall@10 %.3f · MRR %.3f (%.0fs)",
-                     r.recall_1, r.recall_10, r.mrr, r.segundos)
+            log.info("avaliando %s (%s)", nome, caminho)
+            r = avaliar_um(caminho, nome, val, **kw)
+            if r.erro:
+                log.warning("  %s FALHOU: %s", nome, r.erro)
+            else:
+                log.info("  recall@1 %.3f · recall@10 %.3f · MRR %.3f (%.0fs)",
+                         r.recall_1, r.recall_10, r.mrr, r.segundos)
+        r.nosso = nome in nossos
         out.append(r)
+
+    if cache:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(
+            {"digesto": dig, "n": n, "max_tokens": mt,
+             "resultados": {r.caminho: asdict(r) for r in out if not r.erro}},
+            ensure_ascii=False), encoding="utf-8")
     return out
+
+
+def campeao(rs: list[Resultado]) -> Resultado | None:
+    """O MELHOR dos nossos, não o primeiro.
+
+    Com um só modelo nosso `next(...)` bastava. Com dois — o ΦEmb sobre SciBERT e
+    o sobre MiniLM — ele passa a devolver o que a ordem do dicionário entregar,
+    e o portão seria julgado por um modelo escolhido ao acaso.
+    """
+    nossos = [r for r in rs if r.nosso and not r.erro]
+    return max(nossos, key=lambda r: r.recall_1) if nossos else None
 
 
 def tabela(rs: list[Resultado], n: int) -> str:
     ok = [r for r in rs if not r.erro]
-    ok.sort(key=lambda r: -r.recall_1)
+    # Ordena por nDCG@10, que é a métrica do portão.
+    ok.sort(key=lambda r: -r.ndcg_10)
     L = [f"Recuperação por citação · {n} candidatos · média mascarada · 192 tokens", ""]
-    L.append(f"{'modelo':30} {'params':>8} {'recall@1':>9} {'recall@10':>10} {'MRR':>7}")
-    L.append("-" * 68)
+    L.append(f"{'modelo':30} {'params':>8} {'nDCG@10':>8} {'recall@1':>9} "
+             f"{'recall@10':>10} {'MRR':>7}")
+    L.append("-" * 78)
     for r in ok:
-        L.append(f"{r.nome[:30]:30} {r.parametros_m:7.0f}M {r.recall_1:9.3f} "
-                 f"{r.recall_10:10.3f} {r.mrr:7.3f}")
+        L.append(f"{r.nome[:30]:30} {r.parametros_m:7.0f}M {r.ndcg_10:8.3f} "
+                 f"{r.recall_1:9.3f} {r.recall_10:10.3f} {r.mrr:7.3f}")
     for r in rs:
         if r.erro:
             L.append(f"{r.nome[:30]:30}   FALHOU: {r.erro[:60]}")
@@ -204,13 +304,13 @@ def comparar_pareado(a: Resultado, b: Resultado) -> dict:
 
 
 def tabela_pareada(rs: list[Resultado]) -> str:
-    """Todos contra o nosso, pareado."""
+    """Todos contra o MELHOR dos nossos, pareado."""
     ok = [r for r in rs if not r.erro]
-    nosso = next((r for r in ok if r.nosso), None)
+    nosso = campeao(rs)
     if nosso is None:
         return "(sem modelo nosso na comparação)"
 
-    L = ["Comparação PAREADA em recall@1 — teste de McNemar exato", "",
+    L = [f"Comparação PAREADA em recall@1 — McNemar exato · nosso = {nosso.nome}", "",
          f"{'contra':30} {'nós':>5} {'eles':>5} {'disc':>5} {'p':>8}  veredito"]
     L.append("-" * 92)
     for r in ok:
@@ -230,48 +330,82 @@ def tabela_pareada(rs: list[Resultado]) -> str:
 
 
 def veredito(rs: list[Resultado], n: int = 256) -> str:
-    """G1 exige bater o PhysBERT E os genéricos. Ausência de dado não é aprovação.
+    """Julga G1.1 e G1.2 pela redação do DOC-00 §5, não por proxy.
 
-    `n` é o número de candidatos da avaliação, e entra na conta do erro padrão —
-    sem ele não há como dizer se uma margem é vitória ou ruído.
+    | | Exigência | Métrica |
+    |---|---|---|
+    G1.1 | superar o PhysBERT em ≥ 5 pontos | **nDCG@10** |
+    G1.2 | superar o melhor embedder GERAL com ≤ 1/10 dos parâmetros | nDCG@10 + params |
+
+    Duas armadilhas que este código evita de propósito:
+
+    **A métrica.** Antes eu julgava por recall@1, que o portão não menciona. Dá
+    para acertar o veredito por sorte e errar o critério — e num portão o critério
+    É o resultado.
+
+    **A cláusula de tamanho é relativa ao RIVAL.** Superar um genérico de 23M com
+    um modelo de 23M não fecha o G1.2: a razão precisa ser ≤ 1/10, o que exige um
+    rival de ≥ 230M. Tratar «bati o MiniLM» como G1.2 fechado seria satisfazer o
+    critério mais fácil e declarar o mais difícil.
     """
-    ok = {r.nome: r for r in rs if not r.erro}
-    nosso = next((r for r in ok.values() if r.nosso), None)
+    ok = [r for r in rs if not r.erro]
+    nosso = campeao(rs)
     if nosso is None:
-        return "G1: INDETERMINADO — o ΦEmb não entrou na comparação"
+        return "G1: INDETERMINADO — nenhum modelo nosso entrou na comparação"
 
-    rivais = [r for k, r in ok.items() if r is not nosso]
-    if not rivais:
-        return "G1: INDETERMINADO — nenhum concorrente carregou; sem base de comparação"
+    L = [f"nosso candidato: {nosso.nome} · {nosso.parametros_m:.0f}M params · "
+         f"nDCG@10 {nosso.ndcg_10:.3f}", ""]
 
-    perdeu = [r.nome for r in rivais if r.recall_1 >= nosso.recall_1]
-    faltou = [r.nome for r in rs if r.erro]
-
-    # Erro padrão de uma proporção com n itens. Margem menor que isto é ruído
-    # de amostragem, e anunciar vitória em cima dela seria exagero: 0,402 contra
-    # 0,398 em 256 itens são 103 acertos contra 102.
-    ep = (nosso.recall_1 * (1 - nosso.recall_1) / n) ** 0.5
-
-    linhas = []
-    if perdeu:
-        linhas.append(f"G1: NÃO PASSOU — {', '.join(perdeu)} empata ou supera em recall@1")
+    # ── G1.1 · contra o competidor de mesmo domínio ────────────────────────
+    alvo = next((r for r in ok if r.caminho == ALVO_DOMINIO), None)
+    if alvo is None:
+        L.append("G1.1: INDETERMINADO — o PhysBERT não carregou; sem dado não há aprovação")
     else:
-        margem = min(nosso.recall_1 - r.recall_1 for r in rivais)
-        pior = min(rivais, key=lambda r: nosso.recall_1 - r.recall_1)
-        if margem < ep:
-            linhas.append(
-                f"G1: INCONCLUSIVO em recall@1 — a margem sobre {pior.nome} é "
-                f"{margem:+.3f}, menor que o erro padrão de ±{ep:.3f} em {n} itens. "
-                f"É empate estatístico, não vitória.")
-            # As outras métricas podem decidir onde recall@1 não decide.
-            m10 = min(nosso.recall_10 - r.recall_10 for r in rivais)
-            mmrr = min(nosso.mrr - r.mrr for r in rivais)
-            linhas.append(f"   recall@10 {m10:+.3f} · MRR {mmrr:+.3f} — margens folgadas, "
-                          f"e é onde o ΦEmb se separa")
+        # Arredonda para as 3 casas EXIBIDAS antes de comparar. Sem isto o
+        # relatório se contradiz na fronteira: `0.30 + 0.05` em float é
+        # 0.34999999999999998, a diferença sai 0.049999999999999996, e o texto
+        # imprime «+0.050 … NÃO PASSOU». Quem lê não tem como saber que a causa
+        # é 1e-17. Julgar na precisão que se mostra elimina a contradição.
+        d = round(nosso.ndcg_10 - alvo.ndcg_10, 3)
+        pareado = comparar_pareado(nosso, alvo)
+        st = "PASSOU" if d >= MARGEM_G1_1 else "NÃO PASSOU"
+        L.append(f"G1.1: {st} — nDCG@10 {d:+.3f} sobre o PhysBERT "
+                 f"(limiar +{MARGEM_G1_1:.2f}) · pareado em recall@1: {pareado['veredito']}")
+
+    # ── G1.2 · contra o melhor genérico, com a cláusula de tamanho ─────────
+    gs = [r for r in ok if r.caminho in GENERICOS]
+    if not gs:
+        L.append("G1.2: INDETERMINADO — nenhum embedder geral carregou")
+    else:
+        melhor = max(gs, key=lambda r: r.ndcg_10)
+        razao = melhor.parametros_m / max(nosso.parametros_m, 1e-9)
+        bate = nosso.ndcg_10 > melhor.ndcg_10
+        cabe = razao >= RAZAO_G1_2
+        if bate and cabe:
+            st = "PASSOU"
+        elif bate:
+            st = "PARCIAL (vence, mas a razão de tamanho não fecha)"
         else:
-            linhas.append(f"G1: PASSOU sobre quem foi medido — margem mínima de "
-                          f"{margem:+.3f} em recall@1, acima do erro padrão de ±{ep:.3f}")
+            st = "NÃO PASSOU"
+        L.append(f"G1.2: {st} — melhor genérico é {melhor.nome} "
+                 f"({melhor.parametros_m:.0f}M, nDCG@10 {melhor.ndcg_10:.3f}); "
+                 f"nDCG@10 {nosso.ndcg_10 - melhor.ndcg_10:+.3f}, "
+                 f"razão de params 1/{razao:.1f} "
+                 f"({'≤' if cabe else '>'} 1/{RAZAO_G1_2:.0f} exigido)")
+        if bate and not cabe:
+            L.append(f"     ⚠️ vencer um genérico de {melhor.parametros_m:.0f}M com "
+                     f"{nosso.parametros_m:.0f}M não satisfaz a cláusula: ela pede rival "
+                     f"de ≥ {RAZAO_G1_2 * nosso.parametros_m:.0f}M.")
+
+    # ── ressalvas que impedem tratar isto como o portão fechado ────────────
+    faltou = [r.nome for r in rs if r.erro]
     if faltou:
-        linhas.append(f"⚠️ não avaliados ({', '.join(faltou)}) — o portão só está "
-                      "fechado quando TODOS forem medidos")
-    return "\n".join(linhas)
+        L.append(f"⚠️ não avaliados: {', '.join(faltou)}")
+    L += ["",
+          "RESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:",
+          "  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado",
+          "  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)",
+          "    não são tocados por esta medição",
+          f"  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);",
+          f"    um benchmark com julgamentos graduados daria outro número"]
+    return "\n".join(L)
