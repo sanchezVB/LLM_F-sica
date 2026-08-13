@@ -53,7 +53,7 @@ from pathlib import Path
 import requests
 
 from phifm.core.latex.canonical import hash_canonico
-from phifm.core.latex.extrair import extrair_equacoes, juntar_fontes
+from phifm.core.latex.extrair import extrair_equacoes, montar_documento
 from phifm.core.latex.macros import preparar
 from phifm.core.schema.manifest import RateLimit
 from phifm.corpus.acquire.base import CONTACT, PoliteSession
@@ -79,10 +79,21 @@ class Comparacao:
     eq_redpajama: int = 0
     preservadas: int = 0
     erro: str = ""
+    # Como a fonte foi montada. "seguido" = o principal foi achado e os `\input`
+    # resolvidos, então a contagem é fiel. "concatenado" = não havia
+    # `\documentclass` e juntamos tudo, então a contagem pode estar INFLADA por
+    # arquivos que o documento não inclui. Sem este campo os dois casos entravam
+    # na mesma média e o resultado era chamado de "degradação".
+    modo: str = ""
+    tex_ignorados: int = 0
 
     @property
     def taxa(self) -> float | None:
         return self.preservadas / self.eq_fonte if self.eq_fonte else None
+
+    @property
+    def confiavel(self) -> bool:
+        return self.modo != "concatenado"
 
 
 @dataclass
@@ -95,10 +106,23 @@ class Auditoria:
         incluí-los na média puxaria o resultado para um lado arbitrário."""
         return [c for c in self.comparacoes if not c.erro and c.eq_fonte > 0]
 
+    @property
+    def fieis(self) -> list[Comparacao]:
+        """Papers em que o documento principal foi identificado e os `\\input`
+        resolvidos. Só nestes a contagem da fonte é o que o LaTeX veria.
+
+        Nos outros caímos em concatenar o pacote, e aí um rascunho esquecido no
+        tarball vira "equação que o RedPajama perdeu". **É este subconjunto que
+        decide**, porque a decisão em jogo é gastar US$ 100–180.
+        """
+        return [c for c in self.uteis if c.confiavel]
+
     def resumo(self) -> dict:
-        u = self.uteis
+        u = self.fieis
+        todos = self.uteis
         if not u:
-            return {"erro": "nenhum paper comparável"}
+            return {"erro": f"nenhum paper com fonte montada de forma fiel "
+                            f"({len(todos)} comparáveis, todos por concatenação)"}
         tf = sum(c.eq_fonte for c in u)
         tp = sum(c.preservadas for c in u)
         # Por equação (agregado) e por paper (média das taxas). Os dois importam:
@@ -125,24 +149,26 @@ class Auditoria:
         discordam = sum(max(0, min(c.eq_fonte, c.eq_redpajama) - c.preservadas) for c in u)
         f_aus, f_dis = ausentes / tf, discordam / tf
 
-        # ⚠️ `f_aus` é COTA SUPERIOR da perda real. `juntar_fontes` concatena
-        # todos os `.tex` da submissão, inclusive os que o documento principal
-        # não inclui — rascunhos e versões alternativas inflam a contagem da
-        # fonte e aparecem como ausência. Seguir `\input`/`\include` a partir do
-        # arquivo principal resolveria; está registrado, não feito.
         if f_aus <= 0.10 and f_aus + f_dis > 0.10:
             v = (f"INCONCLUSIVO — perda REAL de {100*f_aus:.1f}% está abaixo do limiar, "
                  f"mas {100*f_dis:.1f}% de discordância de notação impede afirmar. "
                  "Resolver o comparador antes de decidir.")
         elif f_aus > 0.10:
-            v = (f"RedPajama DEGRADA — perda real de {100*f_aus:.1f}% acima do limiar de 10%. "
-                 "COTA SUPERIOR: a contagem da fonte pode estar inflada por `.tex` não "
-                 "incluídos (ver aviso no código). Confirmar antes de gastar US$ 100–180.")
+            v = (f"RedPajama DEGRADA — perda real de {100*f_aus:.1f}% acima do limiar de "
+                 "10%; o bulk pago do arXiv (US$ 100–180) se justifica (DOC-02 §3.2)")
         else:
             v = f"RedPajama SERVE — perda real de {100*f_aus:.1f}%, abaixo do limiar de 10%"
 
+        # Contraste com a medição ANTIGA, sobre todos os papers. Se os dois
+        # números divergirem muito, a diferença É o viés da concatenação — e
+        # deixar isso visível é o que impede a próxima pessoa (ou eu) de voltar a
+        # confiar na média suja.
+        tf_t = sum(c.eq_fonte for c in todos)
+        contraste = round(1 - sum(c.preservadas for c in todos) / tf_t, 4) if tf_t else None
+
         return {
             "papers_comparados": len(u),
+            "papers_por_concatenacao_excluidos": len(todos) - len(u),
             "papers_com_erro": sum(1 for c in self.comparacoes if c.erro),
             "equacoes_na_fonte": tf,
             "equacoes_preservadas": tp,
@@ -151,18 +177,36 @@ class Auditoria:
             "degradacao_total": round(1 - por_eq, 4),
             "degradacao_por_ausencia": round(f_aus, 4),
             "degradacao_por_discordancia": round(f_dis, 4),
+            # Sobre TODOS os comparáveis, inclusive os concatenados. Serve de
+            # contraste, não de resultado.
+            "degradacao_total_sem_filtro": contraste,
             "papers_abaixo_de_90pc": sum(1 for t in taxas if t < 0.90),
             "limiar_do_doc02": 0.10,
             "veredito": v,
         }
 
 
-def amostrar_redpajama(http: PoliteSession, n: int = N_PAPERS) -> dict[str, str]:
-    """`arxiv_id` → texto, do começo do primeiro shard."""
-    url = http.get(INDICE_REDPAJAMA, timeout=60).text.splitlines()[0].strip()
-    r = http.get(url, timeout=300, headers={"Range": f"bytes=0-{BYTES_DO_SHARD}"})
-    # A última linha da faixa quase certamente está cortada.
-    linhas = r.text.split("\n")[:-1]
+def amostrar_redpajama(http: PoliteSession, n: int = N_PAPERS,
+                       cache: Path | None = None) -> dict[str, str]:
+    """`arxiv_id` → texto, do começo do primeiro shard.
+
+    Cacheado: a faixa de 16 MB é a MESMA a cada rodada, e reiterar no comparador
+    não deve rebaixá-la. Cachear também garante que rodadas sucessivas comparem
+    a mesma amostra — se o shard mudasse, a comparação entre rodadas perderia
+    sentido sem aviso.
+    """
+    guardado = cache / f"redpajama_shard0_{BYTES_DO_SHARD}.jsonl" if cache else None
+    veio_do_cache = guardado is not None and guardado.exists()
+    if veio_do_cache:
+        linhas = guardado.read_text(encoding="utf-8").split("\n")
+    else:
+        url = http.get(INDICE_REDPAJAMA, timeout=60).text.splitlines()[0].strip()
+        r = http.get(url, timeout=300, headers={"Range": f"bytes=0-{BYTES_DO_SHARD}"})
+        # A última linha da faixa quase certamente está cortada.
+        linhas = r.text.split("\n")[:-1]
+        if guardado is not None:
+            guardado.parent.mkdir(parents=True, exist_ok=True)
+            guardado.write_text("\n".join(linhas), encoding="utf-8")
     out: dict[str, str] = {}
     for l in linhas:
         try:
@@ -174,15 +218,31 @@ def amostrar_redpajama(http: PoliteSession, n: int = N_PAPERS) -> dict[str, str]
             out[aid] = d["text"]
         if len(out) >= n:
             break
-    log.info("RedPajama: %d papers amostrados de %.0f MB do primeiro shard",
-             len(out), len(r.content) / 1e6)
+    # A checagem tem de ser ANTES da gravação: testar `exists()` depois de
+    # escrever faz o log dizer "do cache" na própria rodada que criou o cache.
+    log.info("RedPajama: %d papers amostrados de %d linhas do primeiro shard%s",
+             len(out), len(linhas), " (do cache)" if veio_do_cache else " (baixado)")
     return out
 
 
-def baixar_fonte(http: PoliteSession, arxiv_id: str) -> dict[str, str]:
-    """Arquivos `.tex` da submissão. Aceita tar.gz e .tex avulso gzipado."""
-    r = http.get(EPRINT + arxiv_id, timeout=120)
-    bruto = r.content
+def baixar_fonte(http: PoliteSession, arxiv_id: str,
+                 cache: Path | None = None) -> dict[str, str]:
+    """Arquivos `.tex` da submissão. Aceita tar.gz e .tex avulso gzipado.
+
+    O cache guarda o tarball CRU. Existe por cortesia antes de por velocidade:
+    iterar no comparador não deve custar 199 novas requisições ao arXiv a cada
+    tentativa (princípio A5, DOC-02 §1). O tarball é o insumo fiel — reextrair
+    dele é grátis e não depende de como a extração estava escrita na hora.
+    """
+    guardado = cache / f"{arxiv_id}.tar" if cache else None
+    if guardado is not None and guardado.exists():
+        bruto = guardado.read_bytes()
+    else:
+        r = http.get(EPRINT + arxiv_id, timeout=120)
+        bruto = r.content
+        if guardado is not None:
+            guardado.parent.mkdir(parents=True, exist_ok=True)
+            guardado.write_bytes(bruto)
     try:
         with tarfile.open(fileobj=io.BytesIO(bruto), mode="r:*") as tf:
             return {
@@ -202,19 +262,21 @@ def baixar_fonte(http: PoliteSession, arxiv_id: str) -> dict[str, str]:
     raise ValueError("formato de submissão não reconhecido")
 
 
-def comparar_um(http: PoliteSession, arxiv_id: str, texto_rp: str) -> Comparacao:
+def comparar_um(http: PoliteSession, arxiv_id: str, texto_rp: str,
+                cache: Path | None = None) -> Comparacao:
     c = Comparacao(arxiv_id)
     try:
-        fonte = juntar_fontes(baixar_fonte(http, arxiv_id))
+        doc = montar_documento(baixar_fonte(http, arxiv_id, cache))
     except Exception as exc:
         c.erro = f"{type(exc).__name__}: {str(exc)[:80]}"
         return c
+    c.modo, c.tex_ignorados = doc.modo, len(doc.ignorados)
 
     # ⚠️ Expandir as macros do autor ANTES de extrair. Sem isto a medição
     # confunde notação com conteúdo: a fonte escreve `\Ecal_\mu`, o RedPajama
     # escreve `\mathcal{E}_\mu`, e a equação conta como perdida. Medido no
     # 1607.04520: das que NÃO casavam, 97% usavam macro; das que casavam, 20%.
-    eq_fonte = extrair_equacoes(preparar(fonte))
+    eq_fonte = extrair_equacoes(preparar(doc.texto))
     # O texto do RedPajama pode trazer o preâmbulo, então as macros dele também
     # são expandidas — com as definições que ELE tiver, não as da fonte.
     eq_rp = extrair_equacoes(preparar(texto_rp), remover_comentario=False)
@@ -234,20 +296,25 @@ def comparar_um(http: PoliteSession, arxiv_id: str, texto_rp: str) -> Comparacao
     return c
 
 
-def auditar(n: int = N_PAPERS, contato: str = CONTACT) -> Auditoria:
+def auditar(n: int = N_PAPERS, contato: str = CONTACT,
+            cache: Path | None = None) -> Auditoria:
     # 1 req/3 s é o pedido do arXiv (DOC-02 §8.2) e vale para `/e-print/` também.
     http = PoliteSession(RateLimit(requests_per_second=1 / 3, max_retries=6,
                                    backoff_max_s=300), contato)
-    amostra = amostrar_redpajama(http, n)
+    amostra = amostrar_redpajama(http, n, cache)
     a = Auditoria()
     for i, (aid, texto) in enumerate(amostra.items(), 1):
-        c = comparar_um(http, aid, texto)
+        c = comparar_um(http, aid, texto, cache)
         a.comparacoes.append(c)
         if i % 20 == 0 or c.erro:
             t = f"{c.taxa:.2f}" if c.taxa is not None else "—"
-            log.info("%d/%d · %s · fonte %d eq · rp %d eq · preservação %s %s",
-                     i, len(amostra), aid, c.eq_fonte, c.eq_redpajama, t,
-                     f"· {c.erro}" if c.erro else "")
+            log.info("%d/%d · %s · fonte %d eq · rp %d eq · preservação %s · %s%s",
+                     i, len(amostra), aid, c.eq_fonte, c.eq_redpajama, t, c.modo,
+                     f" · {c.erro}" if c.erro else "")
+    modos: dict[str, int] = {}
+    for c in a.comparacoes:
+        modos[c.modo or "erro"] = modos.get(c.modo or "erro", 0) + 1
+    log.info("montagem da fonte: %s", modos)
     return a
 
 

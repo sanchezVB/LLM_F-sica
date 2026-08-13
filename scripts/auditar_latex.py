@@ -22,13 +22,16 @@ def main() -> int:
                    help="papers a auditar; 200 já dá erro padrão de ~2%% por paper")
     p.add_argument("--out", type=Path,
                    default=Path("data/processed/avaliacao/s3b_latex.json"))
+    p.add_argument("--cache", type=Path, default=Path("data/raw/arxiv_fontes"),
+                   help="tarballs e amostra do RedPajama; evita rebaixar a cada "
+                        "iteração no comparador (cortesia, princípio A5)")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
     contato_obrigatorio()          # cortesia com o arXiv, igual às coletas
 
-    r = salvar(auditar(a.n), a.out)
+    r = salvar(auditar(a.n, cache=a.cache), a.out)
     print("\n" + "=" * 68)
     if "erro" in r:
         print(r["erro"])
@@ -41,6 +44,8 @@ def main() -> int:
     print(f"  mediana por paper          : {100*r['preservacao_mediana_por_paper']:.1f}%")
     print(f"  papers abaixo de 90%       : {r['papers_abaixo_de_90pc']} de {r['papers_comparados']}")
     print(f"  papers com erro de coleta  : {r['papers_com_erro']}")
+    print(f"  excluídos (fonte montada por concatenação, contagem inflável)")
+    print(f"                             : {r['papers_por_concatenacao_excluidos']}")
     print()
     print(f"  DEGRADAÇÃO TOTAL: {100*r['degradacao_total']:.1f}%   "
           f"(limiar do DOC-02: {100*r['limiar_do_doc02']:.0f}%)")
@@ -48,6 +53,9 @@ def main() -> int:
           "← perda real de conteúdo; só isto justifica pagar")
     print(f"    por DISCORDÂNCIA : {100*r['degradacao_por_discordancia']:.1f}%  "
           "← notação, ou resíduo do nosso comparador")
+    if r.get("degradacao_total_sem_filtro") is not None:
+        print(f"    (sem filtrar por montagem daria {100*r['degradacao_total_sem_filtro']:.1f}% "
+              "— a diferença É o viés da concatenação)")
     print("=" * 68)
     print(r["veredito"])
     print(f"\ndetalhe por paper em {a.out}")
