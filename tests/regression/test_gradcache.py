@@ -212,3 +212,43 @@ def test_piso_da_perda_cresce_com_negativos():
     assert p32 > p8
     # O piso teórico não é alcançado num modelo não treinado, mas a ORDEM vale.
     assert math.log(32) > math.log(8)
+
+
+# ─── o lote lógico não pode virar lote físico por engano ────────────────────
+
+def test_lote_fisico_e_o_sub_lote_quando_ha_gradcache():
+    """Com GradCache, `cfg.lote` é LÓGICO e não cabe na memória.
+
+    Custou um lançamento de treino: `avaliar` usava `cfg.lote` para fatiar a
+    codificação e, com `--lote 512`, tentou codificar 512 textos de uma vez na
+    avaliação de linha de base — ANTES do primeiro passo. Morreu pedindo 576 MB,
+    que é exatamente 512 × 192 tokens × 1536 do intermediário × 4 bytes.
+
+    O treino estava correto. Quem não sabia da mudança de significado era um uso
+    distante, e é esse tipo de acoplamento que um teste de invariante pega.
+    """
+    t = TreinadorFalso(sub_lote=32)
+    t.cfg.lote = 512
+    assert t.lote_fisico == 32, "o lote físico tem de ser o sub-lote"
+
+    direto = TreinadorFalso(sub_lote=None)
+    direto.cfg.lote = 64
+    assert direto.lote_fisico == 64, "sem GradCache, físico e lógico coincidem"
+
+
+def test_nenhum_uso_de_cfg_lote_fatia_para_a_memoria():
+    """Lê o próprio fonte: `cfg.lote` só pode aparecer onde o lote é LÓGICO.
+
+    Os usos legítimos são a propriedade `lote_fisico` e o `batch_size` do
+    DataLoader — que é o lote lógico de propósito, é dele que saem os negativos.
+    Qualquer outro uso é candidato ao mesmo defeito.
+    """
+    from phifm.training import embedding as mod
+    fonte = Path(mod.__file__).read_text(encoding="utf-8")
+    linhas = [l.strip() for l in fonte.splitlines() if "self.cfg.lote" in l]
+    permitidos = ("return self.cfg.sub_lote or self.cfg.lote",
+                  "batch_size=self.cfg.lote,")
+    for l in linhas:
+        assert any(p in l for p in permitidos), (
+            f"uso novo de cfg.lote fora dos dois legítimos: {l!r} — se este fatia "
+            f"para caber na memória, use `self.lote_fisico`")

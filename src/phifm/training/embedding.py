@@ -186,6 +186,22 @@ class TreinadorEmb:
         self.opt = torch.optim.AdamW(self.mod.parameters(), lr=cfg.lr)
         self._melhor_mrr = -1.0   # reconstruído em `retomar`, ver o aviso lá
 
+    @property
+    def lote_fisico(self) -> int:
+        """Quantos textos vão à GPU de uma vez.
+
+        ⚠️ Com GradCache, `cfg.lote` passa a ser LÓGICO — é de onde saem os
+        negativos, não o que cabe na memória. Todo lugar que fatia para caber
+        precisa deste, não daquele.
+
+        Custou um treino: `avaliar` usava `cfg.lote` e, com `--lote 512`, tentou
+        codificar 512 textos de uma vez na avaliação de linha de base, ANTES do
+        primeiro passo. Morreu pedindo 576 MB — exatamente
+        512 × 192 tokens × 1536 do intermediário × 4 bytes. O treino em si estava
+        correto; quem não sabia da mudança de significado era um uso distante.
+        """
+        return self.cfg.sub_lote or self.cfg.lote
+
     def _codificar(self, textos: list[str]) -> torch.Tensor:
         lote = self.tok(list(textos), padding="max_length", truncation=True,
                         max_length=self.cfg.max_tokens, return_tensors="pt")
@@ -278,10 +294,11 @@ class TreinadorEmb:
         n = n or self.cfg.n_candidatos
         self.mod.eval()
         amostra = val.head(n)
-        va = torch.cat([self._codificar(amostra["ancora"].to_list()[i:i + self.cfg.lote])
-                        for i in range(0, amostra.height, self.cfg.lote)]).cpu()
-        vp = torch.cat([self._codificar(amostra["positivo"].to_list()[i:i + self.cfg.lote])
-                        for i in range(0, amostra.height, self.cfg.lote)]).cpu()
+        lf = self.lote_fisico
+        va = torch.cat([self._codificar(amostra["ancora"].to_list()[i:i + lf])
+                        for i in range(0, amostra.height, lf)]).cpu()
+        vp = torch.cat([self._codificar(amostra["positivo"].to_list()[i:i + lf])
+                        for i in range(0, amostra.height, lf)]).cpu()
         sim = va @ vp.T
         alvo = torch.arange(sim.size(0))
         ordem = sim.argsort(dim=1, descending=True)
