@@ -21,7 +21,12 @@ def main() -> int:
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
     p.add_argument("--out", type=Path, default=Path("models/phiemb"))
     p.add_argument("--base", default=BASE_PADRAO)
-    p.add_argument("--lote", type=int, default=16)
+    p.add_argument("--lote", type=int, default=16,
+                   help="lote LÓGICO: é dele que saem os negativos do InfoNCE")
+    p.add_argument("--sub-lote", type=int, default=None,
+                   help="liga o GradCache. É o que vai à GPU de cada vez; o `--lote` "
+                        "passa a ser só lógico. `--lote 512 --sub-lote 128` dá 511 "
+                        "negativos com a memória de 128. Ver test_gradcache.py")
     p.add_argument("--max-tokens", type=int, default=192)
     p.add_argument("--lr", type=float, default=2e-5)
     p.add_argument("--max-pares", type=int, default=None,
@@ -48,9 +53,13 @@ def main() -> int:
     logging.info("pares: %s de %s disponíveis · %s validação",
                  f"{treino.height:,}", f"{total:,}", f"{val.height:,}")
 
-    cfg = Config(base=a.base, lote=a.lote, max_tokens=a.max_tokens, lr=a.lr,
+    cfg = Config(base=a.base, lote=a.lote, sub_lote=a.sub_lote,
+                 max_tokens=a.max_tokens, lr=a.lr,
                  max_pares=a.max_pares, passos_aval=a.passos_aval,
                  n_candidatos=a.n_candidatos, dispositivo=a.dispositivo)
+    if a.sub_lote:
+        logging.info("GradCache ligado: lote lógico %d (%d negativos) com a memória "
+                     "de %d", a.lote, a.lote - 1, a.sub_lote)
     m = TreinadorEmb(cfg).treinar(treino, val, a.out)
 
     antes = m.historico[0]

@@ -77,6 +77,20 @@ class Config:
     # e devolve a maior parte da memória — a troca certa quando o lote é o
     # limite de QUALIDADE, não só de velocidade (ver docstring do módulo).
     checkpointing: bool = True
+    # ─── GradCache ────────────────────────────────────────────────────────
+    #
+    # Desacopla o TAMANHO DO LOTE da memória. Sem isto o lote é limitado pelo que
+    # cabe na GPU, e no InfoNCE o lote É o número de negativos — o limite de
+    # QUALIDADE, não de velocidade. Medido nos 8 GB: SciBERT cabe em lote 8 (7
+    # negativos), MiniLM em 128 (127). A literatura opera entre 64 e 256.
+    #
+    # `sub_lote` é o que realmente vai à GPU de cada vez; `lote` passa a ser o
+    # lote LÓGICO, do qual saem os negativos. Com `sub_lote=32` e `lote=512` são
+    # 511 negativos usando a memória de 32.
+    #
+    # `None` desliga o GradCache e usa o caminho direto — é o que os treinos
+    # anteriores fizeram, e o que o teste de equivalência compara.
+    sub_lote: int | None = None
     passos_log: int = 50
     passos_aval: int = 500
     n_candidatos: int = 256   # pool da avaliação; ver Metricas.n_candidatos
@@ -190,6 +204,69 @@ class TreinadorEmb:
         alvo = torch.arange(sim.size(0), device=sim.device)
         return 0.5 * (F.cross_entropy(sim, alvo) + F.cross_entropy(sim.T, alvo))
 
+    def _passo_gradcache(self, ancoras: list[str], positivos: list[str]) -> torch.Tensor:
+        """Um passo de InfoNCE com lote lógico maior que a memória. (Gao et al., 2021)
+
+        ## O que ele resolve
+
+        No InfoNCE o lote É o conjunto de negativos, então limitar o lote pela
+        memória limita a QUALIDADE. O truque: as representações são minúsculas
+        (`lote × 384` floats) mas o GRAFO que as produziu é enorme. GradCache
+        separa os dois.
+
+        ## As três fases
+
+        1. **Cachear.** Forward de cada pedaço SEM grafo, guardando só as
+           representações. Memória: um pedaço.
+        2. **Perda.** Calcular o InfoNCE nas representações do lote INTEIRO e
+           derivar em relação a elas. É aqui que todos os negativos entram, e
+           custa quase nada — a matriz de similaridade é `lote × lote`.
+        3. **Propagar.** Refazer cada pedaço COM grafo e injetar o gradiente
+           cacheado daquele fatia via `autograd.backward(reps, grad)`.
+
+        Custa um forward extra por pedaço (~1,6× o tempo) e devolve a memória.
+
+        ## ⚠️ O forward tem de ser REPRODUTÍVEL entre as fases 1 e 3
+
+        É o ponto onde uma implementação errada falha em SILÊNCIO. Se o dropout
+        sortear máscaras diferentes nos dois forwards, o gradiente cacheado não
+        corresponde à ativação recomputada — o treino roda, a perda cai, e os
+        gradientes estão errados. Nada no log denuncia.
+
+        A semente por pedaço força a mesma máscara nas duas fases.
+        `tests/regression/test_gradcache.py` compara os gradientes com o caminho
+        direto e é o que autoriza usar isto.
+        """
+        sub = self.cfg.sub_lote or len(ancoras)
+        pedacos = [(ancoras[i:i + sub], positivos[i:i + sub])
+                   for i in range(0, len(ancoras), sub)]
+
+        # ── fase 1: representações sem grafo ──────────────────────────────
+        sementes = [self.cfg.semente * 1_000_003 + i for i in range(len(pedacos))]
+        ra, rp = [], []
+        with torch.no_grad():
+            for (ca, cp), s in zip(pedacos, sementes):
+                torch.manual_seed(s)
+                ra.append(self._codificar(ca))
+                rp.append(self._codificar(cp))
+        va = torch.cat(ra).detach().requires_grad_(True)
+        vp = torch.cat(rp).detach().requires_grad_(True)
+
+        # ── fase 2: perda no lote LÓGICO inteiro ──────────────────────────
+        perda = self._perda(va, vp)
+        perda.backward()
+        ga, gp = va.grad, vp.grad
+
+        # ── fase 3: refazer com grafo e injetar o gradiente ───────────────
+        i = 0
+        for (ca, cp), s in zip(pedacos, sementes):
+            n = len(ca)
+            torch.manual_seed(s)
+            torch.autograd.backward([self._codificar(ca), self._codificar(cp)],
+                                    [ga[i:i + n], gp[i:i + n]])
+            i += n
+        return perda.detach()
+
     @torch.no_grad()
     def avaliar(self, val: pl.DataFrame, n: int | None = None) -> tuple[float, float, float]:
         """Recuperação num conjunto fechado: dado o texto A, achar o citado B.
@@ -241,8 +318,11 @@ class TreinadorEmb:
         for passo, (a, p) in enumerate(carregador, start=1):
             if passo <= inicio:
                 continue        # lote já consumido: pular é barato, refazer não
-            perda = self._perda(self._codificar(a), self._codificar(p))
-            perda.backward()
+            if self.cfg.sub_lote:
+                perda = self._passo_gradcache(list(a), list(p))
+            else:
+                perda = self._perda(self._codificar(a), self._codificar(p))
+                perda.backward()
             self.opt.step()
             self.opt.zero_grad()
             soma += perda.item()
