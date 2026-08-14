@@ -11,7 +11,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics` (F1 0,972) — mas ver §transferência |
 | **S3** · fatias do HuggingFace | 🟡 decidido | S3b respondido: o RedPajama **degrada 16,6%**, pagar o bulk |
-| **ΦEmb** | 🟡 medido | vence PhysBERT e MiniLM; G1.2 depende do GTE-large |
+| **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | passa no PhysBERT com folga; perde do GTE-large por 0,005 |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 
 Suíte: **305 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
@@ -205,14 +205,48 @@ embedder **geral** com **≤ 1/10 dos parâmetros** — cláusula relativa ao ri
 vencer o MiniLM de 23M com um modelo de 23M dá razão 1/1 e **não fecha nada**.
 Entrou o GTE-large (335M) como genérico forte; contra ele o ΦEmb/MiniLM dá 1/14,6.
 
-A comparação pareada já mostrou o que duas proporções soltas descartavam: o que
-era empate a n=256 (+0,004 contra ±0,031) virou **vitória sobre o MiniLM com
-p=0,029** a n=2.000.
+A comparação pareada mostrou o que duas proporções soltas descartavam: o que era
+empate a n=256 (+0,004 contra ±0,031) virou **vitória sobre o MiniLM com p=0,029**
+a n=2.000.
 
 | n | erro padrão | margem mínima detectável |
 |---|---|---|
 | 256 | ±0,031 | ~0,061 |
 | 2.000 | ±0,011 | ~0,022 |
+
+#### O resultado, 2.000 candidatos
+
+| modelo | params | nDCG@10 | recall@1 | recall@10 |
+|---|---|---|---|---|
+| GTE-large (genérico) | 335M | **0,463** | **0,278** | 0,677 |
+| **ΦEmb/MiniLM** | **23M** | 0,458 | 0,254 | **0,700** |
+| ΦEmb/SciBERT | 110M | 0,429 | 0,227 | 0,673 |
+| MiniLM-L6 (genérico) | 23M | 0,370 | 0,205 | 0,560 |
+| PhysBERT | 109M | 0,275 | 0,146 | 0,425 |
+| SciBERT | 110M | 0,207 | 0,109 | 0,328 |
+
+**G1.1 ✅** — +0,183 de nDCG@10 sobre o PhysBERT contra limiar de +0,05, pareado
+com p=0,0000. Sem ambiguidade.
+
+**G1.2 ❌** — o GTE-large ganha por **0,005** em nDCG@10 e vence o pareado em
+recall@1 (205 a 157, p=0,0134). A cláusula de tamanho **fecha** (1/14,8, dentro do
+1/10 exigido); é a métrica que não.
+
+Foi para isto que o GTE-large entrou. Com só o MiniLM-L6 de 23M no papel de
+"genérico", o G1.2 parecia passar. A correção impediu uma afirmação falsa, e o
+custo dela foi descobrir que estamos 0,005 atrás em vez de na frente.
+
+Onde estamos de fato: perdemos o primeiro lugar por 0,005 usando **1/14,8 dos
+parâmetros**, e ganhamos em recall@10 (0,700 contra 0,677). O GTE acerta mais na
+primeira posição; nós colocamos mais no top-10.
+
+Resultado limpo de passagem: o **ΦEmb/MiniLM de 23M bate o ΦEmb/SciBERT de 110M**
+com p=0,0054. O menor com 127 negativos no lote vence o maior com 7 — negativos no
+lote são limite de **qualidade** do contrastivo, não só de velocidade, e agora está
+medido em vez de citado.
+
+O caminho para fechar o G1.2 é lote maior (a GPU tem 8 GB e o lote 128 foi o teto
+medido), não modelo maior — o modelo maior já perdeu.
 
 ### Parâmetros do treino novo, medidos antes de lançar
 
@@ -247,16 +281,46 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
 
 ## O que fazer a seguir, em ordem
 
-1. **Coletar negativos de `math`** (~600 mil registros, ~4 h). É o que destrava o
-   4d com número honesto: sem eles a filtragem do OpenWebMath opera às cegas no
-   vizinho mais confundível. `run_harvest.ps1` precisa de um modo novo.
-2. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
+1. **Negativos de `math`** — 🔄 em curso desde 2026-08-13 22:12
+   (`run_harvest.ps1 negativos-math`). Fatiado por ano, ver §fatiagem.
+2. **Retreinar `is_physics` com `math`** e rodar
+   `scripts/avaliar_transferencia.py` omitindo `math`. **É este número que
+   libera ou barra o 4d**, e é o teste mais duro disponível.
+3. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
    (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
-3. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
+4. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
    e imediato, e serve de linha de base contra a qual medir o bulk pago.
-4. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
+5. **Fechar o G1.2** — lote maior, não modelo maior. O modelo maior (SciBERT,
+   110M) já perdeu do menor. O teto medido na GPU de 8 GB foi lote 128; passar
+   disso pede acumulação de negativos entre passos ou GPU alugada.
+6. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
    ou Firecracker; `exec()` com builtins restritos está descartado no próprio
    documento como trivialmente evadível, então não há atalho local.
+
+### A fatiagem do `math`, e por que ela existe
+
+O set inteiro **não coleta**: o arXiv não monta o conjunto de resultados dentro do
+timeout dele. Medido em 2026-08-13, com o endpoint saudável (`Identify` 0,3 s):
+
+| requisição | |
+|---|---|
+| set inteiro | 503 após 183 s — dez tentativas, zero registros |
+| fatia de 5 anos | 503 após 183 s |
+| **fatia de 1 ano** | **200 após 56 s** |
+| fatia de 1 mês | 200 após 40 s |
+
+São 22 fatias, de `earliestDatestamp` = 2005-09-16 (lido do `Identify`) até hoje.
+Manifesto por fatia: se 2019 cair, 2005–2018 não são refeitos.
+
+⚠️ `from`/`until` filtram por **datestamp** — quando o metadado foi alterado — não
+pela data de submissão. Não abre lacuna (cada registro tem um datestamp só, e
+fatias contíguas particionam o set), mas **carrega a distribuição para o fim**: todo
+paper já revisado migra para uma fatia recente. Extrapolar o total das fatias
+antigas subestima muito.
+
+E o `completeListSize` **não vem** do arXiv, então não há total declarado — nem
+para progresso, nem para conferir completude. O sinal de fim é o do protocolo:
+`resumptionToken` ausente na última página.
 
 Dívidas registradas, nenhuma bloqueante:
 
