@@ -223,13 +223,15 @@ Legenda: ✅ verificado · ❌ falsificado e corrigido · ⚠️ parcial · ⬜ 
 | Endpoint OAI do arXiv | DOC-02 §3.1 | ❌→✅ | Era `export.arxiv.org`; corrigido |
 | Set `physics` filtra no servidor | DOC-02 §3.1 | ✅ | 1,59 M coletados |
 | Set `physics` inclui cross-lists | DOC-02 §2 | ✅ | 4,57% com primária fora da família |
-| **Completude do set `physics`** | DOC-02 §2 | ⬜ | Exige coletar `cs` e `math` e cruzar |
+| **Completude do set `physics`** | DOC-02 §2 | ✅ | Cruzado com `cs`+`econ`+`q-bio` (2026-08-13): dos 1.041.652 negativos únicos, **72.919 têm cross-list de Física e exatamente esses 72.919 estão no spine — zero fora**. `math` em coleta |
 | Volumes por arquivo | DOC-02 §2 | ❌→✅ | Erros de −26% a +59%; corrigidos |
 | OpenAlex gratuito | DOC-02 §3.1 | ❌→✅ | API passou a ser cotada |
 | Fração redistribuível | ADR-0001 §4 | ❌→✅ | 25–35% estimado → **14,8%** |
 | **LaTeXML é a escolha certa** | DOC-03 §2.3 | ⬜ | **Nunca executado.** Exige instalar Perl+LaTeXML |
-| 60–80% dos papers definem macros | DOC-03 §2.2 | ⬜ | Exige a fonte LaTeX, não só metadados |
-| Preservação de equações ≥ 0,95 | DOC-03 §10 | ⬜ | É o critério C1 do Stage-Gate 2 |
+| 60–80% dos papers definem macros | DOC-03 §2.2 | ❌ | **82,9%** em 299 papers de Física; 85,8% na amostra toda. Subestimado — e erra para o lado que torna a expansão MAIS necessária |
+| **Cobertura de expansão de macros ≥ 0,92** | DOC-03 §10 | ✅ | **1,000** — de 82.320 ocorrências no corpo, 3 sobrevivem. ⚠️ A métrica do §10 ("expandidas ÷ **definidas**") é frouxa: **69,6% das macros definidas nunca são usadas**, e contá-las dá 1,000 de graça. O número acima é por OCORRÊNCIA |
+| Preservação de equações ≥ 0,95 · **RedPajama** | DOC-03 §10 | ❌ | **74,3%** por forma canônica em 298 papers de Física; 83,4% contando só ausência. Decide o S3b: o bulk pago se justifica |
+| Preservação de equações ≥ 0,95 · **nosso pipeline** | DOC-03 §10 | ⬜ | O §10 pede DUAS colunas e só a do RedPajama foi medida. Depende do LaTeXML (linha acima) |
 | Filtros web rejeitam 5/5 a Lagrangiana da QED | DOC-04 §3.2 | ⚠️ | Argumentado com precisão; não executado |
 | Funil de dedup: 20% + 28% | DOC-04 §7 | ⬜ | Medido ~0% na espinha, mas ela já é única por ID. **Só testável com múltiplas fontes (S3)** |
 | Limiar de Jaccard 0,85 | DOC-04 §5.2 | ⚠️ | Implementado; o valor em si não foi calibrado |
@@ -248,6 +250,13 @@ Legenda: ✅ verificado · ❌ falsificado e corrigido · ⚠️ parcial · ⬜ 
 | `mypy --strict` limpo | DOC-01 §8 | ❌ | 52 erros — dívida declarada |
 | CI impõe os controles | DOC-16 §5 | ❌→✅ | Não existia; implementado |
 | Tudo de CPT, RLVR, PRM, destilação | DOC-08/09 | ⬜ | Nenhum modelo treinado |
+| **G1.1** · ΦEmb bate PhysBERT em ≥5 pts de nDCG@10 | DOC-00 §5 | ✅ | **+0,183** em 2.000 candidatos; pareado p=0,0000 |
+| **G1.2** · bate o melhor embedder geral com ≤1/10 params | DOC-00 §5 | ❌ | GTE-large (335M) vence por **0,005** de nDCG@10 e no pareado (p=0,0134). A cláusula de TAMANHO fecha (1/14,8); a métrica não |
+| G1.3 · ΦEnc em classificação/NER | DOC-00 §5 | ⬜ | ΦEnc não existe |
+| G1.4 · ΦOCR ≥ 0,92 | DOC-00 §5 | ⬜ | Adiado: o arXiv fornece fonte LaTeX |
+| G1.5 · corpus reprodutível de um hash de manifesto | DOC-00 §5 | ⚠️ | Manifesto por lote existe e retoma; a reconstrução ponta a ponta nunca foi exercitada de um hash só |
+| Classificador de Física ≥ precisão alvo | DOC-02 §6 | ⚠️ | F1 **0,972** no arXiv, mas **falso positivo vai de 1,9% a 32,9%** num domínio negativo nunca visto, e o limiar estanca em 10%. Vale para o arXiv, não para peS2o/OpenWebMath |
+| fastText é necessário | DOC-02 §6 | ❌ | Desvio registrado: linear do sklearn sobre n-gramas satisfaz os dois requisitos operacionais do §6 |
 
 ### O achado que mais surpreende
 
