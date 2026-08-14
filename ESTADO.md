@@ -158,6 +158,49 @@ Dos 72.919 negativos com cross-list de Física, **exatamente** 72.919 estão no
 spine e **zero** ficaram fora — os conjuntos OAI-PMH batem com as listas de
 categoria, o que valida as duas coletas de uma vez.
 
+#### A fronteira é fuzzy por definição do corpus, e mede-se quanto
+
+Medido em 2026-08-13: **72.872 dos 1.595.422 papers do spine (4,6%) têm primária
+FORA da família de Física.** Mais da metade é matemática.
+
+| arquivo primário | papers |
+|---|---|
+| math | 36.867 |
+| cs | 17.578 |
+| q-bio | 7.377 |
+| eess, stat, q-fin | 6.157 |
+| chao-dyn, solv-int | 2.614 ← Física legada, é a dívida do `PHYSICS_PREFIXES` |
+
+Não é defeito: o DOC-02 §2 decide de propósito que "qualquer categoria da família
+conta, não só a primária". Mas tem consequência que ninguém havia medido — o
+classificador tem `math.AP` como **positivo** (quando há cross-list de Física) e
+`math.AP` como **negativo** (quando não há), e a diferença é uma flag que **não
+está no texto**.
+
+Previ que isso tornaria os negativos de `math` quase inúteis. **Errado.** Treinando
+só em papers de primária `math.*`, positivos contra negativos:
+
+```
+              precision    recall  f1-score
+      fisica      0.832     0.827     0.829
+  nao_fisica      0.828     0.833     0.830
+    accuracy                          0.830
+```
+
+**83%**, contra 50% do acaso. O rótulo está no texto: um `math.AP` cross-listado em
+`math-ph` fala de operadores de Schrödinger e equações de fluidos; um que não é
+fala de análise abstrata. Os negativos de `math` vão ajudar.
+
+O número também dá o teto: dentro de `math.*`, ~17% são intrinsecamente
+confundíveis, e nenhum limiar remove isso.
+
+Cruzamento das duas regras de rótulo nas fatias de `math` já coletadas
+(158.452 registros): concordam em **94,19%**, e a discordância é **assimétrica** —
+zero casos de o prefixo dizer Física e o spine não ter (o prefixo nunca é largo
+demais), contra 9.207 casos de o spine ter e o prefixo não ver (todos
+`math.AP`/`math.PR`/`math.DG`… com cross-list). A regra do spine é a mais
+abrangente das duas, e é a que rotula.
+
 #### ⚠️ Transferência de domínio: o 0,972 não transfere
 
 Deixa-um-domínio-de-fora — treinar sem `q-bio` e testar nele:
