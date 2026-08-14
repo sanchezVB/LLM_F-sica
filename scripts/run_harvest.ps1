@@ -36,7 +36,7 @@
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
 param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'negativos-stat', 'openalex', 'snapshot',
-                   'phiemb', 'phiemb-mini', 'phiemb-gc', 'g1')][string]$Fonte = 'arxiv')
+                   'phiemb', 'phiemb-mini', 'phiemb-gc', 'g1', 'redpajama')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -65,6 +65,10 @@ switch ($Fonte) {
                   # E o manifesto de cada set e independente, entao coletar so
                   # `math` nao toca no que ja esta concluido.
                   $argumentos = '--out data/raw/arxiv_negativos --sets math' }
+    'redpajama' { $script = 'scripts/coletar_redpajama.py'
+                  # 81 GB em fluxo, ~25 min a 61 MB/s medidos. O bruto nao aterra;
+                  # so a fatia de Fisica (~10 GB de parquet) fica em disco.
+                  $argumentos = '--out data/processed/redpajama_fisica' }
     'openalex' { $script = 'scripts\harvest_openalex.py'
                  $argumentos = '--out data/raw/openalex_works' }
     'snapshot' { $script = 'scripts\harvest_openalex_snapshot.py'
