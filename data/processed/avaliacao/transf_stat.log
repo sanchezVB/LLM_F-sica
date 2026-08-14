@@ -1,0 +1,30 @@
+00:32:35 INFO    domínios a omitir, um por vez: stat
+00:34:58 INFO    omitindo stat · treino: 120,000 física + 120,000 não-física de cs, econ, math, q_bio
+
+============================================================================
+Transferência de domínio — falso positivo é a taxa de negativos
+aceitos como Física. É o que contamina o corpus.
+
+omitido     FP dentro   FP fora   piora  precisão fora
+----------------------------------------------------------------------------
+stat             3.0%      2.9%    1.0x          0.970
+
+curva de limiar no domínio nunca visto (stat) — o limiar é o botão que se tem em produção
+   limiar  precisão  revocação       FP
+    0.500     0.970      0.948     2.9%
+    0.700     0.988      0.919     1.1%
+    0.800     0.993      0.900     0.7%
+    0.900     0.996      0.878     0.4%
+    0.950     0.997      0.866     0.3%
+    0.990     0.997      0.855     0.2%
+    0.999     0.998      0.852     0.2%
+
+============================================================================
+PIOR CASO: omitindo stat, o falso positivo vai de 3.0% para 2.9%.
+E o limiar não resolve: no melhor ponto da curva ainda são 0.2%.
+
+Isto NÃO é a taxa esperada no peS2o — é cota pessimista para vizinhos
+próximos, medida no vizinho mais difícil que temos. Sobre texto de web
+não diz nada, e nenhum dado que temos diria.
+00:38:53 INFO    resultado → data\processed\avaliacao\transferencia_stat.json
+=== FIM STAT ===

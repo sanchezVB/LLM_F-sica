@@ -255,7 +255,9 @@ Legenda: ✅ verificado · ❌ falsificado e corrigido · ⚠️ parcial · ⬜ 
 | G1.3 · ΦEnc em classificação/NER | DOC-00 §5 | ⬜ | ΦEnc não existe |
 | G1.4 · ΦOCR ≥ 0,92 | DOC-00 §5 | ⬜ | Adiado: o arXiv fornece fonte LaTeX |
 | G1.5 · corpus reprodutível de um hash de manifesto | DOC-00 §5 | ⚠️ | Manifesto por lote existe e retoma; a reconstrução ponta a ponta nunca foi exercitada de um hash só |
-| Classificador de Física ≥ precisão alvo | DOC-02 §6 | ⚠️ | F1 **0,972** no arXiv, mas **falso positivo vai de 1,9% a 32,9%** num domínio negativo nunca visto, e o limiar estanca em 10%. Vale para o arXiv, não para peS2o/OpenWebMath |
+| Classificador de Física ≥ precisão alvo | DOC-02 §6 | ⚠️ | Acurácia **0,954** com 4 domínios; FP **2,4–3,7%** em cada um deles. Em domínio NÃO visto depende da proximidade: `cs` 9,8%, `math` 35,4%. Vale para o arXiv, não para texto de web |
+| `stat` é "negativo fácil" e não ensina fronteira | DOC-02 §6 (harvest) | ✅ | Era palpite; medido em 2026-08-14 e **confirmado**: omitindo `stat`, FP de 2,9% contra 3,0% dentro do domínio — piora de **1,0×**. Minha suspeita do contrário estava errada |
+| `math` é "negativo fácil" | DOC-02 §6 (harvest) | ❌ | Mesmo palpite, resultado oposto: FP de **35,4%** como domínio omitido, 14,6× |
 | fastText é necessário | DOC-02 §6 | ❌ | Desvio registrado: linear do sklearn sobre n-gramas satisfaz os dois requisitos operacionais do §6 |
 
 ### O achado que mais surpreende

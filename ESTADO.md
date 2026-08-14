@@ -233,7 +233,24 @@ muito, só não zera.
 1. **Texto de web.** Nenhum domínio do arXiv o representa, e o OpenWebMath é isso.
    Nenhum dado que temos responde, e extrapolar de resumos do arXiv para HTML de
    fórum e nota de aula é troca de distribuição maior que qualquer uma medida aqui.
-2. **Vizinho próximo ainda ausente.** Faltam `eess`, `stat` e `q-fin`. O
+2. **`stat` foi coletado e MEDIDO em 2026-08-14: não é vizinho próximo.**
+   149.461 registros, 2,6% de contaminação (o set mais limpo de todos). Omitindo
+   `stat` do treino, o falso positivo nele é **2,9% contra 3,0% dentro do
+   domínio — piora de 1,0×**, contra 14,6× do `math`. A 0,9 de limiar, 0,4%.
+
+   **Minha suspeita estava errada e o documento estava certo.** Eu argumentei que
+   física estatística e estatística compartilhavam vocabulário demais (função de
+   partição, entropia, Ising em `stat.ML`). O vocabulário compartilhado existe;
+   não basta para confundir o classificador.
+
+   **Decisão: `stat` NÃO entra no treino.** Com 5 domínios a cota estratificada
+   cairia de 75 mil para 60 mil, tirando negativos de `cs` e `math` — que SÃO
+   confundíveis — para dar lugar a um que o modelo já trata bem sem ter visto. O
+   valor do `stat` foi diagnóstico. Reverter isto exige medir que a diluição
+   compensa, o que não foi feito.
+
+   Faltam `eess` e `q-fin`, e a prioridade deles caiu: o único vizinho próximo que
+   a suspeita apontou não se confirmou. O
    `harvest_negativos.py` os descarta como "negativos limpos, mais negativo fácil
    não ensina fronteira" — **julgamento sem medição, idêntico em forma ao que fiz
    sobre `math`** e que custou 42,1%. Física estatística e estatística compartilham
