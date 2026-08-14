@@ -151,8 +151,12 @@ def montar_binario(
     ids_fisica = pl.scan_parquet(spine).select("arxiv_id")
 
     # ── negativos: fora do spine, deduplicados ────────────────────────────
+    # `**` e não `*`: os sets grandes são coletados em fatias anuais
+    # (`math/2019/part-*.parquet`, ver `SETS_FATIADOS` em `harvest_negativos.py`),
+    # e um glob de um nível só os deixaria de fora — silenciosamente, treinando
+    # sem o negativo mais importante.
     neg = (
-        pl.scan_parquet(str(negativos / "*" / "*.parquet"))
+        pl.scan_parquet(str(negativos / "**" / "*.parquet"))
         .unique(subset=["arxiv_id"])
         .join(ids_fisica.with_columns(pl.lit(True).alias("_fis")),
               on="arxiv_id", how="anti")

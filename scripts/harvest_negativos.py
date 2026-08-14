@@ -89,6 +89,70 @@ from phifm.corpus.acquire.arxiv import harvest_physics  # noqa: E402
 # `resume_or_create` vê `completed_at` no manifesto e não pede nada ao arXiv.
 SETS = ("cs", "q-bio", "econ", "math")
 
+# ─── sets que o servidor não consegue montar de uma vez ──────────────────────
+#
+# Medido em 2026-08-13, `ListRecords` com `set=math`:
+#
+#   set inteiro       503 após 183 s — dez tentativas seguidas, zero registros
+#   fatia de 5 anos   503 após 183 s
+#   fatia de 1 ano    **200 após 56 s**, 1.300 registros e resumptionToken
+#   fatia de 1 mês    200 após 40 s
+#
+# O `math` é grande demais para o arXiv montar o conjunto de resultados dentro do
+# timeout DELE. Fatiar é a saída padrão do protocolo, e o corte está entre 1 e 5
+# anos — um ano por fatia tem folga.
+#
+# ⚠️ `from`/`until` filtram por DATESTAMP (quando o metadado foi criado ou
+# alterado), não pela data de submissão do artigo. Isso NÃO abre lacuna: cada
+# registro tem exatamente um datestamp, então fatias que cobrem
+# [earliestDatestamp, hoje] particionam o set inteiro — sem lacuna e sem
+# duplicata. Um paper de 1995 revisado em 2024 cai na fatia de 2024, e cai UMA vez.
+SETS_FATIADOS = {"math"}
+
+# Do verbo `Identify` do arXiv (medido 2026-08-13). Começar antes disto pediria
+# fatias vazias; começar depois perderia registros.
+PRIMEIRO_DATESTAMP = "2005-09-16"
+
+
+def fatias_anuais(inicio: str = PRIMEIRO_DATESTAMP) -> list[tuple[str, str]]:
+    """[(from, until)] por ano civil, de `inicio` até hoje. `until` é inclusivo."""
+    from datetime import date
+    d0 = date.fromisoformat(inicio)
+    hoje = date.today()
+    out = []
+    for ano in range(d0.year, hoje.year + 1):
+        de = d0 if ano == d0.year else date(ano, 1, 1)
+        ate = hoje if ano == hoje.year else date(ano, 12, 31)
+        if de <= ate:
+            out.append((de.isoformat(), ate.isoformat()))
+    return out
+
+
+def coletar_fatiado(destino: Path, set_spec: str, max_pages: int | None,
+                    contact: str) -> tuple[int, int, list[str]]:
+    """Coleta um set em fatias anuais. Cada fatia tem manifesto PRÓPRIO.
+
+    Manifesto por fatia é o que torna a retomada útil: se 2019 cair, 2005–2018 não
+    são refeitos. Um manifesto único para o set inteiro teria de guardar quais
+    fatias terminaram, o que é o mesmo estado com mais código.
+    """
+    fatias = fatias_anuais()
+    logging.info("set %s fatiado em %d fatias anuais (o set inteiro devolve 503)",
+                 set_spec, len(fatias))
+    registros = falhas = 0
+    incompletas = []
+    for de, ate in fatias:
+        sub = destino / de[:4]
+        logging.info("─── %s · %s .. %s → %s ───", set_spec, de, ate, sub)
+        m = harvest_physics(sub, set_spec, de, ate, max_pages, contact)
+        registros += m.actual_count
+        falhas += len(m.failures)
+        if not m.completed_at:
+            incompletas.append(de[:4])
+        logging.info("%s/%s: %s registros%s", set_spec, de[:4], f"{m.actual_count:,}",
+                     "" if m.completed_at else " (parcial, retomável)")
+    return registros, falhas, incompletas
+
 # Arquivos de Física do arXiv, como aparecem na categoria primária. `physics.`
 # cobre as ~20 subáreas de `physics.*`; os demais são arquivos de primeiro nível.
 ARQUIVOS_FISICA = (
@@ -110,8 +174,13 @@ def e_fisica(primaria: str | None) -> bool:
 
 
 def resumir(destino: Path) -> tuple[int, int]:
-    """(baixados, utilizáveis como negativo) num diretório de set."""
-    shards = sorted(destino.glob("part-*.parquet"))
+    """(baixados, utilizáveis como negativo) num diretório de set.
+
+    `rglob` e não `glob`: os sets fatiados guardam os shards em subpastas por ano
+    (`math/2019/part-*.parquet`), e um `glob` de um nível reportaria zero para
+    eles — dizendo que a coleta não trouxe nada quando trouxe tudo.
+    """
+    shards = sorted(destino.rglob("part-*.parquet"))
     if not shards:
         return 0, 0
     df = pl.read_parquet(shards, columns=["primary_category"])
@@ -142,6 +211,13 @@ def main() -> int:
         for s in a.sets:
             destino = a.out / s.replace("-", "_")
             destinos.append((s, destino))
+            if s in SETS_FATIADOS:
+                n, f, inc = coletar_fatiado(destino, s, a.max_pages, contact)
+                falhas += f
+                if inc:
+                    incompletos.append(f"{s} (anos {', '.join(inc)})")
+                logging.info("set %s: %s registros no total", s, f"{n:,}")
+                continue
             logging.info("─── set %s → %s ───", s, destino)
             m = harvest_physics(destino, s, None, None, a.max_pages, contact)
             falhas += len(m.failures)
