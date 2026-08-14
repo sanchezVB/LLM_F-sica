@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-08-11
+# Estado do projeto — 2026-08-14
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -9,12 +9,12 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | Sprint | Estado | Observação |
 |---|---|---|
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
-| **S2** · classificador de Física | 🟢 completo | subárea + `is_physics` (F1 0,972) — mas ver §transferência |
+| **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟡 decidido | S3b respondido: o RedPajama **degrada 16,6%**, pagar o bulk |
 | **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | passa no PhysBERT com folga; perde do GTE-large por 0,005 |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 
-Suíte: **305 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **340 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py -q`
 
@@ -68,7 +68,7 @@ progressão de 40 h a 5,6 h e o que dominava cada etapa.
 Não é bloqueio imediato: os 10,1 M de arestas já coletados bastam para
 começar a treinar o ΦEmb.
 
-## Sessão de 2026-08-10/11 — os quatro passos
+## Sessão de 2026-08-10 a 14 — os quatro passos, e o S2 fechado
 
 Ordem de execução trocada em relação à de retorno: o passo 3 é **pré-requisito**
 do 1 (sem ele o treino novo perde o pico igual ao anterior), e o 2 é o que
@@ -82,7 +82,7 @@ permite julgar o resultado do 1.
 | 4a. S3b — auditoria de LaTeX | ✅ **decidido**, ver abaixo | `data/processed/avaliacao/s3b_latex.json` |
 | 4c. Classificador `is_physics` | ✅ treinado | `models/isphysics-clf` |
 | 4b. RedPajama filtrado pelo spine | ⬜ | — |
-| 4d. peS2o + OpenWebMath | ⬜ bloqueado, ver §transferência | — |
+| 4d. peS2o + OpenWebMath | 🟢 **liberado** com limiar ≥0,9, ver §resultado final | — |
 
 ### S3b — a resposta é PAGAR, e o caminho até ela tem cinco correções
 
@@ -140,7 +140,7 @@ Hipótese testada e **rejeitada**: o RedPajama não trunca por tamanho fixo (nã
 acúmulo no topo da distribuição, e o pior paper tem 52 mil caracteres contra um
 máximo de 313 mil). Não há atalho de mirar só os papers longos.
 
-### Passo 4c — o classificador, e por que o 4d está bloqueado
+### Passo 4c — o classificador (histórico; o resultado final está acima)
 
 `is_physics` treinado: **F1 0,972** nas duas classes, 600 mil documentos.
 
@@ -269,12 +269,12 @@ coleta, e o número só existiu depois de ela começar.
 0,999 a taxa cai de 32,9% para 10,0% e **estanca** — `modified_huber` satura as
 probabilidades, então o limiar tem pouca resolução. O piso de ~10% é estrutural.
 
-Duas consequências para o 4d:
-
-1. **`math` não está nos negativos**, e é a vizinha mais confundível da Física.
-   O OpenWebMath é cheio dela. Falta coletar (`~600 mil registros, ~4 h`).
-2. q-bio é o vizinho mais difícil possível (biofísica), então 10% é cota
-   pessimista — mas não medida em texto de web, que é o que o 4d filtra.
+> **Resolvido em 2026-08-14.** Estas duas linhas diziam que `math` faltava e que
+> o q-bio era "o vizinho mais difícil possível". `math` foi coletado (774.063
+> registros) e mostrou-se **pior** que o q-bio: 35,4% contra 31,2% de falso
+> positivo como domínio omitido. Os dois estão agora no treino, e o resultado que
+> vale está em §resultado final. Mantido aqui porque o caminho até o número
+> importa — a afirmação sobre o q-bio era palpite meu, não medição.
 
 ### Passos 1–2 — o ΦEmb sobre MiniLM
 
@@ -390,10 +390,10 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
    (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
 6. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
    e imediato, e serve de linha de base contra a qual medir o bulk pago.
-5. **Fechar o G1.2** — lote maior, não modelo maior. O modelo maior (SciBERT,
+7. **Fechar o G1.2** — lote maior, não modelo maior. O modelo maior (SciBERT,
    110M) já perdeu do menor. O teto medido na GPU de 8 GB foi lote 128; passar
    disso pede acumulação de negativos entre passos ou GPU alugada.
-6. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
+8. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
    ou Firecracker; `exec()` com builtins restritos está descartado no próprio
    documento como trivialmente evadível, então não há atalho local.
 
