@@ -203,12 +203,21 @@ abrangente das duas, e é a que rotula.
 
 #### ⚠️ Transferência de domínio: o 0,972 não transfere
 
-Deixa-um-domínio-de-fora — treinar sem `q-bio` e testar nele:
+Deixa-um-domínio-de-fora, treinar sem um domínio e testar nele:
 
-| teste | precisão | falsos positivos no negativo |
-|---|---|---|
-| dentro do domínio (cs novos) | 0,981 | **1,9%** |
-| domínio nunca visto (q-bio) | 0,903 | **32,9%** |
+| domínio omitido | FP dentro | FP no domínio omitido | piora |
+|---|---|---|---|
+| q-bio | 1,9% | **32,9%** | 17× |
+| **math** | 2,7% | **42,1%** | **15,3×** |
+
+O `math` é o pior, medido em 100 mil negativos (2026-08-13, com as fatias
+2005–2020 já coletadas). Precisão desaba para 0,696, e a curva de limiar não
+salva: a 0,999 ainda são **12,8%**.
+
+O significado prático: **sem negativos de `math`, filtrar o OpenWebMath admitiria
+~42% de conteúdo matemático como Física** — e o OpenWebMath é feito de matemática.
+Corpus contaminado quase pela metade na fatia que mais importa. É o que justifica a
+coleta, e o número só existiu depois de ela começar.
 
 **17× mais falsos positivos.** E subir o limiar quase não ajuda: de 0,5 para
 0,999 a taxa cai de 32,9% para 10,0% e **estanca** — `modified_huber` satura as
