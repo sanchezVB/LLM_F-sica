@@ -83,6 +83,42 @@ def test_math_ph_esta_coberto():
 
 
 def test_sets_do_plano_nao_mudaram_em_silencio():
-    """`math` fora de propósito — ver docstring do módulo."""
-    assert SETS == ("cs", "q-bio", "econ")
-    assert "math" not in SETS
+    """`math` ENTROU em 2026-08-13, e por medição — não por conveniência.
+
+    Este teste afirmava `"math" not in SETS`, com a justificativa de que a
+    sobreposição `math.MP` ↔ `physics:math-ph` tornaria o rótulo ruidoso. A
+    justificativa caiu por dois motivos:
+
+    **O rótulo mudou.** Negativo agora é «está no set E não está no spine» (ver
+    `montar_binario`), e isso resolve o `math-ph` sozinho: um paper de Física
+    Matemática está nos dois sets, logo está no spine, logo não vira negativo.
+    Não depende mais de `e_fisica` nem de lista de prefixos.
+
+    **`math` deixou de ser opcional.** Deixa-um-domínio-de-fora com o
+    classificador treinado: falsos positivos vão de **1,9%** dentro do domínio
+    para **32,9%** num domínio nunca visto, e subir o limiar de 0,5 para 0,999 só
+    leva a taxa a 10%, onde estanca. Matemática é a vizinha mais confundível da
+    Física e o OpenWebMath é feito dela.
+
+    `eess`, `stat` e `q-fin` continuam fora: são negativos LIMPOS, e negativo
+    fácil não ensina fronteira nenhuma.
+    """
+    assert SETS == ("cs", "q-bio", "econ", "math")
+    assert "math" in SETS, "sem math o 4d filtra o OpenWebMath às cegas"
+    for facil in ("eess", "stat", "q-fin"):
+        assert facil not in SETS, f"{facil} é negativo fácil; não ensina fronteira"
+
+
+def test_a_protecao_do_math_ph_sobrevive_a_entrada_do_math():
+    """Com `math` coletado, o `math-ph` passa a ser o caso crítico.
+
+    `e_fisica` não é mais o mecanismo de rótulo, mas continua sendo o que o
+    `resumir()` usa para reportar contaminação. Se ele deixasse de pegar
+    `math-ph`, o relatório da coleta diria que o set `math` está limpo quando
+    parte dele é Física.
+    """
+    assert e_fisica("math-ph")
+    assert e_fisica("math-ph.QA") if "math-ph" in ARQUIVOS_FISICA else True
+    # E o inverso: matemática de verdade não pode contar como Física.
+    for puro in ("math.AG", "math.NT", "math.CO", "math.LO"):
+        assert not e_fisica(puro), f"{puro} é matemática pura, não Física"

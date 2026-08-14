@@ -35,7 +35,8 @@
 # treino tambem ('phiemb'). O nome ficou estreito, mas a alternativa era um
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
-param([ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini', 'g1')][string]$Fonte = 'arxiv')
+param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'openalex', 'snapshot',
+                   'phiemb', 'phiemb-mini', 'g1')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -49,6 +50,17 @@ switch ($Fonte) {
                  $argumentos = '--out data/raw/arxiv_metadata --set physics' }
     'negativos' { $script = 'scripts\harvest_negativos.py'
                   $argumentos = '--out data/raw/arxiv_negativos' }
+    'negativos-math' { $script = 'scripts\harvest_negativos.py'
+                  # Set separado, e nao `-Fonte negativos`, por DUAS razoes.
+                  #
+                  # A trava por PID e por MODO (`.trava_$Fonte`). Se `math` usasse
+                  # o modo `negativos`, ele nao poderia rodar enquanto o outro
+                  # roda — e mais importante: uma trava orfa de `negativos`
+                  # bloquearia `math` sem motivo.
+                  #
+                  # E o manifesto de cada set e independente, entao coletar so
+                  # `math` nao toca no que ja esta concluido.
+                  $argumentos = '--out data/raw/arxiv_negativos --sets math' }
     'openalex' { $script = 'scripts\harvest_openalex.py'
                  $argumentos = '--out data/raw/openalex_works' }
     'snapshot' { $script = 'scripts\harvest_openalex_snapshot.py'
@@ -116,8 +128,19 @@ New-Item -ItemType Directory -Force (Split-Path -Parent $log) | Out-Null
 
 # PYTHONUTF8: sem isto o log sai com acento quebrado, porque o console herda
 # cp1252 e o coletor registra mensagens acentuadas.
+#
+# O `& del` no fim remove a trava quando o python sai. Sem isso NADA a removia
+# num termino normal — so o proximo lancamento, ao encontrar a trava orfa. O
+# resultado e que `estado_processos.ps1` reportava ORFA depois de toda execucao
+# concluida, e ruido permanente num diagnostico e como uma trava de verdade passa
+# desapercebida. Medido em 2026-08-13: duas travas orfas de tarefas que terminaram
+# bem horas antes.
+#
+# `&` e nao `&&`: a trava tem de sair mesmo se o python falhar. Se o processo for
+# MORTO, o del nao roda e a trava fica orfa — que e o caso que o lancador ja trata.
 $linha = 'cmd.exe /c "set PYTHONPATH=src&& set PYTHONUTF8=1&& ' +
-         "`"$python`" $script $argumentos >> `"$log`" 2>&1`""
+         "`"$python`" $script $argumentos >> `"$log`" 2>&1" +
+         " & del /q `"$trava`"`""
 
 $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
     CommandLine      = $linha

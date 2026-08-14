@@ -136,6 +136,26 @@ class PoliteSession:
                 log.warning("HTTP %s — aguardando %.1fs", exc, delay)
                 time.sleep(delay)
 
+            # ⚠️ ANTES do `RequestException` genérico: `Timeout` é subclasse dele.
+            #
+            # Timeout NÃO é falha de rede. Medido em 2026-08-13 no set `math` do
+            # OAI-PMH: o servidor levava 183 s para montar o conjunto de
+            # resultados e então respondia 503 + Retry-After — controle de fluxo,
+            # não erro. Com o timeout em 60 s isso aparecia como "Falha de rede",
+            # e a mensagem me mandou diagnosticar a rede, que estava boa
+            # (`Identify` respondia em 0,3 s).
+            #
+            # Mesma família do 404 tratado como falha de rede: mensagem que
+            # nomeia a causa errada custa mais que o tempo perdido, porque
+            # esconde a causa certa.
+            except requests.Timeout as exc:
+                last_exc = exc
+                delay = self.throttle.backoff(attempt)
+                log.warning("Sem resposta em %ss — o servidor pode estar montando um "
+                            "conjunto grande; aguardando %.1fs (tentativa %d)",
+                            timeout, delay, attempt + 1)
+                time.sleep(delay)
+
             except requests.RequestException as exc:
                 last_exc = exc
                 delay = self.throttle.backoff(attempt)

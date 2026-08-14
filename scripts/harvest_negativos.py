@@ -29,9 +29,35 @@ atribuída pelo autor é autoritativa; a filiação a um set é só um seletor
 grosseiro. Por isso a coleta guarda tudo (bruto é bruto, DOC-03) e o `resumo`
 ao final reporta o número **utilizável**, não o número baixado.
 
-`math` cai na mesma armadilha, e mais forte: o arXiv expõe `math:math:MP` e
-`physics:math-ph` como a **mesma** Mathematical Physics. Fica de fora aqui, e
-seria um bom negativo difícil se filtrado por primária.
+## `math` entrou em 2026-08-13, e o que mudou foi a regra de rótulo
+
+Esta docstring dizia que `math` ficava de fora porque o arXiv expõe `math:math:MP`
+e `physics:math-ph` como a **mesma** Mathematical Physics — e que seria um bom
+negativo difícil "se filtrado por primária".
+
+A condição está satisfeita, por um caminho melhor que o previsto. O rótulo
+negativo agora é **pertencer ao set e não estar no spine** (ver `montar_binario`
+em `corpus/filter/classifier.py`), e isso resolve o caso do `math-ph` sozinho: um
+paper de Física Matemática está nos dois sets, logo está no spine, logo não vira
+negativo. Sem depender de lista de prefixos — que é onde o `e_fisica` daqui
+erraria, porque ele não conhece os arquivos legados (`adap-org`, `chao-dyn`,
+`solv-int`…).
+
+E `math` deixou de ser opcional. Medição de 2026-08-13, deixa-um-domínio-de-fora
+com o classificador `is_physics`:
+
+| teste | falsos positivos no negativo |
+|---|---|
+| dentro do domínio (cs novos) | **1,9%** |
+| domínio nunca visto (q-bio) | **32,9%** |
+
+Dezessete vezes pior num domínio não visto, e subir o limiar de 0,5 para 0,999 só
+leva a taxa a 10% — onde estanca, porque `modified_huber` satura as
+probabilidades. O piso é estrutural.
+
+Matemática é a vizinha mais confundível da Física e o OpenWebMath é feito dela.
+Filtrar o OpenWebMath sem negativos de `math` seria operar às cegas exatamente na
+fronteira que decide a qualidade do corpus.
 
 `eess`, `stat` e `q-fin` são negativos limpos e poderiam entrar. Não entram
 porque o plano não os pediu e mais negativo fácil não ensina fronteira nenhuma.
@@ -59,7 +85,9 @@ from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E40
 from phifm.corpus.acquire.arxiv import harvest_physics  # noqa: E402
 
 # `harvest_physics` é genérico apesar do nome — recebe o set como parâmetro.
-SETS = ("cs", "q-bio", "econ")
+# Os três primeiros estão concluídos (2026-08-07); rodar de novo é no-op, porque
+# `resume_or_create` vê `completed_at` no manifesto e não pede nada ao arXiv.
+SETS = ("cs", "q-bio", "econ", "math")
 
 # Arquivos de Física do arXiv, como aparecem na categoria primária. `physics.`
 # cobre as ~20 subáreas de `physics.*`; os demais são arquivos de primeiro nível.

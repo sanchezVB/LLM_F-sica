@@ -44,6 +44,22 @@ ARXIV_DEFAULT_LICENSE = "arXiv-perpetual-nonexclusive"
 
 FLUSH_EVERY = 20_000  # registros por shard parquet
 
+# ⚠️ O timeout padrão de 60 s do `PoliteSession` não serve para OAI-PMH em set
+# grande. Medido em 2026-08-13, na primeira coleta do set `math`:
+#
+#   Identify                 0,3 s   200
+#   ListSets                 0,2 s   200
+#   ListRecords set=math   183,0 s   503 + Retry-After: 0
+#
+# O endpoint estava saudável; montar o conjunto de resultados do `math` é que
+# leva 183 s. Com 60 s a resposta NUNCA chegava, então o coletor registrava
+# "Falha de rede" e gastava as 10 tentativas sem baixar um único registro —
+# tratando como erro de rede o que era o servidor pedindo paciência.
+#
+# O 503 com `Retry-After` é o mecanismo de controle de fluxo do protocolo, e o
+# `PoliteSession` já sabe obedecê-lo. Só precisava conseguir receber a resposta.
+TIMEOUT_OAI = 300
+
 # Schema explícito. A inferência do Polars falha quando um campo opcional
 # (doi, journal_ref, msc_class...) é nulo nas primeiras N linhas e string
 # depois. Declarar o contrato é mais correto que aumentar infer_schema_length:
@@ -190,7 +206,7 @@ class ArxivOAIHarvester(ResumableHarvester):
                 }
             )
 
-            resp = self.http.get(ENDPOINT, params=params)
+            resp = self.http.get(ENDPOINT, params=params, timeout=TIMEOUT_OAI)
             try:
                 root = ET.fromstring(resp.content)
             except ET.ParseError as exc:
