@@ -57,6 +57,8 @@ INDICE = (
 FLUSH = 20_000
 # Tentativas por shard quando a REDE está indisponível. Ver o aviso em `coletar`.
 MAX_TENTATIVAS = 8
+# Nome do manifesto de shards concluídos. Ver `_feitos`.
+MANIFESTO = "_shards_feitos.json"
 
 
 @dataclass
@@ -125,6 +127,37 @@ def _gravar(buffer: list[dict], destino: Path, indice: int) -> None:
              caminho.stat().st_size / 1e6)
 
 
+def _feitos(destino: Path) -> set[int]:
+    """Shards já concluídos, do manifesto.
+
+    ## ⚠️ Por que não dá para inferir dos arquivos de saída
+
+    A primeira versão testava se `part-{n-1}.parquet` existia, tratando número de
+    shard como índice de parquet. **São dois contadores diferentes**: o índice do
+    parquet avança a cada 20.000 registros guardados, e um shard rende ~8.400 —
+    então um parquet cobre ~2,4 shards e os dois divergem desde o começo.
+
+    Medido em 2026-08-14, no custo real: 77 shards concluídos produziram 34
+    parquets. Ao retomar, o código pulou 34 shards e reprocessou do 35 em diante,
+    gravando **40.000 registros duplicados** antes de eu perceber. Não corrompe o
+    corpus (a dedup por `arxiv_id` resolve) mas desperdiça ~35 GB de download e
+    faz o relatório contar duas vezes.
+
+    Estado derivado de outro estado com regra de conversão implícita é a receita —
+    o manifesto guarda o que importa, explicitamente.
+    """
+    m = destino / MANIFESTO
+    if not m.exists():
+        return set()
+    return set(json.loads(m.read_text(encoding="utf-8")).get("shards", []))
+
+
+def _marcar(destino: Path, feitos: set[int]) -> None:
+    destino.mkdir(parents=True, exist_ok=True)
+    (destino / MANIFESTO).write_text(
+        json.dumps({"shards": sorted(feitos)}, indent=0), encoding="utf-8")
+
+
 def coletar(destino: Path, spine: Path, max_shards: int | None = None,
             contato: str | None = None) -> Progresso:
     """Filtra os shards do RedPajama-arXiv pelo spine, gravando só a Física.
@@ -156,7 +189,15 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
     log.info("%d shards a percorrer (~%.0f GB)", len(urls), 0.81 * len(urls))
 
     p = Progresso()
-    estado = {"buffer": [], "indice": 0}
+    feitos = _feitos(destino)
+    # O índice do parquet continua de onde os arquivos existentes param — ele é
+    # contador de SAÍDA, e não tem relação com o número do shard.
+    existentes = sorted(destino.glob("part-*.parquet"))
+    proximo = 1 + max((int(x.stem.split("-")[1]) for x in existentes), default=-1)
+    estado = {"buffer": [], "indice": proximo}
+    if feitos:
+        log.info("retomando: %d shards já feitos, próximo parquet é part-%05d",
+                 len(feitos), proximo)
     t0 = time.perf_counter()
 
     def processar(url: str) -> None:
@@ -178,15 +219,18 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
                 estado["indice"] += 1
 
     for n, url in enumerate(urls, 1):
-        if (destino / f"part-{n - 1:05d}.parquet").exists():
-            log.info("shard %d/%d já processado — pulando", n, len(urls))
+        if n in feitos:
             p.shards_lidos += 1
-            estado["indice"] = n
             continue
 
+        # `concluiu` explícito em vez de `for/else`: são TRÊS desfechos — sucesso,
+        # falha definitiva e desistência por rede — e o `else` do `for` só
+        # distingue dois. Só o sucesso pode marcar o shard como feito.
+        concluiu = False
         for tentativa in range(MAX_TENTATIVAS):
             try:
                 processar(url)
+                concluiu = True
                 break
             except (requests.ConnectionError, requests.Timeout) as exc:
                 espera = min(30 * 2 ** tentativa, 600)
@@ -198,10 +242,12 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
                 p.falhas.append(f"shard {n}: {type(exc).__name__}: {str(exc)[:80]}")
                 log.warning("shard %d falhou definitivamente: %s", n, exc)
                 break
-        else:
+        if concluiu:
+            feitos.add(n)
+            _marcar(destino, feitos)
+        elif not any(f.startswith(f"shard {n}:") for f in p.falhas):
             p.falhas.append(f"shard {n}: rede indisponível após {MAX_TENTATIVAS} tentativas")
             log.error("shard %d desistido após %d tentativas", n, MAX_TENTATIVAS)
-
         p.shards_lidos += 1
         dt = time.perf_counter() - t0
         log.info("shard %d/%d · %s · %.1f MB/s", n, len(urls), p.linha(),
