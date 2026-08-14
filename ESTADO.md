@@ -201,7 +201,53 @@ demais), contra 9.207 casos de o spine ter e o prefixo não ver (todos
 `math.AP`/`math.PR`/`math.DG`… com cross-list). A regra do spine é a mais
 abrangente das duas, e é a que rotula.
 
-#### ⚠️ Transferência de domínio: o 0,972 não transfere
+#### Resultado final, com `math` coletado (2026-08-14 00h09)
+
+774.063 registros de `math` coletados em 22 fatias, zero falhas. Retreino
+estratificado: 300.000 física · 190.210 não-física, acurácia **0,954** (contra
+0,972 sem `math` — a queda é saudável, o negativo ficou mais difícil).
+
+Deixa-um-domínio-de-fora nos quatro domínios, 120 mil por classe:
+
+| omitido | FP **dentro** | FP **fora** | piora | precisão fora |
+|---|---|---|---|---|
+| cs | 3,7% | 9,8% | 2,6× | 0,907 |
+| econ | 3,3% | 8,5% | 2,6× | 0,988 |
+| **math** | 2,4% | **35,4%** | 14,6× | 0,731 |
+| **q_bio** | 3,1% | **31,2%** | 10,2× | 0,907 |
+
+**A coluna que importa para produção é «FP dentro».** Os quatro domínios estão no
+treino do modelo final, então ele tem **2,4%–3,7%** de falso positivo em cada um.
+Era isso que a coleta comprava.
+
+E «domínio não visto» **não é uniformemente catastrófico** — depende da proximidade.
+Omitir `cs` custa 9,8%; omitir `math`, 35,4%. Os dois vizinhos próximos que o arXiv
+tem (`math`, `q-bio`) estão agora dentro do treino.
+
+Correção de uma afirmação minha: eu disse que o limiar "estanca em 10%". Verdade
+para vizinho próximo não visto, mas a queda de 35,4% para 10,0% é de 3,5× — ajuda
+muito, só não zera.
+
+#### O que ainda pode dar errado no 4d, e não foi medido
+
+1. **Texto de web.** Nenhum domínio do arXiv o representa, e o OpenWebMath é isso.
+   Nenhum dado que temos responde, e extrapolar de resumos do arXiv para HTML de
+   fórum e nota de aula é troca de distribuição maior que qualquer uma medida aqui.
+2. **Vizinho próximo ainda ausente.** Faltam `eess`, `stat` e `q-fin`. O
+   `harvest_negativos.py` os descarta como "negativos limpos, mais negativo fácil
+   não ensina fronteira" — **julgamento sem medição, idêntico em forma ao que fiz
+   sobre `math`** e que custou 42,1%. Física estatística e estatística compartilham
+   vocabulário (função de partição, entropia, Ising em `stat.ML`). Não afirmo que
+   `stat` é próximo; registro que ninguém mediu e que agora há como medir.
+3. **A cota de 75 mil descarta 87% do `cs` e do `math`.** Troquei volume por
+   equilíbrio com base em medição a 80 mil. Se no tamanho real o `cs` piorar além
+   dos 2,2% do proporcional, a cota está apertada demais.
+
+**Recomendação para o 4d:** seguir, com limiar alto (≥0,9) e medindo contaminação
+numa amostra da saída filtrada. A amostra é a única coisa que responde a pergunta
+do texto de web — todo o resto é extrapolação.
+
+#### ⚠️ Transferência de domínio: o 0,972 não transfere (histórico, pré-`math`)
 
 Deixa-um-domínio-de-fora, treinar sem um domínio e testar nele:
 
@@ -333,14 +379,16 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
 
 ## O que fazer a seguir, em ordem
 
-1. **Negativos de `math`** — 🔄 em curso desde 2026-08-13 22:12
-   (`run_harvest.ps1 negativos-math`). Fatiado por ano, ver §fatiagem.
-2. **Retreinar `is_physics` com `math`** e rodar
-   `scripts/avaliar_transferencia.py` omitindo `math`. **É este número que
-   libera ou barra o 4d**, e é o teste mais duro disponível.
-3. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
+1. ~~Negativos de `math`~~ — ✅ 774.063 registros, 22 fatias, zero falhas
+2. ~~Retreinar `is_physics` e medir transferência~~ — ✅ ver §resultado final
+3. **4d · filtrar peS2o + OpenWebMath** — liberado com limiar ≥0,9, **e medindo
+   contaminação numa amostra da saída**. A amostra é o único jeito de responder
+   sobre texto de web; o resto é extrapolação de resumos do arXiv.
+4. **Medir se `stat` é vizinho próximo** (~2 h de coleta + 6 min de avaliação).
+   É a dívida gêmea da que `math` era ontem, e a estrutura para medir já existe.
+5. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
    (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
-4. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
+6. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
    e imediato, e serve de linha de base contra a qual medir o bulk pago.
 5. **Fechar o G1.2** — lote maior, não modelo maior. O modelo maior (SciBERT,
    110M) já perdeu do menor. O teto medido na GPU de 8 GB foi lote 128; passar

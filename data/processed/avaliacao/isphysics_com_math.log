@@ -1,0 +1,97 @@
+=== 1/2 · retreino do is_physics com math, estratificado ===
+INFO    negativos por domínio (cota 75,000): cs, econ, math, q_bio
+INFO    is_physics: 300,000 física · 190,210 não-física
+INFO    treino: 416,679 | validação: 73,531 | classes: 2
+INFO    → models\isphysics-clf
+
+========================================================================
+              precision    recall  f1-score   support
+
+      fisica      0.970     0.954     0.962     44990
+  nao_fisica      0.930     0.954     0.942     28541
+
+    accuracy                          0.954     73531
+   macro avg      0.950     0.954     0.952     73531
+weighted avg      0.955     0.954     0.954     73531
+
+========================================================================
+
+CALIBRAÇÃO (alvo de precisão = 0.95, DOC-02 §6)
+cobertura: 97.6% dos itens passam algum limiar
+
+classe                              limiar  precisão  revocação
+fisica                                0.36    0.952     0.968
+nao_fisica                            0.66    0.950     0.917
+
+⚠️  LIMITE DE DOMÍNIO — estes números valem para o arXiv.
+    Os negativos são resumos de cs/econ/q-bio. `math` NÃO está
+    entre eles, e é a vizinha mais confundível da Física. No
+    OpenWebMath espere pior até que negativos de math existam.
+
+=== 2/2 · transferencia nos quatro dominios ===
+23:47:51 INFO    domínios a omitir, um por vez: cs, econ, math, q_bio
+23:49:57 INFO    omitindo cs · treino: 120,000 física + 120,000 não-física de econ, math, q_bio
+23:53:47 INFO    omitindo econ · treino: 120,000 física + 120,000 não-física de cs, math, q_bio
+23:59:25 INFO    omitindo math · treino: 120,000 física + 120,000 não-física de cs, econ, q_bio
+00:05:52 INFO    omitindo q_bio · treino: 120,000 física + 120,000 não-física de cs, econ, math
+
+============================================================================
+Transferência de domínio — falso positivo é a taxa de negativos
+aceitos como Física. É o que contamina o corpus.
+
+omitido     FP dentro   FP fora   piora  precisão fora
+----------------------------------------------------------------------------
+cs               3.7%      9.8%    2.6x          0.907
+econ             3.3%      8.5%    2.6x          0.988
+math             2.4%     35.4%   14.6x          0.731
+q_bio            3.1%     31.2%   10.2x          0.907
+
+curva de limiar no domínio nunca visto (cs) — o limiar é o botão que se tem em produção
+   limiar  precisão  revocação       FP
+    0.500     0.907      0.950     9.8%
+    0.700     0.959      0.921     3.9%
+    0.800     0.974      0.902     2.4%
+    0.900     0.984      0.880     1.5%
+    0.950     0.987      0.867     1.1%
+    0.990     0.989      0.856     0.9%
+    0.999     0.990      0.854     0.9%
+
+curva de limiar no domínio nunca visto (econ) — o limiar é o botão que se tem em produção
+   limiar  precisão  revocação       FP
+    0.500     0.988      0.950     8.5%
+    0.700     0.995      0.922     3.2%
+    0.800     0.997      0.904     1.9%
+    0.900     0.998      0.883     1.1%
+    0.950     0.999      0.871     0.8%
+    0.990     0.999      0.861     0.6%
+    0.999     0.999      0.858     0.6%
+
+curva de limiar no domínio nunca visto (math) — o limiar é o botão que se tem em produção
+   limiar  precisão  revocação       FP
+    0.500     0.731      0.963    35.4%
+    0.700     0.802      0.941    23.3%
+    0.800     0.836      0.926    18.1%
+    0.900     0.870      0.908    13.6%
+    0.950     0.885      0.897    11.7%
+    0.990     0.896      0.887    10.3%
+    0.999     0.899      0.885    10.0%
+
+curva de limiar no domínio nunca visto (q_bio) — o limiar é o botão que se tem em produção
+   limiar  precisão  revocação       FP
+    0.500     0.907      0.954    31.2%
+    0.700     0.936      0.927    20.2%
+    0.800     0.949      0.911    15.6%
+    0.900     0.959      0.891    12.0%
+    0.950     0.964      0.879    10.4%
+    0.990     0.967      0.870     9.3%
+    0.999     0.968      0.867     9.0%
+
+============================================================================
+PIOR CASO: omitindo math, o falso positivo vai de 2.4% para 35.4%.
+E o limiar não resolve: no melhor ponto da curva ainda são 10.0%.
+
+Isto NÃO é a taxa esperada no peS2o — é cota pessimista para vizinhos
+próximos, medida no vizinho mais difícil que temos. Sobre texto de web
+não diz nada, e nenhum dado que temos diria.
+00:09:13 INFO    resultado → data\processed\avaliacao\transferencia.json
+=== FIM ===
