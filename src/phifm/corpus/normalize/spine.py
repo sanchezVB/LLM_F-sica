@@ -41,9 +41,40 @@ SUBFIELD_MAP = {
 }
 
 
+# ─── arquivos legados do arXiv ───────────────────────────────────────────────
+#
+# Antes de 1998 o arXiv usava arquivos de primeiro nível que depois foram
+# absorvidos. Eles CONTINUAM aparecendo como categoria primária dos papers
+# antigos, e a lista acima não os conhecia. Medido em 2026-08-13 no spine:
+#
+#   4.042 papers com primária legada
+#     · todos com subfield = "Outro"
+#     · ZERO com is_physics = False
+#
+# O `is_physics` não sofria porque o arXiv retroagiu cross-lists modernas em todos
+# eles — então a família era detectada por outra categoria. Mas `subfield` caía em
+# "Outro", e `train()` DESCARTA "Outro": 4 mil papers de dinâmica não-linear,
+# matéria condensada e física atômica ficavam fora do treino de subárea. São os
+# mais antigos do acervo, justamente os de conteúdo clássico mais distintivo.
+#
+# Normalizar aqui, num lugar só, em vez de duplicar entradas em `PHYSICS_PREFIXES`
+# e `SUBFIELD_MAP`: o legado passa a ser o arquivo moderno equivalente e tudo a
+# jusante funciona sem saber que existiu legado.
+_LEGADO = {
+    # Ciências não-lineares, antes de `nlin` existir
+    "chao-dyn": "nlin", "solv-int": "nlin", "patt-sol": "nlin",
+    "comp-gas": "nlin", "adap-org": "nlin",
+    # Absorvidos por `physics.*`
+    "acc-phys": "physics", "ao-sci": "physics", "atom-ph": "physics",
+    "bayes-an": "physics", "chem-ph": "physics", "plasm-ph": "physics",
+    # Absorvidos por `cond-mat.*`
+    "mtrl-th": "cond-mat", "supr-con": "cond-mat",
+}
+
+
 def _archive(cat: str) -> str:
-    """`cond-mat.str-el` → `cond-mat`; `hep-th` → `hep-th`."""
-    return cat.split(".", 1)[0]
+    """`cond-mat.str-el` → `cond-mat`; `hep-th` → `hep-th`; `chao-dyn` → `nlin`."""
+    return _LEGADO.get(cat.split(".", 1)[0], cat.split(".", 1)[0])
 
 
 def load_arxiv(raw_dir: Path) -> pl.DataFrame:
@@ -68,8 +99,12 @@ def annotate(df: pl.DataFrame) -> pl.DataFrame:
         pl.col("license").map_elements(resolve_spdx, return_dtype=pl.Utf8).alias("spdx_id"),
         pl.col("license").map_elements(resolve_partition, return_dtype=pl.Utf8).alias("partition"),
         pl.col("primary_category").map_elements(_archive, return_dtype=pl.Utf8).alias("archive"),
+        # O mesmo `_LEGADO` aplicado à lista completa, não só à primária. Hoje é
+        # redundante — todo paper legado tem cross-list moderna, medido — mas sem
+        # isto um paper cujo ÚNICO arquivo fosse legado sairia com is_physics
+        # falso, e a redundância é o que garante que isso nunca aconteça.
         pl.col("categories").list.eval(
-            pl.element().str.split(".").list.first()
+            pl.element().str.split(".").list.first().replace(_LEGADO)
         ).list.unique().alias("archives"),
     ).with_columns(
         # Recorte de Física: qualquer categoria da família conta, não só a
