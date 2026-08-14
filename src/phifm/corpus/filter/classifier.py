@@ -150,33 +150,67 @@ def montar_binario(
     """
     ids_fisica = pl.scan_parquet(spine).select("arxiv_id")
 
-    # ── negativos: fora do spine, deduplicados ────────────────────────────
-    # `**` e não `*`: os sets grandes são coletados em fatias anuais
-    # (`math/2019/part-*.parquet`, ver `SETS_FATIADOS` em `harvest_negativos.py`),
-    # e um glob de um nível só os deixaria de fora — silenciosamente, treinando
-    # sem o negativo mais importante.
-    neg = (
-        pl.scan_parquet(str(negativos / "**" / "*.parquet"))
-        .unique(subset=["arxiv_id"])
-        .join(ids_fisica.with_columns(pl.lit(True).alias("_fis")),
-              on="arxiv_id", how="anti")
-        .select("arxiv_id", "title", "abstract")
-        .with_columns(pl.lit("nao_fisica").alias("is_physics"))
-    )
-    pos = (
-        pl.scan_parquet(spine)
-        .select("arxiv_id", "title", "abstract")
-        .with_columns(pl.lit("fisica").alias("is_physics"))
-    )
-
     # Amostragem determinística por hash. `sample` não existe em plano lazy, e
     # materializar 2,6 M de títulos+resumos para poder sortear é exatamente o
     # erro que já custou quatro travamentos de memória neste projeto.
-    def cortar(lf: pl.LazyFrame) -> pl.LazyFrame:
+    def cortar(lf: pl.LazyFrame, n: int) -> pl.LazyFrame:
         return (lf.with_columns(pl.col("arxiv_id").hash(seed=seed).alias("_h"))
-                  .sort("_h").head(max_por_classe).drop("_h"))
+                  .sort("_h").head(n).drop("_h"))
 
-    df = pl.concat([cortar(pos), cortar(neg)]).collect(engine="streaming")
+    # ── negativos ESTRATIFICADOS por domínio ──────────────────────────────
+    #
+    # Amostrar uniformemente sobre todos os negativos dá a proporção do arXiv, e
+    # ela é desequilibrada: `cs` tem 932 mil utilizáveis, `econ` tem 16 mil. Com
+    # isso `q-bio` fica com 3% do treino e `econ` com 1% — os domínios seguem
+    # quase NÃO VISTOS mesmo estando em disco.
+    #
+    # Medido em 2026-08-13, falso positivo por domínio, 80 mil negativos:
+    #
+    #                      cs    econ   q-bio    math   revocacao
+    #   proporcional     2,2%    4,9%   18,9%    5,1%       0,952
+    #   estratificado    2,8%    1,3%    4,8%    5,8%       0,944
+    #
+    # O pior caso cai de 18,9% para 5,8% — 3,3x — por 0,8 ponto de revocação.
+    # Para um FILTRO é o pior domínio que determina a contaminação, então o pior
+    # caso é o critério, não a média.
+    #
+    # `econ` não alcança a cota igual (só tem 16 mil), e por isso a cota é um
+    # TETO por domínio, não uma exigência: quem tem menos contribui menos, e o
+    # resto não é redistribuído para não recriar o desequilíbrio.
+    dominios = sorted(p.name for p in negativos.iterdir() if p.is_dir())
+    if not dominios:
+        raise ValueError(f"nenhum domínio de negativos em {negativos}")
+    cota = max_por_classe // len(dominios)
+
+    partes = []
+    for d in dominios:
+        # `**` e não `*`: os sets grandes são coletados em fatias anuais
+        # (`math/2019/part-*.parquet`, ver `SETS_FATIADOS` em
+        # `harvest_negativos.py`), e um glob de um nível os deixaria de fora —
+        # silenciosamente, treinando sem o negativo mais importante.
+        lf = (
+            pl.scan_parquet(str(negativos / d / "**" / "*.parquet"))
+            .unique(subset=["arxiv_id"])
+            .join(ids_fisica, on="arxiv_id", how="anti")
+            .select("arxiv_id", "title", "abstract")
+        )
+        partes.append(cortar(lf, cota))
+
+    # Um paper cross-listado aparece em dois sets (`cs.IT`+`math.IT`), então o
+    # dedupe entre domínios é necessário. `keep="first"` com `maintain_order`
+    # porque o padrão não garante QUAL linha sobrevive nem em que ordem — e sem
+    # isso duas montagens com a mesma semente dão conjuntos diferentes, o que
+    # quebra a comparabilidade entre rodadas. Achado por teste.
+    neg = (pl.concat(partes)
+             .unique(subset=["arxiv_id"], keep="first", maintain_order=True)
+             .with_columns(pl.lit("nao_fisica").alias("is_physics")))
+    pos = cortar(
+        pl.scan_parquet(spine).select("arxiv_id", "title", "abstract"),
+        max_por_classe,
+    ).with_columns(pl.lit("fisica").alias("is_physics"))
+
+    df = pl.concat([pos, neg]).collect(engine="streaming")
+    log.info("negativos por domínio (cota %s): %s", f"{cota:,}", ", ".join(dominios))
     log.info("is_physics: %s física · %s não-física",
              f"{df.filter(pl.col('is_physics') == 'fisica').height:,}",
              f"{df.filter(pl.col('is_physics') == 'nao_fisica').height:,}")

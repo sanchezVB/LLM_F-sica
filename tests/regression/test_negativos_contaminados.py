@@ -154,3 +154,63 @@ def test_amostragem_e_deterministica(tmp_path):
     b = montar_binario(spine, negs, max_por_classe=10)
     assert a["arxiv_id"].to_list() == b["arxiv_id"].to_list()
     assert a.height == 20
+
+
+# ─── estratificação por domínio ──────────────────────────────────────────────
+
+def test_negativos_sao_estratificados_por_dominio(tmp_path):
+    """Amostrar uniformemente dá a proporção do arXiv, e ela é desequilibrada.
+
+    `cs` tem 932 mil negativos utilizáveis contra 16 mil de `econ`. Uniformemente,
+    `q-bio` fica com 3% do treino e `econ` com 1% — os domínios seguem quase NÃO
+    VISTOS mesmo estando em disco. Medido em 2026-08-13, falso positivo:
+
+                         cs    econ   q-bio    math   revocacao
+      proporcional     2,2%    4,9%   18,9%    5,1%       0,952
+      estratificado    2,8%    1,3%    4,8%    5,8%       0,944
+
+    Pior caso de 18,9% para 5,8% por 0,8 ponto de revocação. Num FILTRO é o pior
+    domínio que determina a contaminação, então o critério é o pior caso.
+    """
+    spine = tmp_path / "spine.parquet"
+    pl.DataFrame({"arxiv_id": ["fis/1"], "title": ["T"],
+                  "abstract": ["a" * 40]}).write_parquet(spine)
+
+    negs = tmp_path / "negativos"
+    # `grande` tem 200 negativos, `pequeno` tem 10. Sem estratificar, `pequeno`
+    # apareceria em ~5% da amostra; estratificando, contribui com tudo o que tem.
+    for dom, n in (("grande", 200), ("pequeno", 10)):
+        (negs / dom).mkdir(parents=True)
+        pl.DataFrame({
+            "arxiv_id": [f"{dom}/{i}" for i in range(n)],
+            "title": [f"{dom} paper {i}" for i in range(n)],
+            "abstract": ["b" * 40] * n,
+        }).write_parquet(negs / dom / "000.parquet")
+
+    df = montar_binario(spine, negs, max_por_classe=40)
+    neg = df.filter(pl.col("is_physics") == "nao_fisica")["arxiv_id"].to_list()
+    g = sum(1 for x in neg if x.startswith("grande/"))
+    p = sum(1 for x in neg if x.startswith("pequeno/"))
+    # cota = 40 // 2 = 20; `pequeno` só tem 10.
+    assert g == 20, f"o domínio grande devia respeitar a cota de 20, veio {g}"
+    assert p == 10, f"o domínio pequeno devia contribuir com os 10 que tem, veio {p}"
+
+
+def test_cota_e_teto_nao_exigencia(tmp_path):
+    """Quem tem menos que a cota contribui com o que tem, e o resto NÃO é
+    redistribuído — redistribuir recriaria o desequilíbrio que a cota corrige."""
+    spine = tmp_path / "spine.parquet"
+    pl.DataFrame({"arxiv_id": ["fis/1"], "title": ["T"],
+                  "abstract": ["a" * 40]}).write_parquet(spine)
+    negs = tmp_path / "negativos"
+    for dom, n in (("cheio", 500), ("vazio", 3)):
+        (negs / dom).mkdir(parents=True)
+        pl.DataFrame({"arxiv_id": [f"{dom}/{i}" for i in range(n)],
+                      "title": [f"t{i}" for i in range(n)],
+                      "abstract": ["b" * 40] * n}).write_parquet(negs / dom / "000.parquet")
+
+    df = montar_binario(spine, negs, max_por_classe=100)
+    neg = df.filter(pl.col("is_physics") == "nao_fisica")["arxiv_id"].to_list()
+    assert sum(1 for x in neg if x.startswith("cheio/")) == 50, "cota estourada"
+    assert sum(1 for x in neg if x.startswith("vazio/")) == 3
+    assert len(neg) == 53, "o déficit foi redistribuído — não devia"
