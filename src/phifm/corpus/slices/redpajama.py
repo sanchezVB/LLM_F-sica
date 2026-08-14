@@ -45,6 +45,7 @@ import polars as pl
 import requests
 
 from phifm.corpus.acquire.base import user_agent
+from phifm.corpus.slices.retomada import MANIFESTO, feitas, marcar, proximo_indice  # noqa: F401
 
 log = logging.getLogger(__name__)
 
@@ -57,8 +58,6 @@ INDICE = (
 FLUSH = 20_000
 # Tentativas por shard quando a REDE está indisponível. Ver o aviso em `coletar`.
 MAX_TENTATIVAS = 8
-# Nome do manifesto de shards concluídos. Ver `_feitos`.
-MANIFESTO = "_shards_feitos.json"
 
 
 @dataclass
@@ -127,45 +126,21 @@ def _gravar(buffer: list[dict], destino: Path, indice: int) -> None:
              caminho.stat().st_size / 1e6)
 
 
-def _feitos(destino: Path) -> set[int]:
-    """Shards já concluídos, do manifesto.
-
-    ## ⚠️ Por que não dá para inferir dos arquivos de saída
-
-    A primeira versão testava se `part-{n-1}.parquet` existia, tratando número de
-    shard como índice de parquet. **São dois contadores diferentes**: o índice do
-    parquet avança a cada 20.000 registros guardados, e um shard rende ~8.400 —
-    então um parquet cobre ~2,4 shards e os dois divergem desde o começo.
-
-    Medido em 2026-08-14, no custo real: 77 shards concluídos produziram 34
-    parquets. Ao retomar, o código pulou 34 shards e reprocessou do 35 em diante,
-    gravando **40.000 registros duplicados** antes de eu perceber. Não corrompe o
-    corpus (a dedup por `arxiv_id` resolve) mas desperdiça ~35 GB de download e
-    faz o relatório contar duas vezes.
-
-    Estado derivado de outro estado com regra de conversão implícita é a receita —
-    o manifesto guarda o que importa, explicitamente.
-    """
-    m = destino / MANIFESTO
-    if not m.exists():
-        return set()
-    return set(json.loads(m.read_text(encoding="utf-8")).get("shards", []))
-
-
-def _marcar(destino: Path, feitos: set[int]) -> None:
-    destino.mkdir(parents=True, exist_ok=True)
-    (destino / MANIFESTO).write_text(
-        json.dumps({"shards": sorted(feitos)}, indent=0), encoding="utf-8")
+# Compatibilidade: os nomes locais viraram alias do módulo compartilhado. A
+# lógica saiu daqui porque estava duplicada no filtro do HuggingFace e a correção
+# não foi propagada — ver a docstring de `slices/retomada.py`.
+_feitos = feitas
+_marcar = marcar
 
 
 def coletar(destino: Path, spine: Path, max_shards: int | None = None,
             contato: str | None = None) -> Progresso:
     """Filtra os shards do RedPajama-arXiv pelo spine, gravando só a Física.
 
-    Retomável pelo que já está em disco: um shard cujo `part-*.parquet`
-    correspondente exista é pulado. Grosseiro de propósito — o custo de refazer um
-    shard é 0,8 GB de download, e um manifesto com cursor por linha seria
-    complexidade sem retorno aqui.
+    Retomável pelo MANIFESTO de shards concluídos, não pela contagem de arquivos de
+    saída — ver `slices/retomada.py` para o defeito que essa distinção custou.
+    Granularidade de shard, de propósito: refazer um shard custa 0,8 GB de download,
+    e um cursor por linha seria complexidade sem retorno.
 
     ## ⚠️ Falha de rede ESPERA; ela não consome o shard
 
@@ -189,11 +164,10 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
     log.info("%d shards a percorrer (~%.0f GB)", len(urls), 0.81 * len(urls))
 
     p = Progresso()
-    feitos = _feitos(destino)
+    feitos = feitas(destino)
     # O índice do parquet continua de onde os arquivos existentes param — ele é
     # contador de SAÍDA, e não tem relação com o número do shard.
-    existentes = sorted(destino.glob("part-*.parquet"))
-    proximo = 1 + max((int(x.stem.split("-")[1]) for x in existentes), default=-1)
+    proximo = proximo_indice(destino)
     estado = {"buffer": [], "indice": proximo}
     if feitos:
         log.info("retomando: %d shards já feitos, próximo parquet é part-%05d",
@@ -244,7 +218,7 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
                 break
         if concluiu:
             feitos.add(n)
-            _marcar(destino, feitos)
+            marcar(destino, feitos)
         elif not any(f.startswith(f"shard {n}:") for f in p.falhas):
             p.falhas.append(f"shard {n}: rede indisponível após {MAX_TENTATIVAS} tentativas")
             log.error("shard %d desistido após %d tentativas", n, MAX_TENTATIVAS)

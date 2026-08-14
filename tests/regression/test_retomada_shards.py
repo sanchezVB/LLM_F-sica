@@ -32,7 +32,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from phifm.corpus.slices.redpajama import MANIFESTO, _feitos, _marcar  # noqa: E402
+from phifm.corpus.slices.retomada import (  # noqa: E402
+    LEGADOS,
+    MANIFESTO,
+    feitas as _feitos,
+    marcar as _marcar,
+    proximo_indice,
+)
 
 
 def test_sem_manifesto_nada_esta_feito(tmp_path):
@@ -74,7 +80,7 @@ def test_manifesto_e_parquets_podem_divergir_em_numero(tmp_path):
 def test_manifesto_sobrevive_a_leitura_de_json_valido(tmp_path):
     _marcar(tmp_path, {5, 3, 1})
     d = json.loads((tmp_path / MANIFESTO).read_text(encoding="utf-8"))
-    assert d["shards"] == [1, 3, 5], "gravado sem ordenar dificulta o diff"
+    assert d["unidades"] == [1, 3, 5], "gravado sem ordenar dificulta o diff"
 
 
 def test_manifesto_corrompido_nao_derruba_a_coleta(tmp_path):
@@ -88,3 +94,35 @@ def test_manifesto_corrompido_nao_derruba_a_coleta(tmp_path):
     except json.JSONDecodeError:
         r = None
     assert r in (set(), None), "comportamento indefinido com manifesto corrompido"
+
+
+# ─── renomear estado durável exige ler o nome antigo ────────────────────────
+
+def test_le_o_manifesto_no_nome_ANTIGO(tmp_path):
+    """Renomeei o manifesto enquanto uma coleta rodava com o nome velho.
+
+    Se `feitas()` só olhasse o nome novo, a retomada dessa coleta veria zero
+    unidades feitas e rebaixaria 81 GB. Renomear estado durável exige ler os dois
+    nomes até o antigo não existir em lugar nenhum.
+    """
+    (tmp_path / LEGADOS[0]).write_text(json.dumps({"shards": [1, 2, 77]}), encoding="utf-8")
+    assert _feitos(tmp_path) == {1, 2, 77}
+
+
+def test_o_nome_novo_tem_precedencia(tmp_path):
+    (tmp_path / LEGADOS[0]).write_text(json.dumps({"shards": [1]}), encoding="utf-8")
+    _marcar(tmp_path, {5, 6})
+    assert _feitos(tmp_path) == {5, 6}
+
+
+def test_proximo_indice_conta_arquivos_de_SAIDA(tmp_path):
+    """Este é o único uso legítimo de contar arquivos: o índice de saída É um
+    contador de arquivos de saída. O erro era usá-lo para responder sobre a ENTRADA."""
+    assert proximo_indice(tmp_path) == 0
+    for i in (0, 1, 2):
+        (tmp_path / f"part-{i:05d}.parquet").write_bytes(b"x")
+    assert proximo_indice(tmp_path) == 3
+
+
+def test_proximo_indice_em_diretorio_inexistente(tmp_path):
+    assert proximo_indice(tmp_path / "nao-existe") == 0

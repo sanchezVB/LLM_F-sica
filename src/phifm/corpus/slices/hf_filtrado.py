@@ -60,6 +60,7 @@ import polars as pl
 import requests
 
 from phifm.corpus.acquire.base import user_agent
+from phifm.corpus.slices.retomada import feitas, marcar, proximo_indice
 
 log = logging.getLogger(__name__)
 
@@ -172,16 +173,22 @@ def filtrar(
     log.info("%s · %d arquivos · %.1f GB", ds, len(arquivos), tot / 1e9)
 
     f = Filtragem(fonte=ds)
+    # ⚠️ Retomada por MANIFESTO. A versão anterior testava se
+    # `part-{n-1}.parquet` existia, tratando número de ARQUIVO DE ENTRADA como
+    # índice de SAÍDA — e no OpenWebMath um parquet cobre ~2,7 arquivos, então os
+    # dois divergem no primeiro flush. Ver `slices/retomada.py`: o mesmo defeito
+    # custou 40.000 duplicatas no RedPajama.
+    prontos = feitas(destino)
     buffer: list[dict] = []
-    indice = 0
+    indice = proximo_indice(destino)
+    if prontos:
+        log.info("retomando: %d arquivos já feitos, próximo parquet é part-%05d",
+                 len(prontos), indice)
     t0 = time.perf_counter()
 
     for n, (nome, tam) in enumerate(arquivos, 1):
-        marca = destino / f"part-{n - 1:05d}.parquet"
-        if marca.exists():
-            log.info("%d/%d já processado — pulando", n, len(arquivos))
+        if n in prontos:
             f.arquivos_lidos += 1
-            indice = n
             continue
         local = temp / Path(nome).name
         try:
@@ -228,6 +235,9 @@ def filtrar(
         except Exception as exc:
             f.falhas.append(f"{nome}: {type(exc).__name__}: {str(exc)[:80]}")
             log.warning("%s falhou: %s", nome, exc)
+        else:
+            prontos.add(n)
+            marcar(destino, prontos)
         finally:
             local.unlink(missing_ok=True)     # o bruto NÃO fica
         f.arquivos_lidos += 1
