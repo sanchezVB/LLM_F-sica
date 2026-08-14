@@ -59,8 +59,30 @@ Matemática é a vizinha mais confundível da Física e o OpenWebMath é feito d
 Filtrar o OpenWebMath sem negativos de `math` seria operar às cegas exatamente na
 fronteira que decide a qualidade do corpus.
 
-`eess`, `stat` e `q-fin` são negativos limpos e poderiam entrar. Não entram
-porque o plano não os pediu e mais negativo fácil não ensina fronteira nenhuma.
+## `stat` entrou em 2026-08-14, porque «negativo fácil» era palpite
+
+Esta docstring dizia: «`eess`, `stat` e `q-fin` são negativos limpos e poderiam
+entrar. Não entram porque o plano não os pediu e mais negativo fácil não ensina
+fronteira nenhuma.»
+
+**Ninguém mediu isso.** E é o mesmo tipo de julgamento que esta docstring fazia
+sobre `math` — que, medido, custou **42,1% de falso positivo** como domínio não
+visto, o pior de todos.
+
+Há razão concreta para suspeitar do `stat`: física estatística e estatística
+compartilham vocabulário. Função de partição, entropia, modelo de Ising, cadeia de
+Markov, campo médio — tudo aparece em `stat.ML` e em `cond-mat.stat-mech`. Um
+classificador que nunca viu `stat.ML` pode ler «partition function» e dizer Física.
+
+Não afirmo que seja vizinho próximo. Afirmo que a única forma de saber é medir, e
+que a estrutura para isso existe (`scripts/avaliar_transferencia.py`).
+
+`eess` e `q-fin` seguem fora, agora por razão declarada em vez de suposta: `eess`
+tem sobreposição plausível em processamento de sinais e `q-fin` quase nenhuma, e a
+ordem de investigação é por suspeita, começando pela mais forte.
+
+`stat` NÃO precisa de fatiagem, ao contrário do `math`. Medido em 2026-08-14:
+`ListRecords set=stat` responde 200 em 5,1 s com página cheia e `resumptionToken`.
 
 ## Cortesia
 
@@ -87,7 +109,7 @@ from phifm.corpus.acquire.arxiv import harvest_physics  # noqa: E402
 # `harvest_physics` é genérico apesar do nome — recebe o set como parâmetro.
 # Os três primeiros estão concluídos (2026-08-07); rodar de novo é no-op, porque
 # `resume_or_create` vê `completed_at` no manifesto e não pede nada ao arXiv.
-SETS = ("cs", "q-bio", "econ", "math")
+SETS = ("cs", "q-bio", "econ", "math", "stat")
 
 # ─── sets que o servidor não consegue montar de uma vez ──────────────────────
 #

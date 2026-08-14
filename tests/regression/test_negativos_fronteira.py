@@ -103,10 +103,23 @@ def test_sets_do_plano_nao_mudaram_em_silencio():
     `eess`, `stat` e `q-fin` continuam fora: são negativos LIMPOS, e negativo
     fácil não ensina fronteira nenhuma.
     """
-    assert SETS == ("cs", "q-bio", "econ", "math")
+    assert SETS == ("cs", "q-bio", "econ", "math", "stat")
     assert "math" in SETS, "sem math o 4d filtra o OpenWebMath às cegas"
-    for facil in ("eess", "stat", "q-fin"):
-        assert facil not in SETS, f"{facil} é negativo fácil; não ensina fronteira"
+
+    # `stat` entrou em 2026-08-14. Este teste afirmava que ele era "negativo
+    # fácil" e devia ficar fora — palpite, nunca medido, e da mesma forma exata do
+    # palpite sobre `math` que custou 42,1% de falso positivo.
+    #
+    # Física estatística e estatística compartilham vocabulário: função de
+    # partição, entropia, Ising, campo médio aparecem em `stat.ML`. A afirmação
+    # "não ensina fronteira" era o oposto de uma medição.
+    assert "stat" in SETS, "stat entrou para ser MEDIDO, não por ser fácil"
+
+    # Estes dois seguem fora, agora por razão declarada: `eess` tem sobreposição
+    # plausível em processamento de sinais, `q-fin` quase nenhuma, e a ordem de
+    # investigação é por força da suspeita.
+    for pendente in ("eess", "q-fin"):
+        assert pendente not in SETS, f"{pendente} ainda não foi investigado"
 
 
 def test_a_protecao_do_math_ph_sobrevive_a_entrada_do_math():

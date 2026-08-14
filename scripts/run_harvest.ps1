@@ -35,7 +35,7 @@
 # treino tambem ('phiemb'). O nome ficou estreito, mas a alternativa era um
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
-param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'openalex', 'snapshot',
+param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'negativos-stat', 'openalex', 'snapshot',
                    'phiemb', 'phiemb-mini', 'g1')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
@@ -50,6 +50,10 @@ switch ($Fonte) {
                  $argumentos = '--out data/raw/arxiv_metadata --set physics' }
     'negativos' { $script = 'scripts\harvest_negativos.py'
                   $argumentos = '--out data/raw/arxiv_negativos' }
+    'negativos-stat' { $script = 'scripts\harvest_negativos.py'
+                  # NAO precisa fatiar, ao contrario do math: medido em
+                  # 2026-08-14, `ListRecords set=stat` responde 200 em 5,1 s.
+                  $argumentos = '--out data/raw/arxiv_negativos --sets stat' }
     'negativos-math' { $script = 'scripts\harvest_negativos.py'
                   # Set separado, e nao `-Fonte negativos`, por DUAS razoes.
                   #
