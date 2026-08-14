@@ -183,6 +183,136 @@ def montar_binario(
     return df
 
 
+@dataclass
+class Transferencia:
+    """Quanto o classificador perde num domínio negativo que nunca viu."""
+
+    dominio_omitido: str
+    n_treino_pos: int
+    n_treino_neg: int
+    n_teste_neg: int
+    precisao_dentro: float
+    precisao_fora: float
+    fp_dentro: float          # fração dos negativos aceitos como Física
+    fp_fora: float
+    revocacao: float
+    # (limiar, precisão, revocação, fp) no domínio de fora. O limiar é o botão
+    # que se tem em produção, então a curva dele é o que informa a decisão.
+    curva: list[tuple[float, float, float, float]] = field(default_factory=list)
+
+    @property
+    def degradacao(self) -> float:
+        """Quantas vezes o falso positivo piora fora do domínio."""
+        return self.fp_fora / self.fp_dentro if self.fp_dentro else float("inf")
+
+
+def avaliar_transferencia(
+    spine: Path,
+    negativos: Path,
+    omitir: str,
+    n_por_classe: int = 120_000,
+    limiares: tuple[float, ...] = (0.5, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999),
+    seed: int = 17,
+) -> Transferencia:
+    """Deixa-um-domínio-de-fora: treina sem `omitir`, testa nele.
+
+    ## Por que esta medição existe
+
+    O `is_physics` dá F1 0,972 na validação — que é arXiv contra arXiv, mesma
+    distribuição. Mas ele vai ser aplicado ao peS2o e ao OpenWebMath, cuja
+    distribuição negativa é muito mais ampla. O número de validação não responde
+    a pergunta que importa, e é o número que qualquer relatório mostraria.
+
+    Omitir um domínio inteiro do treino e testar só nele é a aproximação
+    disponível sem dado novo: mede o que acontece quando o negativo é de um tipo
+    que o modelo nunca viu.
+
+    Medido em 2026-08-13, omitindo `q-bio`:
+
+        dentro do domínio (cs novos)     falso positivo   1,9%
+        domínio nunca visto (q-bio)      falso positivo  32,9%
+
+    Dezessete vezes pior. E a curva de limiar mostra que subir a exigência não
+    resolve: de 0,5 a 0,999 o falso positivo cai de 32,9% para 10,0% e estanca —
+    o `modified_huber` satura as probabilidades, então o limiar perde resolução
+    justamente onde se precisaria dele.
+
+    ## O que este número NÃO é
+
+    Não é a taxa esperada no peS2o. `q-bio` é o vizinho mais difícil possível
+    (biofísica é a zona de sobreposição por excelência), então serve de cota
+    pessimista para vizinhos próximos — e diz pouco sobre texto de web.
+    """
+    from sklearn.metrics import precision_recall_fscore_support
+
+    ids_fisica = pl.scan_parquet(spine).select("arxiv_id")
+    dominios = sorted(p.name for p in negativos.iterdir() if p.is_dir())
+    if omitir not in dominios:
+        raise ValueError(f"domínio {omitir!r} não está em {dominios}")
+    treino_dom = [d for d in dominios if d != omitir]
+
+    def carregar(doms: list[str], n: int) -> pl.DataFrame:
+        return (
+            pl.scan_parquet([str(negativos / d / "**" / "*.parquet") for d in doms])
+            .unique(subset=["arxiv_id"])
+            .join(ids_fisica, on="arxiv_id", how="anti")
+            .select("arxiv_id", "title", "abstract")
+            .with_columns(pl.col("arxiv_id").hash(seed=seed).alias("_h"))
+            .sort("_h").head(n).drop("_h")
+            .collect(engine="streaming")
+        )
+
+    pos = (pl.scan_parquet(spine).select("arxiv_id", "title", "abstract")
+             .with_columns(pl.col("arxiv_id").hash(seed=seed).alias("_h"))
+             .sort("_h").head(2 * n_por_classe).drop("_h")
+             .collect(engine="streaming"))
+    pos_tr, pos_te = pos.head(n_por_classe), pos.tail(n_por_classe)
+    neg_tr = carregar(treino_dom, n_por_classe)
+    neg_te = carregar([omitir], n_por_classe)
+
+    # Negativos DENTRO do domínio de treino que não foram usados no treino: é a
+    # comparação honesta. Usar os próprios do treino mediria memorização.
+    usados = set(neg_tr["arxiv_id"])
+    neg_dentro = (
+        pl.scan_parquet([str(negativos / d / "**" / "*.parquet") for d in treino_dom])
+        .unique(subset=["arxiv_id"])
+        .join(ids_fisica, on="arxiv_id", how="anti")
+        .filter(~pl.col("arxiv_id").is_in(pl.Series(list(usados)).implode()))
+        .select("arxiv_id", "title", "abstract")
+        .head(n_por_classe).collect(engine="streaming")
+    )
+
+    log.info("omitindo %s · treino: %s física + %s não-física de %s",
+             omitir, f"{pos_tr.height:,}", f"{neg_tr.height:,}", ", ".join(treino_dom))
+    pipe = make_pipeline()
+    pipe.fit(build_text(pos_tr) + build_text(neg_tr),
+             ["fisica"] * pos_tr.height + ["nao_fisica"] * neg_tr.height)
+    i_fis = list(pipe.classes_).index("fisica")
+
+    Xf = build_text(pos_te)
+    def medir(Xn):
+        y = ["fisica"] * len(Xf) + ["nao_fisica"] * len(Xn)
+        p = pipe.predict(Xf + Xn)
+        pr, rc, _, _ = precision_recall_fscore_support(
+            y, p, labels=["fisica"], zero_division=0)
+        fp = sum(1 for a, b in zip(y, p) if a == "nao_fisica" and b == "fisica")
+        return float(pr[0]), float(rc[0]), fp / max(len(Xn), 1)
+
+    p_in, rc, fp_in = medir(build_text(neg_dentro))
+    p_out, _, fp_out = medir(build_text(neg_te))
+
+    sf = pipe.predict_proba(Xf)[:, i_fis]
+    sn = pipe.predict_proba(build_text(neg_te))[:, i_fis]
+    curva = []
+    for t in limiares:
+        tp, fp = int((sf >= t).sum()), int((sn >= t).sum())
+        curva.append((t, tp / (tp + fp) if tp + fp else 0.0,
+                      tp / len(sf), fp / len(sn)))
+
+    return Transferencia(omitir, pos_tr.height, neg_tr.height, neg_te.height,
+                         p_in, p_out, fp_in, fp_out, rc, curva)
+
+
 def build_text(df: pl.DataFrame) -> list[str]:
     """Título + resumo. O título carrega sinal desproporcional ao tamanho."""
     return (
