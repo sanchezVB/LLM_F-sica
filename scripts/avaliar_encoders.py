@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
+from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.eval.encoders import (  # noqa: E402
     comparar,
     salvar,
@@ -77,8 +78,14 @@ def main() -> int:
         logging.error("nenhum modelo nosso disponível; nada a comparar")
         return 1
 
-    rs = comparar(val, extras, cache=a.cache, n=a.n, max_tokens=a.max_tokens,
-                  lote=a.lote, dispositivo=a.dispositivo)
+    # A comparação completa leva ~2,5 h de CPU. Ver o comentário em
+    # train_embedding.py: a máquina dormiu e matou um treino por falta disto.
+    impedir_suspensao()
+    try:
+        rs = comparar(val, extras, cache=a.cache, n=a.n, max_tokens=a.max_tokens,
+                      lote=a.lote, dispositivo=a.dispositivo)
+    finally:
+        liberar_suspensao()
 
     print("\n" + "=" * 78)
     print(tabela(rs, a.n))

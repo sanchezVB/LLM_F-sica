@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
 from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: E402
+from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 
 
 def main() -> int:
@@ -60,7 +61,15 @@ def main() -> int:
     if a.sub_lote:
         logging.info("GradCache ligado: lote lógico %d (%d negativos) com a memória "
                      "de %d", a.lote, a.lote - 1, a.sub_lote)
-    m = TreinadorEmb(cfg).treinar(treino, val, a.out)
+    # ⚠️ Sem isto o treino morre quando a máquina dorme. Medido em 2026-08-14:
+    # parou no passo 150 de 781 porque o Windows suspendeu às 02h49 — e ninguém
+    # segurava, porque só as COLETAS chamavam isto. Enquanto uma coleta rodava o
+    # treino pegava carona; quando todas terminaram, ele ficou sem proteção.
+    impedir_suspensao()
+    try:
+        m = TreinadorEmb(cfg).treinar(treino, val, a.out)
+    finally:
+        liberar_suspensao()
 
     antes = m.historico[0]
     print(f"\n{'':22} {'recall@1':>10} {'recall@10':>11} {'MRR':>8}")

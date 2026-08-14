@@ -72,6 +72,8 @@ FLUSH = 20_000
 # Documentos guardados para inspeção humana. 400 é o que uma pessoa revisa numa
 # sessão; mais que isso vira arquivo que ninguém abre.
 N_AMOSTRA = 400
+# Tentativas por arquivo quando a rede cai. Ver o aviso em `filtrar`.
+MAX_TENTATIVAS = 8
 
 
 @dataclass
@@ -183,7 +185,22 @@ def filtrar(
             continue
         local = temp / Path(nome).name
         try:
-            f.bytes_lidos += _baixar(sessao, ds, nome, local)
+            # ⚠️ Rede indisponível ESPERA; não consome o arquivo. Ver o mesmo
+            # aviso em `slices/redpajama.py`: uma queda de DNS às 01h56 queimou 23
+            # shards em segundos, porque `getaddrinfo` falha instantaneamente e
+            # não há timeout para desacelerar.
+            for tentativa in range(MAX_TENTATIVAS):
+                try:
+                    f.bytes_lidos += _baixar(sessao, ds, nome, local)
+                    break
+                except (requests.ConnectionError, requests.Timeout) as exc:
+                    espera = min(30 * 2 ** tentativa, 600)
+                    log.warning("%s: rede indisponível (%s) — aguardando %d s "
+                                "(tentativa %d/%d)", nome, type(exc).__name__,
+                                espera, tentativa + 1, MAX_TENTATIVAS)
+                    time.sleep(espera)
+            else:
+                raise RuntimeError(f"rede indisponível após {MAX_TENTATIVAS} tentativas")
             df = pl.read_parquet(local)
             textos, urls = _texto_e_url(df)
             # Fatia para não passar 20 mil textos de uma vez ao TF-IDF.

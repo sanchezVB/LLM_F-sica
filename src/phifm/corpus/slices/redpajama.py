@@ -55,6 +55,8 @@ INDICE = (
 # Registros por arquivo de saída. 20 mil × ~25 KB de texto ≈ 500 MB por shard,
 # que é o limite confortável para o parquet e para a memória durante a escrita.
 FLUSH = 20_000
+# Tentativas por shard quando a REDE está indisponível. Ver o aviso em `coletar`.
+MAX_TENTATIVAS = 8
 
 
 @dataclass
@@ -131,6 +133,18 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
     correspondente exista é pulado. Grosseiro de propósito — o custo de refazer um
     shard é 0,8 GB de download, e um manifesto com cursor por linha seria
     complexidade sem retorno aqui.
+
+    ## ⚠️ Falha de rede ESPERA; ela não consome o shard
+
+    Medido em 2026-08-14: o DNS caiu às 01h56 e a primeira versão queimou os 23
+    shards restantes em segundos — cada um registrando "falhou" e seguindo, porque
+    `getaddrinfo` falha instantaneamente e não há timeout para desacelerar. O
+    relatório final disse "concluído · falhas: 23" com 76 de 100 shards.
+
+    Erro de projeto meu: tratei indisponibilidade TRANSITÓRIA como ausência
+    definitiva. É o espelho do defeito que corrigi ontem no `PoliteSession`, onde
+    um 404 definitivo era repetido como se fosse transitório — a mesma confusão,
+    na direção oposta.
     """
     sessao = requests.Session()
     sessao.headers.update({"User-Agent": user_agent(contato or "phifm"),
@@ -142,43 +156,57 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
     log.info("%d shards a percorrer (~%.0f GB)", len(urls), 0.81 * len(urls))
 
     p = Progresso()
-    buffer: list[dict] = []
-    indice = 0
+    estado = {"buffer": [], "indice": 0}
     t0 = time.perf_counter()
 
+    def processar(url: str) -> None:
+        for linha in _linhas_do_shard(sessao, url, p):
+            p.registros_vistos += 1
+            try:
+                d = json.loads(linha)
+            except json.JSONDecodeError:
+                continue
+            aid = (d.get("meta") or {}).get("arxiv_id")
+            if not aid or aid not in ids or not d.get("text"):
+                continue
+            estado["buffer"].append({"arxiv_id": aid, "texto": d["text"]})
+            p.registros_guardados += 1
+            p.caracteres_guardados += len(d["text"])
+            if len(estado["buffer"]) >= FLUSH:
+                _gravar(estado["buffer"], destino, estado["indice"])
+                estado["buffer"] = []
+                estado["indice"] += 1
+
     for n, url in enumerate(urls, 1):
-        # Retomada: se o shard de saída já existe, pular.
         if (destino / f"part-{n - 1:05d}.parquet").exists():
             log.info("shard %d/%d já processado — pulando", n, len(urls))
             p.shards_lidos += 1
-            indice = n
+            estado["indice"] = n
             continue
-        try:
-            for linha in _linhas_do_shard(sessao, url, p):
-                p.registros_vistos += 1
-                try:
-                    d = json.loads(linha)
-                except json.JSONDecodeError:
-                    continue
-                aid = (d.get("meta") or {}).get("arxiv_id")
-                if not aid or aid not in ids or not d.get("text"):
-                    continue
-                buffer.append({"arxiv_id": aid, "texto": d["text"]})
-                p.registros_guardados += 1
-                p.caracteres_guardados += len(d["text"])
-                if len(buffer) >= FLUSH:
-                    _gravar(buffer, destino, indice)
-                    buffer.clear()
-                    indice += 1
-        except Exception as exc:
-            p.falhas.append(f"shard {n}: {type(exc).__name__}: {str(exc)[:80]}")
-            log.warning("shard %d falhou: %s", n, exc)
-            continue
+
+        for tentativa in range(MAX_TENTATIVAS):
+            try:
+                processar(url)
+                break
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                espera = min(30 * 2 ** tentativa, 600)
+                log.warning("shard %d: rede indisponível (%s) — aguardando %d s "
+                            "(tentativa %d/%d)", n, type(exc).__name__, espera,
+                            tentativa + 1, MAX_TENTATIVAS)
+                time.sleep(espera)
+            except Exception as exc:
+                p.falhas.append(f"shard {n}: {type(exc).__name__}: {str(exc)[:80]}")
+                log.warning("shard %d falhou definitivamente: %s", n, exc)
+                break
+        else:
+            p.falhas.append(f"shard {n}: rede indisponível após {MAX_TENTATIVAS} tentativas")
+            log.error("shard %d desistido após %d tentativas", n, MAX_TENTATIVAS)
+
         p.shards_lidos += 1
         dt = time.perf_counter() - t0
         log.info("shard %d/%d · %s · %.1f MB/s", n, len(urls), p.linha(),
                  p.bytes_lidos / 1e6 / max(dt, 1))
 
-    if buffer:
-        _gravar(buffer, destino, indice)
+    if estado["buffer"]:
+        _gravar(estado["buffer"], destino, estado["indice"])
     return p
