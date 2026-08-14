@@ -95,7 +95,26 @@ class AcquisitionManifest(BaseModel):
 
     started_at: datetime = Field(default_factory=utcnow)
     completed_at: datetime | None = None
+    # ⚠️ DENOMINADOR DE PROGRESSO, na unidade de quem coleta. NÃO é promessa de
+    # completude, e nada no código compara `actual_count` com ele.
+    #
+    # Dividir um pelo outro é erro de leitura. Medido em 2026-08-13 nos
+    # manifestos em disco:
+    #
+    #   coletor              expected_count      actual_count
+    #   arXiv OAI                      None         1.595.422
+    #   OpenAlex snapshot       510.372.821         4.613.751
+    #
+    # No snapshot, `expected` são as obras VARRIDAS (o OpenAlex inteiro) e
+    # `actual` são as GUARDADAS (as que casaram com o arXiv). A razão dá 0,9% e
+    # sugere catástrofe onde houve filtragem correta.
+    #
+    # No arXiv fica `None` porque o OAI-PMH deles não envia `completeListSize` —
+    # verificado no set `math` em 2026-08-13. A completude ali vem do protocolo:
+    # o `resumptionToken` ausente na última página é o sinal de fim.
     expected_count: int | None = None
+    # Registros efetivamente GRAVADOS por este manifesto. Esta unidade é estável
+    # entre coletores, diferente da de cima.
     actual_count: int = 0
     bytes_downloaded: int = 0
     requests_made: int = 0

@@ -371,12 +371,22 @@ class OpenAlexSnapshotHarvester(ResumableHarvester):
             return m
 
         data_snapshot, arquivos = self.particoes()
-        if m.expected_count is None:
-            m.expected_count = sum(a["meta"]["record_count"] for a in arquivos)
+        if m.query_spec.get("registros_varridos") is None:
+            # ⚠️ Isto vai para `query_spec`, NÃO para `expected_count`. São obras
+            # VARRIDAS (o OpenAlex inteiro, ~510 M), e o `actual_count` conta as
+            # GUARDADAS (as que casam com o arXiv, ~4,6 M). Enquanto ficou em
+            # `expected_count`, a razão dava 0,9% e lia-se como coleta falhada —
+            # quando é a filtragem funcionando. Unidades diferentes não podem
+            # dividir o mesmo par de campos.
+            #
+            # `expected_count` fica `None` de propósito: não sabemos de antemão
+            # quantas obras vão casar.
+            varridos = sum(a["meta"]["record_count"] for a in arquivos)
+            m.query_spec["registros_varridos"] = varridos
             m.query_spec["snapshot_date"] = data_snapshot
             m.query_spec["particoes_totais"] = len(arquivos)
-            log.info("snapshot %s · %d partições · %s obras",
-                     data_snapshot, len(arquivos), f"{m.expected_count:,}")
+            log.info("snapshot %s · %d partições · %s obras a varrer",
+                     data_snapshot, len(arquivos), f"{varridos:,}")
 
         # ── retomada ──────────────────────────────────────────────────────
         # O cursor é a URL da última partição com flush confirmado. Guardar

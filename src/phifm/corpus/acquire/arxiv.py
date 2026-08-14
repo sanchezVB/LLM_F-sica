@@ -238,6 +238,14 @@ class ArxivOAIHarvester(ResumableHarvester):
                 complete = token_el.get("completeListSize")
                 if complete and int(complete) > 0:
                     m.expected_count = int(complete)
+                elif pages == 1:
+                    # Registrado uma vez, para ninguém procurar um percentual que
+                    # não pode existir. Verificado em 2026-08-13: o OAI do arXiv
+                    # não envia `completeListSize`, então não há total declarado —
+                    # nem para o progresso, nem para conferir completude. O sinal
+                    # de fim é o `resumptionToken` ausente, que é o do protocolo.
+                    log.info("o arXiv não declara completeListSize — sem percentual "
+                             "de progresso; o fim é o resumptionToken ausente")
 
             # ── ordem crítica (DOC-08 §7.2) ────────────────────────────────
             # O cursor NÃO avança antes de os dados estarem duráveis. Se o
