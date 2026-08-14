@@ -28,7 +28,14 @@ PHYSICS_PREFIXES = (
     "math-ph", "nlin", "nucl-ex", "nucl-th", "physics", "quant-ph",
 )
 MATH_SUPPORT = ("math.AP", "math.CA", "math.DG", "math.OC", "math.PR",
-                "math.ST", "math.NA", "math.RA", "math.FA", "math.DS")
+                "math.ST", "math.NA", "math.RA", "math.FA", "math.DS",
+                # Nomes LEGADOS das mesmas áreas. `is_math_support` casa a
+                # categoria inteira, não o arquivo, então a normalização de
+                # `_LEGADO` (que é arquivo→arquivo) não alcança estes: um paper
+                # antigo traz a categoria `funct-an`, nunca `math.FA`. Sem isto,
+                # 351 papers de análise funcional e geometria diferencial não
+                # contavam como matemática de apoio.
+                "funct-an", "dg-ga")
 
 SUBFIELD_MAP = {
     "astro-ph": "Astrofísica e Cosmologia", "cond-mat": "Matéria Condensada",
@@ -60,7 +67,16 @@ SUBFIELD_MAP = {
 # Normalizar aqui, num lugar só, em vez de duplicar entradas em `PHYSICS_PREFIXES`
 # e `SUBFIELD_MAP`: o legado passa a ser o arquivo moderno equivalente e tudo a
 # jusante funciona sem saber que existiu legado.
+# A lista cobre TODO legado, não só o de Física. Escrevi primeiro só os de Física
+# — de memória — e perguntar ao dado achou cinco que faltavam: `q-alg`,
+# `alg-geom`, `dg-ga`, `funct-an` e `cmp-lg`, legados de matemática e de CS.
+#
+# Não havia erro de rótulo: por não estarem em `PHYSICS_PREFIXES`, saíam como
+# não-Física, que é o correto. Mas deixavam `q-alg` e `math` como buckets
+# diferentes da mesma coisa, e o mapeamento é sobre a HISTÓRIA DO ARXIV — incluir
+# só o lado da Física era arbitrário.
 _LEGADO = {
+    # ── Física ────────────────────────────────────────────────────────────
     # Ciências não-lineares, antes de `nlin` existir
     "chao-dyn": "nlin", "solv-int": "nlin", "patt-sol": "nlin",
     "comp-gas": "nlin", "adap-org": "nlin",
@@ -69,6 +85,12 @@ _LEGADO = {
     "bayes-an": "physics", "chem-ph": "physics", "plasm-ph": "physics",
     # Absorvidos por `cond-mat.*`
     "mtrl-th": "cond-mat", "supr-con": "cond-mat",
+    # ── NÃO-Física, e continuam não sendo ─────────────────────────────────
+    # Estão aqui para normalizar o bucket, não para virar Física: `math` e `cs`
+    # não estão em `PHYSICS_PREFIXES`. Chegaram ao spine por cross-list, como
+    # qualquer `math.AP` moderno.
+    "q-alg": "math", "alg-geom": "math", "dg-ga": "math", "funct-an": "math",
+    "cmp-lg": "cs",
 }
 
 

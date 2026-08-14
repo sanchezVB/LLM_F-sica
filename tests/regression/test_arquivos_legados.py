@@ -62,17 +62,73 @@ def test_legado_mapeia_para_o_arquivo_moderno():
         assert _archive(legado) == moderno, f"{legado} não virou {moderno}"
 
 
-def test_nenhum_legado_cai_em_outro():
+LEGADO_FISICA = {k for k, v in _LEGADO.items() if v in PHYSICS_PREFIXES}
+LEGADO_OUTROS = set(_LEGADO) - LEGADO_FISICA
+
+
+def test_nenhum_legado_de_fisica_cai_em_outro():
     """«Outro» é descartado por `train()`. Cair ali é ser jogado fora."""
-    for legado in _LEGADO:
+    for legado in LEGADO_FISICA:
         sub = SUBFIELD_MAP.get(_archive(legado), "Outro")
         assert sub != "Outro", f"{legado} → {_archive(legado)} → Outro"
 
 
-def test_todo_legado_e_reconhecido_como_familia_de_fisica():
-    for legado in _LEGADO:
+def test_todo_legado_de_fisica_e_reconhecido_como_familia():
+    for legado in LEGADO_FISICA:
         assert _archive(legado) in PHYSICS_PREFIXES, (
             f"{legado} não é reconhecido como Física após normalizar")
+
+
+def test_legado_de_matematica_e_cs_nao_vira_fisica():
+    """`q-alg`, `alg-geom`, `dg-ga`, `funct-an` e `cmp-lg` estão em `_LEGADO` para
+    normalizar o bucket, NÃO para virar Física.
+
+    Foram achados perguntando ao dado, depois de eu escrever a lista de memória
+    só com os de Física. Normalizá-los é correto; promovê-los seria o oposto do
+    que a lista existe para fazer.
+    """
+    assert LEGADO_OUTROS == {"q-alg", "alg-geom", "dg-ga", "funct-an", "cmp-lg"}
+    for legado in LEGADO_OUTROS:
+        assert _archive(legado) in ("math", "cs")
+        assert _archive(legado) not in PHYSICS_PREFIXES, (
+            f"{legado} virou Física — a normalização passou a promover")
+        assert SUBFIELD_MAP.get(_archive(legado), "Outro") == "Outro"
+
+
+def test_a_lista_de_legados_cobre_o_que_o_acervo_tem():
+    """Fixa o conjunto medido no spine em 2026-08-13.
+
+    Escrevi a lista de memória e ela estava incompleta em cinco entradas. Este
+    teste é a defesa contra a próxima versão de memória: se o acervo trouxer um
+    arquivo legado novo, a checagem por dado (não por lembrança) tem de ser
+    refeita.
+    """
+    assert len(_LEGADO) == 18
+    # Os 13 de Física, medidos com contagem de papers no spine.
+    assert LEGADO_FISICA == {
+        "chao-dyn", "solv-int", "patt-sol", "comp-gas", "adap-org",
+        "acc-phys", "ao-sci", "atom-ph", "bayes-an", "chem-ph", "plasm-ph",
+        "mtrl-th", "supr-con",
+    }
+
+
+def test_legado_de_apoio_matematico_conta_como_apoio():
+    """`is_math_support` casa a CATEGORIA inteira, não o arquivo.
+
+    Então a normalização arquivo→arquivo de `_LEGADO` não alcança: um paper antigo
+    traz `funct-an`, nunca `math.FA`. Sem os nomes legados em `MATH_SUPPORT`, 351
+    papers de análise funcional e geometria diferencial não contavam.
+    """
+    from phifm.corpus.normalize.spine import MATH_SUPPORT
+    assert "funct-an" in MATH_SUPPORT and "math.FA" in MATH_SUPPORT
+    assert "dg-ga" in MATH_SUPPORT and "math.DG" in MATH_SUPPORT
+    # `q-alg` (math.QA) e `alg-geom` (math.AG) não são apoio: não estão na lista
+    # moderna, então não entram na legada.
+    assert "q-alg" not in MATH_SUPPORT and "alg-geom" not in MATH_SUPPORT
+
+    df = annotate(_bruto([["funct-an", "math-ph"]], ["funct-an"]))
+    assert df["is_math_support"].to_list() == [True]
+    assert df["is_physics"].to_list() == [True]      # pelo cross-list math-ph
 
 
 def test_o_caminho_normal_nao_mudou():
