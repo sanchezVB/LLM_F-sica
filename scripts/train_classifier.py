@@ -49,11 +49,21 @@ def main() -> int:
         print(f"{cls[:32]:34} {tt:>7} {c.achieved_precision[cls]:8.3f} {c.achieved_recall[cls]:9.3f}")
 
     if a.task == "is_physics":
+        # ⚠️ Texto DERIVADO do que está em disco, não fixo. A versão anterior
+        # dizia "`math` NÃO está entre eles" e continuou dizendo isso depois de
+        # `math` entrar — um aviso que virou falso é pior que nenhum aviso,
+        # porque quem lê confia nele.
+        doms = sorted(d.name for d in a.negativos.iterdir() if d.is_dir())
+        faltam = sorted({"math", "q_bio", "cs", "econ", "eess", "stat", "q_fin"} - set(doms))
         print()
         print("⚠️  LIMITE DE DOMÍNIO — estes números valem para o arXiv.")
-        print("    Os negativos são resumos de cs/econ/q-bio. `math` NÃO está")
-        print("    entre eles, e é a vizinha mais confundível da Física. No")
-        print("    OpenWebMath espere pior até que negativos de math existam.")
+        print(f"    Negativos presentes: {', '.join(doms)}.")
+        if faltam:
+            print(f"    AUSENTES: {', '.join(faltam)} — se algum deles for vizinho")
+            print("    próximo da Física, o número acima é otimista.")
+        print("    E nenhum domínio do arXiv representa TEXTO DE WEB, que é o que")
+        print("    o OpenWebMath é. Para lá, isto não é previsão — é o que temos.")
+        print("    Medir de verdade exige `scripts/avaliar_transferencia.py`.")
     return 0
 
 if __name__ == "__main__":
