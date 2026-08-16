@@ -202,6 +202,34 @@ def sec_classificador(st: dict) -> list:
     return out
 
 
+def _caracteres(fs: list[str], coluna: str) -> int:
+    """Soma de caracteres com CAST para Int64, e a razão é aritmética.
+
+    ⚠️ `str.len_chars()` do polars devolve **UInt32**, e a soma acumula no mesmo
+    tipo. Um corpus de 10,5 G caracteres passa do máximo de 4,29 G e a soma **dá a
+    volta**, silenciosamente.
+
+    Medido em 2026-08-16 na fatia do OpenWebMath: a soma sem cast devolveu 1,88 G
+    contra os 10,47 G reais — exatamente **duas voltas** de 2³². Eu quase reportei
+    "0,47 B tokens" onde são 2,62 B, e o número errado é plausível: nenhuma
+    exceção, nenhum aviso, só um total 5,6× menor.
+
+    Só desconfiei porque 2.185 caracteres por documento não batia com os 12.162 que
+    a própria coleta havia registrado.
+    """
+    import polars as pl
+
+    if not fs:
+        return 0
+    try:
+        return int(pl.scan_parquet(fs).select(
+            pl.col(coluna).str.len_chars().cast(pl.Int64).sum().alias("c")
+        ).collect().item() or 0)
+    except Exception as exc:
+        log.info("contagem de caracteres indisponível (%s)", type(exc).__name__)
+        return 0
+
+
 def _conta_parquet(pasta: Path) -> tuple[int, float]:
     """(registros, GB) numa pasta que pode estar sendo ESCRITA agora.
 
@@ -274,12 +302,17 @@ def sec_espinha(st: dict) -> list:
 
 def sec_corpus(st: dict) -> list:
     out = [Paragraph("5 · Corpus de texto completo", st["h1"])]
-    linhas = [["fonte", "documentos", "em disco", "filtro"]]
+    linhas = [["fonte", "documentos", "≈ tokens", "em disco", "filtro"]]
 
-    n, gb = _conta_parquet(Path("data/processed/redpajama_fisica"))
+    import glob as _g
+    rp = Path("data/processed/redpajama_fisica")
+    n, gb = _conta_parquet(rp)
     if n:
+        ch = _caracteres([f for f in sorted(_g.glob(str(rp / "part-*.parquet")))
+                          if os.path.getsize(f) > 1024], "texto")
         linhas.append([Paragraph("RedPajama-arXiv", st["cel"]),
-                       f"{n:,}".replace(",", "."), f"{gb:.1f} GB",
+                       f"{n:,}".replace(",", "."),
+                       f"{ch/4/1e9:.2f} B" if ch else "—", f"{gb:.1f} GB",
                        Paragraph("spine (exato)", st["cel"])])
     # ⚠️ A contagem vem dos PARQUETS, não do `_filtragem.json`.
     #
@@ -297,13 +330,17 @@ def sec_corpus(st: dict) -> list:
     if n2 or f:
         limiar = f"{f['limiar']}" if f else "0.9"
         em_curso = f and abs(f["aceitos"] - n2) > max(0.05 * max(n2, 1), 100)
+        owm = Path("data/processed/openwebmath_fisica")
+        ch2 = _caracteres([f for f in sorted(_g.glob(str(owm / "part-*.parquet")))
+                           if os.path.getsize(f) > 1024], "texto")
         linhas.append([Paragraph("OpenWebMath" + (" (em curso)" if em_curso else ""),
                                  st["cel"]),
-                       f"{n2:,}".replace(",", "."), f"{gb2:.1f} GB",
+                       f"{n2:,}".replace(",", "."),
+                       f"{ch2/4/1e9:.2f} B" if ch2 else "—", f"{gb2:.1f} GB",
                        Paragraph(f"classificador ≥ {limiar}", st["cel"])])
-    linhas.append([Paragraph("peS2o", st["cel"]), "—", "—",
+    linhas.append([Paragraph("peS2o", st["cel"]), "—", "—", "—",
                    Paragraph("não iniciado (42,7 h medidas)", st["cel"])])
-    out.append(tabela(linhas, [40 * mm, 32 * mm, 24 * mm, 44 * mm]))
+    out.append(tabela(linhas, [34 * mm, 28 * mm, 20 * mm, 20 * mm, 38 * mm]))
 
     if f and f.get("dominios"):
         base = sum(f["dominios"].values())

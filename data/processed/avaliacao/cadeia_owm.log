@@ -164,3 +164,42 @@
 11:50:04 INFO    111/114 · 1,551,094 vistos · 210,535 aceitos (13.6%) · 6.8 GB · 0.8 MB/s
 11:55:15 INFO    112/114 · 1,606,490 vistos · 218,013 aceitos (13.6%) · 7.0 GB · 0.8 MB/s
 11:57:13 INFO    → part-00042.parquet (20,000 registros, 84 MB)
+12:00:22 INFO    113/114 · 1,661,886 vistos · 225,502 aceitos (13.6%) · 7.2 GB · 0.8 MB/s
+12:05:42 INFO    114/114 · 1,717,282 vistos · 233,079 aceitos (13.6%) · 7.5 GB · 0.8 MB/s
+12:05:44 INFO    → part-00043.parquet (13,079 registros, 54 MB)
+
+========================================================================
+openwebmath filtrado · limiar 0.9 · 114 arquivos
+
+  vistos            : 1,717,282
+  aceitos           : 233,079  (13.57%)
+  lidos da rede     : 7.5 GB
+  texto aceito      : 2.83 G caracteres
+  ≈ tokens          : 0.71 B (a ~4 chars/token)
+  falhas            : 0
+
+  DOMÍNIOS do que foi aceito — o sinal objetivo sobre o que entrou:
+      21,053  physics.stackexchange.com
+      20,105  www.physicsforums.com
+       5,399  www.nature.com
+       3,696  chemistry.stackexchange.com
+       3,257  www.semanticscholar.org
+       3,199  labs.tib.eu
+       2,817  en.wikipedia.org
+       2,306  www.groundai.com
+       2,163  www.jobilize.com
+       2,021  physics.aps.org
+       2,020  indico.cern.ch
+       1,828  astronomy.stackexchange.com
+       1,809  socratic.org
+       1,727  pos.sissa.it
+       1,666  hal.in2p3.fr
+
+========================================================================
+⚠️ Os falsos positivos de 1,5%–13,6% que justificam o limiar 0,9 foram
+   medidos em RESUMOS DO ARXIV. Isto é texto de web e paper completo —
+   outra distribuição. A amostra abaixo existe para um humano decidir;
+   inventar uma taxa de contaminação daqui seria extrapolar demais.
+
+amostra de 400 documentos → data\processed\openwebmath_fisica\_amostra_para_revisao.json
+=== FIM DO OPENWEBMATH ===
