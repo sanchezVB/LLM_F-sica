@@ -126,3 +126,41 @@
 09:40:05 INFO    84/114 · 55,397 vistos · 7,576 aceitos (13.7%) · 0.2 GB · 1.1 MB/s
 09:45:52 INFO    85/114 · 110,794 vistos · 15,038 aceitos (13.6%) · 0.5 GB · 0.8 MB/s
 09:49:01 INFO    → part-00032.parquet (20,000 registros, 83 MB)
+09:50:00 INFO    86/114 · 166,191 vistos · 22,560 aceitos (13.6%) · 0.7 GB · 0.9 MB/s
+09:54:32 INFO    87/114 · 221,588 vistos · 29,969 aceitos (13.5%) · 1.0 GB · 0.9 MB/s
+09:59:17 INFO    88/114 · 276,985 vistos · 37,619 aceitos (13.6%) · 1.2 GB · 0.9 MB/s
+10:01:13 INFO    → part-00033.parquet (20,000 registros, 81 MB)
+10:04:24 INFO    89/114 · 332,382 vistos · 45,188 aceitos (13.6%) · 1.4 GB · 0.9 MB/s
+10:10:34 INFO    90/114 · 387,778 vistos · 52,651 aceitos (13.6%) · 1.7 GB · 0.8 MB/s
+10:15:56 INFO    → part-00034.parquet (20,000 registros, 83 MB)
+10:15:56 INFO    91/114 · 443,174 vistos · 60,267 aceitos (13.6%) · 1.9 GB · 0.8 MB/s
+10:22:19 INFO    92/114 · 498,570 vistos · 67,647 aceitos (13.6%) · 2.2 GB · 0.8 MB/s
+10:28:43 INFO    93/114 · 553,966 vistos · 75,203 aceitos (13.6%) · 2.4 GB · 0.8 MB/s
+10:32:12 INFO    → part-00035.parquet (20,000 registros, 82 MB)
+10:32:57 INFO    94/114 · 609,362 vistos · 82,705 aceitos (13.6%) · 2.6 GB · 0.8 MB/s
+10:35:48 INFO    95/114 · 664,758 vistos · 90,279 aceitos (13.6%) · 2.9 GB · 0.8 MB/s
+10:38:43 INFO    96/114 · 720,154 vistos · 97,762 aceitos (13.6%) · 3.1 GB · 0.8 MB/s
+10:40:02 INFO    → part-00036.parquet (20,000 registros, 84 MB)
+10:41:38 INFO    97/114 · 775,550 vistos · 105,211 aceitos (13.6%) · 3.4 GB · 0.9 MB/s
+10:44:46 INFO    98/114 · 830,946 vistos · 112,622 aceitos (13.6%) · 3.6 GB · 0.9 MB/s
+10:48:41 INFO    → part-00037.parquet (20,000 registros, 81 MB)
+10:48:41 INFO    99/114 · 886,342 vistos · 120,302 aceitos (13.6%) · 3.8 GB · 0.9 MB/s
+10:54:15 INFO    100/114 · 941,738 vistos · 127,712 aceitos (13.6%) · 4.1 GB · 0.9 MB/s
+10:54:37 WARNING data/train-00100-of-00114-756242e207ced023.parquet: rede indisponível (ConnectionError) — aguardando 30 s (tentativa 1/8)
+11:00:21 INFO    101/114 · 997,134 vistos · 135,329 aceitos (13.6%) · 4.3 GB · 0.9 MB/s
+11:04:17 INFO    → part-00038.parquet (20,000 registros, 83 MB)
+11:05:46 INFO    102/114 · 1,052,530 vistos · 142,885 aceitos (13.6%) · 4.6 GB · 0.9 MB/s
+11:10:17 INFO    103/114 · 1,107,926 vistos · 150,354 aceitos (13.6%) · 4.8 GB · 0.9 MB/s
+11:15:19 INFO    104/114 · 1,163,322 vistos · 157,841 aceitos (13.6%) · 5.1 GB · 0.9 MB/s
+11:17:15 INFO    → part-00039.parquet (20,000 registros, 82 MB)
+11:20:01 INFO    105/114 · 1,218,718 vistos · 165,397 aceitos (13.6%) · 5.3 GB · 0.9 MB/s
+11:24:40 INFO    106/114 · 1,274,114 vistos · 173,019 aceitos (13.6%) · 5.5 GB · 0.9 MB/s
+11:29:25 INFO    → part-00040.parquet (20,000 registros, 83 MB)
+11:29:26 INFO    107/114 · 1,329,510 vistos · 180,514 aceitos (13.6%) · 5.8 GB · 0.9 MB/s
+11:33:55 INFO    108/114 · 1,384,906 vistos · 188,167 aceitos (13.6%) · 6.0 GB · 0.9 MB/s
+11:39:34 INFO    109/114 · 1,440,302 vistos · 195,553 aceitos (13.6%) · 6.3 GB · 0.8 MB/s
+11:43:39 INFO    → part-00041.parquet (20,000 registros, 83 MB)
+11:44:51 INFO    110/114 · 1,495,698 vistos · 202,999 aceitos (13.6%) · 6.5 GB · 0.8 MB/s
+11:50:04 INFO    111/114 · 1,551,094 vistos · 210,535 aceitos (13.6%) · 6.8 GB · 0.8 MB/s
+11:55:15 INFO    112/114 · 1,606,490 vistos · 218,013 aceitos (13.6%) · 7.0 GB · 0.8 MB/s
+11:57:13 INFO    → part-00042.parquet (20,000 registros, 84 MB)

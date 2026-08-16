@@ -121,7 +121,16 @@ def escolher_dispositivo(pedido: str = "auto") -> torch.device:
         import torch_directml as dml
 
         if dml.device_count() > 0:
-            log.info("dispositivo: %s (DirectML)", dml.device_name(0))
+            # ⚠️ `device_name` devolve string C de tamanho fixo, com NUL embutido:
+            # `'AMD Radeon RX 7600\x00'`. Registrar cru mete bytes NUL no log, e
+            # aí o `grep` classifica o arquivo inteiro como BINÁRIO e passa a
+            # imprimir "Binary file matches" em vez das linhas.
+            #
+            # Custou um monitor: o vigia do treino ficou emitindo isso em vez das
+            # avaliações, então eu tinha aviso sem conteúdo. Cinco NULs num log de
+            # 14 KB de texto bastam.
+            nome = dml.device_name(0).replace("\x00", "").strip()
+            log.info("dispositivo: %s (DirectML)", nome)
             return dml.device(0)
     except ImportError:
         pass

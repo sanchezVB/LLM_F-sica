@@ -102,12 +102,18 @@ switch ($Fonte) {
                   # E lote ao mesmo tempo, entao nao isolava nada. Aqui a base e a
                   # mesma e so os negativos mudam: 127 -> 511.
                   #
-                  # sub-lote 128 porque foi o teto medido para o MiniLM no caminho
-                  # direto, e a fase 3 do GradCache mantem exatamente a mesma
-                  # memoria: os dois grafos de um pedaco.
+                  # sub-lote 64, nao 128. Com 128 o treino estourou a VRAM no
+                  # passo ~200 pedindo 226.492.416 bytes — que e exatamente
+                  # 128 x 12 cabecas x 192 x 192 x 4, os escores de atencao de um
+                  # pedaco. Rodou os passos 100-200 antes de estourar, entao e
+                  # fragmentacao acumulando, nao pico unico.
+                  #
+                  # O sub-lote NAO afeta os negativos: o lote logico segue 512, e
+                  # 511 negativos continuam entrando na perda. Custa so tempo —
+                  # 8 pedacos por passo em vez de 4. E o ponto todo do GradCache.
                   $argumentos = '--out models/phiemb-minilm-gc ' +
                                 '--base sentence-transformers/all-MiniLM-L6-v2 ' +
-                                '--lote 512 --sub-lote 128 --passos-aval 100 ' +
+                                '--lote 512 --sub-lote 64 --passos-aval 100 ' +
                                 '--max-pares 400000 --n-candidatos 1000' }
     'g1'       { $script = 'scripts/avaliar_encoders.py'
                  $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
