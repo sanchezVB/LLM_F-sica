@@ -1,0 +1,128 @@
+=== RedPajama saiu; iniciando OpenWebMath ===
+12:55:20 INFO    suspensão do sistema impedida enquanto a coleta durar
+12:55:23 INFO    classificador de models\isphysics-clf · classes [np.str_('fisica'), np.str_('nao_fisica')]
+12:55:24 INFO    open-web-math/open-web-math · 114 arquivos · 27.4 GB
+12:59:14 INFO    1/114 · 55,397 vistos · 7,442 aceitos (13.4%) · 0.2 GB · 1.0 MB/s
+13:04:17 INFO    2/114 · 110,794 vistos · 14,948 aceitos (13.5%) · 0.5 GB · 0.9 MB/s
+13:16:22 INFO    → part-00001.parquet (20,000 registros, 84 MB)
+13:18:06 INFO    3/114 · 166,191 vistos · 22,489 aceitos (13.5%) · 0.7 GB · 0.5 MB/s
+13:26:43 INFO    4/114 · 221,588 vistos · 30,008 aceitos (13.5%) · 1.0 GB · 0.5 MB/s
+13:32:39 INFO    5/114 · 276,985 vistos · 37,386 aceitos (13.5%) · 1.2 GB · 0.5 MB/s
+13:36:56 INFO    → part-00002.parquet (20,000 registros, 82 MB)
+13:39:36 INFO    6/114 · 332,382 vistos · 44,913 aceitos (13.5%) · 1.4 GB · 0.5 MB/s
+13:43:31 INFO    7/114 · 387,779 vistos · 52,371 aceitos (13.5%) · 1.7 GB · 0.6 MB/s
+13:46:14 INFO    8/114 · 443,176 vistos · 59,816 aceitos (13.5%) · 1.9 GB · 0.6 MB/s
+13:47:30 INFO    → part-00003.parquet (20,000 registros, 83 MB)
+13:49:00 INFO    9/114 · 498,573 vistos · 67,505 aceitos (13.5%) · 2.2 GB · 0.7 MB/s
+13:51:43 INFO    10/114 · 553,970 vistos · 74,954 aceitos (13.5%) · 2.4 GB · 0.7 MB/s
+13:53:41 INFO    → part-00004.parquet (20,000 registros, 82 MB)
+13:54:20 INFO    11/114 · 609,367 vistos · 82,525 aceitos (13.5%) · 2.6 GB · 0.7 MB/s
+13:54:41 WARNING data/train-00011-of-00114-da8ee2fcf07be148.parquet: rede indisponível (ConnectionError) — aguardando 30 s (tentativa 1/8)
+13:55:22 WARNING data/train-00011-of-00114-da8ee2fcf07be148.parquet: rede indisponível (ConnectionError) — aguardando 60 s (tentativa 2/8)
+13:56:23 WARNING data/train-00011-of-00114-da8ee2fcf07be148.parquet: rede indisponível (ConnectionError) — aguardando 120 s (tentativa 3/8)
+14:01:04 INFO    12/114 · 664,764 vistos · 89,934 aceitos (13.5%) · 2.9 GB · 0.7 MB/s
+14:03:50 INFO    13/114 · 720,161 vistos · 97,385 aceitos (13.5%) · 3.1 GB · 0.8 MB/s
+14:05:02 INFO    → part-00005.parquet (20,000 registros, 83 MB)
+14:06:30 INFO    14/114 · 775,558 vistos · 105,009 aceitos (13.5%) · 3.4 GB · 0.8 MB/s
+14:09:34 INFO    15/114 · 830,955 vistos · 112,500 aceitos (13.5%) · 3.6 GB · 0.8 MB/s
+14:12:12 INFO    16/114 · 886,352 vistos · 119,845 aceitos (13.5%) · 3.8 GB · 0.8 MB/s
+14:13:37 INFO    → part-00006.parquet (20,000 registros, 81 MB)
+14:15:10 INFO    17/114 · 941,749 vistos · 127,511 aceitos (13.5%) · 4.1 GB · 0.9 MB/s
+14:17:51 INFO    18/114 · 997,146 vistos · 134,985 aceitos (13.5%) · 4.3 GB · 0.9 MB/s
+14:19:53 INFO    → part-00007.parquet (20,000 registros, 83 MB)
+14:20:32 INFO    19/114 · 1,052,543 vistos · 142,419 aceitos (13.5%) · 4.6 GB · 0.9 MB/s
+14:23:31 INFO    20/114 · 1,107,940 vistos · 149,928 aceitos (13.5%) · 4.8 GB · 0.9 MB/s
+14:26:06 INFO    21/114 · 1,163,337 vistos · 157,366 aceitos (13.5%) · 5.0 GB · 0.9 MB/s
+14:27:13 INFO    → part-00008.parquet (20,000 registros, 86 MB)
+14:28:42 INFO    22/114 · 1,218,734 vistos · 164,990 aceitos (13.5%) · 5.3 GB · 0.9 MB/s
+14:31:31 INFO    23/114 · 1,274,131 vistos · 172,509 aceitos (13.5%) · 5.5 GB · 1.0 MB/s
+14:34:10 INFO    → part-00009.parquet (20,000 registros, 82 MB)
+14:34:11 INFO    24/114 · 1,329,528 vistos · 180,047 aceitos (13.5%) · 5.8 GB · 1.0 MB/s
+14:36:49 INFO    25/114 · 1,384,925 vistos · 187,544 aceitos (13.5%) · 6.0 GB · 1.0 MB/s
+14:39:31 INFO    26/114 · 1,440,322 vistos · 194,933 aceitos (13.5%) · 6.2 GB · 1.0 MB/s
+14:41:39 INFO    → part-00010.parquet (20,000 registros, 85 MB)
+14:42:17 INFO    27/114 · 1,495,719 vistos · 202,349 aceitos (13.5%) · 6.5 GB · 1.0 MB/s
+14:44:56 INFO    28/114 · 1,551,116 vistos · 209,857 aceitos (13.5%) · 6.7 GB · 1.0 MB/s
+14:47:34 INFO    29/114 · 1,606,513 vistos · 217,191 aceitos (13.5%) · 7.0 GB · 1.0 MB/s
+14:49:41 INFO    → part-00011.parquet (20,000 registros, 85 MB)
+14:50:20 INFO    30/114 · 1,661,910 vistos · 224,790 aceitos (13.5%) · 7.2 GB · 1.0 MB/s
+14:53:16 INFO    31/114 · 1,717,307 vistos · 232,145 aceitos (13.5%) · 7.4 GB · 1.1 MB/s
+14:56:07 INFO    32/114 · 1,772,704 vistos · 239,650 aceitos (13.5%) · 7.7 GB · 1.1 MB/s
+14:57:17 INFO    → part-00012.parquet (20,000 registros, 82 MB)
+14:58:46 INFO    33/114 · 1,828,101 vistos · 247,175 aceitos (13.5%) · 7.9 GB · 1.1 MB/s
+15:01:28 INFO    34/114 · 1,883,498 vistos · 254,586 aceitos (13.5%) · 8.2 GB · 1.1 MB/s
+15:04:10 INFO    → part-00013.parquet (20,000 registros, 82 MB)
+15:04:11 INFO    35/114 · 1,938,895 vistos · 262,053 aceitos (13.5%) · 8.4 GB · 1.1 MB/s
+15:06:47 INFO    36/114 · 1,994,292 vistos · 269,503 aceitos (13.5%) · 8.7 GB · 1.1 MB/s
+15:09:33 INFO    37/114 · 2,049,689 vistos · 276,986 aceitos (13.5%) · 8.9 GB · 1.1 MB/s
+15:11:40 INFO    → part-00014.parquet (20,000 registros, 83 MB)
+15:12:19 INFO    38/114 · 2,105,086 vistos · 284,483 aceitos (13.5%) · 9.1 GB · 1.1 MB/s
+15:15:07 INFO    39/114 · 2,160,483 vistos · 292,055 aceitos (13.5%) · 9.4 GB · 1.1 MB/s
+15:17:46 INFO    40/114 · 2,215,880 vistos · 299,534 aceitos (13.5%) · 9.6 GB · 1.1 MB/s
+15:18:57 INFO    → part-00015.parquet (20,000 registros, 83 MB)
+15:20:28 INFO    41/114 · 2,271,277 vistos · 307,039 aceitos (13.5%) · 9.9 GB · 1.1 MB/s
+15:23:15 INFO    42/114 · 2,326,674 vistos · 314,781 aceitos (13.5%) · 10.1 GB · 1.1 MB/s
+15:25:20 INFO    → part-00016.parquet (20,000 registros, 82 MB)
+15:26:00 INFO    43/114 · 2,382,071 vistos · 322,251 aceitos (13.5%) · 10.3 GB · 1.1 MB/s
+15:28:38 INFO    44/114 · 2,437,468 vistos · 329,810 aceitos (13.5%) · 10.6 GB · 1.2 MB/s
+15:31:18 INFO    45/114 · 2,492,865 vistos · 337,242 aceitos (13.5%) · 10.8 GB · 1.2 MB/s
+15:33:29 INFO    → part-00017.parquet (20,000 registros, 83 MB)
+15:34:08 INFO    46/114 · 2,548,262 vistos · 344,805 aceitos (13.5%) · 11.1 GB · 1.2 MB/s
+15:36:55 INFO    47/114 · 2,603,659 vistos · 352,319 aceitos (13.5%) · 11.3 GB · 1.2 MB/s
+15:39:36 INFO    48/114 · 2,659,056 vistos · 359,896 aceitos (13.5%) · 11.5 GB · 1.2 MB/s
+15:40:50 INFO    → part-00018.parquet (20,000 registros, 84 MB)
+15:42:21 INFO    49/114 · 2,714,453 vistos · 367,373 aceitos (13.5%) · 11.8 GB · 1.2 MB/s
+15:45:04 INFO    50/114 · 2,769,850 vistos · 374,940 aceitos (13.5%) · 12.0 GB · 1.2 MB/s
+15:47:00 INFO    → part-00019.parquet (20,000 registros, 84 MB)
+15:47:42 INFO    51/114 · 2,825,247 vistos · 382,601 aceitos (13.5%) · 12.3 GB · 1.2 MB/s
+15:50:26 INFO    52/114 · 2,880,644 vistos · 389,962 aceitos (13.5%) · 12.5 GB · 1.2 MB/s
+15:53:04 INFO    53/114 · 2,936,041 vistos · 397,368 aceitos (13.5%) · 12.7 GB · 1.2 MB/s
+15:54:15 INFO    → part-00020.parquet (20,000 registros, 83 MB)
+15:55:44 INFO    54/114 · 2,991,438 vistos · 404,811 aceitos (13.5%) · 13.0 GB · 1.2 MB/s
+15:58:56 INFO    55/114 · 3,046,835 vistos · 412,273 aceitos (13.5%) · 13.2 GB · 1.2 MB/s
+16:01:33 INFO    56/114 · 3,102,232 vistos · 419,786 aceitos (13.5%) · 13.5 GB · 1.2 MB/s
+16:02:49 INFO    → part-00021.parquet (20,000 registros, 81 MB)
+16:04:21 INFO    57/114 · 3,157,629 vistos · 427,203 aceitos (13.5%) · 13.7 GB · 1.2 MB/s
+16:07:02 INFO    58/114 · 3,213,026 vistos · 434,590 aceitos (13.5%) · 13.9 GB · 1.2 MB/s
+16:09:03 INFO    → part-00022.parquet (20,000 registros, 83 MB)
+16:09:42 INFO    59/114 · 3,268,423 vistos · 442,154 aceitos (13.5%) · 14.2 GB · 1.2 MB/s
+16:12:18 INFO    60/114 · 3,323,820 vistos · 449,730 aceitos (13.5%) · 14.4 GB · 1.2 MB/s
+16:15:00 INFO    61/114 · 3,379,217 vistos · 457,220 aceitos (13.5%) · 14.7 GB · 1.2 MB/s
+16:16:10 INFO    → part-00023.parquet (20,000 registros, 84 MB)
+16:17:41 INFO    62/114 · 3,434,614 vistos · 464,818 aceitos (13.5%) · 14.9 GB · 1.2 MB/s
+16:20:31 INFO    63/114 · 3,490,011 vistos · 472,290 aceitos (13.5%) · 15.1 GB · 1.2 MB/s
+16:23:07 INFO    64/114 · 3,545,408 vistos · 479,790 aceitos (13.5%) · 15.4 GB · 1.2 MB/s
+16:24:19 INFO    → part-00024.parquet (20,000 registros, 82 MB)
+16:25:49 INFO    65/114 · 3,600,805 vistos · 487,374 aceitos (13.5%) · 15.6 GB · 1.2 MB/s
+16:28:33 INFO    66/114 · 3,656,202 vistos · 494,840 aceitos (13.5%) · 15.9 GB · 1.2 MB/s
+16:30:39 INFO    → part-00025.parquet (20,000 registros, 83 MB)
+16:31:20 INFO    67/114 · 3,711,599 vistos · 502,397 aceitos (13.5%) · 16.1 GB · 1.2 MB/s
+16:34:05 INFO    68/114 · 3,766,996 vistos · 509,985 aceitos (13.5%) · 16.3 GB · 1.2 MB/s
+16:36:41 INFO    69/114 · 3,822,393 vistos · 517,496 aceitos (13.5%) · 16.6 GB · 1.2 MB/s
+16:37:53 INFO    → part-00026.parquet (20,000 registros, 83 MB)
+16:39:23 INFO    70/114 · 3,877,790 vistos · 525,020 aceitos (13.5%) · 16.8 GB · 1.3 MB/s
+16:42:15 INFO    71/114 · 3,933,187 vistos · 532,441 aceitos (13.5%) · 17.1 GB · 1.3 MB/s
+16:45:09 INFO    72/114 · 3,988,584 vistos · 539,818 aceitos (13.5%) · 17.3 GB · 1.3 MB/s
+16:46:20 INFO    → part-00027.parquet (20,000 registros, 84 MB)
+16:47:51 INFO    73/114 · 4,043,981 vistos · 547,286 aceitos (13.5%) · 17.5 GB · 1.3 MB/s
+16:50:33 INFO    74/114 · 4,099,378 vistos · 554,891 aceitos (13.5%) · 17.8 GB · 1.3 MB/s
+16:52:34 INFO    → part-00028.parquet (20,000 registros, 83 MB)
+16:53:18 INFO    75/114 · 4,154,775 vistos · 562,323 aceitos (13.5%) · 18.0 GB · 1.3 MB/s
+16:55:59 INFO    76/114 · 4,210,172 vistos · 569,834 aceitos (13.5%) · 18.3 GB · 1.3 MB/s
+16:58:44 INFO    77/114 · 4,265,569 vistos · 577,310 aceitos (13.5%) · 18.5 GB · 1.3 MB/s
+17:00:09 INFO    → part-00029.parquet (20,000 registros, 83 MB)
+17:01:39 INFO    78/114 · 4,320,966 vistos · 584,867 aceitos (13.5%) · 18.7 GB · 1.3 MB/s
+17:04:28 INFO    79/114 · 4,376,363 vistos · 592,395 aceitos (13.5%) · 19.0 GB · 1.3 MB/s
+17:07:13 INFO    → part-00030.parquet (20,000 registros, 81 MB)
+17:07:13 INFO    80/114 · 4,431,760 vistos · 600,002 aceitos (13.5%) · 19.2 GB · 1.3 MB/s
+17:09:53 INFO    81/114 · 4,487,157 vistos · 607,538 aceitos (13.5%) · 19.5 GB · 1.3 MB/s
+17:12:37 INFO    82/114 · 4,542,554 vistos · 615,190 aceitos (13.5%) · 19.7 GB · 1.3 MB/s
+17:14:41 INFO    → part-00031.parquet (20,000 registros, 84 MB)
+17:15:22 INFO    83/114 · 4,597,951 vistos · 622,618 aceitos (13.5%) · 20.0 GB · 1.3 MB/s
+09:35:56 INFO    suspensão do sistema impedida enquanto a coleta durar
+09:36:22 INFO    classificador de models\isphysics-clf · classes [np.str_('fisica'), np.str_('nao_fisica')]
+09:36:22 INFO    open-web-math/open-web-math · 114 arquivos · 27.4 GB
+09:36:22 INFO    retomando: 83 arquivos já feitos, próximo parquet é part-00032
+09:40:05 INFO    84/114 · 55,397 vistos · 7,576 aceitos (13.7%) · 0.2 GB · 1.1 MB/s
+09:45:52 INFO    85/114 · 110,794 vistos · 15,038 aceitos (13.6%) · 0.5 GB · 0.8 MB/s
+09:49:01 INFO    → part-00032.parquet (20,000 registros, 83 MB)
