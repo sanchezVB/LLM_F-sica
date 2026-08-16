@@ -51,7 +51,7 @@ import json
 import logging
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -63,6 +63,11 @@ from transformers import AutoModel, AutoTokenizer
 log = logging.getLogger(__name__)
 
 BASE_PADRAO = "allenai/scibert_scivocab_uncased"
+
+
+def _agora() -> str:
+    """Horário em UTC, ISO-8601. Um só ponto para não haver dois formatos."""
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass
@@ -92,6 +97,17 @@ class Config:
     # anteriores fizeram, e o que o teste de equivalência compara.
     sub_lote: int | None = None
     passos_log: int = 50
+    # ⚠️ Cadência do ESTADO retomável, independente da avaliação.
+    #
+    # O estado era salvo junto com a avaliação. Com `passos_aval=500` isso
+    # significa que uma queda no passo 150 perde 150 passos — e foi exatamente o
+    # que aconteceu em 2026-08-16: o treino morreu em silêncio no 150 e não havia
+    # NADA para retomar, porque o primeiro estado só sairia no 500.
+    #
+    # As duas coisas têm custo muito diferente: a avaliação leva ~15 s (codifica
+    # 2.000 textos), o estado leva ~2 s (grava pesos e momentos do Adam). Amarrar
+    # a barata na cara foi economia no lugar errado.
+    passos_estado: int = 100
     passos_aval: int = 500
     n_candidatos: int = 256   # pool da avaliação; ver Metricas.n_candidatos
     semente: int = 17
@@ -381,8 +397,12 @@ class TreinadorEmb:
                 # `metricas`, e a curva existia só no log. Conferido em execução —
                 # `historico` chegou vazio ao json depois de 27 avaliações.
                 self.salvar(saida, m, passo=passo)
-                self.salvar_estado(saida, passo)   # queda não custa o treino todo
                 self._talvez_melhor(saida, m, passo, r1, r10, mrr, ndcg)
+
+            # Estado FORA do bloco de avaliação: cadência própria, mais curta.
+            # Ver o comentário de `passos_estado` em Config.
+            if passo % self.cfg.passos_estado == 0:
+                self.salvar_estado(saida, passo)
 
         r1, r10, mrr, ndcg = self.avaliar(val)
         m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
@@ -486,6 +506,21 @@ class TreinadorEmb:
         )
         tmp.replace(saida / self._estado().name)   # atômico: nunca meio-arquivo
 
+        # Marcador de progresso legível DE FORA, e a razão é o supervisor.
+        #
+        # O passo vive dentro do `.pt`, que o PowerShell não sabe abrir. O
+        # `phiemb.json` — que o supervisor lê — só aparece no diretório de saída
+        # ao FIM do treino: durante a corrida ele é gravado em `<saida>-melhor`,
+        # e só quando o nDCG melhora. Resultado: o progresso lido durante um
+        # treino era sempre -1, a guarda de "morre sempre no mesmo ponto" ficava
+        # desligada, e o supervisor relançaria 40 vezes um treino que morre
+        # sempre no passo 150 — laço infinito com aparência de resiliência.
+        #
+        # Este arquivo é o único progresso durável e INCONDICIONAL do treino:
+        # mesma cadência do estado (`passos_estado`), sem depender de melhora.
+        (saida / "progresso.json").write_text(
+            json.dumps({"passo": passo, "ts": _agora()}), encoding="utf-8")
+
     def retomar(self, saida: Path) -> int:
         """Devolve o passo de onde continuar, ou 0 se não houver estado."""
         # ⚠️ O melhor tem de ser reconstruído ANTES de qualquer avaliação. Sem
@@ -544,17 +579,17 @@ class TreinadorEmb:
         self.tok.save_pretrained(saida)
         meta = {"config": asdict(self.cfg), "base": self.cfg.base}
         # `actual_count` é a MESMA chave que o supervisor lê nos manifestos de
-        # coleta para decidir se o processo AVANÇOU entre duas mortes. Sem ela o
-        # progresso lido era sempre -1, então quatro quedas seguidas abortavam o
-        # treino mesmo tendo havido avanço entre elas — num run de 31 h com
-        # quedas aleatórias, isso é desistir do trabalho já feito.
+        # coleta para decidir se o processo AVANÇOU entre duas mortes.
+        #
+        # Isto só cobre o treino CONCLUÍDO. Durante a corrida este arquivo não
+        # existe no diretório de saída, e o progresso vivo vem do
+        # `progresso.json` que `salvar_estado` grava — ver o comentário lá.
         meta["actual_count"] = m.passo if m else passo
         # `completed_at` é a MESMA chave que o supervisor já procura nos
         # manifestos de coleta. Reusar o nome evita um segundo mecanismo de
         # "acabou" — e um mecanismo a menos é um ramo a menos sem teste.
         if concluido:
-            from datetime import datetime
-            meta["completed_at"] = datetime.now(UTC).isoformat()
+            meta["completed_at"] = _agora()
         if m:
             meta["metricas"] = dict(asdict(m).items())
         (saida / "phiemb.json").write_text(

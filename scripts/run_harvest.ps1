@@ -36,7 +36,7 @@
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
 param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'negativos-stat', 'openalex', 'snapshot',
-                   'phiemb', 'phiemb-mini', 'phiemb-gc', 'g1', 'redpajama')][string]$Fonte = 'arxiv')
+                   'phiemb', 'phiemb-mini', 'phiemb-mini-1m5', 'phiemb-gc', 'g1', 'redpajama')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -95,6 +95,28 @@ switch ($Fonte) {
                                   '--base sentence-transformers/all-MiniLM-L6-v2 ' +
                                   '--lote 128 --passos-aval 200 --max-pares 400000 ' +
                                   '--n-candidatos 1000' }
+    'phiemb-mini-1m5' { $script = 'scripts/train_embedding.py'
+                  $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
+                  # MAIS DADOS, com o lote que ganhou por medicao.
+                  #
+                  # O experimento de 511 negativos perdeu: nDCG@10 0,449 contra
+                  # 0,458 do lote 128, e 2,3x mais lento. Entao o lote fica em 128
+                  # e a variavel passa a ser o volume: 1,5 M de pares contra os
+                  # 400 mil, que sao 22% dos 6,7 M disponiveis contra 6%.
+                  #
+                  # A evidencia de que vale: a curva do treino de 400 mil AINDA
+                  # SUBIA no fim — MRR 0,471 no passo 2990 e o melhor 0,4766 no
+                  # 2800. Nao saturou.
+                  #
+                  # Saida em diretorio NOVO: o modelo de 400 mil e o campeao atual
+                  # do G1.1 e nao pode ser sobrescrito por um experimento.
+                  #
+                  # `passos-aval 500` porque sao 11.719 passos; a cada 200 daria 58
+                  # avaliacoes de ~15 s cada, que e tempo tirado do treino.
+                  $argumentos = '--out models/phiemb-minilm-1m5 ' +
+                                '--base sentence-transformers/all-MiniLM-L6-v2 ' +
+                                '--lote 128 --passos-aval 500 --max-pares 1500000 ' +
+                                '--n-candidatos 1000' }
     'phiemb-gc' { $script = 'scripts/train_embedding.py'
                   $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
                   # GradCache: lote LOGICO 512 (511 negativos) com a memoria de

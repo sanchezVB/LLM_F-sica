@@ -32,7 +32,8 @@
 # progresso durável apareça a cada ~30 s em vez de ~1,5 min.
 
 param(
-    [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini')][string]$Fonte = 'snapshot',
+    [ValidateSet('arxiv', 'negativos', 'openalex', 'snapshot', 'phiemb', 'phiemb-mini',
+                 'phiemb-mini-1m5', 'phiemb-gc')][string]$Fonte = 'snapshot',
     [int]$IntervaloSegundos = 60,
     [int]$MaxReinicios = 40,
     [int]$MaxParado = 4
@@ -56,14 +57,25 @@ switch ($Fonte) {
                                   'data\raw\arxiv_negativos\econ\_manifest.json') }
     'openalex'  { $alvo = 'harvest_openalex.py'
                   $manifestos = @('data\raw\openalex_works\_manifest.json') }
+    # Treinos: `phiemb.json` usa a MESMA chave `completed_at` dos manifestos de
+    # coleta, entao `TodasConcluidas` serve sem alteracao. Mas ele SO aparece no
+    # diretorio de saida quando o treino termina — durante a corrida o progresso
+    # vivo esta em `progresso.json`, que `salvar_estado` grava a cada
+    # `passos_estado`. Por isso `$progressos` e uma lista separada: a conclusao e
+    # o avanco sao fatos diferentes, e sobrecarregar uma lista com os dois papeis
+    # foi exatamente como o defeito do `$manifestos = $null` nasceu.
     'phiemb'    { $alvo = 'train_embedding.py'
-                  # `phiemb.json` usa a MESMA chave `completed_at` dos manifestos
-                  # de coleta, entao `TodasConcluidas` serve sem alteracao. Nao ha
-                  # `actual_count`, entao o progresso e -1 e o guarda de "nao
-                  # avanca" tolera isso pelas 4 mortes de folga.
-                  $manifestos = @('models\phiemb\phiemb.json') }
+                  $manifestos = @('models\phiemb\phiemb.json')
+                  $progressos = @('models\phiemb\progresso.json') }
     'phiemb-mini' { $alvo = 'train_embedding.py'
-                    $manifestos = @('models\phiemb-minilm\phiemb.json') }
+                    $manifestos = @('models\phiemb-minilm\phiemb.json')
+                    $progressos = @('models\phiemb-minilm\progresso.json') }
+    'phiemb-mini-1m5' { $alvo = 'train_embedding.py'
+                    $manifestos = @('models\phiemb-minilm-1m5\phiemb.json')
+                    $progressos = @('models\phiemb-minilm-1m5\progresso.json') }
+    'phiemb-gc' { $alvo = 'train_embedding.py'
+                    $manifestos = @('models\phiemb-minilm-gc\phiemb.json')
+                    $progressos = @('models\phiemb-minilm-gc\progresso.json') }
     'snapshot'  { $alvo = 'harvest_openalex_snapshot.py'
                   $manifestos = @('data\raw\openalex_snapshot\_manifest.json') }
 }
@@ -91,12 +103,22 @@ function ProgressoAtual {
     # Soma dos registros duráveis. Serve para distinguir "morreu mas avançou"
     # de "morre sempre no mesmo ponto".
     $total = -1
-    foreach ($m in $manifestos) {
+    foreach ($m in $progressos) {
         if (-not (Test-Path $m)) { continue }
         try {
-            $c = (Get-Content $m -Raw -Encoding utf8 | ConvertFrom-Json).actual_count
-            if ($total -lt 0) { $total = 0 }
-            $total += [int]$c
+            $j = Get-Content $m -Raw -Encoding utf8 | ConvertFrom-Json
+            # `actual_count` nas coletas; `passo` nos treinos. Sem o segundo, o
+            # progresso de um treino era sempre -1 e a guarda de "morre sempre no
+            # mesmo ponto" ficava cega — relancar em laco um treino que morre no
+            # passo 150 seria laco infinito com aparencia de resiliencia.
+            # `actual_count` nas coletas, `passo` nos treinos.
+            $c = if ($null -ne $j.actual_count) { $j.actual_count }
+                 elseif ($null -ne $j.passo) { $j.passo }
+                 else { $null }
+            if ($null -ne $c) {
+                if ($total -lt 0) { $total = 0 }
+                $total += [int]$c
+            }
         } catch { }
     }
     return $total
