@@ -33,6 +33,14 @@ from phifm.eval.encoders import (  # noqa: E402
 NOSSOS = {
     "ΦEmb/SciBERT (110M)": Path("models/phiemb"),
     "ΦEmb/MiniLM (23M)": Path("models/phiemb-minilm-melhor"),
+    # Lote lógico 512 (511 negativos) via GradCache, contra os 127 do acima. Mesma
+    # base, mesmos 400 mil pares — a única variável é o número de negativos.
+    #
+    # ⚠️ O checkpoint `-melhor` foi escolhido por MRR, que NÃO é a métrica do
+    # portão. O G1 usa nDCG@10, e as duas divergiram neste treino: recall@1 ficou
+    # preso em 0,280 por quatro avaliações enquanto recall@10 subiu de 0,716 para
+    # 0,780. É esta avaliação que resolve, medindo nDCG@10 de verdade.
+    "ΦEmb/MiniLM+GC (23M, 511 neg)": Path("models/phiemb-minilm-gc-melhor"),
 }
 
 

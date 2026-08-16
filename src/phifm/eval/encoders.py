@@ -254,9 +254,27 @@ def campeao(rs: list[Resultado]) -> Resultado | None:
     Com um só modelo nosso `next(...)` bastava. Com dois — o ΦEmb sobre SciBERT e
     o sobre MiniLM — ele passa a devolver o que a ordem do dicionário entregar,
     e o portão seria julgado por um modelo escolhido ao acaso.
+
+    ## ⚠️ O critério é nDCG@10 porque é o do PORTÃO
+
+    A primeira correção deste defeito trocou "o primeiro" por "o melhor" e deixou
+    o critério em `recall@1` — que o G1 não menciona. Meia correção.
+
+    Medido em 2026-08-16, com três modelos nossos:
+
+        modelo                          nDCG@10   recall@1
+        ΦEmb/MiniLM (127 neg)             0,458      0,254
+        ΦEmb/MiniLM+GC (511 neg)          0,449      0,257   <- eleito por recall@1
+
+    O modelo do GradCache ganhava em recall@1 e perdia em nDCG@10, então virou
+    campeão e o portão foi julgado pelo PIOR dos nossos na métrica que decide. O
+    veredito saiu com G1.2 a −0,014 quando o nosso melhor dá −0,005.
+
+    Escolher campeão por uma métrica e julgar por outra é o mesmo erro que julgar
+    o portão por recall@1 quando ele pede nDCG@10 — e eu já tinha corrigido esse.
     """
     nossos = [r for r in rs if r.nosso and not r.erro]
-    return max(nossos, key=lambda r: r.recall_1) if nossos else None
+    return max(nossos, key=lambda r: r.ndcg_10) if nossos else None
 
 
 def tabela(rs: list[Resultado], n: int) -> str:

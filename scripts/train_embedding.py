@@ -78,7 +78,15 @@ def main() -> int:
     d1 = m.recall_1 - antes["recall_1"]
     print(f"{'ganho':22} {d1:+10.3f} {m.recall_10-antes['recall_10']:+11.3f} "
           f"{m.mrr-antes['mrr']:+8.3f}")
-    print(f"\n{m.passo} passos · {m.pares_por_s:.1f} pares/s · → {a.out}")
+    # ⚠️ Formato `passo N | CONCLUIDO` de propósito, igual ao das linhas de
+    # progresso. As linhas de progresso saem a cada 50 passos, então a última é
+    # `passo 750` num treino de 781 — e um vigia que lê `passo (\d+)` do log
+    # anuncia "750 de 781", que se lê como morte 31 passos antes do fim.
+    #
+    # Custou exatamente isso em 2026-08-16: o treino completou os 781 e a
+    # notificação disse que não. O total tem de estar no mesmo formato que o
+    # progresso, senão quem lê o log distingue os dois e quem faz grep não.
+    print(f"\npasso {m.passo} | CONCLUIDO | {m.pares_por_s:.1f} pares/s · → {a.out}")
     return 0
 
 

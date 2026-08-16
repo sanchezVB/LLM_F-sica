@@ -56,29 +56,36 @@ def R(nome, caminho, *, r1=0.2, ndcg=0.3, params=100.0, nosso=False, acertos=Non
 # ─── 1. campeão ──────────────────────────────────────────────────────────────
 
 def test_campeao_e_o_melhor_nao_o_primeiro():
-    rs = [R("nosso fraco", "models/a", r1=0.20, nosso=True),
-          R("nosso forte", "models/b", r1=0.32, nosso=True)]
+    """«Forte» e «fraco» expressos em nDCG@10, que é o critério do portão.
+
+    Estes dois testes usavam `recall@1` para dizer qual era o melhor. Quando o
+    critério passou para nDCG@10 eles falharam — com o mesmo nDCG nos dois, o
+    `max` volta a ser arbitrário, que é justamente o defeito original. Falharam
+    por estarem certos.
+    """
+    rs = [R("nosso fraco", "models/a", ndcg=0.30, nosso=True),
+          R("nosso forte", "models/b", ndcg=0.45, nosso=True)]
     assert campeao(rs).nome == "nosso forte"
 
 
 def test_campeao_ignora_ordem_de_insercao():
     """Inverter a ordem não pode mudar quem é o campeão."""
-    a = R("nosso fraco", "models/a", r1=0.20, nosso=True)
-    b = R("nosso forte", "models/b", r1=0.32, nosso=True)
+    a = R("nosso fraco", "models/a", ndcg=0.30, nosso=True)
+    b = R("nosso forte", "models/b", ndcg=0.45, nosso=True)
     assert campeao([a, b]).nome == campeao([b, a]).nome == "nosso forte"
 
 
 def test_campeao_ignora_modelos_de_fora():
     """Um rival melhor que o nosso não vira nosso campeão."""
-    rs = [R("nosso", "models/a", r1=0.20, nosso=True),
-          R("rival", GTE, r1=0.90)]
+    rs = [R("nosso", "models/a", ndcg=0.20, nosso=True),
+          R("rival", GTE, ndcg=0.90)]
     assert campeao(rs).nome == "nosso"
 
 
 def test_campeao_ignora_os_que_falharam():
-    ruim = R("nosso quebrado", "models/x", r1=0.99, nosso=True)
+    ruim = R("nosso quebrado", "models/x", ndcg=0.99, nosso=True)
     ruim.erro = "OSError: sem config.json"
-    rs = [ruim, R("nosso ok", "models/b", r1=0.10, nosso=True)]
+    rs = [ruim, R("nosso ok", "models/b", ndcg=0.10, nosso=True)]
     assert campeao(rs).nome == "nosso ok"
 
 
@@ -217,3 +224,46 @@ def test_veredito_sempre_declara_que_o_portao_segue_aberto():
     assert "G1.1: PASSOU" in v and "G1.2: PASSOU" in v
     for esperado in ("G1.3", "G1.4", "G1.5", "benchmark PRÓPRIO"):
         assert esperado in v, f"faltou a ressalva sobre {esperado}"
+
+
+def test_campeao_e_escolhido_pela_metrica_do_PORTAO():
+    """Campeão por nDCG@10, não por recall@1. As duas podem discordar.
+
+    Medido em 2026-08-16 com três modelos nossos:
+
+        modelo                     nDCG@10   recall@1
+        ΦEmb/MiniLM (127 neg)        0,458      0,254
+        ΦEmb/MiniLM+GC (511 neg)     0,449      0,257
+
+    Com o critério em `recall@1`, o modelo do GradCache virava campeão e o portão
+    era julgado pelo PIOR dos nossos na métrica que decide — o veredito saiu com
+    G1.2 a −0,014 quando o nosso melhor dá −0,005.
+
+    A primeira correção deste defeito trocou "o primeiro" por "o melhor" e deixou
+    o critério desalinhado do portão. Meia correção é o modo de falha mais caro:
+    parece resolvido.
+    """
+    rs = [R("nosso A", "models/a", r1=0.254, ndcg=0.458, params=23, nosso=True),
+          R("nosso B", "models/b", r1=0.257, ndcg=0.449, params=23, nosso=True),
+          R("GTE-large", GTE, ndcg=0.463, params=335)]
+    c = campeao(rs)
+    assert c.nome == "nosso A", (
+        f"campeão escolhido por recall@1 em vez de nDCG@10: veio {c.nome}")
+
+    v = veredito(rs, 2000)
+    assert "-0.005" in v or "−0.005" in v, (
+        f"o veredito não usou o melhor em nDCG@10; saiu: {v.splitlines()[2]}")
+
+
+def test_o_campeao_e_o_mesmo_que_a_tabela_ordena_primeiro():
+    """A tabela ordena por nDCG@10. O campeão tem de ser o nosso mais alto ali.
+
+    Se os dois discordarem, o relatório mostra um modelo no topo e julga outro —
+    e ninguém que lê percebe.
+    """
+    rs = [R("nosso A", "models/a", r1=0.254, ndcg=0.458, params=23, nosso=True),
+          R("nosso B", "models/b", r1=0.257, ndcg=0.449, params=23, nosso=True),
+          R("PhysBERT", ALVO_DOMINIO, ndcg=0.275)]
+    ordenada = sorted([r for r in rs if not r.erro], key=lambda r: -r.ndcg_10)
+    primeiro_nosso = next(r for r in ordenada if r.nosso)
+    assert campeao(rs).nome == primeiro_nosso.nome

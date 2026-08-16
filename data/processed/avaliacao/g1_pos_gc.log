@@ -1,0 +1,56 @@
+=== treino saiu; avaliando nDCG@10 nos 7 modelos ===
+17:24:09 INFO    validação: 133,540 pares · usando os 2000 primeiros
+17:24:09 INFO    suspensão do sistema impedida enquanto a coleta durar
+17:24:09 INFO    cache: 6 modelo(s) já medidos no mesmo protocolo
+17:24:09 INFO    SciBERT (base do ΦEmb) · do cache: recall@1 0.109 · MRR 0.185
+17:24:09 INFO    PhysBERT (alvo do G1.1) · do cache: recall@1 0.146 · MRR 0.239
+17:24:09 INFO    MiniLM-L6 (genérico 23M) · do cache: recall@1 0.205 · MRR 0.324
+17:24:09 INFO    GTE-large (genérico 335M) · do cache: recall@1 0.278 · MRR 0.407
+17:24:09 INFO    ΦEmb/SciBERT (110M) · do cache: recall@1 0.227 · MRR 0.367
+17:24:09 INFO    ΦEmb/MiniLM (23M) · do cache: recall@1 0.254 · MRR 0.395
+17:24:09 INFO    avaliando ΦEmb/MiniLM+GC (23M, 511 neg) (models\phiemb-minilm-gc-melhor)
+17:25:58 INFO      recall@1 0.257 · recall@10 0.679 · MRR 0.390 (109s)
+
+==============================================================================
+Recuperação por citação · 2000 candidatos · média mascarada · 192 tokens
+
+modelo                           params  nDCG@10  recall@1  recall@10     MRR
+------------------------------------------------------------------------------
+GTE-large (genérico 335M)          335M    0.463     0.278      0.677   0.407
+ΦEmb/MiniLM (23M)                   23M    0.458     0.254      0.700   0.395
+ΦEmb/MiniLM+GC (23M, 511 neg)       23M    0.449     0.257      0.679   0.390
+ΦEmb/SciBERT (110M)                110M    0.429     0.227      0.673   0.367
+MiniLM-L6 (genérico 23M)            23M    0.370     0.205      0.560   0.324
+PhysBERT (alvo do G1.1)            109M    0.275     0.146      0.425   0.239
+SciBERT (base do ΦEmb)             110M    0.207     0.109      0.328   0.185
+==============================================================================
+
+Comparação PAREADA em recall@1 — McNemar exato · nosso = ΦEmb/MiniLM+GC (23M, 511 neg)
+
+contra                           nós  eles  disc        p  veredito
+--------------------------------------------------------------------------------------------
+SciBERT (base do ΦEmb)           374    78   452   0.0000  ΦEmb/MiniLM+GC (23M, 511 neg) vence em recall@1 (p=0.0000)
+PhysBERT (alvo do G1.1)          335   111   446   0.0000  ΦEmb/MiniLM+GC (23M, 511 neg) vence em recall@1 (p=0.0000)
+MiniLM-L6 (genérico 23M)         196    91   287   0.0000  ΦEmb/MiniLM+GC (23M, 511 neg) vence em recall@1 (p=0.0000)
+GTE-large (genérico 335M)        153   193   346   0.0359  GTE-large (genérico 335M) vence em recall@1 (p=0.0359)
+ΦEmb/SciBERT (110M)              216   154   370   0.0015  ΦEmb/MiniLM+GC (23M, 511 neg) vence em recall@1 (p=0.0015)
+ΦEmb/MiniLM (23M)                113   105   218   0.6355  empate — 218 discordantes não separam os dois (p=0.636)
+
+Itens que ambos acertam ou ambos erram não informam sobre a diferença;
+só os discordantes decidem. É por isso que o pareado enxerga o que
+duas proporções soltas não enxergam.
+
+==============================================================================
+nosso candidato: ΦEmb/MiniLM+GC (23M, 511 neg) · 23M params · nDCG@10 0.449
+
+G1.1: PASSOU — nDCG@10 +0.173 sobre o PhysBERT (limiar +0.05) · pareado em recall@1: ΦEmb/MiniLM+GC (23M, 511 neg) vence em recall@1 (p=0.0000)
+G1.2: NÃO PASSOU — melhor genérico é GTE-large (genérico 335M) (335M, nDCG@10 0.463); nDCG@10 -0.014, razão de params 1/14.8 (≤ 1/10 exigido)
+
+RESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:
+  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado
+  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)
+    não são tocados por esta medição
+  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);
+    um benchmark com julgamentos graduados daria outro número
+17:25:58 INFO    resultado → data\processed\avaliacao\g1_resultado.json
+=== FIM DA AVALIACAO G1 ===
