@@ -193,7 +193,7 @@ class TreinadorEmb:
             self.mod.gradient_checkpointing_enable()
             self.mod.config.use_cache = False
         self.opt = torch.optim.AdamW(self.mod.parameters(), lr=cfg.lr)
-        self._melhor_mrr = -1.0   # reconstruído em `retomar`, ver o aviso lá
+        self._melhor_ndcg = -1.0  # reconstruído em `retomar`, ver o aviso lá
 
     @property
     def lote_fisico(self) -> int:
@@ -313,9 +313,16 @@ class TreinadorEmb:
         ordem = sim.argsort(dim=1, descending=True)
         posicao = (ordem == alvo.unsqueeze(1)).float().argmax(dim=1) + 1
         self.mod.train()
+        # nDCG@10 com UM relevante por consulta: 1/log2(1+posição) dentro do
+        # top-10, zero fora. É a métrica do portão G1 (DOC-00 §5), e ela sai de
+        # graça das posições que já temos.
+        dcg = torch.where(posicao <= 10,
+                          1.0 / torch.log2(posicao.float() + 1.0),
+                          torch.zeros_like(posicao, dtype=torch.float))
         return ((posicao == 1).float().mean().item(),
                 (posicao <= 10).float().mean().item(),
-                (1.0 / posicao).mean().item())
+                (1.0 / posicao).mean().item(),
+                dcg.mean().item())
 
     def treinar(self, treino: pl.DataFrame, val: pl.DataFrame, saida: Path) -> Metricas:
         if self.cfg.max_pares:
@@ -332,12 +339,13 @@ class TreinadorEmb:
         # Linha de base ANTES de qualquer passo. Sem ela não há como afirmar que
         # o treino ajudou — só que o número final é X. Numa retomada isto mede o
         # ponto de partida real, não o encoder virgem, e o rótulo diz qual.
-        r1, r10, mrr = self.avaliar(val)
-        log.info("base %s | entre %d candidatos: recall@1 %.3f · recall@10 %.3f · MRR %.3f",
-                 self.cfg.base, self.cfg.n_candidatos, r1, r10, mrr)
+        r1, r10, mrr, ndcg = self.avaliar(val)
+        log.info("base %s | entre %d candidatos: recall@1 %.3f · recall@10 %.3f · "
+                 "MRR %.3f · nDCG@10 %.3f",
+                 self.cfg.base, self.cfg.n_candidatos, r1, r10, mrr, ndcg)
         m.n_candidatos = self.cfg.n_candidatos
         m.historico.append({"passo": inicio, "recall_1": r1, "recall_10": r10,
-                            "mrr": mrr, "n_candidatos": m.n_candidatos, "perda": None,
+                            "mrr": mrr, "ndcg_10": ndcg, "n_candidatos": m.n_candidatos, "perda": None,
                             "nota": "antes do treino" if not inicio else f"retomado do passo {inicio}"})
 
         t0, vistos, soma, n = time.perf_counter(), 0, 0.0, 0
@@ -363,19 +371,20 @@ class TreinadorEmb:
             m.passo = passo
 
             if passo % self.cfg.passos_aval == 0:
-                r1, r10, mrr = self.avaliar(val)
-                log.info("  aval: recall@1 %.3f · recall@10 %.3f · MRR %.3f", r1, r10, mrr)
+                r1, r10, mrr, ndcg = self.avaliar(val)
+                log.info("  aval: recall@1 %.3f · recall@10 %.3f · MRR %.3f · "
+                         "nDCG@10 %.3f", r1, r10, mrr, ndcg)
                 m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
                 m.historico.append({"passo": passo, "recall_1": r1, "recall_10": r10,
-                                    "mrr": mrr, "perda": perda.item()})
+                                    "mrr": mrr, "ndcg_10": ndcg, "perda": perda.item()})
                 # `m` vai junto: sem ele o `phiemb.json` do checkpoint não levava
                 # `metricas`, e a curva existia só no log. Conferido em execução —
                 # `historico` chegou vazio ao json depois de 27 avaliações.
                 self.salvar(saida, m, passo=passo)
                 self.salvar_estado(saida, passo)   # queda não custa o treino todo
-                self._talvez_melhor(saida, m, passo, r1, r10, mrr)
+                self._talvez_melhor(saida, m, passo, r1, r10, mrr, ndcg)
 
-        r1, r10, mrr = self.avaliar(val)
+        r1, r10, mrr, ndcg = self.avaliar(val)
         m.recall_1, m.recall_10, m.mrr = r1, r10, mrr
         m.perda = perda.item()
         self.salvar_estado(saida, m.passo)
@@ -406,18 +415,30 @@ class TreinadorEmb:
     # que passou o portão.
 
     def _talvez_melhor(self, saida: Path, m: Metricas, passo: int,
-                       r1: float, r10: float, mrr: float) -> None:
-        if mrr <= self._melhor_mrr:
+                       r1: float, r10: float, mrr: float, ndcg: float) -> None:
+        """Guarda o checkpoint de pico. ⚠️ O critério é nDCG@10, não MRR.
+
+        Era MRR, e o portão G1 usa nDCG@10 — as duas divergem. Medido em
+        2026-08-16 no treino com 511 negativos: recall@1 subiu e nDCG@10 caiu ao
+        mesmo tempo, e o `campeao()` do avaliador, que também usava recall@1,
+        elegeu o pior dos nossos na métrica que decide.
+
+        Escolher checkpoint por uma métrica e julgar o portão por outra é o mesmo
+        erro em dois lugares. Corrigido aqui antes de gastar 15 h de treino, em vez
+        de descobrir depois que o pico guardado não era o pico que importa.
+        """
+        if ndcg <= self._melhor_ndcg:
             return
-        self._melhor_mrr = mrr
+        self._melhor_ndcg = ndcg
         destino = saida.parent / f"{saida.name}-melhor"
         destino.mkdir(parents=True, exist_ok=True)
         self.mod.save_pretrained(destino, state_dict=self._para_cpu(self.mod.state_dict()))
         self.tok.save_pretrained(destino)
         (destino / "melhor.json").write_text(
             json.dumps({"passo": passo, "recall_1": r1, "recall_10": r10, "mrr": mrr,
+                        "ndcg_10": ndcg,
                         "n_candidatos": self.cfg.n_candidatos, "base": self.cfg.base,
-                        "criterio": "MRR — menos ruidoso que recall@1 com a mesma amostra"},
+                        "criterio": "nDCG@10 — a métrica do portão G1 (DOC-00 §5)"},
                        indent=2, ensure_ascii=False),
             encoding="utf-8")
         log.info("  ★ melhor até agora (MRR %.3f) → %s", mrr, destino.name)
@@ -467,16 +488,26 @@ class TreinadorEmb:
 
     def retomar(self, saida: Path) -> int:
         """Devolve o passo de onde continuar, ou 0 se não houver estado."""
-        # ⚠️ O melhor MRR tem de ser reconstruído ANTES de qualquer avaliação.
-        # Sem isto, `_melhor_mrr` começaria em -1 numa retomada e a PRIMEIRA
-        # avaliação sobrescreveria o melhor checkpoint com um pior — e o treino
-        # deste projeto foi retomado dez vezes num único dia, então isso não é
-        # hipótese remota.
+        # ⚠️ O melhor tem de ser reconstruído ANTES de qualquer avaliação. Sem
+        # isto, `_melhor_ndcg` começaria em -1 numa retomada e a PRIMEIRA avaliação
+        # sobrescreveria o melhor checkpoint com um pior — e o treino deste projeto
+        # foi retomado dez vezes num único dia, então isso não é hipótese remota.
+        #
+        # `ndcg_10` com recuo para `mrr`: checkpoints gravados antes de 2026-08-16
+        # só têm MRR. Recuar para ele é melhor que começar em -1, mas a primeira
+        # avaliação vai comparar nDCG contra um MRR — então o log AVISA, para
+        # ninguém ler a substituição do melhor como regressão do modelo.
         anterior = saida.parent / f"{saida.name}-melhor" / "melhor.json"
         if anterior.exists():
             try:
-                self._melhor_mrr = float(json.loads(anterior.read_text(encoding="utf-8"))["mrr"])
-                log.info("melhor anterior preservado: MRR %.3f", self._melhor_mrr)
+                d = json.loads(anterior.read_text(encoding="utf-8"))
+                if "ndcg_10" in d:
+                    self._melhor_ndcg = float(d["ndcg_10"])
+                    log.info("melhor anterior preservado: nDCG@10 %.3f", self._melhor_ndcg)
+                else:
+                    self._melhor_ndcg = -1.0
+                    log.warning("checkpoint anterior tem só MRR (critério antigo) — "
+                                "a busca do melhor recomeça em nDCG@10")
             except Exception as exc:
                 log.warning("melhor.json ilegível (%s) — recomeçando a busca do melhor", exc)
 

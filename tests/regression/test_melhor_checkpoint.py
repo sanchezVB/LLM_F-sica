@@ -7,7 +7,7 @@ diretório, e o melhor havia sido sobrescrito. Naquele caso a diferença era ru�
 por sorte, não por projeto.
 
 O caso que estes testes protegem é o da RETOMADA: aquele treino foi relançado dez
-vezes num único dia, e com `_melhor_mrr` reiniciando em -1 a primeira avaliação
+vezes num único dia, e com `_melhor_ndcg` reiniciando em -1 a primeira avaliação
 de cada relançamento sobrescreveria o melhor com o que estivesse à mão.
 """
 
@@ -62,13 +62,21 @@ class TreinadorFalso:
         self.t.cfg = Config(n_candidatos=256)
         self.t.mod = ModFalso()
         self.t.tok = TokFalso()
-        self.t._melhor_mrr = -1.0
+        self.t._melhor_ndcg = -1.0
         self.m = Metricas()
         self.saida = tmp / "phiemb"
         self.saida.mkdir(parents=True, exist_ok=True)
 
-    def aval(self, passo: int, r1: float, r10: float, mrr: float):
-        self.t._talvez_melhor(self.saida, self.m, passo, r1, r10, mrr)
+    def aval(self, passo: int, r1: float, r10: float, mrr: float,
+             ndcg: float | None = None):
+        """`ndcg` opcional para os testes que só querem exercitar a mecânica.
+
+        Quando omitido usa o MRR como proxy — os dois se movem juntos na maioria
+        dos casos, e os testes que dependem de eles DIVERGIREM passam o valor
+        explicitamente.
+        """
+        self.t._talvez_melhor(self.saida, self.m, passo, r1, r10, mrr,
+                              mrr if ndcg is None else ndcg)
 
     @property
     def melhor(self) -> dict | None:
@@ -108,18 +116,39 @@ def test_empate_nao_sobrescreve(tmp_path):
     assert t.melhor["passo"] == 500
 
 
-def test_criterio_e_mrr_nao_recall_1(tmp_path):
-    """recall@1 é proporção binária: com 256 candidatos cada acerto vale 0,004 e
-    a métrica pula em degraus. MRR usa a posição e é bem menos ruidoso — escolher
-    por recall@1 seria escolher pelo maior ruído.
+def test_criterio_e_ndcg_nao_mrr_nem_recall_1(tmp_path):
+    """O critério é nDCG@10 — a métrica do portão G1 (DOC-00 §5).
 
-    Aqui o passo 1000 tem recall@1 melhor e MRR pior. O melhor deve continuar
-    sendo o 500.
+    Era MRR, e antes disso o avaliador usava recall@1. Os três se movem juntos na
+    maioria dos casos, e é por isso que a divergência passou tanto tempo
+    invisível.
+
+    MEDIDO em 2026-08-16, no treino com 511 negativos: o modelo tinha recall@1
+    MAIOR (0,257 contra 0,254) e nDCG@10 MENOR (0,449 contra 0,458) que o de 127
+    negativos. O `campeao()` do avaliador, que usava recall@1, elegeu o pior dos
+    nossos na métrica que decide, e o veredito saiu com G1.2 a −0,014 em vez de
+    −0,005.
+
+    Aqui o passo 1000 ganha em recall@1 E em MRR, e perde em nDCG@10. Nenhum dos
+    dois critérios antigos pegaria isso.
     """
     t = TreinadorFalso(tmp_path)
-    t.aval(500, 0.40, 0.90, 0.60)
-    t.aval(1000, 0.45, 0.80, 0.55)
-    assert t.melhor["passo"] == 500, "escolheu por recall@1 em vez de MRR"
+    t.aval(500, 0.40, 0.90, 0.55, ndcg=0.60)
+    t.aval(1000, 0.45, 0.80, 0.58, ndcg=0.52)
+    assert t.melhor["passo"] == 500, (
+        "escolheu por recall@1 ou MRR em vez de nDCG@10")
+    assert t.melhor["ndcg_10"] == pytest.approx(0.60)
+
+
+def test_criterio_novo_pega_o_que_o_MRR_deixava_passar(tmp_path):
+    """O inverso: MRR pior e nDCG@10 melhor tem de SOBRESCREVER.
+
+    Sem isto a correção seria só mais restritiva, não mais correta.
+    """
+    t = TreinadorFalso(tmp_path)
+    t.aval(500, 0.40, 0.85, 0.60, ndcg=0.50)
+    t.aval(1000, 0.38, 0.92, 0.57, ndcg=0.56)
+    assert t.melhor["passo"] == 1000, "nDCG@10 melhor não sobrescreveu"
 
 
 def test_registro_do_melhor_e_interpretavel(tmp_path):
@@ -127,29 +156,30 @@ def test_registro_do_melhor_e_interpretavel(tmp_path):
     t = TreinadorFalso(tmp_path)
     t.aval(500, 0.40, 0.85, 0.55)
     d = t.melhor
-    for chave in ("passo", "recall_1", "recall_10", "mrr", "n_candidatos", "base", "criterio"):
+    for chave in ("passo", "recall_1", "recall_10", "mrr", "ndcg_10",
+                  "n_candidatos", "base", "criterio"):
         assert chave in d, f"falta {chave} em melhor.json"
 
 
 def test_retomada_preserva_o_melhor(tmp_path):
     """O caso que motivou tudo: dez relançamentos num dia.
 
-    Um treinador NOVO, retomando, não pode começar com `_melhor_mrr = -1` — a
+    Um treinador NOVO, retomando, não pode começar com `_melhor_ndcg = -1` — a
     primeira avaliação sobrescreveria o melhor com o que estivesse à mão.
     """
     from phifm.training.embedding import TreinadorEmb
 
     t1 = TreinadorFalso(tmp_path)
-    t1.aval(38000, 0.461, 0.90, 0.624)     # o pico real do treino de 2026-08-09
+    t1.aval(38000, 0.461, 0.90, 0.624, ndcg=0.631)   # o pico real de 2026-08-09
 
     t2 = TreinadorFalso(tmp_path)           # simula o relançamento
-    assert t2.t._melhor_mrr == -1.0, "o falso deve começar virgem"
+    assert t2.t._melhor_ndcg == -1.0, "o falso deve começar virgem"
     TreinadorEmb.retomar(t2.t, t2.saida)    # sem estado_treino.pt: só lê o melhor
-    assert t2.t._melhor_mrr == pytest.approx(0.624), "não recuperou o melhor anterior"
+    assert t2.t._melhor_ndcg == pytest.approx(0.631), "não recuperou o melhor anterior"
 
-    t2.aval(42000, 0.441, 0.895, 0.602)     # o que o treino media no fim
+    t2.aval(42000, 0.441, 0.895, 0.602, ndcg=0.610)  # o que o treino media no fim
     assert t2.melhor["passo"] == 38000, "a retomada sobrescreveu o melhor com um pior"
-    assert t2.melhor["mrr"] == pytest.approx(0.624)
+    assert t2.melhor["ndcg_10"] == pytest.approx(0.631)
 
 
 def test_melhor_json_corrompido_nao_derruba_o_treino(tmp_path):
@@ -163,4 +193,4 @@ def test_melhor_json_corrompido_nao_derruba_o_treino(tmp_path):
     (d / "melhor.json").write_text("{ isto não é json", encoding="utf-8")
 
     TreinadorEmb.retomar(t.t, t.saida)      # não deve levantar
-    assert t.t._melhor_mrr == -1.0
+    assert t.t._melhor_ndcg == -1.0
