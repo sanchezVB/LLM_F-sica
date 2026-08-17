@@ -378,12 +378,20 @@ class TreinadorEmb:
         inicio = self.retomar(saida)
 
         # Linha de base ANTES de qualquer passo. Sem ela não há como afirmar que
-        # o treino ajudou — só que o número final é X. Numa retomada isto mede o
-        # ponto de partida real, não o encoder virgem, e o rótulo diz qual.
+        # o treino ajudou — só que o número final é X.
+        #
+        # ⚠️ Numa RETOMADA isto não mede a base: `retomar` já carregou os nossos
+        # pesos, então o número é o do modelo treinado até `inicio`. O rótulo
+        # dizia "base <nome>" nos dois casos, e eu li 0,513 como "a base melhorou
+        # de 0,454" antes de perceber que era o nosso modelo no passo 800. O
+        # comentário aqui afirmava que "o rótulo diz qual" — dizia no `historico`,
+        # não no log, que é onde alguém olha.
         r1, r10, mrr, ndcg = self.avaliar(val)
-        log.info("base %s | entre %d candidatos: recall@1 %.3f · recall@10 %.3f · "
+        log.info("%s | entre %d candidatos: recall@1 %.3f · recall@10 %.3f · "
                  "MRR %.3f · nDCG@10 %.3f",
-                 self.cfg.base, self.cfg.n_candidatos, r1, r10, mrr, ndcg)
+                 f"base {self.cfg.base}" if not inicio
+                 else f"ponto de partida (nosso modelo no passo {inicio:,})",
+                 self.cfg.n_candidatos, r1, r10, mrr, ndcg)
         m.n_candidatos = self.cfg.n_candidatos
         m.historico.append({"passo": inicio, "recall_1": r1, "recall_10": r10,
                             "mrr": mrr, "ndcg_10": ndcg, "n_candidatos": m.n_candidatos, "perda": None,
@@ -488,7 +496,12 @@ class TreinadorEmb:
                         "criterio": "nDCG@10 — a métrica do portão G1 (DOC-00 §5)"},
                        indent=2, ensure_ascii=False),
             encoding="utf-8")
-        log.info("  ★ melhor até agora (MRR %.3f) → %s", mrr, destino.name)
+        # ⚠️ Anuncia a métrica que DECIDIU, não outra. A linha dizia
+        # "(MRR %.3f)" enquanto a escolha era por nDCG@10 — e neste projeto a
+        # confusão entre as duas já elegeu o campeão errado e produziu um veredito
+        # de G1.2 a −0,014 em vez de −0,005. Um log que nomeia a métrica errada é
+        # o mesmo defeito num lugar mais barato de errar, e mais fácil de crer.
+        log.info("  ★ melhor até agora (nDCG@10 %.3f) → %s", ndcg, destino.name)
 
     # ── retomada ──────────────────────────────────────────────────────────
     #
