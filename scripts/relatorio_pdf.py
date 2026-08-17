@@ -216,18 +216,38 @@ def _caracteres(fs: list[str], coluna: str) -> int:
 
     Só desconfiei porque 2.185 caracteres por documento não batia com os 12.162 que
     a própria coleta havia registrado.
+
+    ⚠️ E a soma é por ARQUIVO, não num `scan_parquet` da lista inteira. `scan` é
+    lazy, mas o `collect` no motor padrão materializa a coluna de texto de todos os
+    arquivos antes de reduzir. Medido em 2026-08-16: as duas fatias somam 16,1 GB
+    comprimidos e o processo **committou 43,5 GB** com 15,9 GB de RAM na máquina.
+    O Windows despejou 35,6 GB no `pagefile` do SSD, sobrou 0,7 GB livre, e a
+    inanição matou o treino que rodava ao lado — que já vinha a 20,9 pares/s contra
+    os 28,1 normais — e matou também o supervisor encarregado de reerguê-lo, antes
+    de ele registrar uma linha.
+
+    Duas mortes de treino que eu havia declarado sem explicação. A causa não estava
+    no treino: estava neste relatório, que existe para relatar o estado e o
+    destruía ao medir.
+
+    Arquivo por arquivo o pico é o de UM arquivo (~0,4 GB), e um parquet ilegível
+    custa o seu pedaço em vez da soma toda — que é o erro certo num relatório que
+    roda sobre coletas em movimento.
     """
     import polars as pl
 
-    if not fs:
-        return 0
-    try:
-        return int(pl.scan_parquet(fs).select(
-            pl.col(coluna).str.len_chars().cast(pl.Int64).sum().alias("c")
-        ).collect().item() or 0)
-    except Exception as exc:
-        log.info("contagem de caracteres indisponível (%s)", type(exc).__name__)
-        return 0
+    total, perdidos = 0, 0
+    for f in fs:
+        try:
+            total += int(pl.scan_parquet(f).select(
+                pl.col(coluna).str.len_chars().cast(pl.Int64).sum().alias("c")
+            ).collect(engine="streaming").item() or 0)
+        except Exception:
+            perdidos += 1
+    if perdidos:
+        log.info("contagem de caracteres: %d de %d arquivos ilegíveis (subestima)",
+                 perdidos, len(fs))
+    return total
 
 
 def _conta_parquet(pasta: Path) -> tuple[int, float]:
