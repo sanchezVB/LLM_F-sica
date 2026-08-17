@@ -80,6 +80,10 @@ MAX_TENTATIVAS = 8
 @dataclass
 class Filtragem:
     fonte: str
+    # Quantas unidades a FONTE publica. Sem isto, "acabou?" só era respondível
+    # comparando contagens de naturezas diferentes — e a comparação errada dizia
+    # "em curso" para uma coleta concluída. Ver o comentário em `filtrar_hf.py`.
+    total_unidades: int = 0
     arquivos_lidos: int = 0
     vistos: int = 0
     aceitos: int = 0
@@ -172,7 +176,7 @@ def filtrar(
     tot = sum(s for _, s in arquivos)
     log.info("%s · %d arquivos · %.1f GB", ds, len(arquivos), tot / 1e9)
 
-    f = Filtragem(fonte=ds)
+    f = Filtragem(fonte=ds, total_unidades=len(arquivos))
     # ⚠️ Retomada por MANIFESTO. A versão anterior testava se
     # `part-{n-1}.parquet` existia, tratando número de ARQUIVO DE ENTRADA como
     # índice de SAÍDA — e no OpenWebMath um parquet cobre ~2,7 arquivos, então os

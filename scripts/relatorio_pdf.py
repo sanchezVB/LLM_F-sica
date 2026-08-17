@@ -349,12 +349,29 @@ def sec_corpus(st: dict) -> list:
     n2, gb2 = _conta_parquet(Path("data/processed/openwebmath_fisica"))
     if n2 or f:
         limiar = f"{f['limiar']}" if f else "0.9"
-        em_curso = f and abs(f["aceitos"] - n2) > max(0.05 * max(n2, 1), 100)
+        # ⚠️ "Em curso" vem de `concluido`, NÃO de comparar contagens.
+        #
+        # A versão anterior fazia `abs(f["aceitos"] - n2) > 5%`, com `aceitos` da
+        # ÚLTIMA EXECUÇÃO (233.079) e `n2` acumulado dos parquets (860.521).
+        # Naturezas diferentes: a coleta acabou às 12:05 e o relatório imprimiu
+        # "OpenWebMath (em curso)" — e imprimiria isso para sempre, porque a
+        # divergência só cresce a cada relançamento.
+        #
+        # Ausência de `concluido` (JSON de antes desta correção) é reportada como
+        # DESCONHECIDA, não como concluída: afirmar "acabou" sem evidência é o
+        # defeito que este relatório existe para não cometer.
+        if not f or "concluido" not in f:
+            estado = " (conclusão não registrada)"
+        elif f["concluido"]:
+            estado = ""
+        else:
+            feitas_n, total_n = f.get("unidades_feitas"), f.get("total_unidades")
+            estado = (f" (em curso: {feitas_n} de {total_n} unidades)"
+                      if feitas_n and total_n else " (em curso)")
         owm = Path("data/processed/openwebmath_fisica")
         ch2 = _caracteres([f for f in sorted(_g.glob(str(owm / "part-*.parquet")))
                            if os.path.getsize(f) > 1024], "texto")
-        linhas.append([Paragraph("OpenWebMath" + (" (em curso)" if em_curso else ""),
-                                 st["cel"]),
+        linhas.append([Paragraph("OpenWebMath" + estado, st["cel"]),
                        f"{n2:,}".replace(",", "."),
                        f"{ch2/4/1e9:.2f} B" if ch2 else "—", f"{gb2:.1f} GB",
                        Paragraph(f"classificador ≥ {limiar}", st["cel"])])
@@ -367,11 +384,16 @@ def sec_corpus(st: dict) -> list:
         out += [Spacer(1, 10),
                 Paragraph("Domínios do que o classificador aceitou no OpenWebMath",
                           st["h2"]),
+                # A base é da ÚLTIMA EXECUÇÃO, não do acumulado — e dizer isso é
+                # obrigatório, porque a tabela acima mostra o total acumulado dos
+                # parquets. Duas bases diferentes na mesma página sem aviso é como
+                # a linha do OpenWebMath passou a semana falando de duas execuções.
                 Paragraph("É o sinal objetivo sobre o que entrou, quando não há "
-                          "rótulo para conferir. <b>A distribuição abaixo é da última "
-                          f"execução CONCLUÍDA, sobre {base:,} documentos</b> — a "
-                          "execução em curso só grava a sua ao terminar."
-                          .replace(",", "."), st["nota"])]
+                          "rótulo para conferir. <b>A distribuição abaixo é da "
+                          f"última execução, sobre {base:,} documentos</b> — cada "
+                          "execução grava só a sua, enquanto a contagem da tabela "
+                          "acima é acumulada. As proporções são o que importa aqui, "
+                          "não os totais.".replace(",", "."), st["nota"])]
         ds = list(f["dominios"].items())[:10]
         out.append(tabela([["domínio", "aceitos"]] +
                           [[Paragraph(k, st["cel"]), f"{v:,}".replace(",", ".")]
@@ -509,7 +531,11 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s")
     a.out.parent.mkdir(parents=True, exist_ok=True)
     caminho = montar(a.out, a.log_treino)
-    print(f"→ {caminho}  ({caminho.stat().st_size/1024:.0f} KB)")
+    # ASCII na saída de console, e a razão é concreta: o `→` estourava
+    # `UnicodeEncodeError` no cp1252 do console do Windows DEPOIS de o PDF já estar
+    # gravado. Um traceback ao fim de um trabalho bem-sucedido é lido como falha —
+    # o inverso do defeito de sempre, e igualmente enganoso.
+    print(f"-> {caminho}  ({caminho.stat().st_size/1024:.0f} KB)")
     return 0
 
 

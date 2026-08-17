@@ -113,9 +113,29 @@ switch ($Fonte) {
                   #
                   # `passos-aval 500` porque sao 11.719 passos; a cada 200 daria 58
                   # avaliacoes de ~15 s cada, que e tempo tirado do treino.
+                  #
+                  # `--sub-lote 64` NAO e mudanca de experimento: o lote LOGICO
+                  # segue 128, entao os negativos e a comparabilidade com o
+                  # campeao ficam iguais. O que muda e o forward FISICO.
+                  #
+                  # Motivo, medido duas vezes: o caminho direto estourou a VRAM
+                  # pedindo 226.492.416 bytes = 128 x 12 cabecas x 192 x 192 x 4,
+                  # os escores de atencao de um lote. Uma vez no passo 800 e outra
+                  # minutos depois de retomar. Duas mortes na MESMA alocacao sao
+                  # padrao, e repetir a tentativa identica seria esperar sorte.
+                  #
+                  # Com 64 a mesma alocacao cai para 113 MB. O DirectML nao devolve
+                  # memoria num `del` (medido: 1 GB alocado continua marcado), logo
+                  # fragmentacao crescente e o comportamento do alocador, nao
+                  # anomalia — e pedir metade e o que se pode fazer sobre isso.
+                  #
+                  # Custo: o GradCache faz um forward a mais. O treino fica mais
+                  # lento; um treino lento que termina vale mais que um rapido que
+                  # morre no passo 800.
                   $argumentos = '--out models/phiemb-minilm-1m5 ' +
                                 '--base sentence-transformers/all-MiniLM-L6-v2 ' +
-                                '--lote 128 --passos-aval 500 --max-pares 1500000 ' +
+                                '--lote 128 --sub-lote 64 ' +
+                                '--passos-aval 500 --max-pares 1500000 ' +
                                 '--n-candidatos 1000' }
     'phiemb-gc' { $script = 'scripts/train_embedding.py'
                   $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'

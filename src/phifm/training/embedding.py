@@ -65,6 +65,31 @@ log = logging.getLogger(__name__)
 BASE_PADRAO = "allenai/scibert_scivocab_uncased"
 
 
+def _vram_mb() -> float | None:
+    """MB alocados na GPU, ou `None` se não houver como perguntar.
+
+    ⚠️ Existe por causa de uma morte por VRAM no passo 800 do treino de 1,5 M
+    pares — 226.492.416 bytes, que são exatamente 128 x 12 cabeças x 192 x 192 x
+    4: os escores de atenção de UM lote. O mesmo lote 128 havia rodado 3.125
+    passos num treino anterior sem estourar, então o teto não é o lote.
+
+    O que se observou junto: a vazão caiu de forma monótona, 27,4 -> 24,9 pares/s
+    ao longo de 800 passos, e `torch_directml` NÃO devolve memória num `del` —
+    medido: 1 GB alocado continua marcado depois de liberar a referência. Ou seja,
+    fragmentação crescente é o comportamento esperado do alocador, não anomalia.
+
+    Sem este número, a próxima morte é outra vez inferência sobre um traceback.
+    Com ele, é uma curva. Nunca levanta: um treino não pode morrer por causa do
+    seu próprio medidor.
+    """
+    try:
+        import torch_directml as dml
+
+        return float(sum(dml.gpu_memory(0)))
+    except Exception:
+        return None
+
+
 def _agora() -> str:
     """Horário em UTC, ISO-8601. Um só ponto para não haver dois formatos."""
     return datetime.now(UTC).isoformat()
@@ -381,7 +406,9 @@ class TreinadorEmb:
 
             if passo % self.cfg.passos_log == 0:
                 m.pares_por_s = vistos / (time.perf_counter() - t0)
-                log.info("passo %d | perda %.4f | %.1f pares/s", passo, soma / n, m.pares_por_s)
+                v = _vram_mb()
+                log.info("passo %d | perda %.4f | %.1f pares/s%s", passo, soma / n,
+                         m.pares_por_s, "" if v is None else f" | VRAM {v:,.0f} MB")
                 soma, n = 0.0, 0
 
             m.passo = passo
