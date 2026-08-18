@@ -270,9 +270,17 @@ class OpenAlexHarvester(ResumableHarvester):
         tmp = path.with_suffix(".parquet.tmp")
         df.write_parquet(tmp, compression="zstd")
         tmp.replace(path)
+        # ⚠️ `checksum_index` é hash de FORMA, não de conteúdo — ver o comentário
+        # do campo em `core/schema/manifest.py`. Mantido para não mudar a
+        # identidade de manifestos já gravados.
         self.manifest.checksum_index[path.name] = canonical_hash(
             {"rows": len(df), "cols": sorted(df.columns)}
         )
+        # O índice de CONTEÚDO, que é o que o G1.5 exige: BLAKE3 dos bytes do
+        # arquivo que acabou de ser gravado atomicamente.
+        from phifm.core.schema.reprodutibilidade import hash_arquivo
+
+        self.manifest.hash_conteudo[path.name] = hash_arquivo(path)
         edges = int(df["n_references"].sum())
         log.info(
             "→ %s (%d obras, %d arestas de citação, %.1f MB)",

@@ -12,11 +12,83 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 13,15 B tokens | RedPajama 10,54 B + OpenWebMath 2,62 B, custo zero; peS2o não iniciado. S3b: o RedPajama **degrada 16,6%** |
 | **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
+| **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 
 Suíte: **355 testes** (5 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## G1.5 — o corpus por um hash, e o que ele prova
+
+    hash raiz  bbd73a7a26ac8e8b03b7bb9c142bbb47d459d7a32d643fec63b477cf25cf5fb7
+    33 etapas · 976 arquivos · 21,79 GB · verificação profunda ✅
+
+```bash
+PYTHONPATH=src .venv/Scripts/python.exe scripts/manifesto_corpus.py --verificar --profundo
+```
+
+Cadeia de Merkle em três níveis: o hash raiz cobre o hash de cada manifesto de
+etapa, que cobre o BLAKE3 de cada arquivo. Verificação **rasa** custa
+milissegundos e pega manifesto mexido; **profunda** relê os 21,79 GB e é a única
+que pega parquet mexido. A distinção está declarada porque chamar o resultado da
+rasa de "corpus verificado" seria ausência de erro lida como sucesso.
+
+### Por que 🟡 e não ✅
+
+O critério tem duas metades, e só uma está fechada.
+
+**Fechada:** o corpus neste disco é atestado por um hash, com proveniência por
+etapa — entradas, parâmetros, contagem, git sha. Reconstruir a partir da camada
+bruta que guardamos e conferir contra o manifesto funciona e está testado.
+
+**Aberta:** refazer a coleta do zero **não** reproduz os mesmos bytes. O arXiv
+OAI-PMH filtra por *datestamp*, e o datestamp muda quando um autor publica versão
+nova — uma coleta refeita amanhã traz registros que a de hoje não tinha. É a
+semântica da fonte, não defeito do coletor, e a solução é a que já está em uso:
+guardar e hashear a camada bruta, que é a nossa cópia fixada.
+
+Segunda ressalva: os parâmetros das etapas já executadas são **reconstruídos** do
+código, não capturados na execução — cada manifesto carrega
+`parametros_reconstruidos=True`. A marca cai quando cada etapa passar a gravar o
+próprio manifesto ao terminar.
+
+### Dois defeitos que o G1.5 expôs, e nenhum era do manifesto
+
+**1. As fatias baixavam de `resolve/main/`.** Alvo móvel: uma refeitura futura
+poderia produzir outro corpus sem erro e sem aviso. Agora fixam a revisão. Tivemos
+sorte — o OpenWebMath está em `fde8ef8d` desde 2023-10-17, anterior à nossa
+coleta. Sorte não é reprodutibilidade.
+
+**2. O `checksum_index` das coletas não era checksum.** Era
+`canonical_hash({"rows": n, "cols": [...]})` — o hash da **forma**. Dois parquets
+de conteúdo completamente diferente, com as mesmas linhas e colunas, hasheiam
+igual. O DOC-02 §8.1 especifica "mapa doc_id → BLAKE3, endereçado por conteúdo";
+a implementação divergiu da especificação sob um nome que promete o contrário, e
+ficou assim desde 2026-08-06.
+
+Descoberto porque a verificação profunda acusou **878 parquets "alterados" que
+estavam intactos**. A resposta certa a um alarme não é assumir adulteração nem
+silenciar o alarme — é descobrir o que ele compara. Consertado: os coletores
+gravam `hash_conteudo` (BLAKE3 real), o `checksum_index` fica com o comentário
+dizendo o que é, e o construtor do raiz computa o seu próprio índice sobre os
+bytes do disco.
+
+### O que a suíte garante aqui
+
+13 testes, e cada um **estraga** algo e exige que o verificador acuse: byte
+trocado, manifesto adulterado para "legalizar" a fraude, raiz editada à mão,
+arquivo apagado, arquivo a mais. Mais dois que protegem propriedades sem as quais
+o resto não vale: **idempotência** (construir duas vezes o mesmo corpus dá o mesmo
+hash — confirmado nos 21,79 GB reais) e **etapa declarada e ausente é erro**, não
+silêncio, porque um manifesto de corpus incompleto que confere é o pior resultado
+possível.
+
+Quatro defeitos foram pegos por esses testes antes de eu declarar o G1.5 pronto,
+incluindo um que fez a verificação profunda emitir **1.000 falsos positivos** — e
+um verificador que dá mil alarmes falsos é um verificador que se aprende a
+ignorar.
+
 
 ## Coletas — como retomar
 
@@ -457,7 +529,10 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
    (ΦEnc-150M, US$ 25–90 alugado) ou supervisão diferente do par de citação. A
    decisão é do dono do projeto, e é a primeira do projeto que não tem versão de
    custo zero.
-8. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
+8. ~~**Fechar o G1.5**~~ — 🟡 metade fechada, ver §"G1.5 — o corpus por um hash".
+   O que falta é capturar parâmetros na execução em vez de reconstruí-los, e isso
+   se resolve etapa por etapa, de graça, quando cada uma rodar de novo.
+9. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
    ou Firecracker; `exec()` com builtins restritos está descartado no próprio
    documento como trivialmente evadível, então não há atalho local.
 

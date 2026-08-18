@@ -194,14 +194,54 @@ def construir(base: Path, *, rede: bool = True) -> ManifestoRaiz:
     bytes_tot = arq_tot = 0
     faltando: list[str] = []
 
-    # 1. Aquisições: já têm manifesto próprio, só entram na cadeia.
+    # 1. Aquisições. O manifesto do coletor entra como PROVENIÊNCIA, mas o índice
+    #    de hashes é computado AQUI, e a razão é um defeito medido.
+    #
+    # ⚠️ O `checksum_index` dos coletores NÃO é checksum de arquivo. É
+    # `canonical_hash({"rows": n, "cols": [...]})` — o hash da FORMA. Dois arquivos
+    # de conteúdo completamente diferente, com as mesmas linhas e colunas, hasheiam
+    # igual. O DOC-02 §8.1 especifica "mapa doc_id → BLAKE3, endereçado por
+    # conteúdo"; a implementação divergiu da especificação sob um nome que promete
+    # o contrário.
+    #
+    # Descoberto porque a verificação profunda deste script acusou 878 "alterado"
+    # nos parquets de aquisição. A resposta certa a um alarme não é assumir
+    # adulteração nem silenciar o alarme: é descobrir o que ele está comparando.
+    #
+    # Então as etapas de aquisição recebem o MESMO tratamento das derivadas: índice
+    # BLAKE3 real, computado sobre os bytes que estão no disco. O manifesto do
+    # coletor fica intocado e é referenciado como entrada — ele guarda o que a
+    # coleta viu (cursor, licença, falhas, taxa), que nada mais guarda.
     for m in sorted(base.glob("data/raw/**/_manifest.json")):
         d = json.loads(m.read_text(encoding="utf-8"))
-        refs.append(EtapaRef(tipo="aquisicao", caminho=m.relative_to(base).as_posix(),
-                             etapa=d.get("source_name", m.parent.name),
-                             manifesto_id=d.get("manifest_id", ""),
-                             hash_manifesto=hash_arquivo(m)))
-        b, n = tamanho_de(m.parent)
+        dir_bruto = m.parent
+        nome = d.get("source_name", dir_bruto.name)
+        idx = indexar(dir_bruto)
+        b, n = tamanho_de(dir_bruto)
+        me = ManifestoEtapa(
+            etapa=f"bruto_{nome}_{dir_bruto.name}" if nome != dir_bruto.name else f"bruto_{nome}",
+            descricao=f"Coleta bruta: {nome} ({dir_bruto.relative_to(base).as_posix()})",
+            raiz=dir_bruto.relative_to(base).as_posix(),
+            entradas=[Entrada(caminho=m.relative_to(base).as_posix(),
+                              manifesto_id=d.get("manifest_id", ""),
+                              nota="manifesto de aquisição do coletor — cursor, licença, "
+                                   "falhas e taxa; o `checksum_index` dele é hash de FORMA, "
+                                   "não de conteúdo")],
+            parametros={"endpoint": d.get("endpoint"), "metodo": d.get("harvest_method"),
+                        "query_spec": d.get("query_spec"),
+                        "actual_count": d.get("actual_count"),
+                        "completed_at": d.get("completed_at"),
+                        "hash_index_computado_em": "construção do manifesto raiz, "
+                                                   "não na coleta"},
+            parametros_reconstruidos=True,
+            registros=d.get("actual_count"), checksum_index=idx, bytes_saida=b,
+            git_sha=sha).selar()
+        destino = dir_bruto / NOME_ETAPA
+        destino.write_text(me.model_dump_json(indent=2), encoding="utf-8")
+        refs.append(EtapaRef(tipo="aquisicao",
+                             caminho=destino.relative_to(base).as_posix(),
+                             etapa=me.etapa, manifesto_id=me.manifesto_id,
+                             hash_manifesto=hash_arquivo(destino)))
         bytes_tot += b
         arq_tot += n
 

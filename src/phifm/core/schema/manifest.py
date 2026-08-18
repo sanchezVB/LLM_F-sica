@@ -120,7 +120,25 @@ class AcquisitionManifest(BaseModel):
     requests_made: int = 0
 
     output_uri: str = ""
+    # ⚠️ NÃO é checksum de conteúdo, apesar do nome. Os coletores gravam aqui
+    # `canonical_hash({"rows": n, "cols": [...]})` — o hash da FORMA. Dois arquivos
+    # de conteúdo diferente com as mesmas linhas e colunas hasheiam igual.
+    #
+    # O DOC-02 §8.1 especifica "mapa doc_id → BLAKE3, endereçado por conteúdo", e a
+    # implementação divergiu da especificação sob um nome que promete o contrário.
+    # Descoberto em 2026-08-17 ao construir o manifesto raiz do G1.5: a verificação
+    # profunda acusou 878 parquets "alterados" que estavam intactos.
+    #
+    # O campo fica como está para não invalidar o `manifest_id` das cinco coletas já
+    # feitas — reescrevê-lo mudaria a identidade de manifestos que atestam coletas
+    # concluídas. `hash_conteudo` abaixo é o índice de verdade, e o construtor do
+    # manifesto raiz computa o seu próprio quando este está ausente.
     checksum_index: dict[str, str] = Field(default_factory=dict)
+    # Índice de CONTEÚDO: caminho relativo → BLAKE3 dos bytes. Vazio nos manifestos
+    # anteriores a 2026-08-17; o `scripts/manifesto_corpus.py` computa e grava o
+    # dele nesse caso, e declara que foi computado depois da coleta.
+    hash_conteudo: dict[str, str] = Field(default_factory=dict)
+    hash_algo: str = "blake3"
     resumable_cursor: str | None = None
     failures: list[FailureRecord] = Field(default_factory=list)
 
