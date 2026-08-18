@@ -17,6 +17,40 @@ from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: 
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 
 
+def _com_negativos_dificeis(a) -> tuple:
+    """Carrega o parquet minerado e acrescenta `proibidos` por âncora.
+
+    ⚠️ `proibidos` é montado AQUI, da tabela inteira de arestas, e não vem do
+    parquet minerado. Custa uma passada de ~3 s em 6,56 M linhas, e a razão de não
+    guardá-lo no artefato é que ele é derivado: guardá-lo criaria uma segunda
+    cópia da verdade, que pode ficar velha se as arestas mudarem.
+
+    Ele existe porque os negativos são COMPARTILHADOS no lote: a âncora `i` é
+    pontuada contra o negativo difícil da âncora `j`, e esse documento pode ser
+    citação verdadeira de `i`. Sem a máscara, o modelo é penalizado por acertar.
+    """
+    treino = pl.read_parquet(a.negativos)
+    if a.max_pares:
+        treino = treino.head(a.max_pares)
+    proib = (pl.scan_parquet(a.pares / "pares_treino.parquet")
+             .group_by("arxiv_id")
+             .agg(pl.col("arxiv_citado").unique().alias("proibidos"))
+             .collect())
+    antes = treino.height
+    treino = treino.join(proib, on="arxiv_id", how="left")
+    # `join` à esquerda não pode perder nem criar linha. Se perdesse, o treino
+    # rodaria sobre outro conjunto e a comparação com o campeão deixaria de isolar
+    # a dificuldade dos negativos.
+    if treino.height != antes:
+        raise SystemExit(f"a junção mudou o número de linhas: {antes:,} -> "
+                         f"{treino.height:,}. Não treine sobre isto.")
+    vazios = int(treino["negativos_id"].list.len().eq(0).sum())
+    logging.info("negativos difíceis de %s · %s pares · %s sem negativo (%.2f%%)",
+                 a.negativos, f"{treino.height:,}", f"{vazios:,}",
+                 100 * vazios / max(treino.height, 1))
+    return treino, treino.height
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
@@ -45,6 +79,9 @@ def main() -> int:
     # que este projeto cometeu ao mudar base e lote juntos.
     p.add_argument("--sem-amp", action="store_true",
                    help="desliga fp16; obrigatório com --sub-lote em CUDA")
+    p.add_argument("--negativos", type=Path, default=None,
+                   help="parquet de negativos difíceis (scripts/minerar_negativos.py); "
+                        "SUBSTITUI os pares, porque já os contém")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
@@ -56,9 +93,12 @@ def main() -> int:
     # 2026-08-07: 1,0 GB de RAM livre, 31 GB de swap, e o processo morria antes
     # do primeiro passo sem deixar traceback. O corte tem de acontecer no plano,
     # não depois dele.
-    plano = pl.scan_parquet(a.pares / "pares_treino.parquet")
-    total = plano.select(pl.len()).collect().item()
-    treino = (plano.head(a.max_pares) if a.max_pares else plano).collect()
+    if a.negativos:
+        treino, total = _com_negativos_dificeis(a)
+    else:
+        plano = pl.scan_parquet(a.pares / "pares_treino.parquet")
+        total = plano.select(pl.len()).collect().item()
+        treino = (plano.head(a.max_pares) if a.max_pares else plano).collect()
     val = pl.read_parquet(a.pares / "pares_validacao.parquet")
     logging.info("pares: %s de %s disponíveis · %s validação",
                  f"{treino.height:,}", f"{total:,}", f"{val.height:,}")

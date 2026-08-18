@@ -170,6 +170,54 @@ class Metricas:
     historico: list[dict] = field(default_factory=list)
 
 
+class ParesComNegativos(Dataset):
+    """Pares mais os negativos difíceis minerados, um por linha por época.
+
+    ⚠️ Um por linha, não os oito. Codificar os oito custaria 5× por passo
+    (128 âncoras + 128 positivos + 1.024 negativos contra 256 hoje). Um por linha,
+    COMPARTILHADO entre as âncoras do lote, custa 1,5× e dá a cada âncora ~128
+    negativos difíceis em vez de 8 — o compartilhamento é o que torna isto barato.
+
+    O preço do compartilhamento é a máscara: o negativo difícil da âncora `j` pode
+    ser **citação verdadeira** da âncora `i`. Ver `_mascara_proibidos`.
+
+    `proibidos` viaja com a linha porque a máscara é montada no passo, e reconsultar
+    a tabela de 6,56 M arestas por lote seria proibitivo.
+    """
+
+    def __init__(self, df: pl.DataFrame, semente: int = 17):
+        self.a = df["ancora"]
+        self.p = df["positivo"]
+        self.negs = df["negativos"]
+        self.negs_id = df["negativos_id"]
+        self.proibidos = df["proibidos"]
+        self.rng = __import__("random").Random(semente)
+
+    def __len__(self) -> int:
+        return len(self.a)
+
+    def __getitem__(self, i: int):
+        ns, nid = self.negs[i], self.negs_id[i]
+        if len(ns) == 0:
+            # Sem negativo minerado: entra com string vazia e id sentinela. Descartar
+            # a linha mudaria o conjunto de treino em relação ao campeão e o
+            # experimento deixaria de isolar só a dificuldade dos negativos.
+            return self.a[i], self.p[i], "", "__sem_negativo__", set(self.proibidos[i])
+        j = self.rng.randrange(len(ns))
+        return self.a[i], self.p[i], ns[j], nid[j], set(self.proibidos[i])
+
+
+def colar_com_negativos(lote: list) -> tuple:
+    """Collate que preserva listas e CONJUNTOS.
+
+    O collate padrão do PyTorch tenta empilhar tudo em tensores e engasga num
+    `set`. Aqui nada precisa ser tensor: os textos vão para o tokenizer e os
+    conjuntos para a máscara.
+    """
+    a, p, n, nid, proib = zip(*lote, strict=True)
+    return list(a), list(p), list(n), list(nid), list(proib)
+
+
 def escolher_dispositivo(pedido: str = "auto") -> torch.device:
     """CUDA se houver, DirectML se não, CPU por último. Nunca falha em silêncio.
 
@@ -336,16 +384,55 @@ class TreinadorEmb:
         # onde a decisão acontece seria trocar o resultado pela velocidade.
         return F.normalize(v.float(), dim=-1)
 
-    def _perda(self, va: torch.Tensor, vp: torch.Tensor) -> torch.Tensor:
-        """InfoNCE com negativos do próprio lote.
+    @staticmethod
+    def _mascara_proibidos(negs_id: list[str], proibidos: list[set]) -> torch.Tensor:
+        """`(B, B)` booleana: `True` onde o negativo k NÃO pode contar para a âncora i.
+
+        ⚠️ É a peça que torna o compartilhamento de negativos correto. Com negativos
+        compartilhados, a âncora `i` é pontuada contra o negativo difícil da âncora
+        `j` — e esse documento pode ser citação verdadeira de `i`. Sem a máscara, o
+        modelo é penalizado por acertar, e o dano cresce com o tamanho do lote.
+        """
+        B = len(negs_id)
+        m = torch.zeros(B, B, dtype=torch.bool)
+        for i, proib in enumerate(proibidos):
+            for k, nid in enumerate(negs_id):
+                if nid in proib or nid == "__sem_negativo__":
+                    m[i, k] = True
+        return m
+
+    def _perda(self, va: torch.Tensor, vp: torch.Tensor,
+               vn: torch.Tensor | None = None,
+               mascara: torch.Tensor | None = None) -> torch.Tensor:
+        """InfoNCE com negativos do lote e, opcionalmente, negativos DIFÍCEIS.
 
         A diagonal de `va @ vp.T` são os pares verdadeiros; o resto do lote são
         os negativos. Simétrica nas duas direções porque "A busca B" e "B busca
         A" são as duas consultas que o modelo vai receber em uso.
+
+        Com `vn`, cada âncora ganha os negativos difíceis de TODO o lote como
+        candidatos extras — `(B, B)` colunas a mais. `mascara` zera as colunas que
+        são citação verdadeira daquela âncora.
+
+        ⚠️ **A perda deixa de ser comparável com as execuções anteriores.** O piso do
+        InfoNCE é `ln(n_candidatos)`: com 128 candidatos é 4,85; com 128 + 128
+        negativos difíceis é 5,55. Uma perda maior aqui não é modelo pior, é
+        problema mais difícil. É o mesmo erro de leitura que o projeto já registrou
+        ao comparar perdas de lotes diferentes.
+
+        O sentido REVERSO fica sem os negativos difíceis, de propósito: eles
+        pertencem a âncoras específicas, e "este positivo busca a sua âncora" não
+        tem negativo difícil definido. Forçar simetria aqui inventaria estrutura.
         """
         sim = va @ vp.T / self.cfg.temperatura
         alvo = torch.arange(sim.size(0), device=sim.device)
-        return 0.5 * (F.cross_entropy(sim, alvo) + F.cross_entropy(sim.T, alvo))
+        direto = sim
+        if vn is not None:
+            extra = va @ vn.T / self.cfg.temperatura
+            if mascara is not None:
+                extra = extra.masked_fill(mascara.to(extra.device), float("-inf"))
+            direto = torch.cat([sim, extra], dim=1)
+        return 0.5 * (F.cross_entropy(direto, alvo) + F.cross_entropy(sim.T, alvo))
 
     def _passo_gradcache(self, ancoras: list[str], positivos: list[str]) -> torch.Tensor:
         """Um passo de InfoNCE com lote lógico maior que a memória. (Gao et al., 2021)
@@ -449,8 +536,21 @@ class TreinadorEmb:
         # entre execuções, senão retomar do passo N não significa nada — pularia
         # lotes diferentes dos que já foram vistos.
         g = torch.Generator().manual_seed(self.cfg.semente)
-        carregador = DataLoader(ParesDataset(treino), batch_size=self.cfg.lote,
-                                shuffle=True, drop_last=True, generator=g)
+        # A presença da coluna `negativos` decide o caminho. É o dataframe que diz
+        # se este treino tem negativos difíceis — não uma bandeira separada que
+        # poderia discordar dos dados.
+        self.com_duros = "negativos" in treino.columns
+        if self.com_duros:
+            n_med = treino["negativos_id"].list.len().mean()
+            log.info("negativos DIFÍCEIS ligados · %.1f por par em média · "
+                     "um sorteado por linha, compartilhado no lote", n_med)
+            carregador = DataLoader(
+                ParesComNegativos(treino, semente=self.cfg.semente),
+                batch_size=self.cfg.lote, shuffle=True, drop_last=True,
+                generator=g, collate_fn=colar_com_negativos)
+        else:
+            carregador = DataLoader(ParesDataset(treino), batch_size=self.cfg.lote,
+                                    shuffle=True, drop_last=True, generator=g)
         m = Metricas()
         inicio = self.retomar(saida)
 
@@ -475,13 +575,30 @@ class TreinadorEmb:
                             "nota": "antes do treino" if not inicio else f"retomado do passo {inicio}"})
 
         t0, vistos, soma, n = time.perf_counter(), 0, 0.0, 0
-        for passo, (a, p) in enumerate(carregador, start=1):
+        for passo, dados in enumerate(carregador, start=1):
             if passo <= inicio:
                 continue        # lote já consumido: pular é barato, refazer não
+            if self.com_duros:
+                a, p, n, nid, proib = dados
+                mascara = self._mascara_proibidos(nid, proib)
+            else:
+                a, p = dados
+                n = nid = proib = mascara = None
             if self.cfg.sub_lote:
+                if self.com_duros:
+                    # GradCache com negativos explícitos pede o mesmo cuidado que
+                    # GradCache com AMP: a perda passa a depender de representações
+                    # que não estão no cache das âncoras. Recusar em voz alta em vez
+                    # de produzir gradiente parcial em silêncio.
+                    raise RuntimeError(
+                        "GradCache (--sub-lote) com negativos difíceis não está "
+                        "implementado. O lote 128 com negativos difíceis cabe "
+                        "direto; use sem --sub-lote.")
                 perda = self._passo_gradcache(list(a), list(p))
             else:
-                perda = self._perda(self._codificar(a), self._codificar(p))
+                vn = self._codificar(n) if self.com_duros else None
+                perda = self._perda(self._codificar(a), self._codificar(p),
+                                    vn=vn, mascara=mascara)
                 if self.escala is not None:
                     self.escala.scale(perda).backward()
                 else:
