@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-08-14
+# Estado do projeto — 2026-08-17
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -10,13 +10,13 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 |---|---|---|
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
-| **S3** · fatias do HuggingFace | 🟡 decidido | S3b respondido: o RedPajama **degrada 16,6%**, pagar o bulk |
-| **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | passa no PhysBERT com folga; perde do GTE-large por 0,005 |
+| **S3** · fatias do HuggingFace | 🟢 13,15 B tokens | RedPajama 10,54 B + OpenWebMath 2,62 B, custo zero; peS2o não iniciado. S3b: o RedPajama **degrada 16,6%** |
+| **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 
-Suíte: **340 testes**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **355 testes** (5 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
-`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py -q`
+`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 
 ## Coletas — como retomar
 
@@ -81,8 +81,9 @@ permite julgar o resultado do 1.
 | 1. ΦEmb sobre MiniLM | ✅ concluído 01:17 | `models/phiemb-minilm-melhor` |
 | 4a. S3b — auditoria de LaTeX | ✅ **decidido**, ver abaixo | `data/processed/avaliacao/s3b_latex.json` |
 | 4c. Classificador `is_physics` | ✅ treinado | `models/isphysics-clf` |
-| 4b. RedPajama filtrado pelo spine | ⬜ | — |
-| 4d. peS2o + OpenWebMath | 🟢 **liberado** com limiar ≥0,9, ver §resultado final | — |
+| 4b. RedPajama filtrado pelo spine | ✅ 835.379 docs, **10,54 B tokens** | `data/processed/redpajama_fisica` |
+| 4d. OpenWebMath filtrado | ✅ 860.521 docs, **2,62 B tokens**, 114/114 | `data/processed/openwebmath_fisica` |
+| 4d. peS2o | ⬜ não iniciado (42,7 h medidas) | — |
 
 ### S3b — a resposta é PAGAR, e o caminho até ela tem cinco correções
 
@@ -360,8 +361,50 @@ com p=0,0054. O menor com 127 negativos no lote vence o maior com 7 — negativo
 lote são limite de **qualidade** do contrastivo, não só de velocidade, e agora está
 medido em vez de citado.
 
-O caminho para fechar o G1.2 é lote maior (a GPU tem 8 GB e o lote 128 foi o teto
-medido), não modelo maior — o modelo maior já perdeu.
+~~O caminho para fechar o G1.2 é lote maior (a GPU tem 8 GB e o lote 128 foi o
+teto medido), não modelo maior — o modelo maior já perdeu.~~
+
+⚠️ **Isto foi medido em 2026-08-17 e está errado.** Ver
+§"As duas alavancas de escala são planas" abaixo: lote maior foi testado e
+**piorou**. A frase ficou aqui riscada em vez de apagada porque previsão errada
+apagada é previsão que ninguém aprende a não repetir.
+
+### As duas alavancas de escala são planas
+
+Duas hipóteses de escala, testadas de forma independente, mesma base e mesmo
+protocolo de 2.000 candidatos. As duas falharam:
+
+| variação | nDCG@10 | contra o campeão | McNemar |
+|---|---|---|---|
+| **campeão: 400 mil pares, 127 neg** | **0,4579** | — | — |
+| 400 mil pares, **511 neg** (GradCache) | 0,4486 | −0,0093 | p=0,636, empate |
+| **1,5 M pares**, 127 neg | 0,4520 | −0,0059 | p=0,950, empate |
+
+Nenhuma das duas move a agulha, e as duas nominalmente **pioram**. Os testes
+pareados dizem "empate" nos dois casos, então o enunciado honesto não é "piorou":
+é **não há ganho detectável**, com 218 e 256 discordantes.
+
+**Sobre os negativos.** 511 contra 127 é a faixa alta da literatura contra a
+média, e ainda assim nada. Isso não contradiz o achado de que 127 > 7 — contradiz
+a extrapolação de que mais é sempre melhor. A curva satura entre 127 e 511, não
+entre 7 e 127.
+
+**Sobre os dados.** O treino de 1,5 M foi interrompido no passo 4.500 de 11.719
+(38%), por platô medido, não por falha: os ganhos aconteceram até o passo 2.000, e
+de 2.500 a 4.500 — 256 mil pares, metade deles inéditos para o run de 400 mil — o
+nDCG@10 oscilou entre 0,528 e 0,542 sem tendência (medido entre 1.000 candidatos,
+a avaliação interna do treino). No passo 4.200, com 537.600 pares vistos, MRR e
+recall@1 estavam empatados com o campeão, que viu 358.400.
+
+A ressalva de honestidade: 38% não é 100%. O que está medido é que **o pico deste
+run** (passo 4.000) é indistinguível do campeão. Não está medido o que 1,5 M
+pares completos fariam — mas 2.000 passos de platô é a evidência que justificou
+trocar 13,2 h de treino por 1 h de avaliador.
+
+**O que isto custou e o que compra.** Zero dólar de GPU, e elimina as duas
+respostas mais baratas para o G1.2. O que resta não testado: base maior (o
+ΦEnc-150M do DOC-07, US$ 25–90 alugado) ou supervisão diferente do par de citação.
+As duas custam mais que zero, e são decisão do dono do projeto.
 
 ### Parâmetros do treino novo, medidos antes de lançar
 
@@ -398,18 +441,22 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
 
 1. ~~Negativos de `math`~~ — ✅ 774.063 registros, 22 fatias, zero falhas
 2. ~~Retreinar `is_physics` e medir transferência~~ — ✅ ver §resultado final
-3. **4d · filtrar peS2o + OpenWebMath** — liberado com limiar ≥0,9, **e medindo
-   contaminação numa amostra da saída**. A amostra é o único jeito de responder
-   sobre texto de web; o resto é extrapolação de resumos do arXiv.
-4. **Medir se `stat` é vizinho próximo** (~2 h de coleta + 6 min de avaliação).
-   É a dívida gêmea da que `math` era ontem, e a estrutura para medir já existe.
+3. ~~**4d · OpenWebMath filtrado**~~ — ✅ 860.521 documentos, 2,62 B tokens, zero
+   falhas, 114 de 114 unidades. Contaminação de química ~2,2% visível na
+   distribuição de domínios. **peS2o não iniciado** (42,7 h medidas).
+4. ~~**Medir se `stat` é vizinho próximo**~~ — ✅ **não é** (1,0×). A suspeita era
+   minha, o documento estava certo. `math` segue o pior (42,1% de FP).
 5. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
    (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
-6. **4b · RedPajama filtrado pelo spine** — vale mesmo com a degradação: é grátis
-   e imediato, e serve de linha de base contra a qual medir o bulk pago.
-7. **Fechar o G1.2** — lote maior, não modelo maior. O modelo maior (SciBERT,
-   110M) já perdeu do menor. O teto medido na GPU de 8 GB foi lote 128; passar
-   disso pede acumulação de negativos entre passos ou GPU alugada.
+6. ~~**4b · RedPajama filtrado pelo spine**~~ — ✅ 835.379 documentos,
+   42.145.866.036 caracteres = **10,54 B tokens** (contagem exata; o estimado era
+   10,56 B ±4%). Com o OpenWebMath, o corpus é **13,15 B tokens**.
+7. **Fechar o G1.2** — ⚠️ as duas rotas baratas estão **descartadas por medição**:
+   lote maior piorou (0,4486) e mais dados empataram (0,4520), ver §"As duas
+   alavancas de escala são planas". O que resta pede dinheiro: base maior
+   (ΦEnc-150M, US$ 25–90 alugado) ou supervisão diferente do par de citação. A
+   decisão é do dono do projeto, e é a primeira do projeto que não tem versão de
+   custo zero.
 8. **`verify/sandbox`** (DOC-10 §3.6) — o sexto verificador. Depende de gVisor
    ou Firecracker; `exec()` com builtins restritos está descartado no próprio
    documento como trivialmente evadível, então não há atalho local.
