@@ -16,7 +16,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.core.env import contato_obrigatorio  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
-from phifm.corpus.slices.redpajama import coletar  # noqa: E402
+from phifm.corpus.slices.redpajama import REVISAO, coletar  # noqa: E402
+from phifm.core.schema.reprodutibilidade import (  # noqa: E402
+    Entrada,
+    gravar_manifesto_etapa,
+)
 
 
 def main() -> int:
@@ -55,6 +59,19 @@ def main() -> int:
 
     saida = a.out / "_progresso.json"
     saida.write_text(json.dumps(asdict(pr), indent=2, ensure_ascii=False), encoding="utf-8")
+    me = gravar_manifesto_etapa(
+        etapa="redpajama_fisica",
+        descricao=("Fatia de Física do RedPajama-arXiv, filtrada por casamento "
+                   "exato com a espinha"),
+        raiz=a.out,
+        entradas=[Entrada(caminho=str(a.spine))],
+        parametros={"script": "scripts/coletar_redpajama.py",
+                    "filtro": "spine (exato)", "max_shards": a.max_shards,
+                    "revisao_indice": REVISAO,
+                    "shards_lidos": pr.shards_lidos,
+                    "registros_vistos": pr.registros_vistos},
+        registros=pr.registros_guardados)
+    print(f"manifesto da etapa: {me.manifesto_id[:16]}…")
     return 0
 
 

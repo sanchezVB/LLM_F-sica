@@ -39,6 +39,7 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     git_sha_curto,
     hash_arquivo,
     indexar,
+    preservavel,
     tamanho_de,
     verificar,
 )
@@ -274,16 +275,30 @@ def construir(base: Path, *, rede: bool = True) -> ManifestoRaiz:
 
         idx = indexar(raiz) if raiz.is_dir() else {raiz.name: hash_arquivo(raiz)}
         b, n = tamanho_de(raiz)
-        me = ManifestoEtapa(
-            etapa=spec["etapa"], descricao=spec["descricao"],
-            raiz=spec["raiz"], entradas=entradas, parametros=params,
-            parametros_reconstruidos=True,
-            registros=_registros(raiz), checksum_index=idx, bytes_saida=b,
-            git_sha=sha).selar()
-
         destino = (raiz / NOME_ETAPA if raiz.is_dir()
                    else raiz.parent / f"{raiz.name}{NOME_ETAPA}")
-        destino.write_text(me.model_dump_json(indent=2), encoding="utf-8")
+
+        # ⚠️ Manifesto capturado NA EXECUÇÃO é preservado, não sobrescrito.
+        #
+        # Este construtor roda muito mais vezes que as etapas. Se ele
+        # sobrescrevesse, trocaria parâmetros de VERDADE por parâmetros
+        # reconstruídos do código a cada construção — proveniência boa perdida para
+        # proveniência adivinhada, e sem aviso. `preservavel` só devolve o
+        # manifesto se ele tem `parametros_reconstruidos=False` E o índice dele
+        # ainda descreve o disco.
+        anterior = preservavel(destino, idx)
+        if anterior is not None:
+            me = anterior
+            log.info("etapa %-20s %6.2f GB · manifesto CAPTURADO na execução, preservado",
+                     me.etapa, b / 1e9)
+        else:
+            me = ManifestoEtapa(
+                etapa=spec["etapa"], descricao=spec["descricao"],
+                raiz=spec["raiz"], entradas=entradas, parametros=params,
+                parametros_reconstruidos=True,
+                registros=_registros(raiz), checksum_index=idx, bytes_saida=b,
+                git_sha=sha).selar()
+            destino.write_text(me.model_dump_json(indent=2), encoding="utf-8")
         refs.append(EtapaRef(tipo="processamento",
                              caminho=destino.relative_to(base).as_posix(),
                              etapa=me.etapa, manifesto_id=me.manifesto_id,

@@ -239,6 +239,74 @@ def test_etapa_declarada_e_ausente_e_erro_nao_silencio(tmp_path, monkeypatch):
         mc.construir(tmp_path, rede=False)
 
 
+def test_manifesto_capturado_na_execucao_nao_e_sobrescrito(tmp_path, monkeypatch):
+    """O construtor roda muito mais vezes que as etapas.
+
+    Se ele sobrescrevesse, trocaria parâmetros de VERDADE por parâmetros
+    reconstruídos do código a cada construção — proveniência boa perdida para
+    proveniência adivinhada, sem aviso. É o defeito mais fácil de introduzir aqui,
+    porque o caminho felizes é indistinguível.
+    """
+    import scripts.manifesto_corpus as mc
+    from phifm.core.schema.reprodutibilidade import gravar_manifesto_etapa
+
+    raiz = tmp_path / "data" / "processed" / "fatia"
+    raiz.mkdir(parents=True)
+    (raiz / "part-00000.parquet").write_bytes(b"dado" * 50)
+    (tmp_path / "data" / "raw").mkdir(parents=True)
+
+    capturado = gravar_manifesto_etapa(
+        etapa="fatia", descricao="capturada na execução", raiz=raiz, base=tmp_path,
+        parametros={"limiar": 0.87, "argumento_real": "só quem rodou sabe"},
+        registros=42)
+    assert capturado.parametros_reconstruidos is False
+
+    monkeypatch.setattr(mc, "ETAPAS", [{
+        "etapa": "fatia", "descricao": "descrição do construtor",
+        "raiz": "data/processed/fatia", "entradas": [],
+        "parametros": {"limiar": 0.9},   # o valor ERRADO, reconstruído
+    }])
+    mc.construir(tmp_path, rede=False)
+
+    d = json.loads((raiz / "_manifesto_etapa.json").read_text(encoding="utf-8"))
+    assert d["parametros"]["limiar"] == 0.87, "o construtor sobrescreveu o capturado"
+    assert d["parametros"]["argumento_real"] == "só quem rodou sabe"
+    assert d["parametros_reconstruidos"] is False
+    assert d["registros"] == 42
+
+
+def test_manifesto_capturado_mas_desatualizado_e_refeito(tmp_path, monkeypatch):
+    """Preservar cegamente seria pior que sobrescrever.
+
+    Se a etapa rodou de novo sem gravar o manifesto, ou alguém mexeu nos arquivos,
+    o manifesto "capturado" descreve outro corpus. Aí o reconstruído é o melhor
+    disponível, e preservar o antigo faria o hash raiz atestar bytes que não estão
+    mais lá.
+    """
+    import scripts.manifesto_corpus as mc
+    from phifm.core.schema.reprodutibilidade import gravar_manifesto_etapa
+
+    raiz = tmp_path / "data" / "processed" / "fatia"
+    raiz.mkdir(parents=True)
+    (raiz / "part-00000.parquet").write_bytes(b"dado")
+    (tmp_path / "data" / "raw").mkdir(parents=True)
+    gravar_manifesto_etapa(etapa="fatia", descricao="—", raiz=raiz, base=tmp_path,
+                           parametros={"limiar": 0.87})
+
+    (raiz / "part-00000.parquet").write_bytes(b"OUTRO CONTEUDO")   # a etapa rodou de novo
+
+    monkeypatch.setattr(mc, "ETAPAS", [{
+        "etapa": "fatia", "descricao": "—", "raiz": "data/processed/fatia",
+        "entradas": [], "parametros": {"limiar": 0.9},
+    }])
+    mc.construir(tmp_path, rede=False)
+
+    d = json.loads((raiz / "_manifesto_etapa.json").read_text(encoding="utf-8"))
+    assert d["parametros_reconstruidos"] is True, (
+        "manifesto obsoleto foi preservado — o hash raiz atestaria bytes ausentes")
+    assert d["parametros"]["limiar"] == 0.9
+
+
 def test_indice_usa_barra_normal_em_qualquer_sistema(tmp_path):
     """Índice com `\\` não confere contra índice com `/`.
 

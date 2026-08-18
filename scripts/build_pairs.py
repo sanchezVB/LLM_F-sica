@@ -7,6 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.training.pairs import construir  # noqa: E402
+from phifm.core.schema.reprodutibilidade import (  # noqa: E402
+    Entrada,
+    gravar_manifesto_etapa,
+)
 
 
 def main() -> int:

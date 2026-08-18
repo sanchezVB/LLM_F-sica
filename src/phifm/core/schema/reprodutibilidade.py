@@ -90,7 +90,8 @@ NOME_MANIFESTO_ETAPA = "_manifesto_etapa.json"
 IGNORADOS = ("*.tmp", "*.log", "progresso.json",
              "_manifest.json", NOME_MANIFESTO_ETAPA, f"*{NOME_MANIFESTO_ETAPA}",
              "MANIFESTO-RAIZ.json")
-DIRS_IGNORADOS = ("_temp", "__pycache__")
+#   _cache_vetores/  embeddings recomputáveis do minerador, ~1 GB
+DIRS_IGNORADOS = ("_temp", "__pycache__", "_cache_vetores")
 
 
 def hash_arquivo(caminho: Path) -> str:
@@ -227,6 +228,85 @@ class ManifestoRaiz(BaseModel):
         self.hash_raiz = canonical_hash(
             [e.model_dump(mode="json") for e in self.etapas])
         return self
+
+
+def gravar_manifesto_etapa(
+    *, etapa: str, descricao: str, raiz: Path, base: Path | None = None,
+    entradas: list[Entrada] | None = None, parametros: dict | None = None,
+    registros: int | None = None, falhas: list[FailureRecord] | None = None,
+) -> ManifestoEtapa:
+    """Grava o manifesto de uma etapa NO FIM DA EXECUÇÃO dela.
+
+    É o que fecha a metade aberta do G1.5. Hoje os manifestos das etapas já
+    executadas carregam `parametros_reconstruidos=True`: os parâmetros foram lidos
+    do código pelo construtor do manifesto raiz, não capturados quando a etapa
+    rodou. A diferença não é formal — um parâmetro reconstruído pode estar errado
+    sem que nada acuse, porque não há nada com que confrontá-lo.
+
+    Chamado daqui, os parâmetros são os ARGUMENTOS DE VERDADE daquela execução, e
+    `parametros_reconstruidos` fica `False`. O construtor do raiz preserva
+    manifestos assim em vez de sobrescrevê-los — ver `preservavel`.
+
+    Também grava `executado_em`, que é o horário da EXECUÇÃO. Note a diferença com
+    o `gerado_em` que foi removido do modelo: aquele dizia quando o manifesto foi
+    escrito e quem lia entendia "quando a etapa rodou". Aqui, escrito no fim da
+    etapa, os dois coincidem — e por isso o campo pode existir. Ele vai em
+    `parametros`, fora da identidade, para não quebrar a idempotência do hash.
+    """
+    base = base or Path(".")
+    idx = indexar(raiz) if raiz.is_dir() else {raiz.name: hash_arquivo(raiz)}
+    b, _ = tamanho_de(raiz)
+    params = dict(parametros or {})
+    params["executado_em"] = _agora()
+    # ⚠️ Caminho relativo à base QUANDO possível, absoluto quando não.
+    # `relative_to` LEVANTA se a saída estiver fora da base — e uma saída fora da
+    # base é o caso normal num teste (`tmp_path`) ou numa execução apontada para
+    # outro disco. Derrubar a etapa inteira no fim, depois do trabalho feito, por
+    # causa do formato de um caminho no manifesto, seria perder a corrida pelo
+    # registro dela.
+    try:
+        rel = raiz.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        rel = raiz.resolve().as_posix()
+    me = ManifestoEtapa(
+        etapa=etapa, descricao=descricao,
+        raiz=rel,
+        entradas=entradas or [], parametros=params,
+        parametros_reconstruidos=False,
+        registros=registros, checksum_index=idx, bytes_saida=b,
+        falhas=falhas or [], git_sha=git_sha_curto()).selar()
+    destino = (raiz / NOME_MANIFESTO_ETAPA if raiz.is_dir()
+               else raiz.parent / f"{raiz.name}{NOME_MANIFESTO_ETAPA}")
+    destino.write_text(me.model_dump_json(indent=2), encoding="utf-8")
+    return me
+
+
+def _agora() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat()
+
+
+def preservavel(destino: Path, idx_atual: dict[str, str]) -> ManifestoEtapa | None:
+    """O manifesto existente foi capturado na execução E ainda descreve o disco?
+
+    Se sim, o construtor do raiz tem de PRESERVÁ-LO. Sobrescrever um manifesto com
+    parâmetros de verdade por um com parâmetros reconstruídos seria trocar
+    proveniência boa por proveniência adivinhada — e o construtor roda muito mais
+    vezes que as etapas.
+
+    Se o índice divergir, a etapa rodou de novo sem gravar o seu manifesto (ou
+    alguém mexeu nos arquivos), e aí o reconstruído é o melhor disponível.
+    """
+    if not destino.exists():
+        return None
+    try:
+        me = ManifestoEtapa.model_validate_json(destino.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if me.parametros_reconstruidos:
+        return None
+    return me if me.checksum_index == idx_atual else None
 
 
 class Divergencia(BaseModel):
