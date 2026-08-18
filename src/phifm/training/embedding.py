@@ -578,12 +578,18 @@ class TreinadorEmb:
         for passo, dados in enumerate(carregador, start=1):
             if passo <= inicio:
                 continue        # lote já consumido: pular é barato, refazer não
+            # ⚠️ `duros`, NÃO `n`. Chamar a lista de negativos de `n` sombreava o
+            # contador `n` da média da perda, três linhas abaixo — `n += 1` virava
+            # `lista += 1` e o treino morria com "'int' object is not iterable"
+            # depois de carregar 1,2 GB de parquet e medir a linha de base. Nome
+            # curto reusado num laço longo é a armadilha; o erro nem parece ser de
+            # nomes.
             if self.com_duros:
-                a, p, n, nid, proib = dados
+                a, p, duros, nid, proib = dados
                 mascara = self._mascara_proibidos(nid, proib)
             else:
                 a, p = dados
-                n = nid = proib = mascara = None
+                duros = nid = proib = mascara = None
             if self.cfg.sub_lote:
                 if self.com_duros:
                     # GradCache com negativos explícitos pede o mesmo cuidado que
@@ -596,7 +602,7 @@ class TreinadorEmb:
                         "direto; use sem --sub-lote.")
                 perda = self._passo_gradcache(list(a), list(p))
             else:
-                vn = self._codificar(n) if self.com_duros else None
+                vn = self._codificar(duros) if self.com_duros else None
                 perda = self._perda(self._codificar(a), self._codificar(p),
                                     vn=vn, mascara=mascara)
                 if self.escala is not None:
