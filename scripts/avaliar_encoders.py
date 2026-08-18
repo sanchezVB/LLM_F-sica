@@ -41,6 +41,22 @@ NOSSOS = {
     # preso em 0,280 por quatro avaliações enquanto recall@10 subiu de 0,716 para
     # 0,780. É esta avaliação que resolve, medindo nDCG@10 de verdade.
     "ΦEmb/MiniLM+GC (23M, 511 neg)": Path("models/phiemb-minilm-gc-melhor"),
+    # MAIS DADOS, com o lote que ganhou por medição: 1,5 M de pares contra os
+    # 400 mil do candidato acima, mesma base, mesmos 127 negativos. A única
+    # variável é o volume.
+    #
+    # Interrompido no passo 4.500 de 11.719 (38%), por platô medido: os ganhos
+    # aconteceram até o passo 2.000, e de 2.500 a 4.500 — 256 mil pares, metade
+    # deles inéditos para o run de 400 mil — o nDCG@10 oscilou entre 0,528 e
+    # 0,542 sem tendência. MRR e recall@1 terminaram empatados com o campeão de
+    # 400 mil, que usou 33% dos dados.
+    #
+    # O checkpoint é o do passo 4.000, o pico (nDCG@10 0,5423 entre 1.000
+    # candidatos). Aqui ele é remedido nos 2.000 do protocolo, que é a única
+    # medição comparável ao veredito — e a razão de esta avaliação existir: o
+    # `melhor.json` do campeão de 400 mil não tem nDCG@10, porque foi gravado
+    # antes da correção de critério, então MRR era o único proxy disponível.
+    "ΦEmb/MiniLM 1,5M (23M, 127 neg)": Path("models/phiemb-minilm-1m5-melhor"),
 }
 
 
