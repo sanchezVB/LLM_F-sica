@@ -28,6 +28,41 @@ Por isso a exclusão usa a lista COMPLETA de citados de cada âncora, lida da ta
 de arestas inteira (6,56 M), não do subconjunto que está sendo minerado. Excluir só
 o positivo da linha seria o defeito.
 
+## ⚠️ MEDIDO EM 2026-08-18: a exclusão acima é NECESSÁRIA E INSUFICIENTE
+
+O treino com estes negativos ficou ABAIXO da linha de base, e as métricas disseram
+por quê antes de o agregado dizer:
+
+    passo    recall@1   recall@10   nDCG@10
+    base       0,265      0,665      0,454
+    200        0,247      0,655      0,434
+    400        0,238      0,680      0,440
+
+Recall@1 caindo enquanto recall@10 sobe é a assinatura de negativos que são
+**relevantes**: o modelo aproxima a vizinhança inteira da âncora e perde a
+capacidade de escolher qual dela é a citação certa.
+
+Medido em 32.000 negativos minerados, contra um controle de negativos sorteados:
+
+    co-citados com o positivo, minerados : 15,2%
+    co-citados com o positivo, aleatórios:  0,1%
+    razão                                : 212x
+
+Co-citação — existir um paper que cita o positivo E o negativo — é o sinal clássico
+de relevância na literatura de recuperação. **15% dos "negativos difíceis" são
+documentos que a literatura trata como relacionados ao positivo.**
+
+A exclusão implementada aqui cobre o que a ÂNCORA cita. Não cobre o que é próximo
+do POSITIVO, e é aí que o falso negativo entra. Consertar exige excluir também os
+co-citados do positivo — o que é uma segunda passada sobre a tabela de arestas, não
+uma linha.
+
+Enquanto isso não for feito, este artefato NÃO serve para treinar o ΦEmb. Ele ainda
+serve para o ΦRank: um cross-encoder que reordena o top-100 é treinado com pares
+(consulta, documento) rotulados, e um co-citado rotulado como "menos relevante que
+o citado" é rótulo defensável — o erro aqui foi tratá-lo como NEGATIVO em contraste,
+que é uma afirmação muito mais forte.
+
 ## O universo de onde os negativos saem
 
 Os **citados**, não todos os documentos. É esse o universo que `avaliar` usa: ela
