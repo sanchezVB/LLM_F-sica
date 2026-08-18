@@ -79,6 +79,9 @@ def main() -> int:
     # que este projeto cometeu ao mudar base e lote juntos.
     p.add_argument("--sem-amp", action="store_true",
                    help="desliga fp16; obrigatório com --sub-lote em CUDA")
+    p.add_argument("--pedaco-negativos", type=int, default=32,
+                   help="textos por forward na codificação dos negativos; menor "
+                        "deixa mais folga contígua no heap do DirectML")
     p.add_argument("--negativos", type=Path, default=None,
                    help="parquet de negativos difíceis (scripts/minerar_negativos.py); "
                         "SUBSTITUI os pares, porque já os contém")
@@ -106,7 +109,8 @@ def main() -> int:
     cfg = Config(base=a.base, lote=a.lote, sub_lote=a.sub_lote,
                  max_tokens=a.max_tokens, lr=a.lr,
                  max_pares=a.max_pares, passos_aval=a.passos_aval,
-                 n_candidatos=a.n_candidatos, dispositivo=a.dispositivo, amp=not a.sem_amp)
+                 n_candidatos=a.n_candidatos, dispositivo=a.dispositivo, amp=not a.sem_amp,
+                 pedaco_negativos=a.pedaco_negativos)
     if a.sub_lote:
         logging.info("GradCache ligado: lote lógico %d (%d negativos) com a memória "
                      "de %d", a.lote, a.lote - 1, a.sub_lote)

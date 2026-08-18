@@ -70,6 +70,22 @@ log = logging.getLogger(__name__)
 
 BASE_PADRAO = "allenai/scibert_scivocab_uncased"
 
+# Valor dos logits mascarados. ⚠️ FINITO, não `-inf`, e a razão é do dispositivo.
+#
+# Reproduzido em três linhas no DirectML: `cross_entropy` sobre logits que contêm
+# `-inf` devolve **nan**. Com -1e4 devolve exatamente a mesma perda que omitir as
+# colunas mascaradas — que é o comportamento correto e é como se verifica que o
+# valor é grande o bastante.
+#
+# Na CPU o `-inf` funciona, e foi por isso que dez testes de máscara passaram
+# enquanto o treino de verdade registrava `perda nan` no passo 50 e seguia rodando.
+#
+# -1e4 e não -1e9: com AMP em fp16 o máximo representável é ~65.504, e -1e9
+# saturaria para -inf, trazendo o problema de volta pela porta dos fundos. Os
+# logits reais ficam em ±20 (cosseno sobre temperatura 0,05), então -1e4 é ~500×
+# maior que qualquer escore legítimo — zero depois do softmax, com folga.
+MASCARA_NEG = -1e4
+
 
 def _vram_mb() -> float | None:
     """MB alocados na GPU, ou `None` se não houver como perguntar.
@@ -137,6 +153,28 @@ class Config:
     # matriz de atenção N×N, que é exatamente o tensor de 226 MB que estourou a
     # VRAM desta máquina duas vezes com lote 128.
     amp: bool = True
+    # ⚠️ Negativos difíceis codificados SEM GRAFO, em pedaços deste tamanho.
+    #
+    # Com negativos, o passo faz TRÊS codificações de `lote` em vez de duas, e o
+    # lote 128 já estourava a VRAM desta máquina com duas: 226.492.416 bytes =
+    # 128 x 12 cabeças x 192 x 192 x 4, os escores de atenção de um forward.
+    #
+    # A alternativa seria baixar o lote para 64 — e isso mudaria os negativos DO
+    # LOTE de 127 para 63, duas variáveis de uma vez. O experimento existe para
+    # isolar a dificuldade dos negativos; mudar a quantidade junto o inutilizaria.
+    # Este projeto já pagou por isso mudando base e lote no mesmo treino.
+    #
+    # O custo declarado: os negativos não recebem gradiente. A âncora é empurrada
+    # para longe deles, mas o vetor deles não se move POR ESTE sinal — só quando o
+    # mesmo documento aparece como positivo em outro passo, o que acontece: nos 400
+    # mil pares cada citado se repete ~22 vezes.
+    #
+    # 32 e não 64, medido: com 64 o treino AINDA estourava. O tensor de 226 MB que
+    # falha não é o dos negativos — é o da âncora/positivo com lote 128, que precisa
+    # de grafo. Como o DirectML não devolve memória, os 113 MB do pedaço de 64
+    # ficavam ocupando o heap e não sobrava espaço CONTÍGUO para os 226 MB. Com 32 o
+    # pedaço é 28 MB.
+    pedaco_negativos: int = 32
     passos_log: int = 50
     # ⚠️ Cadência do ESTADO retomável, independente da avaliação.
     #
@@ -401,6 +439,19 @@ class TreinadorEmb:
                     m[i, k] = True
         return m
 
+    @torch.no_grad()
+    def _codificar_congelado(self, textos: list[str]) -> torch.Tensor:
+        """Codifica em pedaços e SEM grafo. Ver `Config.pedaco_negativos`.
+
+        Dois efeitos, e os dois são o motivo de existir: nenhuma ativação é guardada
+        para o backward, e o tensor de atenção de cada pedaço é `pedaco²` em vez de
+        `lote²` — 113 MB com 64 contra os 226 MB que estouraram a placa.
+        """
+        pedaco = self.cfg.pedaco_negativos
+        partes = [self._codificar(textos[i:i + pedaco])
+                  for i in range(0, len(textos), pedaco)]
+        return torch.cat(partes, dim=0)
+
     def _perda(self, va: torch.Tensor, vp: torch.Tensor,
                vn: torch.Tensor | None = None,
                mascara: torch.Tensor | None = None) -> torch.Tensor:
@@ -430,7 +481,7 @@ class TreinadorEmb:
         if vn is not None:
             extra = va @ vn.T / self.cfg.temperatura
             if mascara is not None:
-                extra = extra.masked_fill(mascara.to(extra.device), float("-inf"))
+                extra = extra.masked_fill(mascara.to(extra.device), MASCARA_NEG)
             direto = torch.cat([sim, extra], dim=1)
         return 0.5 * (F.cross_entropy(direto, alvo) + F.cross_entropy(sim.T, alvo))
 
@@ -602,7 +653,7 @@ class TreinadorEmb:
                         "direto; use sem --sub-lote.")
                 perda = self._passo_gradcache(list(a), list(p))
             else:
-                vn = self._codificar(duros) if self.com_duros else None
+                vn = self._codificar_congelado(duros) if self.com_duros else None
                 perda = self._perda(self._codificar(a), self._codificar(p),
                                     vn=vn, mascara=mascara)
                 if self.escala is not None:
@@ -615,7 +666,19 @@ class TreinadorEmb:
             else:
                 self.opt.step()
             self.opt.zero_grad()
-            soma += perda.item()
+            # ⚠️ Perda não finita PARA o treino, não vira linha de log.
+            #
+            # Em 2026-08-18 o treino registrou `perda nan` no passo 50 e continuou
+            # rodando: teria gasto 5 h produzindo pesos sem sentido, e o defeito só
+            # apareceria no veredito do G1 — a 5 h e um veredito de distância da
+            # causa. Barato de checar, caro de não checar.
+            valor = perda.item()
+            if valor != valor or valor in (float("inf"), float("-inf")):
+                raise RuntimeError(
+                    f"perda não finita ({valor}) no passo {passo}. O treino para "
+                    "aqui de propósito: continuar produziria pesos sem sentido e o "
+                    "defeito só apareceria horas depois, no veredito.")
+            soma += valor
             n += 1
             vistos += len(a)
 

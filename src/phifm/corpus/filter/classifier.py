@@ -427,6 +427,49 @@ def calibrate(
     return CalibrationResult(target_precision, thresholds, prec, rec, float(passa.mean()))
 
 
+def recuperar_legado(df: pl.DataFrame, label_col: str = "subfield") -> pl.DataFrame:
+    """Dá subárea aos papers de arquivo LEGADO que ficaram em "Outro".
+
+    ⚠️ Isto conserta um artefato velho, não um defeito de código.
+    `normalize/spine.py` já aplica `_LEGADO` desde 2026-08-13; a `spine.parquet` no
+    disco foi construída antes disso. São **4.042 papers** (0,25% da espinha) com
+    primária pré-1998 — `chao-dyn`, `solv-int`, `patt-sol`, `mtrl-th`, `supr-con` —
+    que `train()` descartaria, porque ela descarta "Outro".
+
+    Por que aqui e não reconstruindo a espinha: ela é entrada dos pares de citação
+    (6,5 M linhas), do próprio classificador e da fatia do RedPajama — refazê-la
+    exigiria rebaixar 81 GB e re-derivar 22 GB de corpus, para 0,25%. Consertar no
+    CONSUMIDOR não cascateia nada.
+
+    ⚠️ Não é normalização geral: só sobe de "Outro" para uma subárea conhecida.
+    Papers cuja primária é `math.AP`, `cs.LG` ou `q-bio.PE` continuam em "Outro" —
+    para eles esse é o rótulo CERTO, e dar-lhes subárea de Física seria inventar.
+    Medido: dos 72.872 em "Outro", só 6,2% são legado; os outros 68.328 são papers
+    de outra área com cross-list de Física.
+
+    Quando a espinha for reconstruída por outro motivo (o bulk pago do arXiv, por
+    exemplo), esta função para de encontrar o que consertar — e o teste que a cobre
+    passa a valer como verificação de que a reconstrução funcionou.
+    """
+    from phifm.corpus.normalize.spine import _LEGADO, SUBFIELD_MAP
+
+    if "primary_category" not in df.columns:
+        return df
+    recuperado = (pl.col("primary_category")
+                  .str.split(".").list.first()
+                  .replace(_LEGADO)
+                  .replace_strict(SUBFIELD_MAP, default="Outro"))
+    antes = int((pl.select(df[label_col] == "Outro").to_series()).sum())
+    df = df.with_columns(
+        pl.when((pl.col(label_col) == "Outro") & (recuperado != "Outro"))
+        .then(recuperado).otherwise(pl.col(label_col)).alias(label_col))
+    depois = int((pl.select(df[label_col] == "Outro").to_series()).sum())
+    if antes != depois:
+        log.info("legado recuperado: %s papers saíram de \"Outro\" e entram no treino "
+                 "de subárea (artefato anterior a 2026-08-13)", f"{antes - depois:,}")
+    return df
+
+
 def train(
     df: pl.DataFrame,
     task: Task = "subfield",
@@ -435,6 +478,8 @@ def train(
     target_precision: float = 0.95,
 ) -> tuple[PhysicsClassifier, str]:
     """Treina e calibra. Devolve o classificador e o relatório."""
+    if label_col == "subfield":
+        df = recuperar_legado(df, label_col)
     df = df.filter(pl.col(label_col).is_not_null() & (pl.col(label_col) != "Outro"))
     df = df.sample(fraction=1.0, shuffle=True, seed=17)
 
