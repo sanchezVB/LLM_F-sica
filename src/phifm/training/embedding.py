@@ -18,11 +18,17 @@ O ROCm não funciona nesta GPU (registro em `setup/rocm_wsl.md`: a pilha HSA
 enumera zero dispositivos). O **DirectML** funciona, com três ressalvas
 descobertas por medição:
 
-| Achado | Consequência |
-|---|---|
-| Backward do ModernBERT falha no DML | Base é SciBERT, não ModernBERT — perde-se o contexto de 8192, irrelevante para resumos de ~300 tokens |
-| Só `attn_implementation="eager"` treina | `sdpa` quebra no backward com erro interno ilegível |
-| Um passo contrastivo mantém DOIS grafos vivos | **Lote 8**, com gradient checkpointing |
+| Achado | Consequência | Vale no CUDA? |
+|---|---|---|
+| Backward do ModernBERT falha no DML | Base é SciBERT, não ModernBERT — perde-se o contexto de 8192, irrelevante para resumos de ~300 tokens | não testado |
+| Só `attn_implementation="eager"` treina | `sdpa` quebra no backward com erro interno ilegível | **não** — no CUDA usa `sdpa` |
+| Um passo contrastivo mantém DOIS grafos vivos | **Lote 8**, com gradient checkpointing | sim, é do algoritmo |
+| Sem AMP utilizável | fp32 em tudo | **não** — no CUDA usa fp16 |
+
+⚠️ As restrições da tabela são do **DirectML**, não do modelo, e a coluna da
+direita existe porque eu quase as tratei como propriedades do problema. Ver
+`escolher_dispositivo`: no CUDA duas delas caem, e é isso que torna o Kaggle
+(30 h/semana de T4) uma rota diferente e não apenas uma máquina mais rápida.
 
 **Sobre o teto de lote, e a medição que eu errei primeiro.** Medi a vazão com um
 forward só e conclui "teto de 16". Errado pela metade: contrastivo codifica
@@ -82,6 +88,11 @@ def _vram_mb() -> float | None:
     Com ele, é uma curva. Nunca levanta: um treino não pode morrer por causa do
     seu próprio medidor.
     """
+    if torch.cuda.is_available():
+        # No CUDA o número é confiável e é o total reservado pelo alocador — ao
+        # contrário do contador parcial do DirectML, que ficou cravado em 271 MB
+        # num cartão de 8 GB e só servia como tendência.
+        return torch.cuda.memory_reserved(0) / 1e6
     try:
         import torch_directml as dml
 
@@ -121,6 +132,11 @@ class Config:
     # `None` desliga o GradCache e usa o caminho direto — é o que os treinos
     # anteriores fizeram, e o que o teste de equivalência compara.
     sub_lote: int | None = None
+    # Precisão mista. Só tem efeito no CUDA — ver o comentário em `__init__`.
+    # No T4 do Kaggle é onde está o ganho: fp16 com `sdpa` não materializa a
+    # matriz de atenção N×N, que é exatamente o tensor de 226 MB que estourou a
+    # VRAM desta máquina duas vezes com lote 128.
+    amp: bool = True
     passos_log: int = 50
     # ⚠️ Cadência do ESTADO retomável, independente da avaliação.
     #
@@ -155,9 +171,27 @@ class Metricas:
 
 
 def escolher_dispositivo(pedido: str = "auto") -> torch.device:
-    """DirectML se houver, CPU se não. Nunca falha em silêncio."""
+    """CUDA se houver, DirectML se não, CPU por último. Nunca falha em silêncio.
+
+    A ordem é essa porque as restrições deste módulo são todas do DirectML, não do
+    modelo (ver a tabela na docstring): no CUDA voltam a valer `sdpa` no backward e
+    autocast de verdade em fp16. O caminho DML fica intocado — a máquina do dono do
+    projeto é uma RX 7600, e este código roda nas duas.
+
+    Existe por causa do Kaggle: 30 h/semana de T4 resolvem o T1a e o T1b sem custo,
+    e cada experimento que aqui leva 13 h com três mortes cabe numa sessão lá. Um
+    experimento barato muda a economia das decisões que dependem dele.
+    """
     if pedido == "cpu":
         return torch.device("cpu")
+    if pedido in ("auto", "cuda") and torch.cuda.is_available():
+        nome = torch.cuda.get_device_name(0)
+        cap = torch.cuda.get_device_capability(0)
+        log.info("dispositivo: %s (CUDA %d.%d, %d GB)", nome, *cap,
+                 round(torch.cuda.get_device_properties(0).total_memory / 1e9))
+        return torch.device("cuda:0")
+    if pedido == "cuda":
+        raise RuntimeError("CUDA pedido explicitamente e indisponível")
     try:
         import torch_directml as dml
 
@@ -223,9 +257,22 @@ class TreinadorEmb:
         torch.manual_seed(cfg.semente)
         self.dev = escolher_dispositivo(cfg.dispositivo)
         self.tok = AutoTokenizer.from_pretrained(cfg.base)
-        # `eager` é obrigatório: `sdpa` quebra no backward do DirectML com erro
-        # interno que nem decodifica como texto.
-        self.mod = AutoModel.from_pretrained(cfg.base, attn_implementation="eager").to(self.dev)
+        # `eager` é obrigatório NO DIRECTML: `sdpa` quebra no backward com erro
+        # interno que nem decodifica como texto. No CUDA a restrição não existe, e
+        # `sdpa` é onde está a diferença de velocidade e de memória — atenção sem
+        # materializar a matriz N×N é justamente o tensor de 226 MB que matou o
+        # treino de lote 128 duas vezes nesta máquina.
+        self.atencao = "sdpa" if self.dev.type == "cuda" else "eager"
+        self.mod = AutoModel.from_pretrained(
+            cfg.base, attn_implementation=self.atencao).to(self.dev)
+        # AMP só faz sentido onde há suporte de verdade. O DirectML não expõe
+        # `GradScaler` utilizável, e ligar autocast lá deu queda silenciosa no
+        # backward — então a decisão é pelo dispositivo, não por bandeira do
+        # usuário: uma bandeira que quebra em metade dos dispositivos é armadilha.
+        self.amp = self.dev.type == "cuda" and cfg.amp
+        self.escala = torch.amp.GradScaler("cuda") if self.amp else None
+        if self.amp:
+            log.info("AMP fp16 ligado (%s) · atenção %s", self.dev, self.atencao)
         if cfg.checkpointing:
             # ⚠️ Um passo contrastivo mantém DOIS grafos vivos ao mesmo tempo —
             # âncora e positivo — antes do backward. Medir a vazão com um
@@ -235,6 +282,29 @@ class TreinadorEmb:
             self.mod.config.use_cache = False
         self.opt = torch.optim.AdamW(self.mod.parameters(), lr=cfg.lr)
         self._melhor_ndcg = -1.0  # reconstruído em `retomar`, ver o aviso lá
+
+        # ⚠️ GradCache + AMP RECUSADO, não "não suportado em silêncio".
+        #
+        # O GradCache deriva a perda em relação a representações CACHEADAS e injeta
+        # esse gradiente num segundo forward. Com `GradScaler` no meio, a escala
+        # aplicada na fase 2 tem de ser desfeita antes da injeção da fase 3, senão
+        # os gradientes entram multiplicados por um fator que muda a cada passo.
+        #
+        # O resultado disso não é uma exceção: é um treino que roda até o fim e
+        # aprende outra coisa. Gradiente silenciosamente errado é a pior categoria
+        # de defeito que este projeto pode ter, e a implementação correta pede um
+        # teste de equivalência que ainda não existe.
+        #
+        # E a combinação não é necessária: o GradCache existe porque 8 GB não
+        # cabiam o lote 128; num T4 de 16 GB com `sdpa` ele cabe direto. Quem
+        # precisar das duas coisas ao mesmo tempo tem de implementar e provar por
+        # equivalência, como o GradCache foi provado.
+        if self.cfg.sub_lote and self.amp:
+            raise RuntimeError(
+                "GradCache (--sub-lote) com AMP não está implementado, e rodar "
+                "assim produziria gradiente errado em silêncio. Escolha um: "
+                "--sub-lote sem AMP (--sem-amp), ou AMP com o lote que couber "
+                "direto na memória.")
 
     @property
     def lote_fisico(self) -> int:
@@ -256,8 +326,15 @@ class TreinadorEmb:
         lote = self.tok(list(textos), padding="max_length", truncation=True,
                         max_length=self.cfg.max_tokens, return_tensors="pt")
         lote = {k: v.to(self.dev) for k, v in lote.items()}
-        saida = self.mod(**lote).last_hidden_state
-        return F.normalize(media_mascarada(saida, lote["attention_mask"]), dim=-1)
+        with torch.autocast("cuda", dtype=torch.float16, enabled=self.amp):
+            saida = self.mod(**lote).last_hidden_state
+            v = media_mascarada(saida, lote["attention_mask"])
+        # ⚠️ A normalização e a perda ficam em fp32, FORA do autocast. Sob fp16 a
+        # norma de um vetor de 384 dimensões perde precisão o suficiente para o
+        # cosseno mudar na terceira casa, e a métrica do portão G1 é decidida na
+        # terceira casa — o G1.2 falhou por 0,005. Economizar precisão exatamente
+        # onde a decisão acontece seria trocar o resultado pela velocidade.
+        return F.normalize(v.float(), dim=-1)
 
     def _perda(self, va: torch.Tensor, vp: torch.Tensor) -> torch.Tensor:
         """InfoNCE com negativos do próprio lote.
@@ -405,8 +482,15 @@ class TreinadorEmb:
                 perda = self._passo_gradcache(list(a), list(p))
             else:
                 perda = self._perda(self._codificar(a), self._codificar(p))
-                perda.backward()
-            self.opt.step()
+                if self.escala is not None:
+                    self.escala.scale(perda).backward()
+                else:
+                    perda.backward()
+            if self.escala is not None:
+                self.escala.step(self.opt)
+                self.escala.update()
+            else:
+                self.opt.step()
             self.opt.zero_grad()
             soma += perda.item()
             n += 1

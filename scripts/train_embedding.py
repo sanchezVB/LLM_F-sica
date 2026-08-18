@@ -35,7 +35,16 @@ def main() -> int:
     p.add_argument("--passos-aval", type=int, default=500)
     p.add_argument("--n-candidatos", type=int, default=256,
                    help="pool da avaliação; 256 dá erro padrão de ±0,031")
-    p.add_argument("--dispositivo", default="auto", choices=["auto", "dml", "cpu"])
+    p.add_argument("--dispositivo", default="auto",
+                   choices=["auto", "cuda", "dml", "cpu"])
+    # ⚠️ `--sem-amp` desliga precisão mista. Existe por dois motivos concretos, não
+    # por completude: (a) o GradCache com AMP produziria gradiente errado em
+    # silêncio e é recusado, então quem precisa de lote lógico grande num CUDA
+    # desliga aqui; (b) para comparar contra os treinos já feitos, que foram todos
+    # em fp32 — mudar precisão E dados ao mesmo tempo não isola nada, que é o erro
+    # que este projeto cometeu ao mudar base e lote juntos.
+    p.add_argument("--sem-amp", action="store_true",
+                   help="desliga fp16; obrigatório com --sub-lote em CUDA")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
@@ -57,7 +66,7 @@ def main() -> int:
     cfg = Config(base=a.base, lote=a.lote, sub_lote=a.sub_lote,
                  max_tokens=a.max_tokens, lr=a.lr,
                  max_pares=a.max_pares, passos_aval=a.passos_aval,
-                 n_candidatos=a.n_candidatos, dispositivo=a.dispositivo)
+                 n_candidatos=a.n_candidatos, dispositivo=a.dispositivo, amp=not a.sem_amp)
     if a.sub_lote:
         logging.info("GradCache ligado: lote lógico %d (%d negativos) com a memória "
                      "de %d", a.lote, a.lote - 1, a.sub_lote)
