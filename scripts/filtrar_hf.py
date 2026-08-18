@@ -84,7 +84,8 @@ def main() -> int:
     # comparação nenhuma: unidades feitas contra unidades que a fonte publica.
     feitas_ate_agora = feitas(out)
     (out / "_filtragem.json").write_text(json.dumps(
-        {"fonte": f.fonte, "limiar": a.limiar, "arquivos": f.arquivos_lidos,
+        {"fonte": f.fonte, "revisao": f.revisao, "limiar": a.limiar,
+         "arquivos": f.arquivos_lidos,
          "vistos": f.vistos, "aceitos": f.aceitos, "taxa": round(f.taxa, 5),
          "bytes_lidos": f.bytes_lidos, "caracteres": f.caracteres_aceitos,
          "unidades_feitas": len(feitas_ate_agora),

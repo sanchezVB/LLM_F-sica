@@ -49,9 +49,23 @@ from phifm.corpus.slices.retomada import MANIFESTO, feitas, marcar, proximo_indi
 
 log = logging.getLogger(__name__)
 
+# ⚠️ Revisão FIXADA, não `main`. Ver o comentário de `RESOLVE` em
+# `hf_filtrado.py`: baixar de `main` é baixar de alvo móvel, e o G1.5 (DOC-00 §5)
+# pede o corpus refazível a partir de um hash.
+#
+# Aqui a exposição é menor do que parece, e a diferença importa: as URLs que este
+# índice lista já são versionadas na origem —
+# `data.together.xyz/redpajama-data-1T/v1.0.0/arxiv/…`, fora do HuggingFace. Os
+# shards em si não se movem; o que se movia era o índice. Fixar a revisão fecha o
+# único ponto móvel.
+#
+# O que resta é DISPONIBILIDADE, não mutabilidade: se a Together parar de servir
+# `v1.0.0`, a fatia não se refaz. Isso é risco de fonte externa, e nomeá-lo é o
+# melhor que se pode fazer sem espelhar 81 GB.
+REVISAO = "398f92572e94f4793e41c22ab7ea2a788d9e7de4"
 INDICE = (
     "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T"
-    "/resolve/main/urls/arxiv.txt"
+    f"/resolve/{REVISAO}/urls/arxiv.txt"
 )
 # Registros por arquivo de saída. 20 mil × ~25 KB de texto ≈ 500 MB por shard,
 # que é o limite confortável para o parquet e para a memória durante a escrita.

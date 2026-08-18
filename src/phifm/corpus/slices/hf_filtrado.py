@@ -65,7 +65,16 @@ from phifm.corpus.slices.retomada import feitas, marcar, proximo_indice
 log = logging.getLogger(__name__)
 
 API = "https://huggingface.co/api/datasets/{}"
-RESOLVE = "https://huggingface.co/datasets/{}/resolve/main/{}"
+# ⚠️ `{rev}`, não `main`. Baixar de `main` é baixar de um alvo MÓVEL: o dataset
+# pode ser revisado e a mesma execução do nosso código passa a produzir outro
+# corpus, sem erro e sem aviso.
+#
+# Descoberto ao construir o manifesto raiz do G1.5 (DOC-00 §5): o critério pede o
+# corpus refazível a partir de um hash, e uma fonte móvel torna isso impossível
+# por construção. Tivemos sorte — o OpenWebMath está na revisão
+# `fde8ef8de2300f5e778f56261843dab89f230815` desde 2023-10-17, anterior à nossa
+# coleta, então `main` não mudou debaixo de nós. Sorte não é reprodutibilidade.
+RESOLVE = "https://huggingface.co/datasets/{}/resolve/{}/{}"
 
 # Ver §"o limiar é 0,9" na docstring.
 LIMIAR = 0.9
@@ -80,6 +89,9 @@ MAX_TENTATIVAS = 8
 @dataclass
 class Filtragem:
     fonte: str
+    # Revisão (commit sha) da fonte no HuggingFace. Ver o comentário em `RESOLVE`:
+    # sem isto o manifesto do G1.5 nomeia a fonte sem identificar o conteúdo.
+    revisao: str = ""
     # Quantas unidades a FONTE publica. Sem isto, "acabou?" só era respondível
     # comparando contagens de naturezas diferentes — e a comparação errada dizia
     # "em curso" para uma coleta concluída. Ver o comentário em `filtrar_hf.py`.
@@ -115,19 +127,28 @@ class Classificador:
         return self.pipe.predict_proba(textos)[:, self.i_fisica].tolist()
 
 
-def _arquivos(sessao: requests.Session, ds: str, ext: tuple[str, ...]) -> list[tuple[str, int]]:
+def _arquivos(sessao: requests.Session, ds: str,
+              ext: tuple[str, ...]) -> tuple[list[tuple[str, int]], str]:
+    """(arquivos, revisão). A revisão é o que torna a fatia refazível.
+
+    Devolve o `sha` do commit do dataset junto com a lista. Sem ele, a coleta e o
+    manifesto descrevem "o dataset X", que é um nome, não um conteúdo.
+    """
     r = sessao.get(API.format(ds) + "?blobs=true", timeout=120)
     r.raise_for_status()
+    d = r.json()
     fs = [(f["rfilename"], f.get("size") or 0)
-          for f in r.json().get("siblings", [])
+          for f in d.get("siblings", [])
           if f["rfilename"].endswith(ext)]
-    return sorted(fs)
+    rev = d.get("sha") or "main"
+    return sorted(fs), rev
 
 
-def _baixar(sessao: requests.Session, ds: str, nome: str, destino: Path) -> int:
+def _baixar(sessao: requests.Session, ds: str, nome: str, destino: Path,
+            rev: str = "main") -> int:
     destino.parent.mkdir(parents=True, exist_ok=True)
     n = 0
-    with sessao.get(RESOLVE.format(ds, nome), timeout=1800, stream=True) as r:
+    with sessao.get(RESOLVE.format(ds, rev, nome), timeout=1800, stream=True) as r:
         r.raise_for_status()
         with open(destino, "wb") as f:
             for pedaco in r.iter_content(1 << 22):
@@ -170,13 +191,14 @@ def filtrar(
     sessao.headers.update({"User-Agent": user_agent(contato or "phifm")})
     clf = Classificador(modelo)
     temp = temp or (destino.parent / "_temp")
-    arquivos = _arquivos(sessao, ds, ext)
+    arquivos, revisao = _arquivos(sessao, ds, ext)
+    log.info("%s · revisão fixada em %s", ds, revisao)
     if max_arquivos:
         arquivos = arquivos[:max_arquivos]
     tot = sum(s for _, s in arquivos)
     log.info("%s · %d arquivos · %.1f GB", ds, len(arquivos), tot / 1e9)
 
-    f = Filtragem(fonte=ds, total_unidades=len(arquivos))
+    f = Filtragem(fonte=ds, total_unidades=len(arquivos), revisao=revisao)
     # ⚠️ Retomada por MANIFESTO. A versão anterior testava se
     # `part-{n-1}.parquet` existia, tratando número de ARQUIVO DE ENTRADA como
     # índice de SAÍDA — e no OpenWebMath um parquet cobre ~2,7 arquivos, então os
@@ -202,7 +224,7 @@ def filtrar(
             # não há timeout para desacelerar.
             for tentativa in range(MAX_TENTATIVAS):
                 try:
-                    f.bytes_lidos += _baixar(sessao, ds, nome, local)
+                    f.bytes_lidos += _baixar(sessao, ds, nome, local, revisao)
                     break
                 except (requests.ConnectionError, requests.Timeout) as exc:
                     espera = min(30 * 2 ** tentativa, 600)
