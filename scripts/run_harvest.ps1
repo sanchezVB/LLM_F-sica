@@ -36,7 +36,8 @@
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
 param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'negativos-stat', 'openalex', 'snapshot',
-                   'phiemb', 'phiemb-mini', 'phiemb-mini-1m5', 'phiemb-gc', 'g1', 'redpajama')][string]$Fonte = 'arxiv')
+                   'phiemb', 'phiemb-mini', 'phiemb-mini-1m5', 'phiemb-gc', 'phiemb-duros', 'g1',
+                   'redpajama')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -137,6 +138,33 @@ switch ($Fonte) {
                                 '--lote 128 --sub-lote 64 ' +
                                 '--passos-aval 500 --max-pares 1500000 ' +
                                 '--n-candidatos 1000' }
+    'phiemb-duros' { $script = 'scripts/train_embedding.py'
+                  $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
+                  # NEGATIVOS DIFICEIS minerados pelo proprio campeao (DOC-07 §4).
+                  #
+                  # A ultima alavanca barata do G1.2: as duas testadas mexiam na
+                  # QUANTIDADE de negativos e de dados, e as duas deram empate. Esta
+                  # mexe na DIFICULDADE deles.
+                  #
+                  # Mesmos 400 mil pares e mesmo lote 128 do campeao de proposito: a
+                  # unica variavel e a dificuldade dos negativos.
+                  #
+                  # `--pedaco-negativos 32` porque tres codificacoes de 128 nao cabem
+                  # nos 8 GB. Baixar o lote para 64 resolveria a memoria e mudaria os
+                  # negativos DO LOTE de 127 para 63 — duas variaveis de uma vez, e o
+                  # experimento perderia o sentido.
+                  #
+                  # ⚠️ Vai por AQUI e nao por um envelope .cmd caseiro, e a razao
+                  # custou um estouro de VRAM: `cmd.exe` rele o arquivo de lote do
+                  # disco a cada linha, por deslocamento de BYTES. Editei o envelope
+                  # para forcar UTF-8 enquanto ele executava, os offsets deslocaram e
+                  # o cmd RE-EXECUTOU a linha do python — duas sessoes de treino na
+                  # mesma placa. Este lancador tem trava por PID e nao permite isso.
+                  $argumentos = '--out models/phiemb-minilm-duros ' +
+                                '--base sentence-transformers/all-MiniLM-L6-v2 ' +
+                                '--lote 128 --passos-aval 200 --max-pares 400000 ' +
+                                '--n-candidatos 1000 --pedaco-negativos 32 ' +
+                                '--negativos data/processed/negativos_dificeis/pares_com_negativos.parquet' }
     'phiemb-gc' { $script = 'scripts/train_embedding.py'
                   $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
                   # GradCache: lote LOGICO 512 (511 negativos) com a memoria de

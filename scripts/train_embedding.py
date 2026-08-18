@@ -87,6 +87,16 @@ def main() -> int:
                         "SUBSTITUI os pares, porque já os contém")
     a = p.parse_args()
 
+    # ⚠️ UTF-8 na saída ANTES de configurar o log. As mensagens têm `★`, `→` e `·`,
+    # e num console ou redirecionamento em cp1252 os dois primeiros levantam no
+    # handler — o `logging` engole a exceção e a linha desaparece. Em 2026-08-18 a
+    # linha do melhor checkpoint sumiu do log assim: o checkpoint foi gravado, o
+    # registro dele não. Silêncio que parece "não aconteceu".
+    for fluxo in (sys.stdout, sys.stderr):
+        try:
+            fluxo.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
 
