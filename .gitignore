@@ -109,3 +109,9 @@ Thumbs.db
 
 # Cache de modelos (HuggingFace) — fica no HD, nunca no git
 /cache/
+
+# Pacote para o Kaggle: 211 MB de parquet derivado, reconstruível por
+# `scripts/empacotar_kaggle.py`. O MANIFESTO.json dele é o que importa versionar,
+# e ele é regenerado junto — versionar o parquet seria guardar duas vezes o que a
+# espinha já tem.
+/data/processed/kaggle_t1a/
