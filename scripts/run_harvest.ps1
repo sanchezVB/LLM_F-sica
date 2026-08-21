@@ -36,7 +36,7 @@
 # segundo par de scripts com trava e supervisor duplicados — e mecanismo
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
 param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'negativos-stat', 'openalex', 'snapshot',
-                   'phiemb', 'phiemb-mini', 'phiemb-mini-1m5', 'phiemb-gc', 'phiemb-duros', 'g1',
+                   'phiemb', 'phiemb-mini', 'phiemb-mini-1m5', 'phiemb-gc', 'phiemb-duros', 'phirank', 'g1',
                    'redpajama')][string]$Fonte = 'arxiv')
 
 $ErrorActionPreference = 'Stop'
@@ -138,6 +138,24 @@ switch ($Fonte) {
                                 '--lote 128 --sub-lote 64 ' +
                                 '--passos-aval 500 --max-pares 1500000 ' +
                                 '--n-candidatos 1000' }
+    'phirank'  { $script = 'scripts/train_rerank.py'
+                  $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
+                  # PhiRank, o T1b: cross-encoder que reordena o top-100 do PhiEmb.
+                  #
+                  # Le os negativos LIMPOS (sem os co-citados com o positivo). Com os
+                  # nao filtrados, 15,4% dos negativos sao documentos que a
+                  # literatura cita junto com o positivo — treinar um reranker a
+                  # rebaixa-los e ensinar a rebaixar o que e relevante, e a perda
+                  # desce normalmente enquanto isso acontece.
+                  #
+                  # 12.500 grupos de 8 = 100 mil exemplos. Medido nesta maquina:
+                  # 32,9 exemplos/s a 384 tokens, entao ~51 min.
+                  #
+                  # ⚠️ Desvio de especificacao registrado: o DOC-07 §4 pede
+                  # inicializacao do PhiEnc, que nao existe. Usado o MiniLM, a mesma
+                  # base do PhiEmb campeao.
+                  $argumentos = '--max-grupos 12500 --grupos 4 --n-negativos 7 ' +
+                                '--passos-aval 500 --grupos-aval 500' }
     'phiemb-duros' { $script = 'scripts/train_embedding.py'
                   $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
                   # NEGATIVOS DIFICEIS minerados pelo proprio campeao (DOC-07 §4).
@@ -236,8 +254,13 @@ New-Item -ItemType Directory -Force (Split-Path -Parent $log) | Out-Null
 #
 # `&` e nao `&&`: a trava tem de sair mesmo se o python falhar. Se o processo for
 # MORTO, o del nao roda e a trava fica orfa — que e o caso que o lancador ja trata.
+# ⚠️ `-u`. Sem ele o Python bufferiza a saida em blocos de 8 KB quando ela vai
+# para ARQUIVO, e um treino que loga uma linha a cada 50 passos leva ~20 min para
+# encher o primeiro bloco. Ate la o log fica com ZERO bytes com o processo vivo,
+# o que e indistinguivel de "morreu na partida" — e me custou dois diagnosticos
+# errados: em 2026-08-18 no minerador e em 2026-08-21 no PhiRank.
 $linha = 'cmd.exe /c "set PYTHONPATH=src&& set PYTHONUTF8=1&& ' +
-         "`"$python`" $script $argumentos >> `"$log`" 2>&1" +
+         "`"$python`" -u $script $argumentos >> `"$log`" 2>&1" +
          " & del /q `"$trava`"`""
 
 $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
