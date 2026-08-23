@@ -37,7 +37,17 @@
 # duplicado e ramo sem teste. Preferi o nome torto ao codigo torto.
 param([ValidateSet('arxiv', 'negativos', 'negativos-math', 'negativos-stat', 'openalex', 'snapshot',
                    'phiemb', 'phiemb-mini', 'phiemb-mini-1m5', 'phiemb-gc', 'phiemb-duros', 'phirank', 'g1',
-                   'redpajama')][string]$Fonte = 'arxiv')
+                   'redpajama')][string]$Fonte = 'arxiv',
+    # ⚠️ Roda o python NESTE processo, bloqueando, em vez de destacar por WMI.
+    #
+    # Existe para a Tarefa Agendada. Ela chama este lancador, e o lancador
+    # destacava por WMI e RETORNAVA — a tarefa ia para "Ready" em segundos e o
+    # treino voltava a ser orfao, que e exatamente o que morre quando a sessao
+    # termina. Com isto a tarefa SEGURA o processo, que e o ponto dela.
+    #
+    # No modo normal (sem esta bandeira) nada muda: quem chama do terminal quer o
+    # prompt de volta.
+    [switch]$EmPrimeiroPlano)
 
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -259,6 +269,22 @@ New-Item -ItemType Directory -Force (Split-Path -Parent $log) | Out-Null
 # encher o primeiro bloco. Ate la o log fica com ZERO bytes com o processo vivo,
 # o que e indistinguivel de "morreu na partida" — e me custou dois diagnosticos
 # errados: em 2026-08-18 no minerador e em 2026-08-21 no PhiRank.
+if ($EmPrimeiroPlano) {
+    # A trava tambem e escrita aqui: e o mesmo contrato do modo destacado, e sem
+    # ela `estado_processos.ps1` e o supervisor nao enxergariam este treino.
+    Set-Content -Path $trava -Value $PID -Encoding ascii
+    $env:PYTHONPATH = 'src'
+    $env:PYTHONUTF8 = '1'
+    Write-Output "$Fonte em primeiro plano (PID $PID) - log: $log"
+    try {
+        & $python -u $script @($argumentos -split ' ') 2>&1 |
+            ForEach-Object { $_ | Out-File -FilePath $log -Append -Encoding utf8 }
+    } finally {
+        Remove-Item $trava -Force -ErrorAction SilentlyContinue
+    }
+    exit 0
+}
+
 $linha = 'cmd.exe /c "set PYTHONPATH=src&& set PYTHONUTF8=1&& ' +
          "`"$python`" -u $script $argumentos >> `"$log`" 2>&1" +
          " & del /q `"$trava`"`""
