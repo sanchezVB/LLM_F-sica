@@ -100,8 +100,9 @@ def main() -> int:
     p.add_argument("--max-tokens", type=int, default=384)
     p.add_argument("--lr", type=float, default=2e-5)
     p.add_argument("--max-grupos", type=int, default=None,
-                   help="teto de grupos; 12.500 grupos de 8 = 100 mil exemplos, "
-                        "~51 min medidos nesta máquina")
+                   help="teto de grupos, SORTEADOS (não os primeiros); 12.500 "
+                        "grupos de 8 = 100 mil exemplos, ~1,7 h medidos nesta "
+                        "máquina com --grupos 2")
     p.add_argument("--passos-aval", type=int, default=500)
     p.add_argument("--grupos-aval", type=int, default=500)
     p.add_argument("--val-frac", type=float, default=0.05,

@@ -98,9 +98,38 @@ class MetricasRank:
     # `n_candidatos`.
     acerto_top1: float = 0.0
     mrr_grupo: float = 0.0
-    n_grupos_aval: int = 0
+    # ⚠️ DOCUMENTOS distintos, nao linhas. Linhas do mesmo documento citado nao
+    # sao observacoes independentes, e chamar isto de "grupos" foi o que escondeu
+    # que `head(500)` media 35 documentos. Ver `TreinadorRank.avaliar`.
+    n_documentos_aval: int = 0
     exemplos_por_s: float = 0.0
     historico: list[dict] = field(default_factory=list)
+
+
+def amostrar_por_documento(d: pl.DataFrame, n: int,
+                           semente: int = 17) -> tuple[pl.DataFrame, int]:
+    """Sorteia `n` linhas e devolve `(amostra, documentos distintos)`.
+
+    ⚠️ Existe para que `head` nunca volte. Medido em 2026-08-24: o parquet de pares
+    vem AGRUPADO por documento citado, então as primeiras linhas são poucos papers
+    repetidos ~14 a ~22 vezes:
+
+        val.head(  200) ->   200 linhas ·  16 documentos
+        val.head(  500) ->   500 linhas ·  35 documentos
+        val.sample(500) ->   500 linhas · 259 documentos
+
+    Linhas do mesmo documento citado não são observações independentes: o n efetivo
+    de qualquer métrica é o número de DOCUMENTOS. Com 35, o acerto@1 de 0,364 tinha
+    intervalo de 95% de ±0,159 e não se distinguia da base de 0,198 — e as divisões
+    contaminada e honesta reportaram o mesmo número porque as duas mediam as mesmas
+    três dezenas de papers.
+
+    O segundo valor devolvido é o n efetivo, e serve para dimensionar o intervalo.
+    """
+    amostra = d.sample(n=n, seed=semente) if n and n < len(d) else d
+    n_doc = (amostra["arxiv_citado"].n_unique()
+             if "arxiv_citado" in amostra.columns else len(amostra))
+    return amostra, int(n_doc)
 
 
 class GruposDataset(Dataset):
@@ -196,10 +225,30 @@ class TreinadorRank:
 
     @torch.no_grad()
     def avaliar(self, val: pl.DataFrame) -> tuple[float, float, int]:
-        """(acerto no topo, MRR no grupo, grupos avaliados)."""
+        """(acerto no topo, MRR no grupo, DOCUMENTOS distintos avaliados).
+
+        ⚠️ Amostra ALEATÓRIA, não `head`. Medido em 2026-08-24: o parquet vem
+        agrupado por documento citado, então `val.head(500)` são 500 linhas mas
+        apenas **35 documentos**, cada um repetido ~14 vezes. Linhas do mesmo
+        documento não são observações independentes — o n efetivo da métrica é o
+        número de DOCUMENTOS, e era 35.
+
+        O estrago: com n efetivo 35, o acerto@1 de 0,364 carrega intervalo de 95%
+        de ±0,159 — [0,205, 0,523] contra uma base de 0,198. O ganho inteiro cabia
+        dentro do ruído da própria medida. Foi por isso que a divisão contaminada e
+        a divisão honesta reportaram o mesmo número: as duas mediam as mesmas três
+        dezenas de documentos, e nenhuma das duas media generalização.
+
+        Com `sample`, 1.500 grupos cobrem 457 documentos e o intervalo cai para
+        ±0,045 — aí dá para decidir alguma coisa.
+
+        O terceiro valor devolvido passa a ser DOCUMENTOS distintos, não linhas,
+        porque é ele que dimensiona o intervalo de confiança.
+        """
         self.mod.eval()
-        ds = GruposDataset(val.head(self.cfg.grupos_aval), self.cfg.n_negativos,
-                           self.cfg.semente)
+        amostra, n_doc = amostrar_por_documento(val, self.cfg.grupos_aval,
+                                                self.cfg.semente)
+        ds = GruposDataset(amostra, self.cfg.n_negativos, self.cfg.semente)
         carregador = DataLoader(ds, batch_size=self.cfg.grupos, shuffle=False,
                                 collate_fn=colar_grupos)
         top1 = rr = n = 0.0
@@ -210,7 +259,16 @@ class TreinadorRank:
             rr += float((1.0 / (pos + 1)).sum())
             n += len(consultas)
         self.mod.train()
-        return top1 / max(n, 1), rr / max(n, 1), int(n)
+        return top1 / max(n, 1), rr / max(n, 1), int(n_doc)
+
+    @staticmethod
+    def _ic95(p: float, n_doc: int) -> float:
+        """Meia-largura do intervalo de 95% sobre o n EFETIVO (documentos).
+
+        Impressa junto da métrica de propósito: foi a ausência dela que deixou
+        `head(500)` passar por 500 observações durante toda uma semana.
+        """
+        return 1.96 * (max(p * (1.0 - p), 0.0) / max(n_doc, 1)) ** 0.5
 
     def salvar(self, saida: Path, m: MetricasRank | None = None,
                concluido: bool = False) -> None:
@@ -275,8 +333,20 @@ class TreinadorRank:
 
     def treinar(self, treino: pl.DataFrame, val: pl.DataFrame,
                 saida: Path) -> MetricasRank:
-        if self.cfg.max_grupos:
-            treino = treino.head(self.cfg.max_grupos)
+        if self.cfg.max_grupos and self.cfg.max_grupos < len(treino):
+            # ⚠️ `sample`, nao `head` — pelo mesmo motivo que em `avaliar`, e aqui
+            # o preco e maior porque afeta o TREINO e nao so a medida.
+            #
+            # O parquet vem agrupado por documento citado. `head(12.500)` sao 12.500
+            # linhas cobrindo ~700 documentos distintos, cada um repetido ~18 vezes:
+            # o modelo ve o mesmo punhado de papers como positivo o treino inteiro.
+            # `sample(12.500)` cobre ~9.000 documentos pelo MESMO custo de GPU.
+            _, antes = amostrar_por_documento(treino, 0, self.cfg.semente)
+            treino, n_doc_tr = amostrar_por_documento(
+                treino, self.cfg.max_grupos, self.cfg.semente)
+            log.info("treino: %s grupos sorteados · %s documentos distintos "
+                     "(de %s disponiveis)", f"{len(treino):,}",
+                     f"{n_doc_tr:,}", f"{antes:,}")
         g = torch.Generator().manual_seed(self.cfg.semente)
         carregador = DataLoader(
             GruposDataset(treino, self.cfg.n_negativos, self.cfg.semente),
@@ -287,14 +357,14 @@ class TreinadorRank:
         inicio = self.retomar(saida)
 
         top1, mrr, n = self.avaliar(val)
-        log.info("%s | grupos de %d: acerto@1 %.3f · MRR %.3f (%d grupos)",
+        log.info("%s | grupos de %d: acerto@1 %.3f ±%.3f · MRR %.3f (%d documentos)",
                  "base" if not inicio else f"ponto de partida (passo {inicio:,})",
-                 1 + self.cfg.n_negativos, top1, mrr, n)
+                 1 + self.cfg.n_negativos, top1, self._ic95(top1, n), mrr, n)
         # ⚠️ O acerto ao acaso é 1/(1+n_negativos) = 0,125 com grupo de 8. Um modelo
         # não treinado fica em torno disso, e um número perto de 0,125 no fim
         # significaria que ele não aprendeu — não que a métrica é ruim.
         log.info("  (acaso = %.3f)", 1.0 / (1 + self.cfg.n_negativos))
-        m.n_grupos_aval = n
+        m.n_documentos_aval = n
         m.historico.append({"passo": inicio, "acerto_top1": top1, "mrr_grupo": mrr,
                             "nota": "antes do treino" if not inicio
                                     else f"retomado do passo {inicio}"})
@@ -335,8 +405,9 @@ class TreinadorRank:
 
             if passo % self.cfg.passos_aval == 0:
                 top1, mrr, n = self.avaliar(val)
-                m.acerto_top1, m.mrr_grupo, m.n_grupos_aval = top1, mrr, n
-                log.info("  aval: acerto@1 %.3f · MRR %.3f", top1, mrr)
+                m.acerto_top1, m.mrr_grupo, m.n_documentos_aval = top1, mrr, n
+                log.info("  aval: acerto@1 %.3f ±%.3f · MRR %.3f (%d documentos)",
+                         top1, self._ic95(top1, n), mrr, n)
                 m.historico.append({"passo": passo, "acerto_top1": top1,
                                     "mrr_grupo": mrr, "perda": valor})
                 self.salvar(saida, m)
@@ -346,9 +417,10 @@ class TreinadorRank:
                 self.salvar_estado(saida, passo)
 
         top1, mrr, n = self.avaliar(val)
-        m.acerto_top1, m.mrr_grupo, m.n_grupos_aval = top1, mrr, n
+        m.acerto_top1, m.mrr_grupo, m.n_documentos_aval = top1, mrr, n
         self.salvar_estado(saida, m.passo)
         self.salvar(saida, m, concluido=True)
         self._talvez_melhor(saida, m, top1)
-        log.info("passo %d | CONCLUIDO · acerto@1 %.3f · MRR %.3f", m.passo, top1, mrr)
+        log.info("passo %d | CONCLUIDO · acerto@1 %.3f ±%.3f · MRR %.3f (%d documentos)",
+                 m.passo, top1, self._ic95(top1, n), mrr, n)
         return m
