@@ -175,3 +175,71 @@ def test_zip_traz_o_ponto_de_entrada_e_o_pacote(tmp_path):
     assert "scripts/train_embedding.py" in nomes
     assert "phifm/training/embedding.py" in nomes
     assert not any("__pycache__" in n for n in nomes)
+
+
+# ─── publicação: os dois metadados e o notebook gerado ───────────────────────
+
+
+def _publicar():
+    """Importa `scripts/publicar_kaggle.py` sem executá-lo."""
+    import importlib.util
+
+    raiz = Path(__file__).resolve().parents[2]
+    caminho = raiz / "scripts/publicar_kaggle.py"
+    spec = importlib.util.spec_from_file_location("publicar_kaggle", caminho)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_o_slug_do_dataset_sai_de_um_lugar_so():
+    """Os dois metadados carregam o slug, e divergentes dão erro só no Kaggle.
+
+    O `id` do dataset e o `dataset_sources` do notebook têm de casar. Se não
+    casarem, o notebook sobe, roda, e morre no `assert` de que não achou o
+    `MANIFESTO.json` — depois de consumir cota de GPU.
+    """
+    m = _publicar()
+    assert m.SLUG_DADOS and m.SLUG_NB
+    assert m.SLUG_DADOS != m.SLUG_NB, "dataset e notebook não podem ter o mesmo slug"
+
+
+def test_a_celula_extraida_e_python_valido():
+    """O extrator é um regex sobre um arquivo nosso; se o formato mudar, quebra."""
+    import ast
+
+    ast.parse(_publicar()._celula())
+
+
+def test_o_notebook_gerado_nao_reimplementa_o_treino():
+    """A mesma garantia do arquivo-fonte, agora depois de passar pelo gerador.
+
+    Um gerador que perdesse a chamada ao `train_embedding.py` produziria um
+    notebook que não treina nada, e o teste do arquivo-fonte não veria.
+    """
+    m = _publicar()
+    codigo = "".join(m._ipynb(m._celula())["cells"][0]["source"])
+    assert "codigo/scripts/train_embedding.py" in codigo
+    assert "InfoNCE" not in codigo, "o laço de treino vazou para o notebook"
+    assert "backward()" not in codigo, "o laço de treino vazou para o notebook"
+
+
+def test_o_ipynb_tem_uma_celula_de_codigo_e_nbformat_4():
+    m = _publicar()
+    nb = m._ipynb("print(1)\n")
+    assert nb["nbformat"] == 4
+    assert len(nb["cells"]) == 1
+    assert nb["cells"][0]["cell_type"] == "code"
+    assert nb["cells"][0]["outputs"] == [], "notebook gerado não deve trazer saída"
+
+
+def test_extrator_quebra_alto_se_o_formato_mudar(tmp_path, monkeypatch):
+    """Gerar um notebook vazio em silêncio custaria uma sessão de GPU para descobrir."""
+    import pytest
+
+    m = _publicar()
+    falso = tmp_path / "sem_celula.py"
+    falso.write_text('"""nada aqui."""\n', encoding="utf-8")
+    monkeypatch.setattr(m, "FONTE_CELULA", falso)
+    with pytest.raises(SystemExit, match="CELULA"):
+        m._celula()
