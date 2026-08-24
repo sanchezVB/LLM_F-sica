@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 """Prepara (e opcionalmente envia) o Dataset e o Notebook do Kaggle para o T1a.
 
-    PYTHONPATH=src .venv/Scripts/python.exe scripts/publicar_kaggle.py --usuario SEU_USUARIO
-    PYTHONPATH=src .venv/Scripts/python.exe scripts/publicar_kaggle.py --usuario SEU_USUARIO --enviar
+No PowerShell, que e o shell desta maquina:
+
+    .venv\\Scripts\\python.exe -m kaggle auth login
+    .venv\\Scripts\\python.exe scripts\\publicar_kaggle.py --usuario SEU_USUARIO
+    .venv\\Scripts\\python.exe scripts\\publicar_kaggle.py --usuario SEU_USUARIO --enviar
+
+⚠️ SEM `PYTHONPATH=src`. Este script nao importa nada de `phifm` — so a stdlib —,
+e o prefixo veio por habito dos outros comandos do projeto. Pior: `VAR=valor cmd`
+e sintaxe de bash e o PowerShell nao a tem, entao o comando morria em
+`CommandNotFoundException` antes de rodar qualquer coisa. No PowerShell seria
+`$env:PYTHONPATH = 'src'`, mas aqui nao e necessario.
 
 ## Por que um script e não arquivos escritos à mão
 
