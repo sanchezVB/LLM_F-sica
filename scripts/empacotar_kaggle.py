@@ -93,10 +93,38 @@ def main() -> int:
     tr = pl.scan_parquet(a.pares / "pares_treino.parquet").head(a.max_pares).collect()
     tr.write_parquet(a.out / "pares_treino.parquet", compression="zstd")
     shutil.copy2(a.pares / "pares_validacao.parquet", a.out / "pares_validacao.parquet")
-    n_py = _zipar_fonte(raiz, a.out / "phifm_src.zip")
+    # ⚠️ `.zip.bin`, nao `.zip`. O Kaggle DESCOMPACTA arquivos .zip no upload:
+    # medido em 2026-08-24, `phifm_src.zip` chegou no dataset como o diretorio
+    # `phifm_src/`, o notebook morreu em FileNotFoundError aos 26 s, e — pior — o
+    # hash do FONTE deixou de ser conferivel, porque o arquivo que o manifesto
+    # descreve nao existia mais.
+    #
+    # Com uma extensao que o Kaggle nao reconhece como arquivo, ele guarda os bytes
+    # como estao e a conferencia por blake3 volta a valer. O `zipfile` abre pelo
+    # conteudo e nao pela extensao, entao nada mais muda.
+    n_py = _zipar_fonte(raiz, a.out / "phifm_src.zip.bin")
 
-    arquivos = sorted(f for f in a.out.iterdir() if f.is_file()
-                      and f.name != "MANIFESTO.json")
+    # ⚠️ O conteudo do pacote e uma lista DECLARADA, e o que nao esta nela sai.
+    #
+    # Antes o manifesto era montado de `iterdir()`, entao qualquer arquivo obsoleto
+    # no diretorio entrava na atestacao e subia para o Kaggle. Aconteceu em
+    # 2026-08-24: ao renomear o fonte para `.zip.bin`, o `phifm_src.zip` antigo
+    # ficou, e o manifesto passou a descrever OS DOIS — 175 KB de codigo velho
+    # atestados como se fizessem parte do pacote.
+    #
+    # Um manifesto que descreve o que sobrou no disco em vez do que a etapa produziu
+    # nao atesta nada.
+    ESPERADOS = ("pares_treino.parquet", "pares_validacao.parquet",
+                 "phifm_src.zip.bin")
+    for f in sorted(a.out.iterdir()):
+        if f.is_file() and f.name not in ESPERADOS and f.name != "MANIFESTO.json":
+            log.warning("removendo arquivo que nao pertence ao pacote: %s", f.name)
+            f.unlink()
+    arquivos = [a.out / n for n in ESPERADOS]
+    faltando = [f.name for f in arquivos if not f.exists()]
+    if faltando:
+        raise SystemExit(f"o pacote ficou sem {faltando} — nao vou gravar um "
+                         "manifesto que descreve menos do que o notebook exige")
     manifesto = {
         "git_sha": git_sha_curto(),
         "max_pares": a.max_pares,

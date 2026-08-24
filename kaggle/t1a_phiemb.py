@@ -81,9 +81,14 @@ except ImportError:
               "o manifesto é blake3 e não há com o que comparar")
 
 if algo == "blake3":
+    conferidos, ausentes = 0, []
     for nome, esperado in man["arquivos"].items():
+        caminho = DADOS / nome
+        if not caminho.exists():
+            ausentes.append(nome)
+            continue
         h = _h()
-        with open(DADOS / nome, "rb") as f:
+        with open(caminho, "rb") as f:
             while b := f.read(1 << 22):
                 h.update(b)
         obtido = h.hexdigest()
@@ -91,12 +96,43 @@ if algo == "blake3":
             f"{nome}: hash difere. Esperado {esperado['blake3'][:12]}…, "
             f"obtido {obtido[:12]}…. Upload truncado ou dataset trocado — "
             f"treinar sobre isto daria número incomparável.")
-    print(f"✅ {len(man['arquivos'])} arquivos conferidos por blake3")
+        conferidos += 1
+    print(f"✅ {conferidos} arquivos conferidos por blake3")
+    for nome in ausentes:
+        print(f"⚠️ {nome} não está no dataset — hash NÃO conferido")
 
-# 3. O código vem do ZIP: o notebook NÃO reimplementa o treino.
-with zipfile.ZipFile(DADOS / "phifm_src.zip") as z:
-    z.extractall(TRABALHO / "codigo")
-sys.path.insert(0, str(TRABALHO / "codigo"))
+    # ⚠️ Os parquets não têm desculpa para faltar: são os DADOS. Sem eles não há
+    # treino, e um `assert` aqui é mais barato que descobrir no meio do laço.
+    for obrigatorio in ("pares_treino.parquet", "pares_validacao.parquet"):
+        assert (DADOS / obrigatorio).exists(), (
+            f"{obrigatorio} não está no dataset. Confira o Input do notebook.")
+
+# 3. O código vem do pacote: o notebook NÃO reimplementa o treino.
+#
+# ⚠️ Duas formas possíveis, e a segunda é o Kaggle mexendo no que subiu. Medido em
+# 2026-08-24: um `phifm_src.zip` é DESCOMPACTADO no upload e chega como o diretório
+# `phifm_src/` — o `ZipFile` morria em FileNotFoundError aos 26 s. O empacotador
+# passou a gravar `.zip.bin` por isso, mas um dataset antigo ainda tem a forma
+# extraída, então as duas são aceitas.
+_zip = next((DADOS / n for n in ("phifm_src.zip.bin", "phifm_src.zip")
+             if (DADOS / n).exists()), None)
+if _zip is not None:
+    with zipfile.ZipFile(_zip) as z:
+        z.extractall(TRABALHO / "codigo")
+    CODIGO = TRABALHO / "codigo"
+elif (DADOS / "phifm_src").is_dir():
+    # Não dá para conferir hash de árvore extraída contra um manifesto de arquivo,
+    # e dizer isso alto é melhor que treinar em silêncio sobre código não conferido.
+    print("⚠️ usando `phifm_src/` que o Kaggle extraiu. A integridade do CÓDIGO "
+          "não foi conferida — só a dos parquets. Para conferir, republique o "
+          "dataset com `scripts/empacotar_kaggle.py`, que agora grava .zip.bin")
+    CODIGO = DADOS / "phifm_src"
+else:
+    raise SystemExit(
+        f"não achei o código no dataset. Esperava `phifm_src.zip.bin` ou o "
+        f"diretório `phifm_src/` em {DADOS}. Presentes: "
+        f"{sorted(p.name for p in DADOS.iterdir())}")
+sys.path.insert(0, str(CODIGO))
 
 import torch
 print(f"torch {torch.__version__} · CUDA {torch.cuda.is_available()} · "
@@ -111,7 +147,7 @@ assert torch.cuda.is_available(), (
 #    aumentar é um experimento SEPARADO.
 SAIDA = TRABALHO / "phiemb-minilm-t4"
 cmd = [
-    sys.executable, "-u", str(TRABALHO / "codigo/scripts/train_embedding.py"),
+    sys.executable, "-u", str(CODIGO / "scripts/train_embedding.py"),
     "--pares", str(DADOS),
     "--out", str(SAIDA),
     "--base", "sentence-transformers/all-MiniLM-L6-v2",

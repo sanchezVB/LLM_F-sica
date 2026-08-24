@@ -115,7 +115,7 @@ def test_empacotador_existe_e_declara_o_volume():
 def test_pacote_gerado_tem_o_que_o_notebook_espera(tmp_path):
     """Contrato entre o empacotador e a célula, testado nos dois lados.
 
-    Se o empacotador parar de gerar `phifm_src.zip`, ou o manifesto perder a chave
+    Se o empacotador parar de gerar `phifm_src.zip.bin`, ou o manifesto perder a chave
     `arquivos`, a célula falha no Kaggle — a 211 MB de upload de distância.
     """
     import polars as pl
@@ -140,7 +140,7 @@ def test_pacote_gerado_tem_o_que_o_notebook_espera(tmp_path):
 
     man = json.loads((saida / "MANIFESTO.json").read_text(encoding="utf-8"))
     assert set(man["arquivos"]) == {"pares_treino.parquet",
-                                    "pares_validacao.parquet", "phifm_src.zip"}
+                                    "pares_validacao.parquet", "phifm_src.zip.bin"}
     for v in man["arquivos"].values():
         assert len(v["blake3"]) == 64 and v["bytes"] > 0
     assert man["hash_algo"] == "blake3"
@@ -170,7 +170,7 @@ def test_zip_traz_o_ponto_de_entrada_e_o_pacote(tmp_path):
         env={**__import__("os").environ, "PYTHONPATH": str(RAIZ / "src"),
              "PYTHONUTF8": "1"}, check=True)
 
-    with zipfile.ZipFile(saida / "phifm_src.zip") as z:
+    with zipfile.ZipFile(saida / "phifm_src.zip.bin") as z:
         nomes = z.namelist()
     assert "scripts/train_embedding.py" in nomes
     assert "phifm/training/embedding.py" in nomes
@@ -219,7 +219,7 @@ def test_o_notebook_gerado_nao_reimplementa_o_treino():
     """
     m = _publicar()
     codigo = "".join(m._ipynb(m._celula())["cells"][0]["source"])
-    assert "codigo/scripts/train_embedding.py" in codigo
+    assert "scripts/train_embedding.py" in codigo
     assert "InfoNCE" not in codigo, "o laço de treino vazou para o notebook"
     assert "backward()" not in codigo, "o laço de treino vazou para o notebook"
 
@@ -243,3 +243,62 @@ def test_extrator_quebra_alto_se_o_formato_mudar(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "FONTE_CELULA", falso)
     with pytest.raises(SystemExit, match="CELULA"):
         m._celula()
+
+
+def test_o_fonte_nao_sai_com_extensao_zip():
+    """⚠️ O Kaggle DESCOMPACTA `.zip` no upload, e isso quebrou o T1a duas vezes.
+
+    Medido em 2026-08-24: `phifm_src.zip` chegou no dataset como o diretório
+    `phifm_src/`. O notebook morreu em `FileNotFoundError` aos 26 s — e pior, o hash
+    do CÓDIGO deixou de ser conferível, porque o arquivo que o manifesto descreve não
+    existia mais no dataset.
+
+    Uma extensão que o Kaggle não reconhece como arquivo preserva os bytes, e o
+    `zipfile` abre pelo conteúdo, não pela extensão.
+    """
+    fonte = (Path(__file__).resolve().parents[2] / "scripts/empacotar_kaggle.py"
+             ).read_text(encoding="utf-8")
+    assert '"phifm_src.zip.bin"' in fonte
+    assert '_zipar_fonte(raiz, a.out / "phifm_src.zip")' not in fonte, (
+        "voltou a gravar .zip — o Kaggle vai descompactar e o hash do código morre")
+
+
+def test_a_celula_aceita_o_fonte_extraido_pelo_kaggle():
+    """Um dataset publicado ANTES do conserto tem `phifm_src/` em vez do arquivo.
+
+    Aceitar as duas formas evita exigir um reupload de 211 MB só para rodar — mas o
+    caminho extraído tem de AVISAR que a integridade do código não foi conferida.
+    """
+    celula = CELULA
+    assert 'phifm_src.zip.bin' in celula
+    assert '(DADOS / "phifm_src").is_dir()' in celula
+    assert "não foi conferida" in celula, (
+        "o caminho extraído precisa dizer alto que o código não foi verificado")
+
+
+def test_parquets_ausentes_derrubam_antes_do_treino():
+    """Hash não conferido é aviso; dado faltando é parada.
+
+    Depois que a conferência passou a TOLERAR arquivo ausente (para aceitar o fonte
+    extraído), nada impediria seguir sem os parquets — e a falha apareceria no meio
+    do laço, longe da causa.
+    """
+    celula = CELULA
+    assert 'for obrigatorio in ("pares_treino.parquet", "pares_validacao.parquet")' \
+        in celula
+
+
+def test_manifesto_descreve_o_que_a_etapa_produziu_nao_o_que_sobrou_no_disco(tmp_path):
+    """Arquivo obsoleto no diretório de saída não pode entrar na atestação.
+
+    Medido em 2026-08-24: ao renomear o fonte para `.zip.bin`, o `phifm_src.zip`
+    antigo ficou no diretório e o manifesto passou a descrever OS DOIS — 175 KB de
+    código velho atestados como parte do pacote, e enviados ao Kaggle.
+
+    Um manifesto montado de `iterdir()` descreve o que sobrou no disco, não o que a
+    etapa produziu. Isso não atesta nada.
+    """
+    fonte = (RAIZ / "scripts/empacotar_kaggle.py").read_text(encoding="utf-8")
+    assert "ESPERADOS" in fonte, "a lista declarada de conteúdo desapareceu"
+    assert "f.name not in ESPERADOS" in fonte, (
+        "voltou a aceitar qualquer arquivo do diretório no manifesto")
