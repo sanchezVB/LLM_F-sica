@@ -185,3 +185,68 @@ def ndcg_em_10(posicoes: list[int | None]) -> float:
         return 0.0
     return sum(0.0 if p is None or p >= 10 else 1.0 / math.log2(2 + p)
                for p in posicoes) / len(posicoes)
+
+
+def mcnemar_em(posicoes_a: list[int | None], posicoes_b: list[int | None],
+               k: int, nome_a: str = "A", nome_b: str = "B") -> dict:
+    """McNemar exato sobre "o alvo chegou ao top-k". Pareado, nas MESMAS consultas.
+
+    ## Por que pareado, e não duas proporções
+
+    A composição do T1b compara sistemas medidos nas **mesmas** consultas. Tratados
+    como proporções independentes, 0,233 contra 0,240 em 300 consultas dá erro
+    padrão de ±0,024 cada e qualquer diferença real desaparece no ruído.
+
+    Mas a maioria das consultas os dois sistemas acertam juntos ou erram juntos, e
+    essas **não carregam informação sobre a diferença**. O que decide são as
+    discordantes: consultas que um recupera no top-k e o outro não. Se há 40
+    discordantes e o placar é 28 a 12, isso é evidência; como proporções soltas
+    pareceria empate.
+
+    ## Por que sobre `top-k` e não sobre o nDCG
+
+    O nDCG por consulta é contínuo e um teste sobre a média dele precisaria supor
+    uma distribuição. "Chegou ao top-k" é binário e o teste exato não supõe nada —
+    é uma binomial sobre os discordantes. Perde-se a informação de POSIÇÃO dentro
+    do top-k, e é uma troca consciente: um veredito exato sobre menos informação é
+    melhor que um aproximado sobre mais.
+
+    ## Limite declarado
+
+    Com poucos discordantes o teste não decide, e dizer isso é melhor que inventar
+    significância. `p` é bicaudal e exato, sem aproximação normal — que é ruim
+    justamente quando os números são pequenos.
+    """
+    if len(posicoes_a) != len(posicoes_b):
+        return {"erro": f"tamanhos diferentes: {len(posicoes_a)} vs {len(posicoes_b)}"}
+    if not posicoes_a:
+        return {"erro": "sem consultas"}
+
+    def dentro(p: int | None) -> bool:
+        return p is not None and p < k
+
+    ganha_a = sum(1 for x, y in zip(posicoes_a, posicoes_b, strict=True)
+                  if dentro(x) and not dentro(y))
+    ganha_b = sum(1 for x, y in zip(posicoes_a, posicoes_b, strict=True)
+                  if dentro(y) and not dentro(x))
+    disc = ganha_a + ganha_b
+
+    if disc == 0:
+        return {"a": nome_a, "b": nome_b, "k": k, "ganha_a": 0, "ganha_b": 0,
+                "discordantes": 0, "p": 1.0,
+                "veredito": f"idênticos consulta a consulta no top-{k}"}
+
+    k_menor = min(ganha_a, ganha_b)
+    cauda = sum(math.comb(disc, i) for i in range(k_menor + 1)) / 2 ** disc
+    p = min(1.0, 2 * cauda)
+    vencedor = nome_a if ganha_a > ganha_b else nome_b
+
+    if p < 0.05:
+        v = f"{vencedor} vence no top-{k} (p={p:.2g})"
+    elif disc < 20:
+        v = f"indeciso — só {disc} discordantes (p={p:.3f})"
+    else:
+        v = f"empate — {disc} discordantes não separam (p={p:.3f})"
+
+    return {"a": nome_a, "b": nome_b, "k": k, "ganha_a": ganha_a,
+            "ganha_b": ganha_b, "discordantes": disc, "p": p, "veredito": v}

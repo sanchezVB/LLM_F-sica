@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from phifm.eval.hibrido import (  # noqa: E402
     BM25,
     fundir_rrf,
+    mcnemar_em,
     ndcg_em_10,
     recall_em,
     tokenizar,
@@ -191,3 +192,58 @@ def test_recall_e_o_teto_do_reranker():
     perfeito = ndcg_em_10([0 if p is not None and p < 100 else None
                            for p in posicoes])
     assert perfeito == teto == 0.6
+
+
+# ─── McNemar pareado ─────────────────────────────────────────────────────────
+
+
+def test_pareado_enxerga_diferenca_que_proporcoes_esconderiam():
+    """O ponto do teste pareado, escrito como número.
+
+    100 consultas: 80 os dois acertam, 5 os dois erram, e das 15 discordantes o A
+    ganha 14. Como duas proporções (0,94 contra 0,81) o erro padrão engoliria a
+    diferença; pareado, 14 a 1 em 15 é significativo.
+    """
+    a = [0] * 80 + [None] * 5 + [0] * 14 + [None]
+    b = [0] * 80 + [None] * 5 + [None] * 14 + [0]
+    r = mcnemar_em(a, b, 10, "A", "B")
+    assert r["ganha_a"] == 14 and r["ganha_b"] == 1
+    assert r["discordantes"] == 15
+    assert r["p"] < 0.05, f"14 a 1 deveria decidir, p={r['p']}"
+    assert r["a"] in r["veredito"]
+
+
+def test_pareado_nao_inventa_significancia_com_poucos_discordantes():
+    """Com 6 discordantes 4 a 2, o honesto é dizer indeciso."""
+    a = [0] * 90 + [0] * 4 + [None] * 2
+    b = [0] * 90 + [None] * 4 + [0] * 2
+    r = mcnemar_em(a, b, 10)
+    assert r["discordantes"] == 6
+    assert r["p"] > 0.05 and "indeciso" in r["veredito"]
+
+
+def test_pareado_com_placar_equilibrado_da_empate():
+    a = [0] * 20 + [None] * 20
+    b = [None] * 20 + [0] * 20
+    r = mcnemar_em(a, b, 10)
+    assert r["ganha_a"] == 20 and r["ganha_b"] == 20
+    assert r["p"] == 1.0 and "empate" in r["veredito"]
+
+
+def test_pareado_sem_discordantes_nao_tem_o_que_decidir():
+    a = b = [0, 5, None, 99]
+    r = mcnemar_em(a, b, 10)
+    assert r["discordantes"] == 0 and r["p"] == 1.0
+
+
+def test_pareado_respeita_o_k():
+    """Posição 5 está no top-10 e fora do top-1. O mesmo par muda de veredito."""
+    a, b = [5], [0]
+    assert mcnemar_em(a, b, 10)["discordantes"] == 0
+    r1 = mcnemar_em(a, b, 1)
+    assert r1["discordantes"] == 1 and r1["ganha_b"] == 1
+
+
+def test_pareado_recusa_conjuntos_de_tamanhos_diferentes():
+    """Silêncio aqui compararia consultas desalinhadas e daria um p sem sentido."""
+    assert "erro" in mcnemar_em([0, 1], [0], 10)

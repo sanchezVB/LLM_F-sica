@@ -61,6 +61,7 @@ from transformers import (  # noqa: E402
 from phifm.eval.hibrido import (  # noqa: E402
     BM25,
     fundir_rrf,
+    mcnemar_em,
     ndcg_em_10,
     recall_em,
     top_k,
@@ -219,6 +220,21 @@ def main() -> int:
     if tem_rank:
         sistemas.append(bloco("ΦEmb+BM25+ΦRank", pos_rank))
 
+    # ── comparação PAREADA contra a fusão ───────────────────────────────────
+    # ⚠️ Sem isto a tabela convida a ler diferença onde há ruído: 300 consultas dão
+    # erro padrão de ±0,024 em cada proporção, e duas linhas separadas por 0,01
+    # pareceriam distintas. Os sistemas foram medidos nas MESMAS consultas, então o
+    # que decide são as discordantes — ver `mcnemar_em`.
+    #
+    # A referência é a FUSÃO e não o melhor de todos, porque a pergunta do T1b é
+    # exatamente "o reranker acrescenta algo à fusão?".
+    pareados = []
+    for nome, pos in (("BM25", pos_bm), ("ΦEmb", pos_emb),
+                      *(( ("ΦEmb+BM25+ΦRank", pos_rank),) if tem_rank else ())):
+        for k in (1, 10):
+            pareados.append(mcnemar_em(pos_rrf, pos, k,
+                                       "ΦEmb+BM25 (RRF)", nome))
+
     teto = recall_em(pos_rrf, a.profundidade)
     resultado = {
         "n_consultas": len(consultas), "universo": len(ids_pool),
@@ -229,6 +245,10 @@ def main() -> int:
                       "nenhuma melhora de reranking aparece nas consultas em que o "
                       "documento certo não chegou." % a.profundidade),
         "sistemas": sistemas,
+        "pareado_contra_a_fusao": pareados,
+        "nota_pareado": ("McNemar exato sobre 'o alvo chegou ao top-k'. A referência "
+                         "é a fusão porque a pergunta do T1b é se o reranker "
+                         "acrescenta algo a ela."),
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(resultado, indent=2, ensure_ascii=False),
@@ -247,6 +267,15 @@ def main() -> int:
               f"{s[rk]:>7.3f} {s['ndcg_10']:>9.4f}")
     print("=" * 74)
     print(f"  TETO do reranker (recall@{a.profundidade} da fusão): {teto:.4f}")
+    print()
+    print("  PAREADO contra a fusão (McNemar exato, mesmas consultas):")
+    for r in pareados:
+        if "erro" in r:
+            print(f"    {r['erro']}")
+            continue
+        print(f"    top-{r['k']:<3} {r['b']:<20} {r['ganha_a']:>3} a "
+              f"{r['ganha_b']:<3} · {r['veredito']}")
+    print("=" * 74)
     print(f"  -> {a.out}")
     return 0
 
