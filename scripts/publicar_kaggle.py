@@ -62,7 +62,11 @@ SAIDA_NB = RAIZ / "data/processed/kaggle_notebook"
 FONTE_CELULA = RAIZ / "kaggle/t1a_phiemb.py"
 
 SLUG_DADOS = "phifm-t1a-pares-citacao"
-SLUG_NB = "phifm-t1a-phiemb"
+SLUG_NB = "phifm-t1a-emb"
+# ⚠️ ASCII puro. O Kaggle deriva o slug do TITULO, e derruba o que nao
+# for [a-z0-9]: "PhiFM T1a - PhiEmb" com Φ virou `phifm-t1a-emb`, que nao
+# casava com o `id` `phifm-t1a-phiemb` — a CLI avisou e devolveu 409.
+TITULO_NB = "PhiFM T1a Emb"
 
 
 def _celula() -> str:
@@ -112,6 +116,33 @@ def _usuario_do_json() -> str | None:
         return None
 
 
+def _usuario_da_sessao() -> str | None:
+    """Pergunta à CLI quem está autenticado. `kaggle config view` não tem efeito.
+
+    ⚠️ Não use `kaggle auth login` para descobrir isto. Quando já há sessão ele
+    responde "You are already logged-in to Kaggle as [nome]", mas quando NÃO há ele
+    abre o navegador e começa um fluxo de autorização — um sondador que autentica é
+    efeito colateral inaceitável numa função de leitura.
+
+    `config view` imprime `- username: nome` e sai.
+    """
+    try:
+        r = subprocess.run([sys.executable, "-m", "kaggle", "config", "view"],
+                           capture_output=True, text=True, timeout=60)
+    except Exception:
+        return None
+    m = re.search(r"^-\s*username:\s*(\S+)\s*$", r.stdout, re.M)
+    nome = m.group(1) if m else None
+    return None if nome in (None, "None") else nome
+
+
+# Nomes que sao claramente o exemplo do README, nao uma conta. Colar o placeholder
+# custou um upload de 160 MB em 2026-08-24: o Kaggle envia os arquivos ANTES de
+# validar o dono, entao a rejeicao chega no fim.
+PLACEHOLDERS = {"seu_usuario", "seuusuario", "usuario", "username", "exemplo",
+                "your_username", "yourusername", "user", "me"}
+
+
 def _tem_credencial() -> bool:
     """Alguma das três formas de autenticação da CLI 2.2.4 está presente?
 
@@ -134,13 +165,76 @@ def _tem_credencial() -> bool:
     return any(f.name != "kaggle.json" for f in d.iterdir())
 
 
+# ⚠️ Frases que a CLI imprime AO FALHAR mantendo codigo de saida 0.
+#
+# Medido em 2026-08-24: `kernels push` com uma fonte de dados invalida imprimiu
+# "The following are not valid dataset sources" e saiu com 0. O script confiou no
+# codigo de retorno e anunciou "✅ enviado" — o notebook foi criado SEM dados, e
+# quem leu a mensagem achou que estava pronto. Um falso sucesso e pior que a falha.
+#
+# `datasets create` faz o mesmo com "Invalid Owner Id": sobe os 160 MB, rejeita o
+# dono e sai com 0.
+FALHAS_SILENCIOSAS = (
+    "Invalid Owner Id",
+    "Dataset creation error",
+    "not valid dataset sources",
+    "does not resolve to the specified id",
+)
+
+
+def _dataset_existe(id_dados: str) -> bool:
+    """O dataset já está lá? Decide entre `datasets create` e `datasets version`.
+
+    Busca pelo slug dentro dos datasets do próprio usuário. Em caso de dúvida
+    devolve False, porque `create` num que já existe dá um erro claro, enquanto
+    `version` num que não existe dá um erro obscuro.
+    """
+    dono, _, slug = id_dados.partition("/")
+    try:
+        r = subprocess.run([sys.executable, "-m", "kaggle", "datasets", "list",
+                            "--user", dono, "--search", slug],
+                           capture_output=True, text=True, timeout=120)
+    except Exception:
+        return False
+    return id_dados in r.stdout
+
+
+def _rodar(cmd: list[str]) -> str:
+    """Roda a CLI, ECOA a saída ao vivo e a devolve para conferência.
+
+    Ecoa em vez de só capturar porque o upload leva dezenas de segundos e a barra de
+    progresso é a única evidência de que algo acontece. Devolve porque o código de
+    saída da CLI não é confiável — ver `FALHAS_SILENCIOSAS`.
+    """
+    proc = subprocess.Popen(cmd, cwd=RAIZ, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True,
+                            encoding="utf-8", errors="replace")
+    partes = []
+    assert proc.stdout is not None
+    for linha in proc.stdout:
+        sys.stdout.write(linha)
+        sys.stdout.flush()
+        partes.append(linha)
+    proc.wait()
+    saida = "".join(partes)
+    if proc.returncode:
+        raise SystemExit(
+            f"a CLI do Kaggle saiu com {proc.returncode}. O upload é retomável: "
+            "rode de novo. Se disser que o dataset já existe, use "
+            f"`kaggle datasets version -p {PACOTE} -m 'atualização'`.")
+    return saida
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--usuario", default=None,
-                   help="seu usuário do Kaggle (aparece em kaggle.com/SEU_USUARIO). "
-                        "Se omitido, é lido de ~/.kaggle/kaggle.json quando existir")
+                   help="seu usuário do Kaggle. Normalmente NÃO precisa: sai de "
+                        "`kaggle config view` quando há sessão ativa")
     p.add_argument("--enviar", action="store_true",
                    help="chama a CLI do Kaggle; sem isto, só prepara e imprime")
+    p.add_argument("--so-notebook", action="store_true",
+                   help="não toca no dataset; útil quando ele já subiu e só o "
+                        "notebook falhou")
     a = p.parse_args()
 
     # ⚠️ O console do Windows entrega cp1252 e este script imprime ✅ e Φ. Sem isto
@@ -157,12 +251,28 @@ def main() -> int:
             f"{PACOTE}/MANIFESTO.json não existe. Rode "
             "scripts/empacotar_kaggle.py primeiro.")
 
-    usuario = a.usuario or _usuario_do_json()
+    # ⚠️ Guarda contra o placeholder colado literal. Em 2026-08-24 rodei com
+    # `--usuario SEU_USUARIO` e o Kaggle subiu 160 MB antes de rejeitar o dono: ele
+    # envia os arquivos primeiro e valida o slug do proprietário no fim. Barrar aqui
+    # custa nada; descobrir lá custa o upload inteiro.
+    if a.usuario and a.usuario.strip().lower() in PLACEHOLDERS:
+        raise SystemExit(
+            f"'{a.usuario}' é o placeholder do exemplo, não uma conta. O Kaggle só "
+            "cria dataset sob o dono autenticado, e valida isso DEPOIS de receber os "
+            "arquivos — colar isto custaria o upload inteiro para falhar no fim.\n\n"
+            "Simplesmente omita --usuario: com sessão ativa ele sai de "
+            "`kaggle config view`.")
+
+    # Ordem: o que foi pedido explicitamente, senão quem está autenticado, senão o
+    # kaggle.json legado. A sessão vem antes do arquivo porque é ela que manda no
+    # que o Kaggle vai aceitar como dono.
+    usuario = a.usuario or _usuario_da_sessao() or _usuario_do_json()
     if not usuario:
         raise SystemExit(
-            "não sei seu usuário do Kaggle. Passe --usuario SEU_USUARIO (é o que "
-            "aparece em kaggle.com/SEU_USUARIO). Só o `kaggle.json` legado carrega "
-            "esse campo; o token novo e o OAuth não carregam.")
+            "não sei seu usuário do Kaggle e não há sessão ativa. Rode "
+            "`python -m kaggle auth login` primeiro, ou passe --usuario.")
+    if not a.usuario:
+        print(f"  usuário detectado da sessão: {usuario}")
 
     man = json.loads((PACOTE / "MANIFESTO.json").read_text(encoding="utf-8"))
     id_dados = f"{usuario}/{SLUG_DADOS}"
@@ -182,7 +292,7 @@ def main() -> int:
     nb.write_text(json.dumps(_ipynb(_celula()), indent=1), encoding="utf-8")
     (SAIDA_NB / "kernel-metadata.json").write_text(json.dumps({
         "id": id_nb,
-        "title": "PhiFM T1a — ΦEmb",
+        "title": TITULO_NB,
         "code_file": "t1a_phiemb.ipynb",
         "language": "python",
         "kernel_type": "notebook",
@@ -207,11 +317,26 @@ def main() -> int:
     # `.venv/Scripts/kaggle.exe` e NÃO está no PATH a menos que a venv esteja
     # ativada — o script falharia com "não encontrado" só na hora do envio, depois
     # de já ter gerado tudo.
+    #
+    # `create` só na primeira vez; depois é `version`. Sem isto, rodar de novo (o
+    # que a mensagem de erro do próprio script recomenda) morre em "dataset já
+    # existe" — um roteiro que manda repetir e quebra na repetição.
+    ja_existe = a.enviar and _dataset_existe(id_dados)
+    if ja_existe:
+        print(f"  dataset já existe — enviando VERSÃO nova em vez de criar")
+        cmd_dados = [sys.executable, "-m", "kaggle", "datasets", "version",
+                     "-p", str(PACOTE), "--dir-mode", "zip",
+                     "-m", f"git {man['git_sha']}"]
+    else:
+        cmd_dados = [sys.executable, "-m", "kaggle", "datasets", "create",
+                     "-p", str(PACOTE), "--dir-mode", "zip"]
     cmds = [
-        [sys.executable, "-m", "kaggle", "datasets", "create", "-p", str(PACOTE),
-         "--dir-mode", "zip"],
+        cmd_dados,
         [sys.executable, "-m", "kaggle", "kernels", "push", "-p", str(SAIDA_NB)],
     ]
+    if a.so_notebook:
+        cmds = cmds[1:]
+        print("  --so-notebook: o dataset não será tocado")
     if not a.enviar:
         print("\n  para enviar, depois de `python -m kaggle auth login`:\n")
         for c in cmds:
@@ -237,12 +362,13 @@ Eu não faço nenhum dos três: exige entrar na sua conta.""")
 
     for c in cmds:
         print(f"\n$ {' '.join(c)}")
-        r = subprocess.run(c, cwd=RAIZ)
-        if r.returncode:
+        saida = _rodar(c)
+        ruins = [f for f in FALHAS_SILENCIOSAS if f in saida]
+        if ruins:
             raise SystemExit(
-                f"a CLI do Kaggle saiu com {r.returncode}. O upload é retomável: "
-                "rode de novo. Se disser que o dataset já existe, use "
-                f"`kaggle datasets version -p {PACOTE} -m 'atualização'`.")
+                "a CLI saiu com 0 mas a saída acusa falha: "
+                + "; ".join(f"'{f}'" for f in ruins)
+                + ".\nNão vou chamar isto de enviado. Corrija e rode de novo.")
     print(f"\n✅ enviado. Dataset: kaggle.com/datasets/{id_dados}")
     print(f"   Notebook: kaggle.com/code/{id_nb}")
     return 0
