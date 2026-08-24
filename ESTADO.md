@@ -114,8 +114,13 @@ O erro é de amostragem de negativos, não de treino. Duas rotas, em ordem de cu
    medidas, ~77 min para 12.500) mais uma codificação do pool (~3 min).
 
 Enquanto nenhuma das duas for feita, **o T1b fecha com a fusão** e o ΦRank fica fora
-da composição. O `recall@50` de 0,443 é o teto de qualquer reranking futuro: é ele,
-e não o reranker, o gargalo a atacar primeiro.
+da composição.
+
+E o reranking é onde está a folga, não a recuperação. O `recall@50` de 0,443 é o teto
+— um reranker que colocasse o alvo em 1º sempre que ele chegasse ao top-50 daria
+nDCG 0,443, contra os **0,1393** de hoje. São **3× de ganho disponível dentro dos
+candidatos que já recuperamos**, sem tocar no recuperador. Subir o recall exigiria
+mexer no ΦEmb, e as duas alavancas baratas para isso já foram medidas planas.
 
 ## G1.5 — o corpus por um hash, e o que ele prova
 

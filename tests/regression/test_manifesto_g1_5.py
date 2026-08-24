@@ -331,3 +331,47 @@ def test_transitorios_ficam_fora_do_indice(tmp_path):
     (tmp_path / "execucao.log").write_text("linha", encoding="utf-8")
     (tmp_path / "progresso.json").write_text("{}", encoding="utf-8")
     assert list(indexar(tmp_path)) == ["part-00000.parquet"]
+
+def test_manifesto_de_outra_etapa_nao_e_sobrescrito_em_silencio(tmp_path):
+    """Duas etapas gravando na MESMA raiz apagavam a proveniência uma da outra.
+
+    Aconteceu em 2026-08-24: um teste de fumaça de `minerar_do_recuperador.py` com
+    400 âncoras sobrescreveu o manifesto que estava em
+    `data/processed/negativos_dificeis/`. O diretório não é versionado, então não
+    havia como recuperar.
+
+    Perder proveniência sem aviso é o oposto do que este módulo faz, então ele para.
+    """
+    import pytest
+
+    from phifm.core.schema.reprodutibilidade import gravar_manifesto_etapa
+
+    raiz = tmp_path / "saida"
+    raiz.mkdir()
+    (raiz / "dados.parquet").write_bytes(b"x" * 32)
+
+    gravar_manifesto_etapa(etapa="primeira", descricao="—", raiz=raiz,
+                           base=tmp_path, registros=1)
+    with pytest.raises(RuntimeError, match="primeira"):
+        gravar_manifesto_etapa(etapa="segunda", descricao="—", raiz=raiz,
+                               base=tmp_path, registros=1)
+
+
+def test_regravar_o_manifesto_da_propria_etapa_continua_livre(tmp_path):
+    """Reexecutar uma etapa e regravar o manifesto dela é o fluxo normal.
+
+    A guarda acima não pode transformar idempotência em erro — senão retomar uma
+    coleta viraria falha.
+    """
+    from phifm.core.schema.reprodutibilidade import gravar_manifesto_etapa
+
+    raiz = tmp_path / "saida"
+    raiz.mkdir()
+    (raiz / "dados.parquet").write_bytes(b"y" * 16)
+
+    a = gravar_manifesto_etapa(etapa="mesma", descricao="—", raiz=raiz,
+                               base=tmp_path, registros=1)
+    b = gravar_manifesto_etapa(etapa="mesma", descricao="—", raiz=raiz,
+                               base=tmp_path, registros=2)
+    assert a.etapa == b.etapa == "mesma"
+    assert b.registros == 2

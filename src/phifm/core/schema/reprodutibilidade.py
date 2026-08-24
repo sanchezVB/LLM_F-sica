@@ -55,6 +55,7 @@ portão satisfeito por alegação falsa é pior que um critério aberto.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -277,6 +278,29 @@ def gravar_manifesto_etapa(
         falhas=falhas or [], git_sha=git_sha_curto()).selar()
     destino = (raiz / NOME_MANIFESTO_ETAPA if raiz.is_dir()
                else raiz.parent / f"{raiz.name}{NOME_MANIFESTO_ETAPA}")
+    # ⚠️ Duas etapas que gravam na MESMA `raiz` de diretório apontam para o
+    # mesmo arquivo, e a segunda apagava a proveniência da primeira em silêncio.
+    # Aconteceu em 2026-08-24: um teste de fumaça de `minerar_do_recuperador.py`
+    # (400 âncoras) sobrescreveu o manifesto que estava em
+    # `data/processed/negativos_dificeis/`, e não havia como recuperar — o
+    # diretório não é versionado.
+    #
+    # Perder proveniência sem aviso é exatamente o que este módulo existe para
+    # impedir, então aqui ele para. Reescrever o manifesto da PRÓPRIA etapa
+    # continua livre: reexecutar uma etapa e regravar o manifesto dela é o fluxo
+    # normal, e é idempotente.
+    if destino.exists():
+        try:
+            anterior = json.loads(destino.read_text(encoding="utf-8")).get("etapa")
+        except Exception:
+            anterior = None
+        if anterior and anterior != etapa:
+            raise RuntimeError(
+                f"{destino} já descreve a etapa '{anterior}' e esta é '{etapa}'. "
+                "Duas etapas gravando na mesma raiz apagariam a proveniência uma da "
+                "outra. Passe `raiz` como o ARQUIVO de saída desta etapa (o "
+                "manifesto vira '<arquivo>_manifesto_etapa.json') em vez do "
+                "diretório compartilhado.")
     destino.write_text(me.model_dump_json(indent=2), encoding="utf-8")
     return me
 

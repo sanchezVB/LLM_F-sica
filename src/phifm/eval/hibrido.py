@@ -81,6 +81,12 @@ class BM25:
     idf: np.ndarray | None = None
     # (documentos x termos), já com a saturação do BM25 aplicada por documento.
     matriz: sp.csr_matrix | None = None
+    # ⚠️ Copia em CSC so para o fatiamento por COLUNA de `pontuar`. Fatiar coluna
+    # numa CSR obriga o scipy a remontar a matriz a cada consulta; numa CSC e um
+    # corte direto. Sem isto, minerar negativos com dezenas de milhares de
+    # consultas fica dominado pelo BM25. A matematica e identica — os testes de
+    # `test_hibrido.py` cobrem o resultado.
+    matriz_csc: sp.csc_matrix | None = None
     n_docs: int = 0
 
     def indexar(self, docs: list[str]) -> BM25:
@@ -107,6 +113,7 @@ class BM25:
         self.matriz = sp.csr_matrix(
             (valores, (linhas, colunas)),
             shape=(self.n_docs, len(self.vocab)), dtype=np.float32)
+        self.matriz_csc = self.matriz.tocsc()
 
         # IDF de Robertson com o `+1` de suavização, que impede valor negativo para
         # termo presente em mais da metade dos documentos. Sem ele, um termo muito
@@ -126,7 +133,7 @@ class BM25:
         js = [self.vocab[t] for t in set(tokenizar(consulta)) if t in self.vocab]
         if not js:
             return np.zeros(self.n_docs, dtype=np.float32)
-        sub = self.matriz[:, js]
+        sub = (self.matriz_csc if self.matriz_csc is not None else self.matriz)[:, js]
         return np.asarray(sub @ self.idf[js]).ravel()
 
 
