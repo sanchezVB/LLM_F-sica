@@ -26,10 +26,55 @@ Verificar que funcionou:
 PYTHONPATH=src .venv/bin/python -m pytest tests/ -q
 ```
 
-Devem passar **163 testes** (41 em `tests/regression/`, 122 em
-`tests/golden/`). Se passarem, o ambiente está correto.
+Devem passar **414 testes**, com 9 saltados — os que dependem de `torch` e vivem
+na venv de treino (ver §1b). O salto é declarado com motivo, nunca silencioso:
+salto silencioso é ausência de erro lida como sucesso.
 
 No Windows o caminho do interpretador é `.venv/Scripts/python.exe`.
+
+## 1b. A segunda venv, a de TREINO
+
+⚠️ **Este projeto tem DUAS venvs**, e o `SETUP.md` não dizia isso até 2026-08-21 —
+o que custou três dependências descobertas uma a uma, cada vez que um script novo
+falhava com `ModuleNotFoundError` depois de todo o resto pronto.
+
+| venv | Python | para quê |
+|---|---|---|
+| `.venv` | 3.14 | dados, testes, avaliação, relatórios |
+| `.venv-treino` | **3.12** | tudo que importa `torch` |
+
+A separação existe por uma restrição dura: o **`torch-directml` não suporta o
+Python 3.14**, e o DirectML é a única pilha que funciona na GPU desta máquina (o
+ROCm enumera zero dispositivos — ver `setup/rocm_wsl.md`).
+
+```bash
+py -3.12 -m venv .venv-treino
+.venv-treino/Scripts/pip install torch-directml transformers
+# e as do projeto que o codigo de treino tambem usa:
+.venv-treino/Scripts/pip install polars pyarrow numpy scipy blake3 pydantic
+```
+
+**Por que essas seis e não `-r requirements.lock`:** o lock traz a árvore inteira
+da venv principal, incluindo versões que conflitam com o `torch-directml`. A lista
+acima é o que o código de treino de fato importa:
+
+| pacote | quem usa |
+|---|---|
+| `polars`, `pyarrow` | leitura dos pares |
+| `numpy` | busca por blocos no minerador |
+| `scipy` | BM25 esparso do índice híbrido |
+| `blake3`, `pydantic` | manifesto de etapa do G1.5 |
+
+⚠️ **Nunca rode `pip install` numa venv com treino em andamento.** Em 2026-08-18
+isso matou uma mineração aos 35 min de codificação: instalar altera o estado da
+venv debaixo de um processo que já a carregou. Espere o trabalho terminar.
+
+Verificar:
+
+```bash
+PYTHONPATH=src .venv-treino/Scripts/python -m pytest tests/regression/test_gradcache.py -q
+```
+
 
 ## 2. Configurar identificação
 

@@ -15,6 +15,12 @@ dependencies = [
     "pyarrow>=18",
     "blake3>=1.0",
     "scikit-learn>=1.5",
+    # BM25 do indice hibrido (eval/hibrido.py) usa matriz esparsa. Vinha junto com
+    # o scikit-learn na venv principal, mas a venv de TREINO e montada a parte
+    # (Python 3.12, por causa do torch-directml) e nao o tinha — o avaliador do T1b
+    # falhou la com ModuleNotFoundError depois de todo o resto pronto. Declarado
+    # explicito para nao depender de vir de carona.
+    "scipy>=1.14",
     "sympy>=1.13",
     "antlr4-python3-runtime==4.11.*",
     "mpmath>=1.3",
