@@ -158,8 +158,27 @@ switch ($Fonte) {
                   # rebaixa-los e ensinar a rebaixar o que e relevante, e a perda
                   # desce normalmente enquanto isso acontece.
                   #
-                  # 12.500 grupos de 8 = 100 mil exemplos. Medido nesta maquina:
-                  # 32,9 exemplos/s a 384 tokens, entao ~51 min.
+                  # 12.500 grupos de 8 = 100 mil exemplos, ~1,7 h medidas nesta
+                  # maquina com `--grupos 2` (16,2 exemplos/s).
+                  #
+                  # ⚠️ Os negativos vem de `minerar_do_recuperador.py`, NAO de
+                  # `minerar_negativos.py`. Medido em 2026-08-24: os do segundo sao o
+                  # top-K do denso menos a citacao verdadeira, o que rotula NEGATIVO
+                  # tudo que o recuperador poe no topo. O reranker aprendeu
+                  # `muito recuperado => nao e a resposta` e INVERTEU a fusao —
+                  # escore medio subindo monotonicamente da posicao 0-4 (-4,32) para
+                  # a 30-49 (-3,72), Spearman +0,179, positivo em 83% das consultas.
+                  # Resultado: nDCG@10 da composicao caiu de 0,1393 (fusao sozinha)
+                  # para 0,0179, pior que ordem aleatoria.
+                  #
+                  # Os novos vem do RRF top-50 DE VERDADE, a distribuicao exata da
+                  # avaliacao: 14.289 grupos, 43,8 negativos cada, alvo em posicao
+                  # media 11,2. Assim "estar no topo" deixa de prever o rotulo.
+                  #
+                  # ⚠️ E `--out models/phirank-rrf`, dir NOVO. Reaproveitar
+                  # `models/phirank-minilm` faria `retomar()` carregar o
+                  # `estado_rank.pt` da corrida quebrada e continuar do passo 1.600
+                  # dela — o treino novo herdaria os pesos do invertido.
                   #
                   # ⚠️ Desvio de especificacao registrado: o DOC-07 §4 pede
                   # inicializacao do PhiEnc, que nao existe. Usado o MiniLM, a mesma
@@ -176,7 +195,10 @@ switch ($Fonte) {
                   # o que e ruido de otimizacao, nao mudanca de tarefa. `max-grupos`
                   # e em LINHAS do conjunto, entao o volume de exemplos e o mesmo.
                   $argumentos = '--max-grupos 12500 --grupos 2 --n-negativos 7 ' +
-                                '--passos-aval 1000 --grupos-aval 500' }
+                                '--passos-aval 1000 --grupos-aval 500 ' +
+                                '--out models/phirank-rrf ' +
+                                '--negativos data/processed/negativos_dificeis/' +
+                                'pares_do_recuperador_limpos.parquet' }
     'phiemb-duros' { $script = 'scripts/train_embedding.py'
                   $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
                   # NEGATIVOS DIFICEIS minerados pelo proprio campeao (DOC-07 §4).
