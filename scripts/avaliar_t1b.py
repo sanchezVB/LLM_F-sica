@@ -108,6 +108,9 @@ def main() -> int:
     p.add_argument("--dispositivo", default="auto",
                    choices=["auto", "cuda", "dml", "cpu"])
     p.add_argument("--semente", type=int, default=17)
+    p.add_argument("--depurar", type=int, default=0,
+                   help="imprime a posição do alvo antes e depois do ΦRank nas N "
+                        "primeiras consultas em que ele está no conjunto")
     a = p.parse_args()
 
     for fluxo in (sys.stdout, sys.stderr):
@@ -159,6 +162,7 @@ def main() -> int:
                     "assim, e são o teto do que o reranker poderia melhorar", a.rank)
 
     pos_bm, pos_emb, pos_rrf, pos_rank = [], [], [], []
+    depurados = [0]
     t0 = time.perf_counter()
     for i, (consulta, alvo) in enumerate(zip(consultas, alvos, strict=True)):
         e_bm = bm.pontuar(consulta)
@@ -185,6 +189,13 @@ def main() -> int:
             e = np.concatenate(escores)
             ord_rank = [ord_rrf[k] for k in np.argsort(-e)]
             pos_rank.append(_posicao(ord_rank, alvo))
+            if a.depurar and pos_rrf[-1] is not None and depurados[0] < a.depurar:
+                depurados[0] += 1
+                k_ = ord_rrf.index(alvo)
+                log.info("  [dep] alvo idx=%d · fusao pos %s -> ΦRank pos %s · "
+                         "escore %.2f (max %.2f, min %.2f) · len(e)=%d len(rrf)=%d",
+                         alvo, pos_rrf[-1], pos_rank[-1], e[k_], e.max(), e.min(),
+                         len(e), len(ord_rrf))
 
         if i and i % 200 == 0:
             taxa = (i + 1) / (time.perf_counter() - t0)
