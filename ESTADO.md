@@ -14,81 +14,89 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
-| **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank ❌ | RRF é a melhor linha (**nDCG 0,1393**); o reranker **inverte o recuperador** e derruba para 0,0179 |
+| **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank no-op | RRF entrega **nDCG 0,1584** e vence os isolados (p<0,001); o reranker empata (p=0,118) porque parte da **mesma base** do ΦEmb |
 
 Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 
-## T1b — a fusão fecha, e o ΦRank inverte o recuperador (2026-08-24)
+## T1b — a fusão fecha, e o reranker é um no-op (2026-08-24)
 
-    300 consultas · universo de 88.807 documentos citados da validação · top-50
+    1.000 consultas · universo de 88.807 documentos citados da validação · top-50
 
     sistema                      r@1    r@10    r@50   nDCG@10
-    BM25                       0,047   0,227   0,363    0,1291
-    ΦEmb                       0,050   0,217   0,390    0,1227
-    ΦEmb+BM25 (RRF)            0,060   0,233   0,443    0,1393   <- melhor
-    ΦEmb+BM25+ΦRank            0,007   0,040   0,443    0,0179
+    BM25                       0,067   0,236   0,401    0,1399
+    ΦEmb                       0,055   0,233   0,428    0,1327
+    ΦEmb+BM25 (RRF)            0,068   0,271   0,446    0,1584   <- entregável
+    ΦEmb+BM25+ΦRank            0,064   0,254   0,446    0,1493
+
+    PAREADO contra a fusão (McNemar exato, mesmas consultas):
+      top-10  BM25              69 a 34  · a fusão vence (p=0,00073)
+      top-10  ΦEmb              69 a 31  · a fusão vence (p=0,00018)
+      top-10  +ΦRank            61 a 44  · empate (p=0,118)
+      top-1   +ΦRank            31 a 27  · empate (p=0,694)
 
     -> data/processed/avaliacao/t1b_resultado.json
 
-**A fusão é o entregável do T1b.** +13% de nDCG sobre o ΦEmb sozinho e recall@50 de
-0,443 contra 0,390 — e o BM25 sozinho empata com o campeão do G1.1, o que é um
-resultado por si: a linha léxica não custa GPU nenhuma.
+**O entregável do T1b é a fusão**, e ela vence os dois recuperadores isolados com
+significância. O reranker não acrescenta nada mensurável: o pareado dá empate, e o
+estimador de ponto inclina contra ele.
 
-### O ΦRank não está fraco, está invertido
+### O que foi consertado, e o que o conserto revelou
 
-Ele funciona na tarefa dele: acerto@1 **0,371** [0,327, 0,416] em grupos de 8 contra
-acaso de 0,125, e ler a consulta vale **+0,143 ± 0,059** (medido contra consulta
-vazia, n efetivo 457 documentos).
+O ΦRank treinado com `minerar_negativos.py` **invertia o recuperador**. A mineração
+tomava como negativo o top-K do denso menos a citação verdadeira, o que rotula
+NEGATIVO tudo que o recuperador põe no topo — e o modelo aprendeu
+`muito recuperado ⇒ não é a resposta`. Como no T1b os candidatos SÃO o top-50 do
+recuperador, ele rebaixava justamente o que a fusão promovia: nDCG 0,0179, pior que
+ordem aleatória, com r@1 de 0,007.
 
-O problema é que a tarefa dele não é a do T1b. Os negativos foram minerados como
-*"top-K do recuperador, menos a citação verdadeira"* — o que **rotula negativo tudo
-que o recuperador coloca no topo**. O modelo aprendeu `muito recuperado ⇒ não é a
-resposta`, e no T1b os candidatos SÃO o top-50 do recuperador.
+`minerar_do_recuperador.py` monta o grupo do RRF top-50 de verdade — a distribuição
+exata da avaliação. Com isso "estar no topo" deixa de prever o rótulo, porque o
+positivo também está no topo. O efeito é inequívoco:
 
-Medido em 60 consultas, escore médio do ΦRank por faixa de posição na fusão:
+    Spearman(posição na fusão, escore)   antigo      novo
+                                        +0,179     -0,466
+    consultas com rho > 0                  83%         0%
 
-    posições  0-4    -4,319
-    posições  5-14   -4,053
-    posições 15-29   -3,812
-    posições 30-49   -3,723   <- o recuperador põe por último, o ΦRank prefere
+    escore médio por faixa       antigo      novo
+      posições  0-4              -4,319    -0,106
+      posições  5-14             -4,053    -1,443
+      posições 15-29             -3,812    -2,249
+      posições 30-49             -3,723    -2,726
 
-Monotônico. Spearman(posição na fusão, escore) = **+0,179** de média, +0,182 de
-mediana, positivo em **83%** das consultas.
+O sinal virou: de preferir a cauda do recuperador para concordar com ele. E é
+exatamente por concordar tanto que o reranker não ganha nada — ele **re-deriva a
+ordem que a fusão já produziu**. No grupo de 8 ele é forte (acerto@1 0,498 ±0,045
+contra ~0,20–0,25 do próprio RRF nos mesmos grupos), mas essa força não vira ganho
+sobre 50 candidatos porque não é informação nova.
 
-O viés é modesto — 0,6 logit contra espalhamento de ~3,5 — mas o reranker substitui
-a ordem inteira pela dele, e sobra uma ordenação levemente anticorrelacionada. Os
-números fecham: r@10 de 0,040 é ~metade do que ordem aleatória sobre os 50 daria
-(0,443 × 10/50 = 0,089). **Pior que aleatório, na medida que o viés prevê.**
+### Por que provavelmente é o ΦEnc que falta, e não a mecânica
 
-Nas linhas de depuração o mecanismo aparece cru: consultas em que a fusão já tinha
-o alvo na posição **0** terminam com ele em 29 e 41, e o escore do alvo fica no piso
-dos 50 candidatos.
+O DOC-07 §4 pede o cross-encoder **inicializado do ΦEnc**. O ΦEnc não existe — exige
+15–30 B tokens de texto completo e o S3 entregou 13,15 B sem treinar. O desvio
+declarado usa o `all-MiniLM-L6-v2`, que é **a mesma base do ΦEmb**.
 
-### O defeito de medição que escondeu tudo isso por uma semana
+Um reranker que parte do mesmo modelo que o recuperador carrega o mesmo
+conhecimento, e um cross-encoder só ganha do bi-encoder quando vê algo que o outro
+não vê. O Spearman de -0,466 é a medida disso: ele concorda com o ΦEmb porque *é* o
+ΦEmb, só com atenção cruzada. A mecânica de reranking está exercitada e correta; o
+que falta é um encoder com conhecimento próprio.
 
-`avaliar` usava `val.head(grupos_aval)`, e o parquet vem **agrupado por documento
-citado**:
+### Os dois defeitos de medição que apareceram no caminho
 
-    val.head(  500) ->   500 linhas ·  35 documentos   <- o que era usado
-    val.sample(500) ->   500 linhas · 259 documentos
+**`head` num parquet agrupado.** `avaliar` usava `val.head(500)` e o arquivo vem
+agrupado por documento citado: eram 35 papers repetidos ~14 vezes, não 500
+observações. Com n efetivo 35 o acerto@1 de 0,364 tinha intervalo de ±0,159 e não se
+separava da base de 0,198 — e a divisão contaminada e a honesta reportaram o mesmo
+número porque as duas mediam os mesmos 35 papers. O mesmo `head` estava no treino,
+cobrindo ~700 documentos em vez de ~9.000. Corrigido em `amostrar_por_documento`
+(módulo sem torch, para o teste rodar na suíte rápida), e as métricas agora imprimem
+o intervalo sobre o n efetivo.
 
-Linhas do mesmo documento não são observações independentes: o n efetivo é o número
-de **documentos**. Com 35, o acerto@1 de 0,364 carregava intervalo de 95% de ±0,159
-— [0,205, 0,523] contra base de 0,198, ou seja o ganho inteiro dentro do ruído.
-
-E foi isso que me fez ler errado o conserto da divisão: a divisão contaminada (39%
-dos citados vistos no treino) e a divisão honesta por documento reportaram o **mesmo**
-número, ~0,36. Não porque o vazamento fosse inofensivo — porque as duas mediam os
-mesmos 35 papers.
-
-O mesmo `head` estava no treino: `treino.head(12.500)` cobria ~700 documentos
-distintos em vez de ~9.000, pelo mesmo custo de GPU.
-
-Corrigido em `amostrar_por_documento` (nível de módulo, um só lugar), e as métricas
-agora imprimem o intervalo de 95% sobre o n efetivo. `tests/regression/
-test_amostragem_rerank.py` falha se o `head` voltar — verificado por mutação.
+**Chave mentindo no JSON.** `avaliar_t1b.py` gravava `recall_100` mesmo com
+`--profundidade 50`. Valor certo, rótulo errado — o tipo de coisa que um relatório
+futuro copia sem verificar.
 
 ### Hipóteses medidas e descartadas, para não serem reinvestigadas
 
@@ -101,26 +109,13 @@ test_amostragem_rerank.py` falha se o `head` voltar — verificado por mutação
 | desempate pelo índice 0 no `argsort` | embaralhar a posição do positivo dá números idênticos, como tem de ser num cross-encoder par a par |
 | "o modelo não lê a consulta" | veio de amostra de **16** documentos; com 457, ler a consulta vale +0,143 ± 0,059 |
 
-### O que consertar o ΦRank exige
+### Onde está a folga
 
-O erro é de amostragem de negativos, não de treino. Duas rotas, em ordem de custo:
-
-1. **Misturar negativos aleatórios aos minerados** (barato, sem reminerar). Hoje o
-   grupo é 1 positivo + 7 minerados do topo, então "estar no topo" prevê o rótulo em
-   7 de 8. Com metade aleatórios, negativo deixa de ser sinônimo de recuperado.
-2. **Treinar sobre o top-50 do RRF de verdade** — a distribuição exata da avaliação,
-   com a citação verdadeira como positivo e o resto como negativo. É a correção
-   principiada; custa uma passada de RRF sobre as âncoras de treino (~2,7 consultas/s
-   medidas, ~77 min para 12.500) mais uma codificação do pool (~3 min).
-
-Enquanto nenhuma das duas for feita, **o T1b fecha com a fusão** e o ΦRank fica fora
-da composição.
-
-E o reranking é onde está a folga, não a recuperação. O `recall@50` de 0,443 é o teto
-— um reranker que colocasse o alvo em 1º sempre que ele chegasse ao top-50 daria
-nDCG 0,443, contra os **0,1393** de hoje. São **3× de ganho disponível dentro dos
-candidatos que já recuperamos**, sem tocar no recuperador. Subir o recall exigiria
-mexer no ΦEmb, e as duas alavancas baratas para isso já foram medidas planas.
+`recall@50` de 0,446 é o teto: um reranker perfeito daria nDCG 0,446 contra os
+0,1584 de hoje — **2,8× dentro dos candidatos que já recuperamos**. A folga existe e
+é grande; o que não existe é um modelo com conhecimento além do ΦEmb para explorá-la.
+Subir o recall seria a outra rota, e as duas alavancas baratas para isso já foram
+medidas planas.
 
 ## G1.5 — o corpus por um hash, e o que ele prova
 

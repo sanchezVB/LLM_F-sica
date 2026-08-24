@@ -1,0 +1,41 @@
+{
+  "n_consultas": 300,
+  "universo": 88807,
+  "profundidade": 50,
+  "modelos": {
+    "emb": "models\\phiemb-minilm-melhor",
+    "rank": "models\\phirank-minilm-melhor"
+  },
+  "teto_do_reranker": 0.4433,
+  "nota_teto": "recall@50 da fusão. Um ΦRank perfeito não passa disto, e nenhuma melhora de reranking aparece nas consultas em que o documento certo não chegou.",
+  "sistemas": [
+    {
+      "sistema": "BM25",
+      "recall_1": 0.0467,
+      "recall_10": 0.2267,
+      "ndcg_10": 0.1291,
+      "recall_50": 0.3633
+    },
+    {
+      "sistema": "ΦEmb",
+      "recall_1": 0.05,
+      "recall_10": 0.2167,
+      "ndcg_10": 0.1227,
+      "recall_50": 0.39
+    },
+    {
+      "sistema": "ΦEmb+BM25 (RRF)",
+      "recall_1": 0.06,
+      "recall_10": 0.2333,
+      "ndcg_10": 0.1393,
+      "recall_50": 0.4433
+    },
+    {
+      "sistema": "ΦEmb+BM25+ΦRank",
+      "recall_1": 0.0067,
+      "recall_10": 0.04,
+      "ndcg_10": 0.0179,
+      "recall_50": 0.4433
+    }
+  ]
+}
