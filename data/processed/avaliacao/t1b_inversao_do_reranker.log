@@ -1,0 +1,16 @@
+universo 88,807 · consultas 60
+PhiEmb codificou em 180 s
+
+======================================================================
+Spearman(posicao na fusao, escore do PhiRank) por consulta
+  media +0.179 · p50 +0.182 · consultas com rho>0: 83% de 60
+
+escore medio do PhiRank por faixa de posicao na fusao:
+  posicoes  0-4   escore medio -4.319
+  posicoes  5-14  escore medio -4.053
+  posicoes 15-29  escore medio -3.812
+  posicoes 30-49  escore medio -3.723
+======================================================================
+rho POSITIVO = o PhiRank prefere quem o recuperador colocou por ULTIMO.
+E a assinatura de ter aprendido 'muito recuperado => nao e a resposta',
+que e exatamente o que a mineracao de negativos rotulou.

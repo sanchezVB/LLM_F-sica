@@ -204,10 +204,14 @@ def main() -> int:
                      (len(consultas) - i) / taxa / 60)
 
     def bloco(nome: str, pos: list) -> dict:
+        # ⚠️ A chave do recall do teto leva a PROFUNDIDADE no nome. Era
+        # `recall_100` fixo, e com `--profundidade 50` o arquivo de resultado
+        # afirmava recall@100 sobre um número que era recall@50 — o tipo de
+        # rótulo errado que um relatório futuro copia sem verificar.
         return {"sistema": nome,
                 "recall_1": round(recall_em(pos, 1), 4),
                 "recall_10": round(recall_em(pos, 10), 4),
-                "recall_100": round(recall_em(pos, a.profundidade), 4),
+                f"recall_{a.profundidade}": round(recall_em(pos, a.profundidade), 4),
                 "ndcg_10": round(ndcg_em_10(pos), 4)}
 
     sistemas = [bloco("BM25", pos_bm), bloco("ΦEmb", pos_emb),
@@ -235,10 +239,12 @@ def main() -> int:
     print(f"  T1b · {len(consultas):,} consultas · universo de {len(ids_pool):,} "
           f"· top-{a.profundidade}")
     print("=" * 74)
-    print(f"  {'sistema':<24} {'r@1':>7} {'r@10':>7} {'r@100':>7} {'nDCG@10':>9}")
+    rk = f"recall_{a.profundidade}"
+    print(f"  {'sistema':<24} {'r@1':>7} {'r@10':>7} {f'r@{a.profundidade}':>7} "
+          f"{'nDCG@10':>9}")
     for s in sistemas:
         print(f"  {s['sistema']:<24} {s['recall_1']:>7.3f} {s['recall_10']:>7.3f} "
-              f"{s['recall_100']:>7.3f} {s['ndcg_10']:>9.4f}")
+              f"{s[rk]:>7.3f} {s['ndcg_10']:>9.4f}")
     print("=" * 74)
     print(f"  TETO do reranker (recall@{a.profundidade} da fusão): {teto:.4f}")
     print(f"  -> {a.out}")

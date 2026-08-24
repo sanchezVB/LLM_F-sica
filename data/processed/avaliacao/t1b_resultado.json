@@ -13,29 +13,29 @@
       "sistema": "BM25",
       "recall_1": 0.0467,
       "recall_10": 0.2267,
-      "recall_100": 0.3633,
-      "ndcg_10": 0.1291
+      "ndcg_10": 0.1291,
+      "recall_50": 0.3633
     },
     {
       "sistema": "ΦEmb",
       "recall_1": 0.05,
       "recall_10": 0.2167,
-      "recall_100": 0.39,
-      "ndcg_10": 0.1227
+      "ndcg_10": 0.1227,
+      "recall_50": 0.39
     },
     {
       "sistema": "ΦEmb+BM25 (RRF)",
       "recall_1": 0.06,
       "recall_10": 0.2333,
-      "recall_100": 0.4433,
-      "ndcg_10": 0.1393
+      "ndcg_10": 0.1393,
+      "recall_50": 0.4433
     },
     {
       "sistema": "ΦEmb+BM25+ΦRank",
-      "recall_1": 0.0,
-      "recall_10": 0.0467,
-      "recall_100": 0.4433,
-      "ndcg_10": 0.0196
+      "recall_1": 0.0067,
+      "recall_10": 0.04,
+      "ndcg_10": 0.0179,
+      "recall_50": 0.4433
     }
   ]
 }

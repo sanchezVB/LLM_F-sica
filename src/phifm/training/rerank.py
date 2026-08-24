@@ -52,6 +52,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from phifm.training.amostragem import amostrar_por_documento
 from phifm.training.embedding import _agora, _vram_mb, escolher_dispositivo
 
 log = logging.getLogger(__name__)
@@ -104,32 +105,6 @@ class MetricasRank:
     n_documentos_aval: int = 0
     exemplos_por_s: float = 0.0
     historico: list[dict] = field(default_factory=list)
-
-
-def amostrar_por_documento(d: pl.DataFrame, n: int,
-                           semente: int = 17) -> tuple[pl.DataFrame, int]:
-    """Sorteia `n` linhas e devolve `(amostra, documentos distintos)`.
-
-    ⚠️ Existe para que `head` nunca volte. Medido em 2026-08-24: o parquet de pares
-    vem AGRUPADO por documento citado, então as primeiras linhas são poucos papers
-    repetidos ~14 a ~22 vezes:
-
-        val.head(  200) ->   200 linhas ·  16 documentos
-        val.head(  500) ->   500 linhas ·  35 documentos
-        val.sample(500) ->   500 linhas · 259 documentos
-
-    Linhas do mesmo documento citado não são observações independentes: o n efetivo
-    de qualquer métrica é o número de DOCUMENTOS. Com 35, o acerto@1 de 0,364 tinha
-    intervalo de 95% de ±0,159 e não se distinguia da base de 0,198 — e as divisões
-    contaminada e honesta reportaram o mesmo número porque as duas mediam as mesmas
-    três dezenas de papers.
-
-    O segundo valor devolvido é o n efetivo, e serve para dimensionar o intervalo.
-    """
-    amostra = d.sample(n=n, seed=semente) if n and n < len(d) else d
-    n_doc = (amostra["arxiv_citado"].n_unique()
-             if "arxiv_citado" in amostra.columns else len(amostra))
-    return amostra, int(n_doc)
 
 
 class GruposDataset(Dataset):

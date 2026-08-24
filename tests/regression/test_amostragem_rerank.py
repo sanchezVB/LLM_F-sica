@@ -20,7 +20,7 @@ import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from phifm.training.rerank import amostrar_por_documento  # noqa: E402
+from phifm.training.amostragem import amostrar_por_documento  # noqa: E402
 
 
 def _agrupado(n_docs: int = 50, por_doc: int = 20) -> pl.DataFrame:

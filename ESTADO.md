@@ -14,10 +14,108 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
+| **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank ❌ | RRF é a melhor linha (**nDCG 0,1393**); o reranker **inverte o recuperador** e derruba para 0,0179 |
 
-Suíte: **355 testes** (5 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## T1b — a fusão fecha, e o ΦRank inverte o recuperador (2026-08-24)
+
+    300 consultas · universo de 88.807 documentos citados da validação · top-50
+
+    sistema                      r@1    r@10    r@50   nDCG@10
+    BM25                       0,047   0,227   0,363    0,1291
+    ΦEmb                       0,050   0,217   0,390    0,1227
+    ΦEmb+BM25 (RRF)            0,060   0,233   0,443    0,1393   <- melhor
+    ΦEmb+BM25+ΦRank            0,007   0,040   0,443    0,0179
+
+    -> data/processed/avaliacao/t1b_resultado.json
+
+**A fusão é o entregável do T1b.** +13% de nDCG sobre o ΦEmb sozinho e recall@50 de
+0,443 contra 0,390 — e o BM25 sozinho empata com o campeão do G1.1, o que é um
+resultado por si: a linha léxica não custa GPU nenhuma.
+
+### O ΦRank não está fraco, está invertido
+
+Ele funciona na tarefa dele: acerto@1 **0,371** [0,327, 0,416] em grupos de 8 contra
+acaso de 0,125, e ler a consulta vale **+0,143 ± 0,059** (medido contra consulta
+vazia, n efetivo 457 documentos).
+
+O problema é que a tarefa dele não é a do T1b. Os negativos foram minerados como
+*"top-K do recuperador, menos a citação verdadeira"* — o que **rotula negativo tudo
+que o recuperador coloca no topo**. O modelo aprendeu `muito recuperado ⇒ não é a
+resposta`, e no T1b os candidatos SÃO o top-50 do recuperador.
+
+Medido em 60 consultas, escore médio do ΦRank por faixa de posição na fusão:
+
+    posições  0-4    -4,319
+    posições  5-14   -4,053
+    posições 15-29   -3,812
+    posições 30-49   -3,723   <- o recuperador põe por último, o ΦRank prefere
+
+Monotônico. Spearman(posição na fusão, escore) = **+0,179** de média, +0,182 de
+mediana, positivo em **83%** das consultas.
+
+O viés é modesto — 0,6 logit contra espalhamento de ~3,5 — mas o reranker substitui
+a ordem inteira pela dele, e sobra uma ordenação levemente anticorrelacionada. Os
+números fecham: r@10 de 0,040 é ~metade do que ordem aleatória sobre os 50 daria
+(0,443 × 10/50 = 0,089). **Pior que aleatório, na medida que o viés prevê.**
+
+Nas linhas de depuração o mecanismo aparece cru: consultas em que a fusão já tinha
+o alvo na posição **0** terminam com ele em 29 e 41, e o escore do alvo fica no piso
+dos 50 candidatos.
+
+### O defeito de medição que escondeu tudo isso por uma semana
+
+`avaliar` usava `val.head(grupos_aval)`, e o parquet vem **agrupado por documento
+citado**:
+
+    val.head(  500) ->   500 linhas ·  35 documentos   <- o que era usado
+    val.sample(500) ->   500 linhas · 259 documentos
+
+Linhas do mesmo documento não são observações independentes: o n efetivo é o número
+de **documentos**. Com 35, o acerto@1 de 0,364 carregava intervalo de 95% de ±0,159
+— [0,205, 0,523] contra base de 0,198, ou seja o ganho inteiro dentro do ruído.
+
+E foi isso que me fez ler errado o conserto da divisão: a divisão contaminada (39%
+dos citados vistos no treino) e a divisão honesta por documento reportaram o **mesmo**
+número, ~0,36. Não porque o vazamento fosse inofensivo — porque as duas mediam os
+mesmos 35 papers.
+
+O mesmo `head` estava no treino: `treino.head(12.500)` cobria ~700 documentos
+distintos em vez de ~9.000, pelo mesmo custo de GPU.
+
+Corrigido em `amostrar_por_documento` (nível de módulo, um só lugar), e as métricas
+agora imprimem o intervalo de 95% sobre o n efetivo. `tests/regression/
+test_amostragem_rerank.py` falha se o `head` voltar — verificado por mutação.
+
+### Hipóteses medidas e descartadas, para não serem reinvestigadas
+
+| hipótese | medição que a matou |
+|---|---|
+| `sdpa` inferindo errado no DirectML | dif_max 4e-6 contra `eager` na CPU, ordenação idêntica |
+| negativos de outra população | 100% dos minerados são documentos citados |
+| grau de citação como atalho | positivo 113,6 contra 8,5 (13,3×) **mas** Spearman(grau, escore) = +0,056, p=0,17 |
+| atalho de formato/superfície | 14 features, melhor AUC 0,575 (número de pontos) |
+| desempate pelo índice 0 no `argsort` | embaralhar a posição do positivo dá números idênticos, como tem de ser num cross-encoder par a par |
+| "o modelo não lê a consulta" | veio de amostra de **16** documentos; com 457, ler a consulta vale +0,143 ± 0,059 |
+
+### O que consertar o ΦRank exige
+
+O erro é de amostragem de negativos, não de treino. Duas rotas, em ordem de custo:
+
+1. **Misturar negativos aleatórios aos minerados** (barato, sem reminerar). Hoje o
+   grupo é 1 positivo + 7 minerados do topo, então "estar no topo" prevê o rótulo em
+   7 de 8. Com metade aleatórios, negativo deixa de ser sinônimo de recuperado.
+2. **Treinar sobre o top-50 do RRF de verdade** — a distribuição exata da avaliação,
+   com a citação verdadeira como positivo e o resto como negativo. É a correção
+   principiada; custa uma passada de RRF sobre as âncoras de treino (~2,7 consultas/s
+   medidas, ~77 min para 12.500) mais uma codificação do pool (~3 min).
+
+Enquanto nenhuma das duas for feita, **o T1b fecha com a fusão** e o ΦRank fica fora
+da composição. O `recall@50` de 0,443 é o teto de qualquer reranking futuro: é ele,
+e não o reranker, o gargalo a atacar primeiro.
 
 ## G1.5 — o corpus por um hash, e o que ele prova
 
