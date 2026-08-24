@@ -195,8 +195,15 @@ def main() -> int:
     del mod, V
 
     # ── o grupo: RRF top-K, positivo dentro, negativos ao lado ─────────────
+    # ⚠️ `posto_do_alvo` e `postos_negativos` sao gravados porque sem eles a
+    # comparacao com o proprio recuperador vira conta de guardanapo. Em 2026-08-24
+    # tive de ESTIMAR o acerto 8-way do RRF por
+    # P(os n negativos sorteados caem abaixo do positivo) = C(K-1-r, n)/C(K-1, n),
+    # quando o dado exato cabia em duas colunas. Com eles, a linha de base do
+    # reranker sai do proprio arquivo, sem GPU e sem suposicao.
     saida = {"arxiv_id": [], "arxiv_citado": [], "ancora": [], "positivo": [],
-             "negativos_id": [], "negativos": []}
+             "negativos_id": [], "negativos": [], "posto_do_alvo": [],
+             "postos_negativos": []}
     fora_do_topo = descartados_por_serem_citacao = 0
     posicoes = []
     ids_anc = amostra["arxiv_id"].to_list()
@@ -217,8 +224,8 @@ def main() -> int:
         posicoes.append(rrf.index(alvo_idx))
 
         proibidos = cita.get(aid, set())
-        nids, ntxs = [], []
-        for d in rrf:
+        nids, ntxs, npostos = [], [], []
+        for posto, d in enumerate(rrf):
             if d == alvo_idx:
                 continue
             if ids_pool[d] in proibidos:
@@ -226,6 +233,7 @@ def main() -> int:
                 continue
             nids.append(ids_pool[d])
             ntxs.append(textos_pool[d])
+            npostos.append(posto)
 
         saida["arxiv_id"].append(aid)
         saida["arxiv_citado"].append(cid)
@@ -233,6 +241,8 @@ def main() -> int:
         saida["positivo"].append(textos_pool[alvo_idx])
         saida["negativos_id"].append(nids)
         saida["negativos"].append(ntxs)
+        saida["posto_do_alvo"].append(rrf.index(alvo_idx))
+        saida["postos_negativos"].append(npostos)
 
         if i and i % 2000 == 0:
             taxa = (i + 1) / (time.perf_counter() - t0)
