@@ -87,10 +87,49 @@ def _ipynb(codigo: str) -> dict:
     }
 
 
+def _usuario_do_json() -> str | None:
+    """Lê SÓ o campo `username` do kaggle.json legado, quando ele existir.
+
+    ⚠️ O `key` do arquivo nunca é lido nem impresso. O único motivo de tocar neste
+    arquivo é o nome de usuário, que compõe o slug do dataset — e o token novo e o
+    OAuth não carregam esse campo, então esta é a única fonte automática dele.
+    """
+    p = Path.home() / ".kaggle/kaggle.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8")).get("username") or None
+    except Exception:
+        return None
+
+
+def _tem_credencial() -> bool:
+    """Alguma das três formas de autenticação da CLI 2.2.4 está presente?
+
+    Checa presença, não validade: validar exigiria uma chamada à API, e falhar por
+    rede seria indistinguível de falhar por credencial. A CLI dá a mensagem boa
+    quando de fato tenta.
+
+    O OAuth do `kaggle auth login` guarda o estado dentro de ~/.kaggle, e o nome do
+    arquivo é detalhe interno da CLI — por isso a checagem é por "existe algo em
+    ~/.kaggle além do kaggle.json", e não por um nome fixo que uma atualização
+    mudaria sem avisar.
+    """
+    import os
+
+    if os.environ.get("KAGGLE_API_TOKEN"):
+        return True
+    d = Path.home() / ".kaggle"
+    if not d.is_dir():
+        return False
+    return any(f.name != "kaggle.json" for f in d.iterdir())
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--usuario", required=True,
-                   help="seu usuário do Kaggle (aparece em kaggle.com/SEU_USUARIO)")
+    p.add_argument("--usuario", default=None,
+                   help="seu usuário do Kaggle (aparece em kaggle.com/SEU_USUARIO). "
+                        "Se omitido, é lido de ~/.kaggle/kaggle.json quando existir")
     p.add_argument("--enviar", action="store_true",
                    help="chama a CLI do Kaggle; sem isto, só prepara e imprime")
     a = p.parse_args()
@@ -109,9 +148,16 @@ def main() -> int:
             f"{PACOTE}/MANIFESTO.json não existe. Rode "
             "scripts/empacotar_kaggle.py primeiro.")
 
+    usuario = a.usuario or _usuario_do_json()
+    if not usuario:
+        raise SystemExit(
+            "não sei seu usuário do Kaggle. Passe --usuario SEU_USUARIO (é o que "
+            "aparece em kaggle.com/SEU_USUARIO). Só o `kaggle.json` legado carrega "
+            "esse campo; o token novo e o OAuth não carregam.")
+
     man = json.loads((PACOTE / "MANIFESTO.json").read_text(encoding="utf-8"))
-    id_dados = f"{a.usuario}/{SLUG_DADOS}"
-    id_nb = f"{a.usuario}/{SLUG_NB}"
+    id_dados = f"{usuario}/{SLUG_DADOS}"
+    id_nb = f"{usuario}/{SLUG_NB}"
 
     # ── metadados do dataset ────────────────────────────────────────────────
     (PACOTE / "dataset-metadata.json").write_text(json.dumps({
@@ -148,23 +194,37 @@ def main() -> int:
     print(f"  notebook : {id_nb}  (GPU ✅ · internet ✅ · privado ✅)")
     print("=" * 70)
 
+    # ⚠️ `sys.executable -m kaggle`, nunca `["kaggle", ...]`. O executável fica em
+    # `.venv/Scripts/kaggle.exe` e NÃO está no PATH a menos que a venv esteja
+    # ativada — o script falharia com "não encontrado" só na hora do envio, depois
+    # de já ter gerado tudo.
     cmds = [
-        ["kaggle", "datasets", "create", "-p", str(PACOTE), "--dir-mode", "zip"],
-        ["kaggle", "kernels", "push", "-p", str(SAIDA_NB)],
+        [sys.executable, "-m", "kaggle", "datasets", "create", "-p", str(PACOTE),
+         "--dir-mode", "zip"],
+        [sys.executable, "-m", "kaggle", "kernels", "push", "-p", str(SAIDA_NB)],
     ]
     if not a.enviar:
-        print("\n  para enviar, com o token em ~/.kaggle/kaggle.json:\n")
+        print("\n  para enviar, depois de `python -m kaggle auth login`:\n")
         for c in cmds:
             print("    " + " ".join(c))
         print("\n  (ou rode este script de novo com --enviar)")
         return 0
 
-    token = Path.home() / ".kaggle/kaggle.json"
-    if not token.exists():
-        raise SystemExit(
-            f"sem {token}. Em kaggle.com → sua foto → Settings → API → "
-            "'Create New Token', e salve o arquivo baixado nesse caminho. "
-            "Eu não posso criar isso por você: exige entrar na sua conta.")
+    if not _tem_credencial():
+        raise SystemExit("""sem credencial do Kaggle. A CLI 2.2.4 aceita três
+caminhos, em ordem de menos atrito:
+
+  1. `python -m kaggle auth login` — fluxo OAuth no navegador. Nada é copiado
+     nem colado, e é o que a própria CLI recomenda.
+  2. kaggle.com/settings/api → 'Generate New Token' (o de CIMA), e salvar o
+     token em ~/.kaggle/access_token
+  3. variável de ambiente KAGGLE_API_TOKEN
+
+⚠️ 'Create Legacy API Key' (o botão de baixo) baixa um kaggle.json que esta
+versão da CLI NÃO usa para autenticar — ele serve só para eu ler o nome de
+usuário de lá.
+
+Eu não faço nenhum dos três: exige entrar na sua conta.""")
 
     for c in cmds:
         print(f"\n$ {' '.join(c)}")

@@ -28,6 +28,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# So para `scripts/publicar_kaggle.py`. Fica em extra e nao em `dependencies`
+# porque o projeto inteiro roda sem ela — ela serve para EMPURRAR o T1a para a
+# GPU gratuita do Kaggle, que e um caminho opcional.
+#
+# ⚠️ `>=2.0` de proposito. A CLI 2.x mudou a autenticacao: a 1.x lia
+# `~/.kaggle/kaggle.json`, e a 2.x quer `kaggle auth login` (OAuth) ou um token em
+# `~/.kaggle/access_token`. Um piso frouxo faria o script instruir o caminho errado
+# — e o `kaggle.json` legado, na 2.x, serve so para ler o nome de usuario.
+kaggle = ["kaggle>=2.0"]
 
 [build-system]
 requires = ["hatchling"]
