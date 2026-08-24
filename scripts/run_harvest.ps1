@@ -164,8 +164,19 @@ switch ($Fonte) {
                   # ⚠️ Desvio de especificacao registrado: o DOC-07 §4 pede
                   # inicializacao do PhiEnc, que nao existe. Usado o MiniLM, a mesma
                   # base do PhiEmb campeao.
-                  $argumentos = '--max-grupos 12500 --grupos 4 --n-negativos 7 ' +
-                                '--passos-aval 500 --grupos-aval 500' }
+                  #
+                  # ⚠️ `--grupos 2`, nao 4. Com 4 sao 32 exemplos a 384 tokens, e o
+                  # tensor de atencao e 32 x 12 x 384 x 384 x 4 = 226.492.416 bytes
+                  # — exatamente a alocacao que falta nos 8 GB. Passou numa corrida
+                  # e estourou na seguinte, entao estava no limite. Com 2 grupos o
+                  # tensor cai para 113 MB.
+                  #
+                  # NAO muda o experimento: o grupo segue 1 positivo + 7 negativos, e
+                  # a perda continua sobre o grupo. So passam menos grupos por passo,
+                  # o que e ruido de otimizacao, nao mudanca de tarefa. `max-grupos`
+                  # e em LINHAS do conjunto, entao o volume de exemplos e o mesmo.
+                  $argumentos = '--max-grupos 12500 --grupos 2 --n-negativos 7 ' +
+                                '--passos-aval 1000 --grupos-aval 500' }
     'phiemb-duros' { $script = 'scripts/train_embedding.py'
                   $python = Join-Path $raiz '.venv-treino\Scripts\python.exe'
                   # NEGATIVOS DIFICEIS minerados pelo proprio campeao (DOC-07 §4).
