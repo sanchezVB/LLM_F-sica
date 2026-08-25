@@ -8,6 +8,7 @@ docstring de `phifm.corpus.slices.hf_filtrado` para o limiar e para o que NENHUM
 número nosso responde sobre texto de web.
 """
 import argparse
+import contextlib
 import json
 import logging
 import sys
@@ -19,9 +20,14 @@ from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E40
 from phifm.corpus.slices.hf_filtrado import LIMIAR, filtrar  # noqa: E402
 from phifm.corpus.slices.retomada import feitas  # noqa: E402
 
+# (repo, extensoes, prefixo). O prefixo escolhe UMA versao do corpus quando o
+# repositorio publica varias — ver a guarda em `hf_filtrado.filtrar`.
 FONTES = {
-    "openwebmath": ("open-web-math/open-web-math", (".parquet",)),
-    "pes2o": ("allenai/peS2o", (".parquet", ".json.gz", ".jsonl.gz")),
+    "openwebmath": ("open-web-math/open-web-math", (".parquet",), None),
+    # ⚠️ `data/v2/`: o peS2o publica v1 (22 arquivos, 100,7 GB) E v2 (22
+    # arquivos, 87,1 GB) da MESMA colecao. v2 e a versao corrente. Sem o
+    # prefixo, os mesmos papers entram duas vezes.
+    "pes2o": ("allenai/peS2o", (".parquet", ".json.gz", ".jsonl.gz"), "data/v2/"),
 }
 
 
@@ -33,16 +39,23 @@ def main() -> int:
     p.add_argument("--limiar", type=float, default=LIMIAR)
     p.add_argument("--max-arquivos", type=int, default=None)
     a = p.parse_args()
+
+    # ⚠️ O resumo imprime `≈` e o console do Windows entrega cp1252: sem isto o
+    # script levanta UnicodeEncodeError DEPOIS de horas de download, na ultima
+    # linha da saida.
+    for fluxo in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            fluxo.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
 
-    ds, ext = FONTES[a.fonte]
+    ds, ext, prefixo = FONTES[a.fonte]
     out = a.out or Path(f"data/processed/{a.fonte}_fisica")
 
     impedir_suspensao()
     try:
         f = filtrar(ds, out, a.modelo, limiar=a.limiar, max_arquivos=a.max_arquivos,
-                    ext=ext, contato=contato_obrigatorio())
+                    ext=ext, prefixo=prefixo, contato=contato_obrigatorio())
     finally:
         liberar_suspensao()
 

@@ -45,7 +45,34 @@ LEGADOS = ("_shards_feitos.json",)
 CHAVES = ("unidades", "shards")
 
 
-def feitas(destino: Path, nome: str = MANIFESTO) -> set[int]:
+def assinatura_da_lista(nomes: list[str]) -> str:
+    """Identidade da lista de entrada que gerou os ordinais do manifesto.
+
+    ⚠️ Existe porque o manifesto guarda NÚMEROS DE UNIDADE, e um número só
+    significa algo em relação a uma lista. Se a lista muda, "unidade 1 feita"
+    passa a proteger o arquivo errado.
+
+    Aconteceu em 2026-08-25: o peS2o publica v1 E v2 da mesma coleção no mesmo
+    repositório, e o filtro pegava as duas. Ao restringir para `data/v2/`, o
+    manifesto ainda dizia "unidade 1 feita" — mas a unidade 1 tinha deixado de ser
+    `data/v1/train-00000` e passado a ser `data/v2/train-00000`, um arquivo nunca
+    processado. Retomar teria pulado esse arquivo e deixado dados de v1 no destino.
+
+    É o mesmo defeito que este módulo existe para impedir, um nível acima: lá o
+    erro era confundir contador de entrada com contador de saída; aqui é confiar
+    num ordinal sem guardar a lista a que ele se refere.
+    """
+    import hashlib
+
+    h = hashlib.sha256()
+    for n in nomes:
+        h.update(n.encode("utf-8"))
+        h.update(b"\x00")
+    return h.hexdigest()[:16]
+
+
+def feitas(destino: Path, nome: str = MANIFESTO,
+           assinatura: str | None = None) -> set[int]:
     """Unidades de entrada já concluídas.
 
     Manifesto ausente ou ilegível devolve conjunto vazio — refazer é caro mas
@@ -64,15 +91,37 @@ def feitas(destino: Path, nome: str = MANIFESTO) -> set[int]:
             if chave in d:
                 if candidato != nome:
                     log.info("manifesto no nome antigo (%s) — lido normalmente", candidato)
+                gravada = d.get("assinatura")
+                if assinatura and gravada and gravada != assinatura:
+                    raise ValueError(
+                        f"o manifesto {candidato} foi escrito para OUTRA lista de "
+                        f"entrada (assinatura {gravada}, agora {assinatura}). Os "
+                        "números de unidade dele não valem aqui: retomar pularia "
+                        "arquivos que nunca foram processados.\n\n"
+                        f"Se a mudança foi intencional, esvazie {destino} antes de "
+                        "continuar — o que está lá veio da lista antiga e misturar "
+                        "as duas é pior que refazer.")
+                if assinatura and not gravada:
+                    log.warning(
+                        "manifesto sem assinatura de lista (escrito por versão "
+                        "anterior) — aceito, mas se a lista mudou desde então a "
+                        "retomada está errada")
                 return set(d[chave])
     return set()
 
 
-def marcar(destino: Path, feitas_: set[int], nome: str = MANIFESTO) -> None:
-    """Grava ordenado, para o diff do arquivo ser legível."""
+def marcar(destino: Path, feitas_: set[int], nome: str = MANIFESTO,
+           assinatura: str | None = None) -> None:
+    """Grava ordenado, para o diff do arquivo ser legível.
+
+    `assinatura` amarra os ordinais à lista de entrada que os produziu — ver
+    `assinatura_da_lista`.
+    """
     destino.mkdir(parents=True, exist_ok=True)
-    (destino / nome).write_text(
-        json.dumps({"unidades": sorted(feitas_)}, indent=0), encoding="utf-8")
+    corpo: dict[str, object] = {"unidades": sorted(feitas_)}
+    if assinatura:
+        corpo["assinatura"] = assinatura
+    (destino / nome).write_text(json.dumps(corpo, indent=0), encoding="utf-8")
 
 
 def proximo_indice(destino: Path, padrao: str = "part-*.parquet") -> int:

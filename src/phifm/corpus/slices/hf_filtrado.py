@@ -47,6 +47,7 @@ fração.
 
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import pickle
@@ -60,7 +61,12 @@ import polars as pl
 import requests
 
 from phifm.corpus.acquire.base import user_agent
-from phifm.corpus.slices.retomada import feitas, marcar, proximo_indice
+from phifm.corpus.slices.retomada import (
+    assinatura_da_lista,
+    feitas,
+    marcar,
+    proximo_indice,
+)
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +163,49 @@ def _baixar(sessao: requests.Session, ds: str, nome: str, destino: Path,
     return n
 
 
+def _ler_blocos(local: Path, por_bloco: int = 50_000):
+    """Itera o arquivo em DataFrames, despachando pelo formato.
+
+    ⚠️ Era `pl.read_parquet(local)` fixo, e o peS2o v1 é `.json.gz`. Medido em
+    2026-08-25 num teste de fumaça de UM arquivo:
+
+        data/v1/train-00000-of-00020.json.gz falhou: parquet: File must end with PAR1
+        1/1 · 0 vistos · 0 aceitos (0,0%) · 2,9 GB
+
+    Baixou 2,9 GB e processou ZERO registros. E como a exceção é capturada e só
+    logada como aviso, os 20 arquivos falhariam igual: as 42,7 h estimadas
+    produziriam um diretório vazio com um resumo satisfeito.
+
+    ## Por que em blocos, e não um DataFrame só
+
+    Os arquivos do peS2o têm ~2,9 GB COMPRIMIDOS. Descomprimir inteiro para
+    materializar um DataFrame passaria de 10 GB de RAM — e este projeto já perdeu
+    treinos para um relatório que alocou 43 GB. O `gzip` lê em fluxo, e cada bloco
+    de linhas vira um DataFrame pequeno que o chamador consome e descarta.
+    """
+    nome = local.name.lower()
+    if nome.endswith(".parquet"):
+        yield pl.read_parquet(local)
+        return
+    if nome.endswith((".json.gz", ".jsonl.gz", ".jsonl", ".json")):
+        abrir = gzip.open if nome.endswith(".gz") else open
+        with abrir(local, "rt", encoding="utf-8") as fh:  # type: ignore[operator]
+            lote: list[str] = []
+            for linha in fh:
+                if not linha.strip():
+                    continue
+                lote.append(linha)
+                if len(lote) >= por_bloco:
+                    yield pl.read_ndjson("".join(lote).encode("utf-8"))
+                    lote = []
+            if lote:
+                yield pl.read_ndjson("".join(lote).encode("utf-8"))
+        return
+    raise ValueError(
+        f"formato não reconhecido: {local.name}. Aceito: .parquet, .json.gz, "
+        ".jsonl.gz, .jsonl, .json")
+
+
 def _texto_e_url(df: pl.DataFrame) -> tuple[list[str], list[str | None]]:
     """Extrai texto e URL do esquema de cada fonte, sem supor um formato só."""
     cols = set(df.columns)
@@ -183,6 +232,7 @@ def filtrar(
     limiar: float = LIMIAR,
     max_arquivos: int | None = None,
     ext: tuple[str, ...] = (".parquet",),
+    prefixo: str | None = None,
     temp: Path | None = None,
     contato: str | None = None,
 ) -> Filtragem:
@@ -193,6 +243,32 @@ def filtrar(
     temp = temp or (destino.parent / "_temp")
     arquivos, revisao = _arquivos(sessao, ds, ext)
     log.info("%s · revisão fixada em %s", ds, revisao)
+
+    # ⚠️ O peS2o publica v1 E v2 da MESMA coleção no mesmo repositório: 22
+    # arquivos e 100,7 GB de v1, 22 arquivos e 87,1 GB de v2. Sem selecionar
+    # uma, o filtro ingere os mesmos papers duas vezes — ~31 h de máquina para
+    # produzir um corpus com metade duplicada.
+    #
+    # Duplicação em dado de pré-treino não é desperdício, é dano: o S3b deste
+    # projeto mediu que o RedPajama **degrada 16,6%**.
+    if prefixo:
+        antes = len(arquivos)
+        arquivos = [(n, s) for n, s in arquivos if n.startswith(prefixo)]
+        log.info("prefixo %r: %d de %d arquivos", prefixo, len(arquivos), antes)
+        if not arquivos:
+            raise ValueError(
+                f"nenhum arquivo começa com {prefixo!r}. Presentes: "
+                f"{sorted({n.rsplit('/', 1)[0] for n, _ in _arquivos(sessao, ds, ext)[0]})}")
+
+    # A guarda vale MESMO sem prefixo: descobrir a duplicação depois de 31 h de
+    # download seria descobrir tarde.
+    versoes = {n.split("/")[1] for n, _ in arquivos if n.count("/") >= 2}
+    if len(versoes) > 1:
+        raise ValueError(
+            f"a lista abrange {len(versoes)} versões do mesmo corpus: "
+            f"{sorted(versoes)}. Ingerir as duas duplicaria os documentos. "
+            f"Passe `prefixo=` para escolher uma (ex.: 'data/v2/').")
+
     if max_arquivos:
         arquivos = arquivos[:max_arquivos]
     tot = sum(s for _, s in arquivos)
@@ -204,7 +280,8 @@ def filtrar(
     # índice de SAÍDA — e no OpenWebMath um parquet cobre ~2,7 arquivos, então os
     # dois divergem no primeiro flush. Ver `slices/retomada.py`: o mesmo defeito
     # custou 40.000 duplicatas no RedPajama.
-    prontos = feitas(destino)
+    assinatura = assinatura_da_lista([n for n, _ in arquivos])
+    prontos = feitas(destino, assinatura=assinatura)
     buffer: list[dict] = []
     indice = proximo_indice(destino)
     if prontos:
@@ -234,39 +311,39 @@ def filtrar(
                     time.sleep(espera)
             else:
                 raise RuntimeError(f"rede indisponível após {MAX_TENTATIVAS} tentativas")
-            df = pl.read_parquet(local)
-            textos, urls = _texto_e_url(df)
-            # Fatia para não passar 20 mil textos de uma vez ao TF-IDF.
-            for i in range(0, len(textos), 20_000):
-                bloco = textos[i:i + 20_000]
-                # `strict=True`: as tres listas saem do MESMO corte, e um
-                # desalinhamento parearia texto com a URL de outro documento —
-                # silenciosamente. E o defeito que o cache de vetores ja causou.
-                for texto, url, s in zip(bloco, urls[i:i + 20_000],
-                                         clf.scores(bloco), strict=True):
-                    f.vistos += 1
-                    if s < limiar or not texto:
-                        continue
-                    f.aceitos += 1
-                    f.caracteres_aceitos += len(texto)
-                    if isinstance(url, str) and url.startswith("http"):
-                        f.dominios[urlparse(url).netloc.lower()] += 1
-                    buffer.append({"texto": texto, "url": url if isinstance(url, str) else None,
-                                   "score": s})
-                    if len(f.amostra) < N_AMOSTRA and f.vistos % 97 == 0:
-                        f.amostra.append({"score": round(s, 4), "url": url
-                                          if isinstance(url, str) else None,
-                                          "inicio": texto[:600]})
-                    if len(buffer) >= FLUSH:
-                        _gravar(buffer, destino, indice)
-                        buffer.clear()
-                        indice += 1
+            for df in _ler_blocos(local):
+                textos, urls = _texto_e_url(df)
+                # Fatia para não passar 20 mil textos de uma vez ao TF-IDF.
+                for i in range(0, len(textos), 20_000):
+                    bloco = textos[i:i + 20_000]
+                    # `strict=True`: as tres listas saem do MESMO corte, e um
+                    # desalinhamento parearia texto com a URL de outro documento —
+                    # silenciosamente. E o defeito que o cache de vetores ja causou.
+                    for texto, url, s in zip(bloco, urls[i:i + 20_000],
+                                             clf.scores(bloco), strict=True):
+                        f.vistos += 1
+                        if s < limiar or not texto:
+                            continue
+                        f.aceitos += 1
+                        f.caracteres_aceitos += len(texto)
+                        if isinstance(url, str) and url.startswith("http"):
+                            f.dominios[urlparse(url).netloc.lower()] += 1
+                        buffer.append({"texto": texto, "url": url if isinstance(url, str) else None,
+                                       "score": s})
+                        if len(f.amostra) < N_AMOSTRA and f.vistos % 97 == 0:
+                            f.amostra.append({"score": round(s, 4), "url": url
+                                              if isinstance(url, str) else None,
+                                              "inicio": texto[:600]})
+                        if len(buffer) >= FLUSH:
+                            _gravar(buffer, destino, indice)
+                            buffer.clear()
+                            indice += 1
         except Exception as exc:
             f.falhas.append(f"{nome}: {type(exc).__name__}: {str(exc)[:80]}")
             log.warning("%s falhou: %s", nome, exc)
         else:
             prontos.add(n)
-            marcar(destino, prontos)
+            marcar(destino, prontos, assinatura=assinatura)
         finally:
             local.unlink(missing_ok=True)     # o bruto NÃO fica
         f.arquivos_lidos += 1
@@ -277,6 +354,20 @@ def filtrar(
 
     if buffer:
         _gravar(buffer, destino, indice)
+
+    # ⚠️ Zero registros VISTOS nao e um resultado, e uma falha — e sem esta guarda
+    # ela sai como sucesso. Medido em 2026-08-25: o leitor tentava parquet num
+    # `.json.gz`, cada arquivo levantava, a excecao era capturada e logada como
+    # aviso, e o resumo final imprimia "0 vistos · 0 aceitos (0,00%)" com codigo de
+    # saida 0. As 42,7 h estimadas para o peS2o teriam produzido um diretorio vazio.
+    #
+    # A taxa de aceitacao pode legitimamente ser zero (limiar alto, fonte sem
+    # Fisica). O que nunca e legitimo e nao ter LIDO nada.
+    if f.vistos == 0 and f.arquivos_lidos:
+        raise RuntimeError(
+            f"{f.arquivos_lidos} arquivos processados e NENHUM registro lido. "
+            f"Falhas: {f.falhas[:3]}. Um resumo de zero vistos com sucesso "
+            "esconderia horas de download sem resultado.")
     return f
 
 
