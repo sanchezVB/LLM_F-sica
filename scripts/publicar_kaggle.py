@@ -297,7 +297,18 @@ def main() -> int:
         "language": "python",
         "kernel_type": "notebook",
         "is_private": True,
+        # ⚠️ `enable_gpu` sozinho NAO liga a GPU nas versoes atuais. Medido em
+        # 2026-08-24: o metadado subiu com `enable_gpu: True`, o Kaggle guardou e
+        # devolveu esse valor no `kernels pull -m` — e mesmo assim a sessao rodou
+        # sem acelerador, e o notebook morreu no proprio assert aos 18 s.
+        #
+        # Quem decide e o campo `accelerator`. Os dois vao juntos porque
+        # `enable_gpu` ainda e lido por versoes antigas da API.
+        #
+        # Conferir o metadado de volta nao teria pego isto: o Kaggle ecoa
+        # `enable_gpu: True` de qualquer jeito. So a execucao revela.
         "enable_gpu": True,
+        "accelerator": "nvidiaTeslaT4",
         # ⚠️ Obrigatório: o `all-MiniLM-L6-v2` vem do HuggingFace e não há fallback.
         "enable_internet": True,
         "dataset_sources": [id_dados],

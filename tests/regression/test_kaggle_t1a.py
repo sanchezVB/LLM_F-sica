@@ -302,3 +302,19 @@ def test_manifesto_descreve_o_que_a_etapa_produziu_nao_o_que_sobrou_no_disco(tmp
     assert "ESPERADOS" in fonte, "a lista declarada de conteúdo desapareceu"
     assert "f.name not in ESPERADOS" in fonte, (
         "voltou a aceitar qualquer arquivo do diretório no manifesto")
+
+
+def test_o_notebook_pede_acelerador_pelo_campo_que_vale():
+    """`enable_gpu` sozinho não liga a GPU, e o Kaggle não reclama.
+
+    Medido em 2026-08-24: o push subiu com `enable_gpu: True`, o Kaggle guardou e
+    devolveu esse valor no `kernels pull -m`, e a sessão rodou SEM acelerador —
+    `torch.cuda.is_available()` False, e o assert do notebook derrubou aos 18 s.
+
+    Quem decide é `accelerator`. Conferir o metadado de volta não pega isto, porque
+    o Kaggle ecoa `enable_gpu` de qualquer jeito; só a execução revela.
+    """
+    fonte = (RAIZ / "scripts/publicar_kaggle.py").read_text(encoding="utf-8")
+    assert '"accelerator"' in fonte, (
+        "sem o campo `accelerator` o notebook roda em CPU — e em CPU este treino "
+        "levaria dias e 'funcionaria'")
