@@ -45,6 +45,10 @@ jobs:
           python -m pip install -q --upgrade pip
           pip install -q -r requirements.lock
           pip install -q ruff import-linter pytest pytest-cov
+          # reportlab: `scripts/relatorio_pdf.py` o importa no topo, e um teste de
+          # regressao importa esse script. Instalado para o teste RODAR — saltar
+          # seria esconder a cobertura em vez de dar a dependencia.
+          pip install -q reportlab
 
       - name: ruff
         run: ruff check src/ tests/ scripts/

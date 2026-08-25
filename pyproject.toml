@@ -40,6 +40,15 @@ dev = ["pytest>=8.0"]
 # `~/.kaggle/access_token`. Um piso frouxo faria o script instruir o caminho errado
 # — e o `kaggle.json` legado, na 2.x, serve so para ler o nome de usuario.
 kaggle = ["kaggle>=2.0"]
+# ⚠️ NAO estava declarado em lugar nenhum. `scripts/relatorio_pdf.py` importa
+# reportlab no topo do modulo, e `tests/regression/test_overflow_caracteres.py`
+# importa esse script — entao o teste passava na minha venv (onde o reportlab
+# estava por acidente) e falhava no CI com ModuleNotFoundError.
+#
+# Uma dependencia que existe so na maquina de quem escreveu e o motivo classico de
+# "passa aqui, falha la", e este projeto ficou 80 execucoes sem ver isso porque o CI
+# morria antes, na instalacao.
+relatorio = ["reportlab>=4.0"]
 
 [build-system]
 requires = ["hatchling"]
