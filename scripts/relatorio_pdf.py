@@ -129,16 +129,16 @@ def sec_portoes(st: dict) -> list:
                       "mesmo limite de tokens para todos.".replace(",", "."), st["p"]),
             tabela(linhas, [58 * mm, 20 * mm, 22 * mm, 22 * mm, 24 * mm], destaque),
             Spacer(1, 8)]
-    for l in d["veredito"].splitlines():
-        if not l.strip():
+    for linha in d["veredito"].splitlines():
+        if not linha.strip():
             continue
-        est = st["nota"] if l.startswith(("  ", "\u00b7", "RESSALVAS")) else st["p"]
+        est = st["nota"] if linha.startswith(("  ", "\u00b7", "RESSALVAS")) else st["p"]
         cor = ""
-        if "PASSOU" in l and "NÃO" not in l:
+        if "PASSOU" in linha and "NÃO" not in linha:
             cor = f'<font color="#{BOM.hexval()[2:]}">'
-        elif "NÃO PASSOU" in l:
+        elif "NÃO PASSOU" in linha:
             cor = f'<font color="#{RUIM.hexval()[2:]}">'
-        txt = (cor + l.strip() + ("</font>" if cor else "")).replace("·", "&middot;")
+        txt = (cor + linha.strip() + ("</font>" if cor else "")).replace("·", "&middot;")
         out.append(Paragraph(txt, est))
     return out
 

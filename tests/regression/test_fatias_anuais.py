@@ -38,7 +38,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import polars as pl
-import pytest
 
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
@@ -73,7 +72,7 @@ def test_termina_hoje():
 def test_fatias_sao_contiguas():
     """O fim de uma e o começo da seguinte diferem em exatamente um dia."""
     fs = hn.fatias_anuais()
-    for (_, fim), (inicio, _) in zip(fs, fs[1:]):
+    for (_, fim), (inicio, _) in zip(fs, fs[1:], strict=False):  # comprimentos diferem por construcao
         d_fim, d_ini = date.fromisoformat(fim), date.fromisoformat(inicio)
         assert d_ini - d_fim == timedelta(days=1), (
             f"lacuna ou sobreposição entre {fim} e {inicio}")
@@ -112,7 +111,7 @@ def test_math_e_fatiado_e_os_outros_nao():
     não há motivo para fatiá-los, e fatiar mudaria o caminho dos shards já em
     disco.
     """
-    assert hn.SETS_FATIADOS == {"math"}
+    assert {"math"} == hn.SETS_FATIADOS
     for s in ("cs", "q-bio", "econ"):
         assert s not in hn.SETS_FATIADOS
 

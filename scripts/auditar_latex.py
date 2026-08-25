@@ -48,7 +48,7 @@ def main() -> int:
     print(f"  mediana por paper          : {100*r['preservacao_mediana_por_paper']:.1f}%")
     print(f"  papers abaixo de 90%       : {r['papers_abaixo_de_90pc']} de {r['papers_comparados']}")
     print(f"  papers com erro de coleta  : {r['papers_com_erro']}")
-    print(f"  excluídos (fonte montada por concatenação, contagem inflável)")
+    print("  excluídos (fonte montada por concatenação, contagem inflável)")
     print(f"                             : {r['papers_por_concatenacao_excluidos']}")
     print()
     print(f"  DEGRADAÇÃO TOTAL: {100*r['degradacao_total']:.1f}%   "

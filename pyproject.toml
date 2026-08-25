@@ -2,7 +2,10 @@
 name = "phifm"
 version = "0.1.0"
 description = "ΦFM — Foundation models especializados em Física"
-requires-python = ">=3.11"
+# ⚠️ >=3.12 e nao >=3.11: o `requirements.lock` fixa `numpy==2.5.1`, que exige
+# 3.12+. Declarar 3.11 era falso — nenhuma venv do projeto usa (treino e 3.12 por
+# causa do torch-directml, a principal e 3.14), e o CI tentava 3.11 e nao instalava.
+requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 
 # Dependências mínimas para reproduzir o Sprint S1 e S2.
@@ -103,7 +106,7 @@ exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedE
 # ── ruff (DOC-01 §5.8) ───────────────────────────────────────────────────
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
@@ -121,7 +124,7 @@ ignore = [
 "scripts/**" = ["E402"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 # Bibliotecas científicas não publicam stubs. Não é motivo para desligar o
 # --strict no NOSSO código.
 [[tool.mypy.overrides]]

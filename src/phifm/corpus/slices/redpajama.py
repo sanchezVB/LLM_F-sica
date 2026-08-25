@@ -109,7 +109,7 @@ def ids_do_spine(spine: Path) -> set[str]:
 def _urls(sessao: requests.Session) -> list[str]:
     r = sessao.get(INDICE, timeout=60)
     r.raise_for_status()
-    return [l.strip() for l in r.text.splitlines() if l.strip()]
+    return [ln.strip() for ln in r.text.splitlines() if ln.strip()]
 
 
 def _linhas_do_shard(sessao: requests.Session, url: str, p: Progresso):

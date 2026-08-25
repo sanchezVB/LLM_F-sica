@@ -45,13 +45,11 @@ from __future__ import annotations
 import io
 import json
 import logging
-import re
 import tarfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import polars as pl
-import requests
 
 from phifm.core.latex.canonical import hash_canonico
 from phifm.core.latex.extrair import extrair_equacoes, montar_documento
@@ -260,9 +258,9 @@ def amostrar_redpajama(http: PoliteSession, n: int = N_PAPERS,
             guardado.parent.mkdir(parents=True, exist_ok=True)
             guardado.write_text("\n".join(linhas), encoding="utf-8")
     out: dict[str, str] = {}
-    for l in linhas:
+    for linha in linhas:
         try:
-            d = json.loads(l)
+            d = json.loads(linha)
         except json.JSONDecodeError:
             continue
         aid = (d.get("meta") or {}).get("arxiv_id")

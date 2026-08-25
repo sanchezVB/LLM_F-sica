@@ -15,12 +15,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.core.env import contato_obrigatorio  # noqa: E402
-from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
-from phifm.corpus.slices.redpajama import REVISAO, coletar  # noqa: E402
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     Entrada,
     gravar_manifesto_etapa,
 )
+from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
+from phifm.corpus.slices.redpajama import REVISAO, coletar  # noqa: E402
 
 
 def main() -> int:

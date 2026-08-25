@@ -245,10 +245,10 @@ def test_nenhum_uso_de_cfg_lote_fatia_para_a_memoria():
     """
     from phifm.training import embedding as mod
     fonte = Path(mod.__file__).read_text(encoding="utf-8")
-    linhas = [l.strip() for l in fonte.splitlines() if "self.cfg.lote" in l]
+    linhas = [linha.strip() for linha in fonte.splitlines() if "self.cfg.lote" in linha]
     permitidos = ("return self.cfg.sub_lote or self.cfg.lote",
                   "batch_size=self.cfg.lote,")
-    for l in linhas:
-        assert any(p in l for p in permitidos), (
-            f"uso novo de cfg.lote fora dos dois legítimos: {l!r} — se este fatia "
+    for linha in linhas:
+        assert any(p in linha for p in permitidos), (
+            f"uso novo de cfg.lote fora dos dois legítimos: {linha!r} — se este fatia "
             f"para caber na memória, use `self.lote_fisico`")

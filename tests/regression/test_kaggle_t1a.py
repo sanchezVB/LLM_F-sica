@@ -315,6 +315,24 @@ def test_o_notebook_pede_acelerador_pelo_campo_que_vale():
     o Kaggle ecoa `enable_gpu` de qualquer jeito; só a execução revela.
     """
     fonte = (RAIZ / "scripts/publicar_kaggle.py").read_text(encoding="utf-8")
-    assert '"accelerator"' in fonte, (
-        "sem o campo `accelerator` o notebook roda em CPU — e em CPU este treino "
-        "levaria dias e 'funcionaria'")
+    assert '"machine_shape": "NvidiaTeslaT4"' in fonte, (
+        "sem `machine_shape` o notebook roda em CPU — e em CPU este treino levaria "
+        "dias e 'funcionaria'. `enable_gpu` e `accelerator` NAO servem: o primeiro e "
+        "aceito e ignorado, o segundo nem e lido")
+
+
+def test_a_imagem_docker_nao_fica_presa_a_execucao_antiga():
+    """O Kaggle FIXA a imagem docker do kernel, e o pin sobrevive a novos pushes.
+
+    Medido em 2026-08-24/25: quatro execuções rodaram com `torch 2.10.0+cpu` mesmo
+    com `machine_shape: NvidiaTeslaT4` confirmado pelo `kernels pull -m`. O kernel
+    seguia preso à imagem da PRIMEIRA execução, que foi sem acelerador — e GPU
+    alocada não muda o PyTorch instalado dentro de uma imagem CPU-only.
+
+    `latest` manda o Kaggle escolher a imagem atual apropriada ao acelerador.
+    `original` é o comportamento que criou o problema.
+    """
+    fonte = (RAIZ / "scripts/publicar_kaggle.py").read_text(encoding="utf-8")
+    assert '"docker_image_pinning_type": "latest"' in fonte, (
+        "sem isto o kernel arrasta a imagem de CPU da primeira execução e o treino "
+        "roda sem GPU mesmo com o acelerador pedido")

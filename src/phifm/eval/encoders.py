@@ -320,8 +320,8 @@ def comparar_pareado(a: Resultado, b: Resultado) -> dict:
     if len(a.posicoes) != len(b.posicoes):
         return {"erro": f"conjuntos de tamanhos diferentes: {len(a.posicoes)} vs {len(b.posicoes)}"}
 
-    ganha_a = sum(1 for x, y in zip(a.posicoes, b.posicoes) if x == 1 and y != 1)
-    ganha_b = sum(1 for x, y in zip(a.posicoes, b.posicoes) if y == 1 and x != 1)
+    ganha_a = sum(1 for x, y in zip(a.posicoes, b.posicoes, strict=True) if x == 1 and y != 1)
+    ganha_b = sum(1 for x, y in zip(a.posicoes, b.posicoes, strict=True) if y == 1 and x != 1)
     disc = ganha_a + ganha_b
 
     if disc == 0:
@@ -449,6 +449,6 @@ def veredito(rs: list[Resultado], n: int = 256) -> str:
           "  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado",
           "  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)",
           "    não são tocados por esta medição",
-          f"  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);",
-          f"    um benchmark com julgamentos graduados daria outro número"]
+          "  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);",
+          "    um benchmark com julgamentos graduados daria outro número"]
     return "\n".join(L)

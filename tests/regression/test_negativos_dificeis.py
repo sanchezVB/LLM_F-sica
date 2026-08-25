@@ -270,8 +270,13 @@ def test_negativos_sao_codificados_sem_grafo_e_em_pedacos():
     assert "_codificar_congelado(duros)" in fonte, (
         "os negativos voltaram a ser codificados com grafo — o lote 128 estoura")
     congelado = inspect.getsource(TreinadorEmb._codificar_congelado)
-    assert "no_grad" in inspect.getsource(TreinadorEmb).split(
-        "_codificar_congelado")[0][-200:] or "no_grad" in congelado or True
+    # ⚠️ Esta linha terminava em `or True` — a asserção passava SEMPRE e nunca
+    # verificou nada. Achada pelo ruff (SIM222) em 2026-08-25, com o CI vermelho
+    # desde que foi criado. Conferido antes de reescrever: o método tem o
+    # decorador `@torch.no_grad()`.
+    assert "no_grad" in congelado, (
+        "_codificar_congelado perdeu o @torch.no_grad() — sem ele a fase 1 do "
+        "GradCache constroi grafo e o lote 128 estoura a VRAM")
     assert "pedaco_negativos" in congelado, "o corte em pedaços saiu"
 
 

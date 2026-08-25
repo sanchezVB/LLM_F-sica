@@ -212,7 +212,7 @@ def filtrar(
                  len(prontos), indice)
     t0 = time.perf_counter()
 
-    for n, (nome, tam) in enumerate(arquivos, 1):
+    for n, (nome, _tam) in enumerate(arquivos, 1):
         if n in prontos:
             f.arquivos_lidos += 1
             continue
@@ -239,8 +239,11 @@ def filtrar(
             # Fatia para não passar 20 mil textos de uma vez ao TF-IDF.
             for i in range(0, len(textos), 20_000):
                 bloco = textos[i:i + 20_000]
+                # `strict=True`: as tres listas saem do MESMO corte, e um
+                # desalinhamento parearia texto com a URL de outro documento —
+                # silenciosamente. E o defeito que o cache de vetores ja causou.
                 for texto, url, s in zip(bloco, urls[i:i + 20_000],
-                                         clf.scores(bloco)):
+                                         clf.scores(bloco), strict=True):
                     f.vistos += 1
                     if s < limiar or not texto:
                         continue

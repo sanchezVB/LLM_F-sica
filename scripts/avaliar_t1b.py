@@ -39,9 +39,9 @@ o universo mudaria a dificuldade e o número deixaria de ser comparável ao vere
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
-import random
 import sys
 import time
 from pathlib import Path
@@ -115,10 +115,8 @@ def main() -> int:
     a = p.parse_args()
 
     for fluxo in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(Exception):
             fluxo.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
 
@@ -129,7 +127,6 @@ def main() -> int:
     textos_pool = pool["positivo"].to_list()
     indice_de = {d: i for i, d in enumerate(ids_pool)}
 
-    rng = random.Random(a.semente)
     linhas = val.sample(n=min(a.n_consultas, len(val)), seed=a.semente)
     consultas = linhas["ancora"].to_list()
     alvos = [indice_de[d] for d in linhas["arxiv_citado"].to_list()]
@@ -241,9 +238,9 @@ def main() -> int:
         "profundidade": a.profundidade,
         "modelos": {"emb": str(a.emb), "rank": str(a.rank) if tem_rank else None},
         "teto_do_reranker": round(teto, 4),
-        "nota_teto": ("recall@%d da fusão. Um ΦRank perfeito não passa disto, e "
-                      "nenhuma melhora de reranking aparece nas consultas em que o "
-                      "documento certo não chegou." % a.profundidade),
+        "nota_teto": (f"recall@{a.profundidade} da fusão. Um ΦRank perfeito não "
+                      "passa disto, e nenhuma melhora de reranking aparece nas "
+                      "consultas em que o documento certo não chegou."),
         "sistemas": sistemas,
         "pareado_contra_a_fusao": pareados,
         "nota_pareado": ("McNemar exato sobre 'o alvo chegou ao top-k'. A referência "

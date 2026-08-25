@@ -18,10 +18,6 @@ from phifm.core.env import contato_obrigatorio  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.corpus.slices.hf_filtrado import LIMIAR, filtrar  # noqa: E402
 from phifm.corpus.slices.retomada import feitas  # noqa: E402
-from phifm.core.schema.reprodutibilidade import (  # noqa: E402
-    Entrada,
-    gravar_manifesto_etapa,
-)
 
 FONTES = {
     "openwebmath": ("open-web-math/open-web-math", (".parquet",)),

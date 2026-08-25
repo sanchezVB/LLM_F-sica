@@ -6,6 +6,7 @@ Roda na venv de TREINO, que é Python 3.12: o `torch-directml` não suporta 3.14
     .venv-treino/Scripts/python.exe scripts/train_embedding.py --max-pares 20000
 """
 import argparse
+import contextlib
 import logging
 import sys
 from pathlib import Path
@@ -13,8 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
-from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
+from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: E402
 
 
 def _com_negativos_dificeis(a) -> tuple:
@@ -93,10 +94,8 @@ def main() -> int:
     # linha do melhor checkpoint sumiu do log assim: o checkpoint foi gravado, o
     # registro dele não. Silêncio que parece "não aconteceu".
     for fluxo in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(Exception):
             fluxo.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
 

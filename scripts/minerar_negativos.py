@@ -92,11 +92,11 @@ import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 from transformers import AutoModel, AutoTokenizer  # noqa: E402
 
-from phifm.training.embedding import escolher_dispositivo, media_mascarada  # noqa: E402
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     Entrada,
     gravar_manifesto_etapa,
 )
+from phifm.training.embedding import escolher_dispositivo, media_mascarada  # noqa: E402
 
 log = logging.getLogger("minerar")
 
@@ -260,7 +260,6 @@ def _minerar(a) -> int:
                     f"{a.max_pool:,}")
     ids_pool = pool["arxiv_citado"].to_list()
     log.info("pool de candidatos: %s documentos citados", f"{len(ids_pool):,}")
-    indice_de = {d: i for i, d in enumerate(ids_pool)}
 
     ancoras = alvo.unique(subset=["arxiv_id"], maintain_order=True)
     ids_anc = ancoras["arxiv_id"].to_list()

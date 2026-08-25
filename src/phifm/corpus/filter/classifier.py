@@ -34,15 +34,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-# Aparece nos avisos do módulo; declarado aqui para não repetir a lista.
-NEGATIVO_AUSENTE = "math"
-
 import numpy as np
 import polars as pl
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import classification_report
 from sklearn.pipeline import Pipeline
+
+# ⚠️ Fica DEPOIS dos imports. Entre eles, os seis imports de terceiros contavam
+# como "import fora do topo do arquivo" (E402) e o ruff barrava o CI — que nunca
+# passou uma vez desde que foi criado, em 2026-08-09.
+# Aparece nos avisos do módulo; declarado aqui para não repetir a lista.
+NEGATIVO_AUSENTE = "math"
 
 log = logging.getLogger(__name__)
 
@@ -329,7 +332,7 @@ def avaliar_transferencia(
         p = pipe.predict(Xf + Xn)
         pr, rc, _, _ = precision_recall_fscore_support(
             y, p, labels=["fisica"], zero_division=0)
-        fp = sum(1 for a, b in zip(y, p) if a == "nao_fisica" and b == "fisica")
+        fp = sum(1 for a, b in zip(y, p, strict=True) if a == "nao_fisica" and b == "fisica")
         return float(pr[0]), float(rc[0]), fp / max(len(Xn), 1)
 
     p_in, rc, fp_in = medir(build_text(neg_dentro))

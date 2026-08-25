@@ -29,7 +29,15 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # ⚠️ 3.12, nao 3.11. O `requirements.lock` fixa `numpy==2.5.1`, que exige
+          # Python >= 3.12, entao a instalacao morria em 13 s com
+          # "No matching distribution found for numpy==2.5.1" — antes de rodar um
+          # unico teste. O CI ficou vermelho assim das 80 execucoes desde que foi
+          # criado, em 2026-08-09, ate 2026-08-25.
+          #
+          # 3.12 tambem e o que a venv de treino usa (o torch-directml exige), entao
+          # o CI passa a testar a versao que o projeto de fato roda.
+          python-version: "3.12"
           cache: pip
 
       - name: Instalar
@@ -47,7 +55,10 @@ jobs:
       # ninguém notar, e a recompensa de treino passa a poder divergir do
       # corretor de avaliação.
       - name: fronteiras de módulo
-        run: lint-imports --config pyproject.toml
+        # ⚠️ `PYTHONPATH=src` como nos passos de teste. Sem ele o import-linter
+        # responde "Could not find package 'phifm'" e sai com 1 — o `requirements
+        # .lock` instala as dependencias, nao o proprio pacote.
+        run: PYTHONPATH=src lint-imports --config pyproject.toml
 
       - name: testes
         run: PYTHONPATH=src pytest tests/ -q

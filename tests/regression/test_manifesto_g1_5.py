@@ -248,6 +248,7 @@ def test_manifesto_capturado_na_execucao_nao_e_sobrescrito(tmp_path, monkeypatch
     porque o caminho felizes é indistinguível.
     """
     import scripts.manifesto_corpus as mc
+
     from phifm.core.schema.reprodutibilidade import gravar_manifesto_etapa
 
     raiz = tmp_path / "data" / "processed" / "fatia"
@@ -284,6 +285,7 @@ def test_manifesto_capturado_mas_desatualizado_e_refeito(tmp_path, monkeypatch):
     mais lá.
     """
     import scripts.manifesto_corpus as mc
+
     from phifm.core.schema.reprodutibilidade import gravar_manifesto_etapa
 
     raiz = tmp_path / "data" / "processed" / "fatia"

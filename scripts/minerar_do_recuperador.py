@@ -52,6 +52,7 @@ seria descartada por um motivo artificial.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import random
@@ -120,10 +121,8 @@ def main() -> int:
     a = p.parse_args()
 
     for fluxo in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(Exception):
             fluxo.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)

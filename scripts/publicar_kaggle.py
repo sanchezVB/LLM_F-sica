@@ -50,6 +50,7 @@ o notebook sobe, roda e morre no download.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import re
 import subprocess
@@ -62,11 +63,11 @@ SAIDA_NB = RAIZ / "data/processed/kaggle_notebook"
 FONTE_CELULA = RAIZ / "kaggle/t1a_phiemb.py"
 
 SLUG_DADOS = "phifm-t1a-pares-citacao"
-SLUG_NB = "phifm-t1a-emb"
+SLUG_NB = "phifm-t1a-gpu"
 # ⚠️ ASCII puro. O Kaggle deriva o slug do TITULO, e derruba o que nao
 # for [a-z0-9]: "PhiFM T1a - PhiEmb" com Φ virou `phifm-t1a-emb`, que nao
 # casava com o `id` `phifm-t1a-phiemb` — a CLI avisou e devolveu 409.
-TITULO_NB = "PhiFM T1a Emb"
+TITULO_NB = "PhiFM T1a Gpu"
 
 
 def _celula() -> str:
@@ -241,10 +242,8 @@ def main() -> int:
     # ele levanta UnicodeEncodeError DEPOIS de já ter escrito os arquivos — o
     # trabalho fica feito e a saída diz que falhou, que é a pior das combinações.
     for fluxo in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(Exception):
             fluxo.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
 
     if not (PACOTE / "MANIFESTO.json").exists():
         raise SystemExit(
@@ -297,18 +296,43 @@ def main() -> int:
         "language": "python",
         "kernel_type": "notebook",
         "is_private": True,
-        # ⚠️ `enable_gpu` sozinho NAO liga a GPU nas versoes atuais. Medido em
-        # 2026-08-24: o metadado subiu com `enable_gpu: True`, o Kaggle guardou e
-        # devolveu esse valor no `kernels pull -m` — e mesmo assim a sessao rodou
-        # sem acelerador, e o notebook morreu no proprio assert aos 18 s.
+        # ⚠️ O campo que LIGA a GPU e `machine_shape`. Nem `enable_gpu` nem
+        # `accelerator` funcionam, e os dois falham em silencio:
         #
-        # Quem decide e o campo `accelerator`. Os dois vao juntos porque
-        # `enable_gpu` ainda e lido por versoes antigas da API.
+        #   enable_gpu: True      -> aceito, guardado, ecoado no `pull -m`, ignorado
+        #   accelerator: ...      -> nem sequer lido
+        #   machine_shape: ...    -> este
         #
-        # Conferir o metadado de volta nao teria pego isto: o Kaggle ecoa
-        # `enable_gpu: True` de qualquer jeito. So a execucao revela.
+        # Lido do proprio SDK, nao adivinhado
+        # (kagglesdk/kernels/types/kernels_api_service.py:6450):
+        #
+        #     request.machine_shape = acc if acc else get_or_default(
+        #         meta_data, "machine_shape", None)
+        #
+        # Valores suportados, da docstring do campo: NvidiaTeslaT4,
+        # NvidiaTeslaP100, Tpu1VmV38. A capitalizacao importa.
+        #
+        # Duas execucoes foram queimadas antes disto, as duas morrendo no assert do
+        # notebook com `torch 2.10.0+cpu · CUDA False` — o Kaggle monta a imagem de
+        # CPU quando nao ha acelerador pedido. Conferir o metadado de volta nao
+        # pegava: o servidor ecoa o que voce mandou, inclusive campos que ignora.
         "enable_gpu": True,
-        "accelerator": "nvidiaTeslaT4",
+        "machine_shape": "NvidiaTeslaT4",
+        # ⚠️ E `machine_shape` correto AINDA nao basta, porque o Kaggle FIXA a
+        # imagem docker do kernel. Medido em 2026-08-24/25: o `kernels pull -m`
+        # devolvia `machine_shape: NvidiaTeslaT4` — o acelerador estava pedido — e o
+        # notebook rodava com `torch 2.10.0+cpu`, porque o kernel continuava preso a
+        # imagem da PRIMEIRA execucao, que foi sem acelerador. GPU alocada nao muda
+        # o PyTorch instalado dentro de uma imagem CPU-only.
+        #
+        # `latest` faz o Kaggle escolher a imagem atual apropriada ao acelerador em
+        # vez de arrastar o pin antigo. `original` (o outro valor aceito) e
+        # exatamente o comportamento que criou o problema.
+        #
+        # ⚠️ Este e o quarto campo que parecia certo e nao era. A licao: o `pull -m`
+        # prova o que o servidor GUARDOU, nao o que ele vai EXECUTAR — foi ele que
+        # revelou o pin, e foi so lendo o pin que o `torch+cpu` fez sentido.
+        "docker_image_pinning_type": "latest",
         # ⚠️ Obrigatório: o `all-MiniLM-L6-v2` vem do HuggingFace e não há fallback.
         "enable_internet": True,
         "dataset_sources": [id_dados],
@@ -334,7 +358,7 @@ def main() -> int:
     # existe" — um roteiro que manda repetir e quebra na repetição.
     ja_existe = a.enviar and _dataset_existe(id_dados)
     if ja_existe:
-        print(f"  dataset já existe — enviando VERSÃO nova em vez de criar")
+        print("  dataset já existe — enviando VERSÃO nova em vez de criar")
         cmd_dados = [sys.executable, "-m", "kaggle", "datasets", "version",
                      "-p", str(PACOTE), "--dir-mode", "zip",
                      "-m", f"git {man['git_sha']}"]

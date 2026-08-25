@@ -526,7 +526,7 @@ class TreinadorEmb:
         sementes = [self.cfg.semente * 1_000_003 + i for i in range(len(pedacos))]
         ra, rp = [], []
         with torch.no_grad():
-            for (ca, cp), s in zip(pedacos, sementes):
+            for (ca, cp), s in zip(pedacos, sementes, strict=True):
                 torch.manual_seed(s)
                 ra.append(self._codificar(ca))
                 rp.append(self._codificar(cp))
@@ -540,7 +540,7 @@ class TreinadorEmb:
 
         # ── fase 3: refazer com grafo e injetar o gradiente ───────────────
         i = 0
-        for (ca, cp), s in zip(pedacos, sementes):
+        for (ca, cp), s in zip(pedacos, sementes, strict=True):
             n = len(ca)
             torch.manual_seed(s)
             torch.autograd.backward([self._codificar(ca), self._codificar(cp)],

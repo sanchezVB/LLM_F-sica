@@ -40,13 +40,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 import polars as pl  # noqa: E402
 
 from phifm.corpus.normalize.spine import (  # noqa: E402
+    _LEGADO,
     PHYSICS_PREFIXES,
     SUBFIELD_MAP,
-    _LEGADO,
     _archive,
     annotate,
 )
-
 
 # ─── o legado vira o arquivo moderno ─────────────────────────────────────────
 
@@ -87,7 +86,7 @@ def test_legado_de_matematica_e_cs_nao_vira_fisica():
     só com os de Física. Normalizá-los é correto; promovê-los seria o oposto do
     que a lista existe para fazer.
     """
-    assert LEGADO_OUTROS == {"q-alg", "alg-geom", "dg-ga", "funct-an", "cmp-lg"}
+    assert {"q-alg", "alg-geom", "dg-ga", "funct-an", "cmp-lg"} == LEGADO_OUTROS
     for legado in LEGADO_OUTROS:
         assert _archive(legado) in ("math", "cs")
         assert _archive(legado) not in PHYSICS_PREFIXES, (
@@ -105,11 +104,11 @@ def test_a_lista_de_legados_cobre_o_que_o_acervo_tem():
     """
     assert len(_LEGADO) == 18
     # Os 13 de Física, medidos com contagem de papers no spine.
-    assert LEGADO_FISICA == {
+    assert {
         "chao-dyn", "solv-int", "patt-sol", "comp-gas", "adap-org",
         "acc-phys", "ao-sci", "atom-ph", "bayes-an", "chem-ph", "plasm-ph",
         "mtrl-th", "supr-con",
-    }
+    } == LEGADO_FISICA
 
 
 def test_legado_de_apoio_matematico_conta_como_apoio():

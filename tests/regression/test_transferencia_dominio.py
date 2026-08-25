@@ -101,5 +101,5 @@ def test_a_curva_cobre_limiares_crescentes(tmp_path):
     limiares = [t for t, _, _, _ in r.curva]
     assert limiares == sorted(limiares) and len(limiares) >= 5
     fps = [fp for _, _, _, fp in r.curva]
-    assert all(a >= b for a, b in zip(fps, fps[1:])), (
+    assert all(a >= b for a, b in zip(fps, fps[1:], strict=False)), (
         "falso positivo tem de ser monótono não-crescente no limiar")

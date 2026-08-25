@@ -35,9 +35,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from phifm.corpus.slices.retomada import (  # noqa: E402
     LEGADOS,
     MANIFESTO,
-    feitas as _feitos,
-    marcar as _marcar,
     proximo_indice,
+)
+from phifm.corpus.slices.retomada import (
+    feitas as _feitos,
+)
+from phifm.corpus.slices.retomada import (
+    marcar as _marcar,
 )
 
 
