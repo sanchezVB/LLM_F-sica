@@ -1,0 +1,131 @@
+15:05:01 INFO    pares: 400,000 de 400,000 disponíveis · 133,540 validação
+15:05:01 INFO    dispositivo: Tesla T4 (CUDA 7.5, 16 GB)
+BertModel LOAD REPORT from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+15:05:06 INFO    AMP fp16 ligado (cuda:0) · atenção sdpa
+15:05:09 INFO    base sentence-transformers/all-MiniLM-L6-v2 | entre 1000 candidatos: recall@1 0.270 · recall@10 0.666 · MRR 0.403 · nDCG@10 0.457
+15:05:38 INFO    passo 50 | perda 1.5808 | 217.9 pares/s | VRAM 1,508 MB
+15:06:08 INFO    passo 100 | perda 1.5068 | 216.4 pares/s | VRAM 1,508 MB
+15:06:39 INFO    passo 150 | perda 1.5000 | 212.8 pares/s | VRAM 1,508 MB
+15:07:10 INFO    passo 200 | perda 1.4638 | 211.1 pares/s | VRAM 1,508 MB
+15:07:11 INFO      aval: recall@1 0.296 · recall@10 0.711 · MRR 0.434 · nDCG@10 0.491
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.35it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.33it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.25it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.23it/s]
+15:07:12 INFO      ★ melhor até agora (nDCG@10 0.491) → phiemb-minilm-t4-melhor
+15:07:45 INFO    passo 250 | perda 1.4371 | 205.1 pares/s | VRAM 1,508 MB
+15:08:18 INFO    passo 300 | perda 1.4081 | 202.8 pares/s | VRAM 1,508 MB
+15:08:52 INFO    passo 350 | perda 1.3826 | 200.6 pares/s | VRAM 1,508 MB
+15:09:26 INFO    passo 400 | perda 1.3712 | 199.1 pares/s | VRAM 1,508 MB
+15:09:27 INFO      aval: recall@1 0.260 · recall@10 0.726 · MRR 0.419 · nDCG@10 0.483
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.81it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.81it/s]
+15:10:03 INFO    passo 450 | perda 1.3822 | 195.9 pares/s | VRAM 1,508 MB
+15:10:37 INFO    passo 500 | perda 1.3450 | 195.1 pares/s | VRAM 1,508 MB
+15:11:13 INFO    passo 550 | perda 1.3578 | 193.4 pares/s | VRAM 1,508 MB
+15:11:47 INFO    passo 600 | perda 1.3089 | 192.6 pares/s | VRAM 1,508 MB
+15:11:49 INFO      aval: recall@1 0.288 · recall@10 0.748 · MRR 0.440 · nDCG@10 0.505
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.73it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.73it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.13it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.12it/s]
+15:11:49 INFO      ★ melhor até agora (nDCG@10 0.505) → phiemb-minilm-t4-melhor
+15:12:25 INFO    passo 650 | perda 1.3526 | 190.8 pares/s | VRAM 1,508 MB
+15:13:00 INFO    passo 700 | perda 1.3131 | 190.2 pares/s | VRAM 1,508 MB
+15:13:36 INFO    passo 750 | perda 1.2866 | 189.3 pares/s | VRAM 1,508 MB
+15:14:10 INFO    passo 800 | perda 1.3043 | 189.0 pares/s | VRAM 1,508 MB
+15:14:12 INFO      aval: recall@1 0.303 · recall@10 0.760 · MRR 0.452 · nDCG@10 0.518
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.89it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.89it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.08it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.07it/s]
+15:14:12 INFO      ★ melhor até agora (nDCG@10 0.518) → phiemb-minilm-t4-melhor
+15:14:48 INFO    passo 850 | perda 1.2690 | 187.8 pares/s | VRAM 1,508 MB
+15:15:23 INFO    passo 900 | perda 1.2783 | 187.5 pares/s | VRAM 1,508 MB
+15:15:59 INFO    passo 950 | perda 1.2529 | 187.0 pares/s | VRAM 1,508 MB
+15:16:34 INFO    passo 1000 | perda 1.2656 | 186.8 pares/s | VRAM 1,508 MB
+15:16:35 INFO      aval: recall@1 0.293 · recall@10 0.763 · MRR 0.446 · nDCG@10 0.514
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.81it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.81it/s]
+15:17:11 INFO    passo 1050 | perda 1.2695 | 186.1 pares/s | VRAM 1,508 MB
+15:17:46 INFO    passo 1100 | perda 1.2566 | 185.9 pares/s | VRAM 1,508 MB
+15:18:21 INFO    passo 1150 | perda 1.2259 | 185.7 pares/s | VRAM 1,508 MB
+15:18:56 INFO    passo 1200 | perda 1.2450 | 185.5 pares/s | VRAM 1,508 MB
+15:18:58 INFO      aval: recall@1 0.299 · recall@10 0.775 · MRR 0.456 · nDCG@10 0.524
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.91it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.90it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.00it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.99it/s]
+15:18:58 INFO      ★ melhor até agora (nDCG@10 0.524) → phiemb-minilm-t4-melhor
+15:19:34 INFO    passo 1250 | perda 1.1929 | 184.8 pares/s | VRAM 1,508 MB
+15:20:09 INFO    passo 1300 | perda 1.2205 | 184.8 pares/s | VRAM 1,508 MB
+15:20:45 INFO    passo 1350 | perda 1.2152 | 184.5 pares/s | VRAM 1,508 MB
+15:21:20 INFO    passo 1400 | perda 1.2143 | 184.4 pares/s | VRAM 1,508 MB
+15:21:22 INFO      aval: recall@1 0.293 · recall@10 0.788 · MRR 0.453 · nDCG@10 0.527
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+15:21:22 INFO      ★ melhor até agora (nDCG@10 0.527) → phiemb-minilm-t4-melhor
+15:21:58 INFO    passo 1450 | perda 1.1867 | 183.9 pares/s | VRAM 1,508 MB
+15:22:33 INFO    passo 1500 | perda 1.1803 | 183.9 pares/s | VRAM 1,508 MB
+15:23:08 INFO    passo 1550 | perda 1.1695 | 183.7 pares/s | VRAM 1,508 MB
+15:23:43 INFO    passo 1600 | perda 1.1975 | 183.7 pares/s | VRAM 1,508 MB
+15:23:45 INFO      aval: recall@1 0.292 · recall@10 0.786 · MRR 0.455 · nDCG@10 0.527
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.77it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
+15:24:21 INFO    passo 1650 | perda 1.1733 | 183.3 pares/s | VRAM 1,508 MB
+15:24:56 INFO    passo 1700 | perda 1.1825 | 183.3 pares/s | VRAM 1,508 MB
+15:25:32 INFO    passo 1750 | perda 1.1689 | 183.2 pares/s | VRAM 1,508 MB
+15:26:07 INFO    passo 1800 | perda 1.1722 | 183.1 pares/s | VRAM 1,508 MB
+15:26:08 INFO      aval: recall@1 0.302 · recall@10 0.780 · MRR 0.459 · nDCG@10 0.528
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.85it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.85it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.77it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
+15:26:09 INFO      ★ melhor até agora (nDCG@10 0.528) → phiemb-minilm-t4-melhor
+15:26:44 INFO    passo 1850 | perda 1.1584 | 182.7 pares/s | VRAM 1,508 MB
+15:27:19 INFO    passo 1900 | perda 1.1695 | 182.8 pares/s | VRAM 1,508 MB
+15:27:55 INFO    passo 1950 | perda 1.1820 | 182.7 pares/s | VRAM 1,508 MB
+15:28:30 INFO    passo 2000 | perda 1.1687 | 182.7 pares/s | VRAM 1,508 MB
+15:28:31 INFO      aval: recall@1 0.297 · recall@10 0.783 · MRR 0.456 · nDCG@10 0.526
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.82it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.82it/s]
+15:29:07 INFO    passo 2050 | perda 1.1080 | 182.4 pares/s | VRAM 1,508 MB
+15:29:42 INFO    passo 2100 | perda 1.1125 | 182.4 pares/s | VRAM 1,508 MB
+15:30:18 INFO    passo 2150 | perda 1.1599 | 182.3 pares/s | VRAM 1,508 MB
+15:30:53 INFO    passo 2200 | perda 1.1457 | 182.3 pares/s | VRAM 1,508 MB
+15:30:54 INFO      aval: recall@1 0.315 · recall@10 0.795 · MRR 0.468 · nDCG@10 0.539
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.90it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.89it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.10it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.09it/s]
+15:30:55 INFO      ★ melhor até agora (nDCG@10 0.539) → phiemb-minilm-t4-melhor
+15:31:31 INFO    passo 2250 | perda 1.1218 | 182.0 pares/s | VRAM 1,508 MB
+15:32:06 INFO    passo 2300 | perda 1.1364 | 182.1 pares/s | VRAM 1,508 MB
+15:32:41 INFO    passo 2350 | perda 1.1072 | 182.0 pares/s | VRAM 1,508 MB
+15:33:16 INFO    passo 2400 | perda 1.1018 | 182.0 pares/s | VRAM 1,508 MB
+15:33:17 INFO      aval: recall@1 0.305 · recall@10 0.780 · MRR 0.465 · nDCG@10 0.533
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.93it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.92it/s]
+15:33:53 INFO    passo 2450 | perda 1.1286 | 181.8 pares/s | VRAM 1,508 MB
+15:34:28 INFO    passo 2500 | perda 1.1284 | 181.9 pares/s | VRAM 1,508 MB
+15:35:03 INFO    passo 2550 | perda 1.0638 | 181.9 pares/s | VRAM 1,508 MB
+15:35:38 INFO    passo 2600 | perda 1.1148 | 182.0 pares/s | VRAM 1,508 MB
+15:35:39 INFO      aval: recall@1 0.310 · recall@10 0.795 · MRR 0.471 · nDCG@10 0.542
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.73it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.10it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.09it/s]
+15:35:40 INFO      ★ melhor até agora (nDCG@10 0.542) → phiemb-minilm-t4-melhor
+15:36:15 INFO    passo 2650 | perda 1.1375 | 181.7 pares/s | VRAM 1,508 MB
+15:36:50 INFO    passo 2700 | perda 1.1015 | 181.8 pares/s | VRAM 1,508 MB
+15:37:25 INFO    passo 2750 | perda 1.1376 | 181.7 pares/s | VRAM 1,508 MB
+15:38:00 INFO    passo 2800 | perda 1.1139 | 181.8 pares/s | VRAM 1,508 MB
+15:38:02 INFO      aval: recall@1 0.313 · recall@10 0.803 · MRR 0.473 · nDCG@10 0.546
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.88it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.87it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.06it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.05it/s]
+15:38:02 INFO      ★ melhor até agora (nDCG@10 0.546) → phiemb-minilm-t4-melhor
+15:38:38 INFO    passo 2850 | perda 1.1097 | 181.6 pares/s | VRAM 1,508 MB
+15:39:12 INFO    passo 2900 | perda 1.0951 | 181.6 pares/s | VRAM 1,508 MB
+15:39:48 INFO    passo 2950 | perda 1.0739 | 181.6 pares/s | VRAM 1,508 MB
+15:40:22 INFO    passo 3000 | perda 1.0836 | 181.7 pares/s | VRAM 1,508 MB
+15:40:24 INFO      aval: recall@1 0.319 · recall@10 0.800 · MRR 0.482 · nDCG@10 0.551
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.70it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.91it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.90it/s]
+15:40:24 INFO      ★ melhor até agora (nDCG@10 0.551) → phiemb-minilm-t4-melhor
+15:41:00 INFO    passo 3050 | perda 1.0753 | 181.5 pares/s | VRAM 1,508 MB
+15:41:34 INFO    passo 3100 | perda 1.0665 | 181.6 pares/s | VRAM 1,508 MB
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.50it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+
+                         recall@1   recall@10      MRR
+antes (base)                0.270       0.666    0.403
+depois (ΦEmb)               0.316       0.816    0.476
+ganho                      +0.046      +0.150   +0.073
+
+passo 3125 | CONCLUIDO | 181.6 pares/s · → /kaggle/working/phiemb-minilm-t4

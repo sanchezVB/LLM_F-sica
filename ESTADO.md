@@ -14,11 +14,71 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
+| **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
 | **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank no-op | RRF entrega **nDCG 0,1584** e vence os isolados (p<0,001); o reranker empata (p=0,118) porque parte da **mesma base** do ΦEmb |
 
 Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## T1a — o ΦEmb na T4, e o número que destrava o ΦEnc (2026-08-26)
+
+    dispositivo: Tesla T4 (CUDA 7.5, 16 GB) · 400.000 pares · 3.125 passos
+
+    | | RX 7600 (DirectML) | Tesla T4 (CUDA) |
+    |---|---|---|
+    | vazão            | 20-26 pares/s      | **181,6 pares/s** |
+    | 400 mil pares    | ~13 h, 3 mortes    | **36 min, sem queda** |
+    | precisão         | fp32 obrigatório   | fp16 + GradScaler |
+    | VRAM             | estourava no 128   | 1.508 MB de 16 GB |
+
+**7 a 9× mais rápido.** E o ganho de qualidade, no mesmo log:
+
+                     recall@1   recall@10      MRR
+    base (MiniLM)       0,270       0,666    0,403
+    ΦEmb na T4          0,316       0,816    0,476
+    ganho              +0,046      +0,150   +0,073
+
+Melhor checkpoint no passo 3.000: nDCG@10 **0,5512**.
+
+⚠️ **Medido com 1.000 candidatos**, e o veredito do G1 usa 2.000. Estes números NÃO
+são comparáveis ao portão — o veredito local está pendente (a máquina está com o
+peS2o, e RAM livre de 2 GB não comporta os dois).
+
+### O que isso significa para o ΦEnc
+
+Um par são duas sequências de 192 tokens, então 181,6 pares/s ≈ **69.700 tokens/s**
+na T4 contra ~7.700 aqui:
+
+    20 B tokens ÷  7.700 tokens/s = 37 DIAS      (RX 7600)
+    20 B tokens ÷ 69.700 tokens/s = ~80 HORAS    (T4)
+
+80 h são **menos de 3 semanas** da cota gratuita de 30 h/semana, em sessões de até
+9 h com retomada a cada 100 passos. O ΦEnc sai de "impossível nesta máquina" para
+"questão de agendar" — e é estimativa CONSERVADORA: o lote ficou em 128 de propósito
+para isolar o dispositivo, e a T4 usou 1,5 dos 16 GB.
+
+### Os cinco defeitos entre o notebook pronto e o notebook rodando
+
+Nenhum era do treino. Todos eram diferença entre o ambiente local e o do Kaggle:
+
+| defeito | sintoma |
+|---|---|
+| conta sem verificação por telefone | `machine_shape` aceito e ignorado; imagem de CPU fixada |
+| `enable_gpu` / `accelerator` são campos mortos | quem liga a GPU é `machine_shape` (lido do SDK, não da doc) |
+| Kaggle DESCOMPACTA `.zip` no upload | `phifm_src.zip` chegou como diretório; hash do código deixou de ser conferível |
+| layout do input mudou com a imagem nova | `/kaggle/input/datasets/<dono>/<slug>/` em vez de `/kaggle/input/<slug>/` |
+| subprocesso não herda `sys.path` da célula | `ModuleNotFoundError: No module named 'phifm'` |
+
+E dois defeitos de VISIBILIDADE, que foram os caros:
+
+`check=False` no subprocesso do treino transformava treino morto em notebook
+`COMPLETE`. Uma execução terminou "com sucesso" sem nenhum modelo.
+
+`kernels output` da API devolveu log de **0 bytes em três execuções seguidas**. Sem
+log, o diagnóstico virava adivinhação — e adivinhar custou quatro execuções. A
+correção (gravar a saída do treino em `/kaggle/working/treino.log`, com stderr no
+mesmo arquivo) deu a causa exata na execução seguinte.
 
 ## T1b — a fusão fecha, e o reranker é um no-op (2026-08-24)
 
