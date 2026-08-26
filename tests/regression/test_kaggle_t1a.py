@@ -336,3 +336,50 @@ def test_a_imagem_docker_nao_fica_presa_a_execucao_antiga():
     assert '"docker_image_pinning_type": "latest"' in fonte, (
         "sem isto o kernel arrasta a imagem de CPU da primeira execução e o treino "
         "roda sem GPU mesmo com o acelerador pedido")
+
+
+def test_a_celula_acha_o_dataset_nos_dois_layouts_do_kaggle():
+    """A imagem nova do Kaggle mudou onde o dataset é montado.
+
+    Medido em 2026-08-26, logo depois que o pin da imagem de CPU foi solto:
+
+        AssertionError: nenhum dataset com MANIFESTO.json em /kaggle/input.
+                        Encontrados: ['datasets']
+
+    A antiga montava em `/kaggle/input/<slug>/`, a nova em
+    `/kaggle/input/datasets/<dono>/<slug>/`. O pin escondia isso: manter a imagem
+    velha mantinha o layout velho junto.
+
+    A busca vai de raso para fundo e para no primeiro nível que casa, então
+    funciona nos dois — e o `assert` imprime o que encontrou, que foi o que
+    permitiu identificar a mudança numa execução só.
+    """
+    assert 'for profundidade in range(' in CELULA, (
+        "voltou a olhar só os filhos diretos de /kaggle/input")
+    assert "ENTRADA.iterdir()" in CELULA, (
+        "a mensagem de erro precisa listar o que existe, senão a próxima mudança "
+        "de layout custa uma execução para ser diagnosticada")
+
+
+def test_busca_em_profundidade_encontra_nos_dois_layouts(tmp_path):
+    """Exercita a lógica de verdade, nos dois layouts, sem depender do Kaggle."""
+    def achar(entrada):
+        for profundidade in range(0, 5):
+            padrao = "/".join(["*"] * profundidade + ["MANIFESTO.json"])
+            c = sorted({m.parent for m in entrada.glob(padrao)})
+            if c:
+                return c
+        return []
+
+    antigo = tmp_path / "antigo"
+    (antigo / "meu-slug").mkdir(parents=True)
+    (antigo / "meu-slug" / "MANIFESTO.json").write_text("{}", encoding="utf-8")
+    assert achar(antigo) == [antigo / "meu-slug"]
+
+    novo = tmp_path / "novo"
+    fundo = novo / "datasets" / "viaciclo" / "meu-slug"
+    fundo.mkdir(parents=True)
+    (fundo / "MANIFESTO.json").write_text("{}", encoding="utf-8")
+    assert achar(novo) == [fundo]
+
+    assert achar(tmp_path / "vazio") == []

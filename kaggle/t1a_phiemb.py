@@ -51,11 +51,27 @@ TRABALHO = Path("/kaggle/working")
 
 # 1. Achar o dataset. Não fixamos o nome: quem cria o dataset escolhe o slug, e
 #    um caminho fixo quebraria com uma renomeação sem dizer por quê.
-candidatos = [d for d in ENTRADA.iterdir() if (d / "MANIFESTO.json").exists()]
+# ⚠️ Busca em PROFUNDIDADE, não só nos filhos diretos. A imagem nova do Kaggle
+#    monta o dataset em `/kaggle/input/datasets/<dono>/<slug>/`; a antiga montava
+#    em `/kaggle/input/<slug>/`. Medido em 2026-08-26, depois que o pin da imagem
+#    de CPU foi solto: o notebook morreu com
+#
+#        AssertionError: nenhum dataset com MANIFESTO.json em /kaggle/input.
+#                        Encontrados: ['datasets']
+#
+#    Vai de raso para fundo e para no primeiro nível que casa — assim funciona nos
+#    dois layouts, e um dia a mais de mudança do Kaggle não derruba de novo.
+candidatos = []
+for profundidade in range(0, 5):
+    padrao = "/".join(["*"] * profundidade + ["MANIFESTO.json"])
+    candidatos = sorted({m.parent for m in ENTRADA.glob(padrao)})
+    if candidatos:
+        break
 assert candidatos, (
-    f"nenhum dataset com MANIFESTO.json em {ENTRADA}. "
-    f"Encontrados: {[d.name for d in ENTRADA.iterdir()]}")
+    f"nenhum MANIFESTO.json em {ENTRADA} até 4 níveis. Presentes na raiz: "
+    f"{[d.name for d in ENTRADA.iterdir()]}")
 DADOS = candidatos[0]
+print(f"dataset em {DADOS}")
 man = json.loads((DADOS / "MANIFESTO.json").read_text())
 print(f"dataset: {DADOS.name} · git {man['git_sha']} · {man['linhas_treino']:,} pares")
 
