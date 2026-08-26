@@ -383,3 +383,30 @@ def test_busca_em_profundidade_encontra_nos_dois_layouts(tmp_path):
     assert achar(novo) == [fundo]
 
     assert achar(tmp_path / "vazio") == []
+
+
+def test_treino_que_falha_derruba_o_notebook():
+    """`COMPLETE` tem de significar que treinou.
+
+    Medido em 2026-08-26: o notebook rodava o treino com `check=False` e só
+    imprimia o código de saída. O treino morreu, a célula terminou normalmente, e o
+    Kaggle marcou a execução como COMPLETE — com `codigo/` na saída e NENHUM modelo.
+
+    A justificativa original do `check=False` ("uma sessão que cai deixa o estado
+    para a próxima retomar") estava errada: `/kaggle/working` persiste como saída do
+    notebook independentemente de a célula levantar.
+    """
+    assert "if r.returncode != 0:" in CELULA, (
+        "o notebook voltou a engolir o código de saída do treino")
+    assert "raise SystemExit" in CELULA
+
+
+def test_log_do_treino_vai_para_arquivo_baixavel():
+    """A API do Kaggle devolveu log de 0 bytes em três execuções seguidas.
+
+    Sem o log não há diagnóstico. Um arquivo em `/kaggle/working` desce junto com a
+    saída do notebook mesmo quando `kernels output` não traz o log.
+    """
+    assert "TREINO_LOG" in CELULA
+    assert "stderr=subprocess.STDOUT" in CELULA, (
+        "stderr precisa ir para o mesmo arquivo — o traceback vive nele")

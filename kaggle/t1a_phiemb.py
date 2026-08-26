@@ -173,10 +173,27 @@ cmd = [
     "--dispositivo", "cuda",
 ]
 print(" ".join(cmd))
-# `check=False` e o código de saída impresso: uma sessão que cai deixa o estado em
-# `SAIDA`, e a próxima execução retoma. Falha aqui não é o fim, é o próximo passo.
-r = subprocess.run(cmd)
-print(f"\ncódigo de saída: {r.returncode}")
+
+# ⚠️ A saída do treino vai para um ARQUIVO em /kaggle/working, não só para o stdout
+# da célula. Medido em 2026-08-26: `kernels output` da API devolveu um log de 0
+# BYTES em três execuções seguidas, e sem log não há como saber por que o treino
+# falhou. Um arquivo em /kaggle/working é baixável mesmo quando o log da API não vem.
+TREINO_LOG = TRABALHO / "treino.log"
+with open(TREINO_LOG, "w", encoding="utf-8") as fh:
+    r = subprocess.run(cmd, stdout=fh, stderr=subprocess.STDOUT, text=True)
+print(TREINO_LOG.read_text(encoding="utf-8", errors="replace")[-6000:])
+print(f"código de saída: {r.returncode}")
+
+# ⚠️ E LEVANTA se falhou. Antes era `check=False` com o código apenas impresso, e a
+# justificativa era "uma sessão que cai deixa o estado para a próxima retomar" — o
+# que estava errado: `/kaggle/working` persiste como saída do notebook
+# independentemente de a célula levantar. O que o `check=False` fazia de verdade era
+# transformar um treino morto num notebook `COMPLETE`, e foi assim que uma execução
+# sem NENHUM modelo treinado passou por sucesso em 2026-08-26.
+if r.returncode != 0:
+    raise SystemExit(
+        f"o treino saiu com {r.returncode}. As últimas linhas estão acima e o log "
+        f"inteiro em {TREINO_LOG.name}, que desce junto com a saída do notebook.")
 
 # 5. O que salvar. `/kaggle/working` persiste como output do notebook; o resto some.
 for f in sorted(SAIDA.parent.rglob("*")):
