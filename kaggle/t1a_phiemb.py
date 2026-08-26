@@ -178,9 +178,22 @@ print(" ".join(cmd))
 # da célula. Medido em 2026-08-26: `kernels output` da API devolveu um log de 0
 # BYTES em três execuções seguidas, e sem log não há como saber por que o treino
 # falhou. Um arquivo em /kaggle/working é baixável mesmo quando o log da API não vem.
+# ⚠️ `PYTHONPATH` no AMBIENTE do subprocesso. O `sys.path.insert` desta célula não
+# vale para ele — processo filho tem o seu próprio path. Medido em 2026-08-26:
+#
+#     ModuleNotFoundError: No module named 'phifm'
+#       em /kaggle/working/codigo/scripts/train_embedding.py
+#
+# E o `sys.path.insert(parents[1] / "src")` que o próprio script faz não resolve
+# aqui: no repositório o pacote vive em `src/phifm/`, mas o ZIP grava `phifm/` na
+# RAIZ (`_zipar_fonte` usa `relative_to(raiz / "src")`), então `codigo/src` não
+# existe. Apontar o PYTHONPATH para `CODIGO` funciona nos dois layouts.
+AMBIENTE = {**os.environ, "PYTHONPATH": str(CODIGO)}
+
 TREINO_LOG = TRABALHO / "treino.log"
 with open(TREINO_LOG, "w", encoding="utf-8") as fh:
-    r = subprocess.run(cmd, stdout=fh, stderr=subprocess.STDOUT, text=True)
+    r = subprocess.run(cmd, stdout=fh, stderr=subprocess.STDOUT, text=True,
+                       env=AMBIENTE)
 print(TREINO_LOG.read_text(encoding="utf-8", errors="replace")[-6000:])
 print(f"código de saída: {r.returncode}")
 

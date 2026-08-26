@@ -410,3 +410,43 @@ def test_log_do_treino_vai_para_arquivo_baixavel():
     assert "TREINO_LOG" in CELULA
     assert "stderr=subprocess.STDOUT" in CELULA, (
         "stderr precisa ir para o mesmo arquivo — o traceback vive nele")
+
+
+def test_o_subprocesso_recebe_pythonpath():
+    """O `sys.path` da célula NÃO vale para o processo filho.
+
+    Medido em 2026-08-26, no primeiro log que a correção anterior tornou legível:
+
+        ModuleNotFoundError: No module named 'phifm'
+          em /kaggle/working/codigo/scripts/train_embedding.py
+
+    E o `sys.path.insert(parents[1] / "src")` que o próprio script faz não cobre:
+    no repositório o pacote vive em `src/phifm/`, mas `_zipar_fonte` grava `phifm/`
+    na RAIZ do zip, então `codigo/src` não existe no Kaggle.
+    """
+    assert '"PYTHONPATH": str(CODIGO)' in CELULA, (
+        "sem PYTHONPATH no ambiente do subprocesso o treino não importa phifm")
+    assert "env=AMBIENTE" in CELULA, "o env montado não está sendo passado"
+
+
+def test_o_zip_grava_o_pacote_na_raiz_e_nao_sob_src(tmp_path):
+    """Fixa a premissa que o PYTHONPATH acima depende.
+
+    Se o empacotador passar a preservar `src/`, o PYTHONPATH tem de mudar junto — e
+    este teste falha para avisar, em vez de o notebook morrer no Kaggle.
+    """
+    import sys as _sys
+
+    _sys.path.insert(0, str(RAIZ / "scripts"))
+    import zipfile as _zip
+
+    from empacotar_kaggle import _zipar_fonte
+
+    destino = tmp_path / "fonte.zip.bin"
+    _zipar_fonte(RAIZ, destino)
+    with _zip.ZipFile(destino) as z:
+        nomes = z.namelist()
+    assert any(n.startswith("phifm/") for n in nomes), "pacote saiu de `phifm/`"
+    assert not any(n.startswith("src/") for n in nomes), (
+        "o zip passou a preservar `src/` — o PYTHONPATH do notebook precisa "
+        "apontar para `CODIGO / 'src'` agora")
