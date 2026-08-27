@@ -10,7 +10,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 |---|---|---|
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
-| **S3** · fatias do HuggingFace | 🟢 13,15 B tokens | RedPajama 10,54 B + OpenWebMath 2,62 B, custo zero; peS2o não iniciado. S3b: o RedPajama **degrada 16,6%** |
+| **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
 | **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
@@ -20,6 +20,50 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## peS2o filtrado — o corpus dobra (2026-08-26)
+
+    22 arquivos · 87,1 GB baixados · 0 falhas · concluído
+
+    vistos            : 38.972.211
+    aceitos           :  5.526.331  (14,18%)
+    texto aceito      :     58,40 G caracteres
+    ~tokens           :     14,60 B
+
+Com isto o corpus sai de 13,15 B para **27,75 B tokens** — na metade superior da
+faixa de 15–30 B que o DOC-07 §2 exige para o ΦEnc. Deixa de faltar dado.
+
+Saída: `data/processed/pes2o_fisica/` · 277 parquets · 18 GB · no HD.
+
+### Três defeitos achados por um teste de fumaça de UM arquivo
+
+Rodar um arquivo antes dos 22 custou 29 minutos e evitou perder o dia inteiro:
+
+**O leitor tentava parquet num `.json.gz`.** O peS2o v1 é `.json.gz`; a exceção era
+capturada como AVISO e o resumo saía com código 0. Os 22 arquivos falhariam igual e
+a coleta produziria um diretório vazio com um resumo satisfeito. Consertado com
+leitura em FLUXO (os arquivos têm 1,6 a 7,1 GB comprimidos) e uma guarda: zero
+registros VISTOS agora levanta. Taxa de aceitação zero pode ser legítima; não ter
+lido nada nunca é.
+
+**O repositório publica v1 E v2 da mesma coleção**: 22 arquivos e 100,7 GB de v1,
+22 e 87,1 GB de v2. O filtro pegava as duas — os mesmos papers duas vezes, ~31 h
+para um corpus com metade duplicada. E duplicação em pré-treino não é desperdício,
+é dano: o S3b mediu que o RedPajama **degrada 16,6%**. `FONTES` passa a carregar um
+prefixo (`data/v2/`), e `filtrar` RECUSA lista que abranja mais de uma versão.
+
+**A retomada guardava ordinais sem guardar a lista.** Ao restringir para v2, a
+"unidade 1 feita" deixou de ser `data/v1/train-00000` e virou `data/v2/train-00000`,
+nunca processado. `assinatura_da_lista` sela os ordinais e `feitas()` levanta se
+divergir — é o mesmo erro que `retomada.py` existe para impedir, um nível acima.
+
+### A ressalva que o volume NÃO resolve
+
+Os falsos positivos de 1,5–13,6% que justificam o limiar 0,9 foram medidos em
+**resumos do arXiv**. Isto é texto completo de paper — outra distribuição, e a taxa
+de contaminação aqui **não está medida**. O filtro separou 400 documentos em
+`_amostra_para_revisao.json` para julgamento humano, justamente porque inventar o
+número daqui seria extrapolar demais.
 
 ## T1a — o ΦEmb na T4, e o número que destrava o ΦEnc (2026-08-26)
 
