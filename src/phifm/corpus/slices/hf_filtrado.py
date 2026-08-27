@@ -239,8 +239,16 @@ def filtrar(
     """Baixa, filtra e descarta arquivo por arquivo. Retomável pelo que há em disco."""
     sessao = requests.Session()
     sessao.headers.update({"User-Agent": user_agent(contato or "phifm")})
-    clf = Classificador(modelo)
     temp = temp or (destino.parent / "_temp")
+    # ⚠️ O classificador (20 MB de pickle) é carregado DEPOIS de validar a lista de
+    # arquivos, e não antes. Duas razões:
+    #
+    #   1. Falhar por configuração errada não deveria custar o carregamento de um
+    #      modelo — a validação da lista é barata e decide se vale continuar.
+    #   2. Antes ele vinha primeiro, e por isso `test_uma_versao_por_execucao` só
+    #      passava em máquina que tivesse `models/isphysics-clf/model.pkl` — que é
+    #      gitignored. O teste passava aqui e derrubava o CI, o mesmo "passa na
+    #      minha máquina" que o reportlab já causou neste projeto.
     arquivos, revisao = _arquivos(sessao, ds, ext)
     log.info("%s · revisão fixada em %s", ds, revisao)
 
@@ -271,6 +279,9 @@ def filtrar(
 
     if max_arquivos:
         arquivos = arquivos[:max_arquivos]
+
+    # Agora sim: a configuração passou, vale pagar os 20 MB do classificador.
+    clf = Classificador(modelo)
     tot = sum(s for _, s in arquivos)
     log.info("%s · %d arquivos · %.1f GB", ds, len(arquivos), tot / 1e9)
 
