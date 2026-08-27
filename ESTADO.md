@@ -21,6 +21,62 @@ Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 
+## Bake-off do tokenizer — §11.1 medido, e dois achados contra o documento (2026-08-27)
+
+    200.000 resumos do arXiv para treinar · 5.000 reservados para medir · CPU · US$ 0
+
+    var  algo      vocab    §8     fert  ×Qwen3  tok/eq  ×Qwen3  LaTeX 1-tok
+    A    BPE      40.960   sim   0,9620   0,674    7,31   0,732      2/3
+    B    Unigram  40.960   sim   0,9816   0,688    8,36   0,837      0/3
+    C    BPE      32.768   sim   0,9973   0,699    7,49   0,750      2/3
+    D    BPE      65.536   sim   0,8966   0,629    6,97   0,698      2/3
+    E    BPE      40.960   NÃO   1,3245   0,929    9,46   0,947      0/3
+    F    Qwen3   151.643    —    1,4263   1,000    9,99   1,000      0/3
+
+Round-trip 100% e `1.5` consistente em todas as seis. 35 subáreas medidas, pior
+razão 1,215 contra o limite de 1,25 do §11.1.
+
+### 1. A §8 está vindicada, e o teste era do próprio documento
+
+O §11.2 estipula: *"Se E empatar com A, a §8 está errada e o documento precisa ser
+revisado"*. **Não empatou.** A e E são idênticas exceto pelas regras de
+pré-tokenização, e A dá 27% menos tokens em prosa e 23% menos em equações. E é a
+**única variante que falha a meta de fertilidade** (0,929 contra o teto de 0,80).
+
+### 2. BPE bate Unigram em LaTeX — evidência que não existia
+
+O §3.3 declara: *"Bostrom & Durrett (2020) mostram vantagem do Unigram em linguagem
+natural; **não há evidência publicada para LaTeX/Física**"*. Produzir essa evidência
+era a contribuição própria prometida, e ela saiu: **BPE ganha**.
+
+A margem é seis vezes maior em equações (13%) que em prosa (2%), e o mecanismo é
+observável — o Unigram aprendeu **0 de 3** sequências LaTeX como token único, o BPE
+aprendeu **2 de 3** (`rac` e `\partial`). A poda iterativa do Unigram não retém
+essas unidades; a fusão do BPE retém. Não é só um número: é uma explicação.
+
+### 3. ⚠️ V = 40.960 NÃO é o melhor, e isso contraria o §7
+
+A ordem é monotônica nas três métricas: 32k (0,9973) → 41k (0,9620) → 64k (0,8966).
+Quanto maior, melhor, em toda a faixa testada. Consistente com Tao et al. (2024),
+que o próprio §7.3 cita como ressalva.
+
+**Mas a métrica intrínseca não vê a troca que decide.** O DOC-07 §2.2 registra que a
+embedding é 16% do modelo de 150M com V=40.960; em 65.536 seria ~24% — parâmetros
+gastos em embedding em vez de camadas. Fertilidade não captura isso, e é precisamente
+por essa razão que o §11.2 (treinar 50M em 5B tokens por variante) é o veredito.
+
+**Nenhum número desta seção autoriza mudar o §7.** O que ele autoriza é incluir
+V=65.536 no bake-off de verdade, em vez de tratar 40.960 como decidido.
+
+### 4. A meta de fertilidade em equações falha em TODAS as variantes
+
+O §11.1 pede ≤ 0,65× do Qwen3. A melhor é D com 0,698. Nenhuma alcança — negativo
+honesto, e provavelmente ligado ao corpus: resumos têm matemática inline curta, e o
+alvo pode ter sido calibrado supondo texto pleno com equações em display, que é
+justamente o que o peS2o não tem (ver a seção das equações mutiladas).
+
+Medido por `scripts/bakeoff_tokenizer.py` · `data/processed/tokenizer/bakeoff.json`.
+
 ## ⚠️ O peS2o tem as EQUAÇÕES REMOVIDAS, e isso bloqueia o ΦEnc (2026-08-27)
 
 Medido antes de gastar cota de GPU, e muda a decisão:
