@@ -152,7 +152,7 @@ def construir(algo: str, vocab: int, pre_tok_8: bool):
                   pre_tokenizers.ByteLevel(add_prefix_space=False, use_regex=True)]
     tok.pre_tokenizer = pre_tokenizers.Sequence(passos)
     tok.decoder = decoders.ByteLevel()
-    return tok
+    return tok, tok.pre_tokenizer
 
 
 def treinar(tok, textos: list[str], algo: str, vocab: int):
@@ -170,32 +170,57 @@ def treinar(tok, textos: list[str], algo: str, vocab: int):
     return tok
 
 
-def conferir_atomicidade(tok, nome: str, deve_ser_atomico: bool) -> dict:
-    """`\\frac` é UM token? É a premissa da §8, e ela pode falhar em silêncio.
+CASOS_LATEX = {
+    "\\frac": r"\frac{d^2x}{dt^2}",
+    "\\partial": r"\partial_\mu F^{\mu\nu} = 0",
+    "\\begin{equation}": r"\begin{equation} E = mc^2 \end{equation}",
+}
 
-    Sem esta conferência, uma variante "com as regras do §8" que na verdade parte
-    `\\frac` em `\\` + `frac` produziria um bake-off que compara A com A.
+
+def conferir_fronteira(pre_tok, nome: str, deve_isolar: bool) -> dict:
+    """O PRÉ-TOKENIZADOR isola a sequência de controle? É a propriedade da §8.
+
+    ⚠️ Isto mede a FRONTEIRA, não o número de tokens. A primeira versão desta
+    conferência exigia que `\\frac` fosse UM token depois do BPE, e derrubou o
+    bake-off num teste de fumaça de 4.000 documentos — corretamente, mas medindo a
+    coisa errada.
+
+    A §8 afirma que a pré-tokenização é uma **barreira dura**: o BPE não pode fundir
+    `\\frac` com o texto vizinho, nem partir a sequência ao meio para juntá-la a
+    outra coisa. Isso é diferente de `\\frac` sair como token único — o BPE ainda
+    segmenta DENTRO de um pré-token quando não aprendeu o merge, e com corpus pequeno
+    `\\begin{equation}` é raro demais para ser aprendido.
+
+    Confundir as duas fez a verificação falhar por uma razão que não era defeito.
+    Quantos merges o treino de fato aprendeu é métrica de qualidade, não invariante —
+    e vai em `cobertura_1_token`.
     """
-    casos = {
-        "\\frac": r"\frac{d^2x}{dt^2}",
-        "\\partial": r"\partial_\mu F^{\mu\nu} = 0",
-        "\\begin{equation}": r"\begin{equation} E = mc^2 \end{equation}",
-    }
     achados = {}
-    for alvo, texto in casos.items():
-        pecas = tok.encode(texto).tokens
-        # ByteLevel troca espaço por `Ġ`; comparamos o token limpo.
-        limpos = [p.replace("Ġ", "").replace("Ċ", "") for p in pecas]
-        achados[alvo] = alvo in limpos
-    ok = all(achados.values())
-    if deve_ser_atomico and not ok:
+    for alvo, texto in CASOS_LATEX.items():
+        pecas = [p for p, _ in pre_tok.pre_tokenize_str(texto)]
+        achados[alvo] = alvo in pecas
+    if deve_isolar and not all(achados.values()):
         faltando = [k for k, v in achados.items() if not v]
+        exemplo = [p for p, _ in pre_tok.pre_tokenize_str(CASOS_LATEX[faltando[0]])]
         raise SystemExit(
-            f"variante {nome} deveria ter as regras do §8, mas {faltando} NÃO "
-            f"saíram atômicos. Sem isso a variante é indistinguível da E e o "
-            f"bake-off compararia A com A.\n"
-            f"  exemplo: {tok.encode(casos[faltando[0]]).tokens[:12]}")
+            f"variante {nome} deveria ter as regras do §8, mas o PRÉ-TOKENIZADOR "
+            f"não isolou {faltando}. Sem a fronteira a variante é indistinguível "
+            f"da E, e o bake-off compararia A com A.\n  pré-tokens: {exemplo[:10]}")
     return achados
+
+
+def cobertura_1_token(tok) -> dict:
+    """Quantas das sequências do §4.2 o treino aprendeu como token ÚNICO.
+
+    Métrica de qualidade, não invariante: depende do tamanho do corpus. É o que
+    diz se o orçamento de ~2.000 tokens LaTeX do §7 está sendo de fato ocupado.
+    """
+    fora = {}
+    for alvo, texto in CASOS_LATEX.items():
+        limpos = [p.replace("Ġ", "").replace("Ċ", "")
+                  for p in tok.encode(texto).tokens]
+        fora[alvo] = alvo in limpos
+    return fora
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -335,11 +360,14 @@ def main() -> int:
         cfg = VARIANTES[nome]
         log.info("treinando %s: %s V=%s §8=%s", nome, cfg["algo"],
                  f"{cfg['vocab']:,}", cfg["pre_tok_8"])
-        tok = construir(cfg["algo"], cfg["vocab"], cfg["pre_tok_8"])
+        tok, pre = construir(cfg["algo"], cfg["vocab"], cfg["pre_tok_8"])
+        # A fronteira e conferida ANTES do treino: ela e propriedade da
+        # pre-tokenizacao, e treinar nao a cria nem a destroi.
+        atomicidade[nome] = conferir_fronteira(pre, nome, cfg["pre_tok_8"])
         tok = treinar(tok, treino, cfg["algo"], cfg["vocab"])
-        atomicidade[nome] = conferir_atomicidade(tok, nome, cfg["pre_tok_8"])
         r = medir(tok, aval, subs, nome)
         r.update({k: cfg[k] for k in ("algo", "vocab", "pre_tok_8")})
+        r["latex_como_1_token"] = cobertura_1_token(tok)
         resultados.append(r)
         log.info("  fertilidade %.4f · equações %.2f tok/eq · %.3f bytes/token",
                  r["fertilidade"], r["fertilidade_equacoes"], r["bytes_por_token"])
@@ -353,8 +381,8 @@ def main() -> int:
         r = medir(EnvelopeHF(hf), aval, subs, "F (Qwen3, controle)")
         r.update({"algo": "bpe", "vocab": hf.vocab_size, "pre_tok_8": False,
                   "modelo": nome_hf})
+        r["latex_como_1_token"] = cobertura_1_token(EnvelopeHF(hf))
         resultados.append(r)
-        atomicidade["F"] = conferir_atomicidade(EnvelopeHF(hf), "F", False)
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps({
