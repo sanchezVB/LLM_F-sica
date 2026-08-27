@@ -11,7 +11,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🟡 G1.1 ✅ / G1.2 ❌ | perde do GTE-large por 0,005. **As duas rotas baratas para fechar estão descartadas por medição** |
+| **ΦEmb** | 🟢 G1.1 ✅ / G1.2 ✅ | nDCG@10 **0,4657** contra 0,4628 do GTE-large, com 1/14,8 dos parâmetros. ⚠️ A margem é +0,003 e o pareado em recall@1 dá EMPATE — o defensável é paridade a 1/15 do tamanho, não vitória |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -20,6 +20,48 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## G1.2 — passou pela letra, e o resultado honesto é PARIDADE (2026-08-27)
+
+    2.000 candidatos · protocolo do veredito · o modelo treinado na T4
+
+    modelo                        r@1     r@10   nDCG@10
+    ΦEmb-T4 (23M)               0,262    0,708    0,4657
+    GTE-large (genérico 335M)   0,278    0,677    0,4628
+    ΦEmb/MiniLM local (23M)     0,254    0,700    0,4579
+    PhysBERT (alvo do G1.1)     0,146    0,425    0,2752
+    SciBERT (base)              0,109    0,328    0,2074
+
+**G1.1: passou de verdade.** +0,190 de nDCG sobre o PhysBERT, pareado p=0,0000.
+Margem grande, significativa, sem ressalva.
+
+**G1.2: passou pela letra do critério, e a margem NÃO é evidência de superioridade.**
++0,0029 de nDCG sobre o GTE-large. E o pareado em recall@1 dá **empate com o GTE à
+frente na contagem**: 196 discordantes contra 165, p=0,114.
+
+Os dois modelos trocam qualidades:
+
+    GTE-large é melhor em colocar a resposta em 1º   (r@1  0,278 vs 0,262)
+    o nosso é melhor em trazê-la ao top-10           (r@10 0,708 vs 0,677)
+
+O nDCG@10 divide a diferença e cai do nosso lado por três milésimos.
+
+### O que os dois números juntos dizem
+
+Este documento registrava "perde do GTE-large por 0,005". Agora é "+0,003". Um
+deslocamento de 0,008 entre duas corridas da MESMA receita não é melhoria — é
+ruído, e o que o par de medições estabelece é que **sempre foi empate**.
+
+A afirmação que sobrevive a escrutínio: **um modelo de 23M parâmetros empata com um
+de 335M neste benchmark**, 1/14,8 do tamanho. Eficiência de parâmetros, medida.
+"Batemos o GTE-large" não é defensável com +0,003.
+
+### As ressalvas que mantêm o G1 aberto
+
+  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado
+  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 não são tocados aqui
+  · nDCG@10 com UM relevante por consulta é 1/log2(1+pos); julgamentos graduados
+    dariam outro número
 
 ## peS2o filtrado — o corpus dobra (2026-08-26)
 

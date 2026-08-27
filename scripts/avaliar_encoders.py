@@ -12,6 +12,7 @@ modelo à comparação não deve custar a soma de todos. É invalidado inteiro s
 protocolo mudar — ver `comparar` em `phifm.eval.encoders`.
 """
 import argparse
+import contextlib
 import logging
 import sys
 from pathlib import Path
@@ -61,6 +62,14 @@ NOSSOS = {
 
 
 def main() -> int:
+    # ⚠️ A tabela imprime `Φ` e o console do Windows entrega cp1252. Sem isto o
+    # script levanta UnicodeEncodeError na ÚLTIMA linha, DEPOIS de medir tudo —
+    # medido em 2026-08-27: a avaliação do modelo da T4 terminou em 115 s e o
+    # resultado morreu no `print`. Trabalho feito, saída dizendo que falhou.
+    for fluxo in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            fluxo.reconfigure(encoding="utf-8")
+
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
     p.add_argument("--modelo", action="append", default=[], metavar="ROTULO=CAMINHO",
