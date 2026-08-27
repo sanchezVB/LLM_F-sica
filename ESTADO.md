@@ -21,6 +21,61 @@ Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 
+## ⚠️ O peS2o tem as EQUAÇÕES REMOVIDAS, e isso bloqueia o ΦEnc (2026-08-27)
+
+Medido antes de gastar cota de GPU, e muda a decisão:
+
+    fonte                     operador órfão   órfãos/doc   com LaTeX
+    peS2o texto pleno              50,2%          3,2         15,5%
+    arXiv resumos                   3,0%          0,0         23,2%
+
+"Operador órfão" é um ` = `, ` < ` ou ` > ` sem operando de um dos lados — a
+assinatura de uma equação que foi arrancada do texto. Metade dos documentos de
+texto pleno do peS2o tem pelo menos um, com média de 3,2 por documento. Nos resumos
+do arXiv é 3,0% e praticamente zero por documento.
+
+O que sobra no lugar da matemática, em documentos diferentes:
+
+    "a pair of elements ρ, σ ∈ Σ are said to be orthogonal if: where {0} is..."
+    "The stationary solution p * to Eq. (7) satisfies p * = W · p *"
+    "the dependence of __ as a function of normal pressures __"
+
+No primeiro, a equação em display entre "if:" e "where" foi **apagada inteira** — o
+dois-pontos aponta para o nada. No segundo, `p^*` virou `p *` e `T_{eff}` virou
+`T eff`: os índices foram achatados em tokens soltos pela extração de PDF.
+
+### Por que isto bloqueia, e não é só ruído
+
+**O DOC-07 §2.3 propõe mascaramento consciente de equações** — mascarar uma equação
+inteira e reconstruí-la a partir da prosa. É a única adição específica de Física ao
+objetivo de treino, e a hipótese que o ΦEnc existiria para testar. **Não é possível
+sobre texto de que as equações foram removidas.**
+
+E o DOC-05 inteiro — tokenizer nativo com ~2.000 sequências de controle, pré-tokenização
+que preserva `rac{d^2x}{dt^2}`, tratamento estrutural de índices — pressupõe LaTeX
+íntegro. Sobre peS2o, esse orçamento de vocabulário não tem o que representar.
+
+### O que isso faz com o corpus de 27,75 B
+
+Volume não é o gargalo; **integridade matemática é**. Dos 14,60 B do peS2o, a maior
+parte do valor em tokens vem do texto pleno — que é justamente a fatia com as
+equações mutiladas. Os resumos do arXiv têm matemática íntegra e são a fonte de
+melhor qualidade que existe aqui, mas são ~1,1 mil caracteres por documento.
+
+### A decisão que isto força
+
+O **arXiv pago (US$ 100–180)** dá acesso ao **fonte LaTeX**, com equações intactas.
+Era o único item sem versão de custo zero, e passa de "conveniência" a
+**pré-requisito da hipótese central do ΦEnc**. Sem ele, as alternativas são:
+
+  1. treinar o ΦEnc sem o mascaramento de equações — abandona a única contribuição
+     específica de Física do objetivo, e o modelo vira "mais um encoder de domínio";
+  2. treinar só sobre resumos do arXiv — matemática íntegra, volume muito menor;
+  3. gastar 3–5 meses de cota de T4 sobre um corpus cuja fatia principal tem a
+     matemática destruída.
+
+Medido por `scripts/medir_equacoes_mutiladas.py`.
+
 ## G1.2 — passou pela letra, e o resultado honesto é PARIDADE (2026-08-27)
 
     2.000 candidatos · protocolo do veredito · o modelo treinado na T4
