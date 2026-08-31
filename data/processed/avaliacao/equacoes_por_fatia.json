@@ -1,0 +1,53 @@
+{
+  "n_por_fatia": 3000,
+  "semente": 17,
+  "fatias": {
+    "arXiv resumos (REFERÊNCIA)": {
+      "n": 3000,
+      "chars_por_doc": 1123,
+      "pct_com_orfao": 3.0,
+      "orfaos_por_doc": 0.04,
+      "pct_com_sequencia_latex": 21.8,
+      "pct_com_math_inline": 26.9,
+      "pct_com_ambiente_de_equacao": 0.0,
+      "sequencias_latex_por_doc": 0.9,
+      "origem": "resumos da API do arXiv, matemática como o autor escreveu"
+    },
+    "RedPajama-arXiv": {
+      "n": 3000,
+      "chars_por_doc": 49212,
+      "pct_com_orfao": 81.3,
+      "orfaos_por_doc": 21.52,
+      "pct_com_sequencia_latex": 100.0,
+      "pct_com_math_inline": 99.6,
+      "pct_com_ambiente_de_equacao": 84.9,
+      "sequencias_latex_por_doc": 1158.3,
+      "origem": "construído do FONTE LaTeX do arXiv"
+    },
+    "OpenWebMath": {
+      "n": 3000,
+      "chars_por_doc": 16009,
+      "pct_com_orfao": 40.2,
+      "orfaos_por_doc": 3.52,
+      "pct_com_sequencia_latex": 78.5,
+      "pct_com_math_inline": 85.2,
+      "pct_com_ambiente_de_equacao": 5.1,
+      "sequencias_latex_por_doc": 57.7,
+      "origem": "páginas web de matemática, LaTeX preservado na extração"
+    },
+    "peS2o texto pleno": {
+      "n": 3000,
+      "chars_por_doc": 28605,
+      "pct_com_orfao": 50.7,
+      "orfaos_por_doc": 3.14,
+      "pct_com_sequencia_latex": 16.3,
+      "pct_com_math_inline": 18.2,
+      "pct_com_ambiente_de_equacao": 0.0,
+      "sequencias_latex_por_doc": 1.0,
+      "origem": "texto pleno do Semantic Scholar, extraído de PDF"
+    }
+  },
+  "metodo": "operador matemático órfão: ' = ', ' < ', ' > ' sem operando alfanumérico de um dos lados",
+  "ressalva": "o regex tem falso positivo em tabelas e listas; a linha dos resumos do arXiv mede esse piso. A razão entre fatias importa mais que o valor absoluto",
+  "por_que": "decide se o mascaramento consciente de equações do DOC-07 §2.3 é testável com o corpus que já está no disco, ou se exige o acesso pago ao fonte LaTeX do arXiv (S3 requester pays)"
+}

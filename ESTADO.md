@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-08-17
+# Estado do projeto — 2026-08-31
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -16,10 +16,86 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
 | **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank no-op | RRF entrega **nDCG 0,1584** e vence os isolados (p<0,001); o reranker empata (p=0,118) porque parte da **mesma base** do ΦEmb |
+| **T1c** · ΦRank de base diferente | 🔵 rodando na T4 | testa a predição do T1b: base diferente deve bater a fusão. Regra de decisão e limiar de Bonferroni registrados antes de medir |
+| **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
+| **ΦEnc** · código | 🔴 não existe | `training/pretrain/` está vazio. É o gargalo agora, e não é de dinheiro |
 
-Suíte: **421 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **501 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## Itens de custo zero executados (2026-08-31)
+
+O usuário pediu "execute todos os itens que nao tem custo $" sobre a lista de
+recomendações. O que saiu disso, em ordem de importância:
+
+### 1. ⚠️ A recomendação nº 1 estava errada, e ela custava dinheiro
+
+Eu havia aberto a lista com "decida o arXiv (US$ 100–180), ou abandone a hipótese
+central do ΦEnc". **O corpus com equações intactas estava no disco havia 17 dias.**
+RedPajama-arXiv, fatia de Física: 835.379 documentos, 12 GB, ambiente de equação em
+**84,9%** contra **0,0%** do peS2o. Volume MEDIDO: **42,15 G caracteres**, 50.451 por
+documento, **10,54 B tokens** a ~4 ch/token — acima dos 5 B por variante que o
+DOC-05 §11.2 pede.
+
+⚠️ **E os 10,54 B já estavam na tabela de sprints acima**, desde a S3. O que ninguém
+havia conferido era a integridade matemática da fatia — e a seção do peS2o dizia
+"volume não é o gargalo; integridade matemática é" com a resposta na mesma tabela.
+
+Registrado em [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md), com a
+correção de método (o regex de operador órfão satura em texto LaTeX íntegro) e a
+cotação de verdade do S3 (US$ 400+ para fora da AWS, dezenas de dólares filtrando
+dentro).
+
+### 2. T1c — o reranqueador de base diferente, rodando na cota gratuita
+
+A predição da §3.3 do rascunho: se a redundância informacional anula o ΦRank, um
+cross-encoder de base diferente do ΦEmb deve bater a fusão. Duas variantes de 109 M
+(`thenlper/gte-base` e `thellert/physbert_cased`) contra o controle de 23 M,
+**só `--base` muda** — os outros seis hiperparâmetros são byte a byte os do controle,
+com teste que falha se algum escorregar.
+
+Regra de decisão registrada ANTES: McNemar em k=10 contra a fusão da mesma execução,
+limiar de Bonferroni **0,025** por serem duas variantes, 2.000 consultas (o controle
+antigo tinha 1.000 e deu p=0,118 — faltava poder). As quatro leituras possíveis estão
+escritas, inclusive a de nenhuma vencer.
+
+`kaggle/t1c_phirank.py` · dataset `phifm-t1c-rerank-bases` (457,7 MB) ·
+notebook `phifm-t1c-rerank`.
+
+### 3. Rascunho do artigo metodológico
+
+[docs/papers/rascunho-armadilhas-recuperacao-por-citacao.md](docs/papers/rascunho-armadilhas-recuperacao-por-citacao.md)
+— cinco falhas medidas, com a tese de que compartilham uma causa: supervisão e
+avaliação derivadas da mesma estrutura. ⚠️ As referências foram escritas de memória e
+**nenhuma foi conferida**; a §12 lista quais são as mais frágeis.
+
+### 4. Folha de revisão da amostra de contaminação
+
+`scripts/folha_de_revisao.py` gera um HTML único, no HD, sem rede. O escore do
+classificador fica **escondido até depois do julgamento** (viés de ancoragem), o alvo
+é pré-comprometido em 200 documentos, e `scripts/apurar_revisao.py` apura com Wilson e
+estratifica por faixa de escore. Esta é a tarefa que só o usuário pode fazer.
+
+### 5. `scripts/simular_ci.py`
+
+Roda os cinco passos do workflow sobre um `git archive` do commit — só arquivos
+rastreados, que é o que o CI vê. É a classe de erro que deixou o CI vermelho e que
+`pytest` local não pega, porque ele vê o disco inteiro.
+
+### 6. DOC-05 absorveu o §11.1 medido
+
+O documento seguia afirmando que não havia evidência de BPE vs Unigram em LaTeX (há,
+é nossa, e contraria a previsão da §3.2) e tratando V=40.960 como decidido. A decisão
+fica; agora com o número que a contraria escrito ao lado, e com a razão pela qual a
+métrica intrínseca não pode decidi-la.
+
+### E um conserto no publicador do Kaggle
+
+`datasets create` volta ANTES de o dataset existir — a criação é assíncrona. O
+`kernels push` seguinte não resolveu a fonte, avisou numa linha, criou o notebook
+**sem dados** e disse "successfully pushed" com código 0. O `FALHAS_SILENCIOSAS`
+pegou; agora espera `datasets status` dizer `ready`.
 
 ## Bake-off do tokenizer — §11.1 medido, e dois achados contra o documento (2026-08-27)
 
@@ -77,9 +153,21 @@ justamente o que o peS2o não tem (ver a seção das equações mutiladas).
 
 Medido por `scripts/bakeoff_tokenizer.py` · `data/processed/tokenizer/bakeoff.json`.
 
-## ⚠️ O peS2o tem as EQUAÇÕES REMOVIDAS, e isso bloqueia o ΦEnc (2026-08-27)
+## ⚠️ O peS2o tem as EQUAÇÕES REMOVIDAS — e isso NÃO bloqueia o ΦEnc
 
-Medido antes de gastar cota de GPU, e muda a decisão:
+> **A primeira metade desta seção está certa; a conclusão foi SUPERADA em
+> 2026-08-31.** O peS2o de texto pleno está mutilado, e isso é sólido. O que estava
+> errado é o que eu concluí disso: que o acesso pago ao fonte do arXiv passava a
+> pré-requisito. O **RedPajama-arXiv**, no disco desde 2026-08-14, é construído do
+> **fonte LaTeX** e tem ambiente de equação em **84,9%** dos documentos contra
+> **0,0%** do peS2o. 835.379 documentos de Física, 12 GB, custo US$ 0.
+>
+> A seção fica de pé porque a medição do peS2o é boa e a fatia continua imprópria
+> para o objetivo do DOC-07 §2.3. Ver [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md)
+> para a decisão que substitui a "decisão que isto força" no fim daqui, e a seção
+> de 2026-08-31 no topo deste arquivo para o que a correção custou.
+
+Medido antes de gastar cota de GPU:
 
     fonte                     operador órfão   órfãos/doc   com LaTeX
     peS2o texto pleno              50,2%          3,2         15,5%
@@ -118,19 +206,38 @@ parte do valor em tokens vem do texto pleno — que é justamente a fatia com as
 equações mutiladas. Os resumos do arXiv têm matemática íntegra e são a fonte de
 melhor qualidade que existe aqui, mas são ~1,1 mil caracteres por documento.
 
-### A decisão que isto força
+### ~~A decisão que isto força~~ — o que eu concluí, e por que estava errado
 
-O **arXiv pago (US$ 100–180)** dá acesso ao **fonte LaTeX**, com equações intactas.
-Era o único item sem versão de custo zero, e passa de "conveniência" a
-**pré-requisito da hipótese central do ΦEnc**. Sem ele, as alternativas são:
+Eu escrevi aqui que o **arXiv pago** passava de "conveniência" a **pré-requisito da
+hipótese central do ΦEnc**, e listei três alternativas ruins. Em 2026-08-31 abri as
+recomendações ao usuário com isso, cotado em US$ 100–180.
 
-  1. treinar o ΦEnc sem o mascaramento de equações — abandona a única contribuição
-     específica de Física do objetivo, e o modelo vira "mais um encoder de domínio";
-  2. treinar só sobre resumos do arXiv — matemática íntegra, volume muito menor;
-  3. gastar 3–5 meses de cota de T4 sobre um corpus cuja fatia principal tem a
-     matemática destruída.
+**Duas coisas erradas.**
 
-Medido por `scripts/medir_equacoes_mutiladas.py`.
+A cotação: o conjunto de fonte é ~2,9 TB (março de 2023) e os dois conjuntos somam
+~9,2 TB (abril de 2025); o bucket é `requester pays` e o arXiv remete à tabela da
+AWS. A US$ 0,09/GB de egresso, o fonte inteiro para fora da AWS passa de **US$ 400**.
+Filtrando dentro da AWS e egressando só o `.tex`, dezenas de dólares. Nunca foi
+US$ 100–180.
+
+E o pré-requisito: **não é**. `scripts/medir_equacoes_mutiladas.py` agora mede as
+quatro fatias, e a resposta estava no disco:
+
+    fatia                          ch/doc   LaTeX%   $..$%   AMBIENTE%   seq/doc
+    arXiv resumos (referência)      1.123     21,8    26,9       0,0        0,9
+    RedPajama-arXiv                49.212    100,0    99,6      84,9    1.158,3
+    OpenWebMath                    16.009     78,5    85,2       5,1       57,7
+    peS2o texto pleno              28.605     16,3    18,2       0,0        1,0
+
+⚠️ **E o meu diagnóstico saturava.** O "operador órfão" acusa **81,3%** do RedPajama,
+contra 3,0% da referência — e os trechos crus mostram matemática perfeita. Em
+`$Z_{\rm max}$ = 15 kpc` o caractere antes de ` = ` é `$`, que o regex não aceita
+como operando. Um diagnóstico que dispara mais no corpus íntegro que no mutilado é
+pior que nenhum. O discriminante que funciona é **presença de ambiente de equação**:
+84,9% contra 0,0%.
+
+**A regra deste repositório é medir antes de gastar cota. Eu a apliquei à GPU e não
+ao dinheiro.** Ver [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md).
 
 ## G1.2 — passou pela letra, e o resultado honesto é PARIDADE (2026-08-27)
 
