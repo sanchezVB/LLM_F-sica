@@ -54,6 +54,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -198,6 +199,47 @@ def _dataset_existe(id_dados: str) -> bool:
     except Exception:
         return False
     return id_dados in r.stdout
+
+
+def _esperar_dataset(id_dados: str, limite_s: int = 900) -> bool:
+    """Espera o Kaggle terminar de PROCESSAR o dataset. Devolve se ficou pronto.
+
+    ⚠️ Sem isto o `kernels push` corre contra o processamento e perde. Medido em
+    2026-08-31, na primeira publicação do T1c: o `datasets create` imprimiu "is being
+    created", o push seguinte respondeu "not valid dataset sources", criou o notebook
+    SEM fonte de dados e ainda disse "successfully pushed" com código 0.
+
+    Rodar o notebook nesse estado morreria no assert do MANIFESTO — depois de o
+    Kaggle alocar a GPU e começar a contar a cota.
+
+    `datasets status` imprime `ready`, `error` ou o estado em andamento.
+    """
+    inicio = time.monotonic()
+    ultimo = ""
+    while time.monotonic() - inicio < limite_s:
+        try:
+            r = subprocess.run([sys.executable, "-m", "kaggle", "datasets", "status",
+                                id_dados], capture_output=True, text=True, timeout=120)
+        except Exception as exc:
+            print(f"  (status indisponível: {exc}; tentando de novo)")
+            time.sleep(15)
+            continue
+        estado = (r.stdout or "").strip().splitlines()[-1:] or [""]
+        estado = estado[0].strip().lower()
+        if estado != ultimo:
+            print(f"  dataset: {estado or '(sem resposta)'}")
+            ultimo = estado
+        if estado == "ready":
+            return True
+        if "error" in estado:
+            raise SystemExit(
+                f"o Kaggle reprovou o dataset: {r.stdout.strip()}\nO notebook NÃO "
+                "foi enviado — enviá-lo agora criaria um kernel sem fonte de dados.")
+        time.sleep(15)
+    print(f"  ⚠️ o dataset não ficou `ready` em {limite_s} s. Ele continua "
+          "processando; rode\n     de novo com --so-notebook quando "
+          "`kaggle datasets status` disser `ready`.")
+    return False
 
 
 def _rodar(cmd: list[str], pacote: Path) -> str:
@@ -408,6 +450,13 @@ usuário de lá.
 Eu não faço nenhum dos três: exige entrar na sua conta.""")
 
     for c in cmds:
+        # ⚠️ Entre criar o dataset e empurrar o notebook, esperar o processamento.
+        # A ordem de `cmds` garante que o dataset venha primeiro; o que faltava era
+        # alguém esperar por ele.
+        if "kernels" in c and not a.so_notebook and not _esperar_dataset(id_dados):
+            raise SystemExit(
+                "não vou empurrar o notebook antes de o dataset resolver: o push "
+                "criaria um kernel sem fonte de dados e ainda diria que deu certo.")
         print(f"\n$ {' '.join(c)}")
         saida = _rodar(c, PACOTE)
         ruins = [f for f in FALHAS_SILENCIOSAS if f in saida]
