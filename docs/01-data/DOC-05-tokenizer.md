@@ -68,7 +68,9 @@ Isso torna o ΦEnc mais interessante cientificamente: é onde de fato se respond
 | Modelo | Algoritmo | Justificativa |
 |---|---|---|
 | **ΦGen** | **BPE** | Não é escolha — é o algoritmo do Qwen3. A extensão precisa ser BPE |
-| **ΦEnc** | **A medir** (§11) — BPE e Unigram | Bostrom & Durrett (2020) mostram vantagem do Unigram em linguagem natural; **não há evidência publicada para LaTeX/Física**. Produzir essa evidência é barato e é contribuição própria |
+| **ΦEnc** | **BPE** — medido (§11.1-medido), pendente do §11.2 | Bostrom & Durrett (2020) mostram vantagem do Unigram em linguagem natural, e **não havia evidência publicada para LaTeX/Física**. Produzimos: em 200 mil resumos do arXiv o **BPE ganha**, com margem 6× maior em equações (13%) que em prosa (2%). A expectativa da §3.2 ("Unigram boa a muito boa") estava errada |
+
+> **O mecanismo, não só o número.** O Unigram aprendeu **0 de 3** sequências LaTeX de teste como token único; o BPE aprendeu **2 de 3**. A poda iterativa do Unigram não retém essas unidades, e a fusão gulosa do BPE retém — o oposto do que a coluna "Adequação a LaTeX" da §3.2 previa ao raciocinar que "a poda por verossimilhança tende a preservar sequências de controle inteiras". A previsão era plausível e é falsa. Ver §11.1-medido.
 
 **Byte-fallback é obrigatório nos dois casos.** Física escreve `∇`, `∂`, `ℏ`, `⟨ψ|`, `⊗`, `†`, `∮`, `ℝ`, `𝒪`, `Å`, `μ`. Sem byte-fallback, esses caracteres viram `<UNK>` e a informação é destruída de forma irreversível. Com byte-fallback, o pior caso é ineficiência, nunca perda. **Não negociável.**
 
@@ -207,6 +209,10 @@ O Qwen3 usa 151.936 tokens porque cobre **mais de 100 idiomas**. Nós cobrimos *
 **ΦGen: 151.936 + extensão (§9) ≈ 154.500.**
 
 > Ressalva honesta: Tao et al. (2024) argumentam que o vocabulário ótimo cresce com o tamanho do modelo e que a maioria dos modelos é sub-vocabularizada. O argumento vale para modelos gerais. Para domínio único, a curva se desloca. **V = 40.960 é uma hipótese fundamentada, e o bake-off do §11 inclui V ∈ {32k, 41k, 64k} como eixo de ablação.**
+>
+> ⚠️ **Medido em 2026-08-27, e contraria esta seção.** Nas três métricas intrínsecas a ordem é monotônica — 32.768 (0,9973) → 40.960 (0,9620) → 65.536 (0,8966): quanto maior, melhor, em toda a faixa testada. Consistente com Tao et al., que esta ressalva já citava.
+>
+> **A decisão não muda, e a razão é a §7.2.** A fertilidade não vê a troca que decide: com V = 65.536 a tabela de embeddings sai de 16% para ~24% do ΦEnc-150M — parâmetros que não computam nada. Escolher pelo número intrínseco seria otimizar a métrica que este documento já argumentou ser proxy. O que a medição autoriza é **não tratar 40.960 como decidido antes do §11.2**, e é isso que a variante D existe para resolver. Ver §11.1-medido.
 
 ---
 
@@ -309,6 +315,48 @@ A amostra reflete a **mistura-alvo de treino** (DOC-06), não a distribuição b
 
 > **Sobre o que a compressão significa.** Comprimir 20% melhor **não** aumenta o corpus — reduz a contagem de tokens do mesmo conteúdo. O ganho real é que o modelo vê **mais Física por unidade de computação**, já que o custo de treino é proporcional a tokens. Ali et al. (2024) mostram que eficiência de tokenizer correlaciona com desempenho a jusante. O ganho é real, mas é de eficiência, não de volume — e as contagens de tokens do DOC-04 §7 são medidas em tokenizer geral e precisarão ser reafirmadas neste.
 
+### 11.1-medido Resultado das métricas intrínsecas (2026-08-27)
+
+Rodado por `scripts/bakeoff_tokenizer.py` em **200.000 resumos do arXiv** para
+treinar e **5.000 reservados** para medir, em CPU, custo US$ 0. É a §11.1 inteira,
+não o §11.2 — nenhum modelo foi treinado, e por isso nada aqui decide.
+
+| var | algo | vocab | §8 | fert | ×Qwen3 | tok/eq | ×Qwen3 | LaTeX 1-tok |
+|---|---|---|---|---|---|---|---|---|
+| A | BPE | 40.960 | sim | 0,9620 | 0,674 | 7,31 | 0,732 | 2/3 |
+| B | Unigram | 40.960 | sim | 0,9816 | 0,688 | 8,36 | 0,837 | 0/3 |
+| C | BPE | 32.768 | sim | 0,9973 | 0,699 | 7,49 | 0,750 | 2/3 |
+| D | BPE | 65.536 | sim | **0,8966** | **0,629** | **6,97** | **0,698** | 2/3 |
+| E | BPE | 40.960 | **não** | 1,3245 | 0,929 | 9,46 | 0,947 | 0/3 |
+| F | Qwen3 | 151.643 | — | 1,4263 | 1,000 | 9,99 | 1,000 | 0/3 |
+
+Round-trip 100% e `1.5` consistente nas seis. 35 subáreas medidas, pior razão
+**1,215** contra o limite de 1,25 desta seção.
+
+**Quatro leituras, duas delas contra este documento:**
+
+1. **A §8 está vindicada, pelo teste que o §11.2 estipulou.** A e E diferem *só* nas
+   regras de pré-tokenização, e A dá 27% menos tokens em prosa e 23% menos em
+   equações. E é a **única variante que falha a meta de fertilidade** (0,929 contra o
+   teto de 0,80). O §11.2 dizia "se E empatar com A, a §8 está errada"; não empatou.
+
+2. **BPE bate Unigram em LaTeX** — a evidência que a §3.3 dizia não existir, com
+   mecanismo observável. Ver a nota da §3.3.
+
+3. ⚠️ **V = 40.960 não é o melhor**, e a ordem é monotônica. Ver a ressalva da §7.3
+   para por que a decisão fica de pé mesmo assim — e por que a variante D tem de
+   sobreviver ao §11.2.
+
+4. ⚠️ **A meta de fertilidade em equações falha em TODAS as variantes.** Esta seção
+   pede ≤ 0,65× do Qwen3; a melhor é D com 0,698. Negativo honesto, e a explicação
+   provável é o corpus: resumos têm matemática *inline* curta, e o alvo parece
+   calibrado supondo texto pleno com equações em *display*. **Não é corrigível hoje**
+   — o peS2o de texto pleno tem as equações removidas na extração (50,2% dos
+   documentos com operador órfão), que é o mesmo bloqueio do DOC-07 §2.3.
+
+Os cinco tokenizers treinados ficaram em `data/processed/tokenizer/` (16 MB), para o
+§11.2 partir deles em vez de retreinar.
+
 ### 11.2 O bake-off: a única medida que decide
 
 Métricas intrínsecas são proxies. A questão real é: **qual tokenizer produz o melhor modelo?**
@@ -329,6 +377,10 @@ Podemos responder isso empiricamente, e é barato:
 **Custo:** 50 M × 5 B → `C = 6 × 5e7 × 5e9 = 1,5e18` FLOPs → ~7 h numa RTX 4090 → **~US$ 2,40 por variante**. **Seis variantes: ~US$ 15.**
 
 A variante E é a mais importante: isola o efeito do regex de pré-tokenização, que é a decisão que a §8 afirma ser a mais consequente e menos visível. Se E empatar com A, a §8 está errada e o documento precisa ser revisado.
+
+> **O que a §11.1-medido já resolveu, e o que ela não pode resolver.** As métricas intrínsecas já rodaram nas seis variantes: E ficou 27% pior que A, então a §8 sobrevive ao seu próprio teste, e B (Unigram) ficou atrás de A nas duas fertilidades. Isso **não** dispensa o §11.2 para nenhuma das duas — fertilidade é proxy, e a hipótese de que menos tokens produz melhor modelo é exatamente o que falta medir.
+>
+> Duas consequências para o desenho: **(i) a variante D não pode ser cortada** por economia. Ela ganhou nas três métricas intrínsecas, e é a única forma de descobrir se os ~8 pontos percentuais extras de embedding (§7.2) compram ou custam desempenho. **(ii)** Se o orçamento apertar, o corte menos danoso é B, porque o Unigram já perdeu por margem grande *e* com mecanismo explicado — e esse é o único corte que a §11.1-medido justifica.
 
 > **Não há evidência publicada comparando algoritmos de tokenização em texto de Física e LaTeX.** Por US$ 15 e alguns dias, produzimos essa evidência. É a primeira contribuição científica original do programa, e ela cabe inteira no degrau T0 do DOC-17A §8.2.
 
