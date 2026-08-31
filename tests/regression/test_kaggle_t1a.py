@@ -23,6 +23,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
+sys.path.insert(0, str(RAIZ / "scripts"))
 
 # ⚠️ A CÉLULA e a DOCSTRING são conferidas separadamente.
 #
@@ -180,6 +181,9 @@ def test_zip_traz_o_ponto_de_entrada_e_o_pacote(tmp_path):
 # ─── publicação: os dois metadados e o notebook gerado ───────────────────────
 
 
+T1A_FONTE = RAIZ / "kaggle/t1a_phiemb.py"
+
+
 def _publicar():
     """Importa `scripts/publicar_kaggle.py` sem executá-lo."""
     import importlib.util
@@ -198,17 +202,34 @@ def test_o_slug_do_dataset_sai_de_um_lugar_so():
     O `id` do dataset e o `dataset_sources` do notebook têm de casar. Se não
     casarem, o notebook sobe, roda, e morre no `assert` de que não achou o
     `MANIFESTO.json` — depois de consumir cota de GPU.
+
+    ⚠️ O lugar único deixou de ser uma constante em cada script e passou a ser
+    `phifm.core.kaggle`, para que empacotador e publicador não possam discordar. O
+    teste segue o registro; afrouxá-lo por causa da mudança de lugar seria perder o
+    invariante junto com a constante.
     """
-    m = _publicar()
-    assert m.SLUG_DADOS and m.SLUG_NB
-    assert m.SLUG_DADOS != m.SLUG_NB, "dataset e notebook não podem ter o mesmo slug"
+    from phifm.core.kaggle import EXPERIMENTOS, T1A
+
+    assert T1A.slug_dados and T1A.slug_notebook
+    assert T1A.slug_dados != T1A.slug_notebook, (
+        "dataset e notebook não podem ter o mesmo slug")
+    # E o publicador tem de LER dali, em vez de reintroduzir a constante.
+    fonte = (RAIZ / "scripts/publicar_kaggle.py").read_text(encoding="utf-8")
+    assert "from phifm.core.kaggle import" in fonte
+    assert "SLUG_DADOS =" not in fonte, (
+        "a constante voltou para o script — é assim que os dois metadados divergem")
+    # Nenhum par de experimentos pode compartilhar slug: o segundo sobrescreveria o
+    # dataset do primeiro sem avisar.
+    slugs = [s for e in EXPERIMENTOS.values()
+             for s in (e.slug_dados, e.slug_notebook)]
+    assert len(slugs) == len(set(slugs)), f"slugs repetidos entre experimentos: {slugs}"
 
 
 def test_a_celula_extraida_e_python_valido():
     """O extrator é um regex sobre um arquivo nosso; se o formato mudar, quebra."""
     import ast
 
-    ast.parse(_publicar()._celula())
+    ast.parse(_publicar()._celula(T1A_FONTE))
 
 
 def test_o_notebook_gerado_nao_reimplementa_o_treino():
@@ -218,7 +239,7 @@ def test_o_notebook_gerado_nao_reimplementa_o_treino():
     notebook que não treina nada, e o teste do arquivo-fonte não veria.
     """
     m = _publicar()
-    codigo = "".join(m._ipynb(m._celula())["cells"][0]["source"])
+    codigo = "".join(m._ipynb(m._celula(T1A_FONTE))["cells"][0]["source"])
     assert "scripts/train_embedding.py" in codigo
     assert "InfoNCE" not in codigo, "o laço de treino vazou para o notebook"
     assert "backward()" not in codigo, "o laço de treino vazou para o notebook"
@@ -233,16 +254,15 @@ def test_o_ipynb_tem_uma_celula_de_codigo_e_nbformat_4():
     assert nb["cells"][0]["outputs"] == [], "notebook gerado não deve trazer saída"
 
 
-def test_extrator_quebra_alto_se_o_formato_mudar(tmp_path, monkeypatch):
+def test_extrator_quebra_alto_se_o_formato_mudar(tmp_path):
     """Gerar um notebook vazio em silêncio custaria uma sessão de GPU para descobrir."""
     import pytest
 
     m = _publicar()
     falso = tmp_path / "sem_celula.py"
     falso.write_text('"""nada aqui."""\n', encoding="utf-8")
-    monkeypatch.setattr(m, "FONTE_CELULA", falso)
     with pytest.raises(SystemExit, match="CELULA"):
-        m._celula()
+        m._celula(falso)
 
 
 def test_o_fonte_nao_sai_com_extensao_zip():
@@ -256,11 +276,18 @@ def test_o_fonte_nao_sai_com_extensao_zip():
     Uma extensão que o Kaggle não reconhece como arquivo preserva os bytes, e o
     `zipfile` abre pelo conteúdo, não pela extensão.
     """
-    fonte = (Path(__file__).resolve().parents[2] / "scripts/empacotar_kaggle.py"
-             ).read_text(encoding="utf-8")
-    assert '"phifm_src.zip.bin"' in fonte
-    assert '_zipar_fonte(raiz, a.out / "phifm_src.zip")' not in fonte, (
+    from empacotar_kaggle import SUFIXO_ZIP
+    from phifm.core.kaggle import EXPERIMENTOS
+
+    assert SUFIXO_ZIP == ".zip.bin", (
         "voltou a gravar .zip — o Kaggle vai descompactar e o hash do código morre")
+    # E todo experimento tem de declarar o fonte com esse sufixo: um que declarasse
+    # `.zip` passaria pelo empacotador e quebraria no notebook.
+    for e in EXPERIMENTOS.values():
+        zips = [n for n in e.arquivos if ".zip" in n]
+        assert zips, f"{e.nome} não declara nenhum zip"
+        for n in zips:
+            assert n.endswith(".zip.bin"), f"{e.nome} declara {n}, que o Kaggle abre"
 
 
 def test_a_celula_aceita_o_fonte_extraido_pelo_kaggle():
@@ -299,9 +326,13 @@ def test_manifesto_descreve_o_que_a_etapa_produziu_nao_o_que_sobrou_no_disco(tmp
     etapa produziu. Isso não atesta nada.
     """
     fonte = (RAIZ / "scripts/empacotar_kaggle.py").read_text(encoding="utf-8")
-    assert "ESPERADOS" in fonte, "a lista declarada de conteúdo desapareceu"
-    assert "f.name not in ESPERADOS" in fonte, (
+    # A lista declarada mudou de lugar (constante -> `Experimento.arquivos`), e o
+    # invariante é o mesmo: o manifesto descreve a lista, não o `iterdir()`.
+    assert "exp.arquivos" in fonte, "a lista declarada de conteúdo desapareceu"
+    assert "f.name not in exp.arquivos" in fonte, (
         "voltou a aceitar qualquer arquivo do diretório no manifesto")
+    assert "for f in sorted(out.iterdir()):" in fonte, (
+        "a limpeza do que não pertence ao pacote desapareceu")
 
 
 def test_o_notebook_pede_acelerador_pelo_campo_que_vale():
@@ -443,7 +474,7 @@ def test_o_zip_grava_o_pacote_na_raiz_e_nao_sob_src(tmp_path):
     from empacotar_kaggle import _zipar_fonte
 
     destino = tmp_path / "fonte.zip.bin"
-    _zipar_fonte(RAIZ, destino)
+    _zipar_fonte(RAIZ, destino, ("train_embedding.py",))
     with _zip.ZipFile(destino) as z:
         nomes = z.namelist()
     assert any(n.startswith("phifm/") for n in nomes), "pacote saiu de `phifm/`"

@@ -145,7 +145,7 @@ def main() -> int:
 
     gravar_manifesto_etapa(
         etapa="phirank",
-        descricao="Cross-encoder de reranking sobre MiniLM (DOC-07 §4)",
+        descricao=f"Cross-encoder de reranking sobre {a.base} (DOC-07 §4)",
         raiz=a.out,
         entradas=[Entrada(caminho=str(a.negativos))],
         parametros={"script": "scripts/train_rerank.py", "base": a.base,
@@ -153,7 +153,8 @@ def main() -> int:
                     "max_tokens": a.max_tokens, "max_grupos": a.max_grupos,
                     "acerto_ao_acaso": round(1 / (1 + a.n_negativos), 4),
                     "desvio_de_especificacao": (
-                        "DOC-07 §4 pede ΦEnc; usado MiniLM porque o ΦEnc não existe")},
+                        f"DOC-07 §4 pede ΦEnc; usado {a.base} porque o "
+                        "ΦEnc não existe")},
         registros=m.passo)
 
     print()

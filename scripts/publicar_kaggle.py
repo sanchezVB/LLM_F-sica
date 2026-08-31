@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Prepara (e opcionalmente envia) o Dataset e o Notebook do Kaggle para o T1a.
+"""Prepara (e opcionalmente envia) o Dataset e o Notebook do Kaggle.
 
 No PowerShell, que e o shell desta maquina:
 
     .venv\\Scripts\\python.exe -m kaggle auth login
-    .venv\\Scripts\\python.exe scripts\\publicar_kaggle.py --usuario SEU_USUARIO
-    .venv\\Scripts\\python.exe scripts\\publicar_kaggle.py --usuario SEU_USUARIO --enviar
+    .venv\\Scripts\\python.exe scripts\\publicar_kaggle.py --experimento t1c
+    .venv\\Scripts\\python.exe scripts\\publicar_kaggle.py --experimento t1c --enviar
 
-⚠️ SEM `PYTHONPATH=src`. Este script nao importa nada de `phifm` — so a stdlib —,
-e o prefixo veio por habito dos outros comandos do projeto. Pior: `VAR=valor cmd`
-e sintaxe de bash e o PowerShell nao a tem, entao o comando morria em
-`CommandNotFoundException` antes de rodar qualquer coisa. No PowerShell seria
-`$env:PYTHONPATH = 'src'`, mas aqui nao e necessario.
+⚠️ SEM `PYTHONPATH=src`, ainda que agora ele importe `phifm.core.kaggle`: o
+`sys.path.insert` abaixo resolve isso, como nos outros scripts. O prefixo
+`PYTHONPATH=src ...` e sintaxe de bash, e o PowerShell nao a tem — o comando
+morria em `CommandNotFoundException` antes de rodar qualquer coisa.
 
 ## Por que um script e não arquivos escritos à mão
 
@@ -24,7 +23,7 @@ Aqui o slug é derivado de um lugar só.
 
 ## O `.ipynb` é GERADO, não versionado
 
-`kaggle/t1a_phiemb.py` é a fonte da célula e é o que está sob controle de versão,
+`kaggle/<exp>.py` é a fonte da célula e é o que está sob controle de versão,
 porque um `.ipynb` é JSON com saídas embutidas: diff ilegível, merge impossível, e
 o executável misturado com o resultado da última execução. O `.ipynb` sai daqui e é
 descartável.
@@ -58,30 +57,31 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-PACOTE = RAIZ / "data/processed/kaggle_t1a"
-SAIDA_NB = RAIZ / "data/processed/kaggle_notebook"
-FONTE_CELULA = RAIZ / "kaggle/t1a_phiemb.py"
 
-SLUG_DADOS = "phifm-t1a-pares-citacao"
-SLUG_NB = "phifm-t1a-gpu"
-# ⚠️ ASCII puro. O Kaggle deriva o slug do TITULO, e derruba o que nao
-# for [a-z0-9]: "PhiFM T1a - PhiEmb" com Φ virou `phifm-t1a-emb`, que nao
-# casava com o `id` `phifm-t1a-phiemb` — a CLI avisou e devolveu 409.
-TITULO_NB = "PhiFM T1a Gpu"
+sys.path.insert(0, str(RAIZ / "src"))
+from phifm.core.kaggle import EXPERIMENTOS, obter  # noqa: E402
+
+# ⚠️ Os slugs, títulos e a lista de arquivos moram em `phifm.core.kaggle`, e não
+# aqui, porque `empacotar_kaggle.py` precisa dos mesmos. Com uma constante em cada
+# script, acrescentar um experimento duplicaria também cada lição já paga —
+# `machine_shape`, `.zip.bin`, o pin da imagem docker — e as cópias divergiriam em
+# silêncio. Lá também vive a checagem de que o título deriva o slug declarado: o
+# Kaggle derruba tudo que não é [a-z0-9], e "PhiFM T1a - PhiEmb" com Φ virou
+# `phifm-t1a-emb`, que não casava com o `id` — 409 depois do upload inteiro.
 
 
-def _celula() -> str:
-    """Extrai a `CELULA` de `kaggle/t1a_phiemb.py` sem importar o módulo.
+def _celula(fonte: Path) -> str:
+    """Extrai a `CELULA` do arquivo-fonte do notebook sem importar o módulo.
 
     Sem importar porque o arquivo vive em `kaggle/`, que não é um pacote, e um
     `sys.path` remendado para ler uma constante seria mais frágil que um regex
     sobre um arquivo que nós mesmos escrevemos.
     """
-    texto = FONTE_CELULA.read_text(encoding="utf-8")
+    texto = fonte.read_text(encoding="utf-8")
     m = re.search(r"CELULA = r'''\n(.*?)'''", texto, re.S)
     if not m:
         raise SystemExit(
-            f"não achei `CELULA = r'''…'''` em {FONTE_CELULA}. Se o formato mudou, "
+            f"não achei `CELULA = r'''…'''` em {fonte}. Se o formato mudou, "
             "este extrator precisa mudar junto — e é de propósito que ele quebra "
             "alto em vez de gerar um notebook vazio.")
     return m.group(1)
@@ -200,7 +200,7 @@ def _dataset_existe(id_dados: str) -> bool:
     return id_dados in r.stdout
 
 
-def _rodar(cmd: list[str]) -> str:
+def _rodar(cmd: list[str], pacote: Path) -> str:
     """Roda a CLI, ECOA a saída ao vivo e a devolve para conferência.
 
     Ecoa em vez de só capturar porque o upload leva dezenas de segundos e a barra de
@@ -222,12 +222,15 @@ def _rodar(cmd: list[str]) -> str:
         raise SystemExit(
             f"a CLI do Kaggle saiu com {proc.returncode}. O upload é retomável: "
             "rode de novo. Se disser que o dataset já existe, use "
-            f"`kaggle datasets version -p {PACOTE} -m 'atualização'`.")
+            f"`kaggle datasets version -p {pacote} -m 'atualização'`.")
     return saida
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
+    p.add_argument("--experimento", default="t1a", choices=sorted(EXPERIMENTOS),
+                   help="qual experimento publicar; os nomes vêm do registro em "
+                        "phifm.core.kaggle")
     p.add_argument("--usuario", default=None,
                    help="seu usuário do Kaggle. Normalmente NÃO precisa: sai de "
                         "`kaggle config view` quando há sessão ativa")
@@ -245,10 +248,15 @@ def main() -> int:
         with contextlib.suppress(Exception):
             fluxo.reconfigure(encoding="utf-8")
 
+    exp = obter(a.experimento)
+    PACOTE = RAIZ / exp.pacote
+    SAIDA_NB = RAIZ / "data/processed/kaggle_notebook" / exp.nome
+    FONTE_CELULA = RAIZ / exp.fonte_celula
+
     if not (PACOTE / "MANIFESTO.json").exists():
         raise SystemExit(
             f"{PACOTE}/MANIFESTO.json não existe. Rode "
-            "scripts/empacotar_kaggle.py primeiro.")
+            f"scripts/empacotar_kaggle.py --experimento {exp.nome} primeiro.")
 
     # ⚠️ Guarda contra o placeholder colado literal. Em 2026-08-24 rodei com
     # `--usuario SEU_USUARIO` e o Kaggle subiu 160 MB antes de rejeitar o dono: ele
@@ -274,12 +282,12 @@ def main() -> int:
         print(f"  usuário detectado da sessão: {usuario}")
 
     man = json.loads((PACOTE / "MANIFESTO.json").read_text(encoding="utf-8"))
-    id_dados = f"{usuario}/{SLUG_DADOS}"
-    id_nb = f"{usuario}/{SLUG_NB}"
+    id_dados = f"{usuario}/{exp.slug_dados}"
+    id_nb = f"{usuario}/{exp.slug_notebook}"
 
     # ── metadados do dataset ────────────────────────────────────────────────
     (PACOTE / "dataset-metadata.json").write_text(json.dumps({
-        "title": "PhiFM T1a — pares de citação arXiv",
+        "title": exp.titulo_dados,
         "id": id_dados,
         # `other`: os resumos seguem a licença de cada submissão do arXiv.
         "licenses": [{"name": "other"}],
@@ -287,12 +295,12 @@ def main() -> int:
 
     # ── notebook + metadados dele ───────────────────────────────────────────
     SAIDA_NB.mkdir(parents=True, exist_ok=True)
-    nb = SAIDA_NB / "t1a_phiemb.ipynb"
-    nb.write_text(json.dumps(_ipynb(_celula()), indent=1), encoding="utf-8")
+    nb = SAIDA_NB / f"{FONTE_CELULA.stem}.ipynb"
+    nb.write_text(json.dumps(_ipynb(_celula(FONTE_CELULA)), indent=1), encoding="utf-8")
     (SAIDA_NB / "kernel-metadata.json").write_text(json.dumps({
         "id": id_nb,
-        "title": TITULO_NB,
-        "code_file": "t1a_phiemb.ipynb",
+        "title": exp.titulo_notebook,
+        "code_file": nb.name,
         "language": "python",
         "kernel_type": "notebook",
         "is_private": True,
@@ -341,8 +349,12 @@ def main() -> int:
     }, indent=2, ensure_ascii=False), encoding="utf-8")
 
     tam = sum(f.stat().st_size for f in PACOTE.iterdir() if f.is_file()) / 1e6
+    # O manifesto do T1a conta pares; o do T1c conta grupos. Imprimir o que houver
+    # em vez de exigir uma chave fixa evita um KeyError na véspera do upload.
+    volume = next((f"{man[k]:,} {k}" for k in ("linhas_treino", "grupos")
+                   if k in man), "volume não declarado")
     print("=" * 70)
-    print(f"  preparado · git {man['git_sha']} · {man['linhas_treino']:,} pares · "
+    print(f"  preparado · {exp.nome} · git {man['git_sha']} · {volume} · "
           f"{tam:.1f} MB")
     print(f"  dataset  : {id_dados}")
     print(f"  notebook : {id_nb}  (GPU ✅ · internet ✅ · privado ✅)")
@@ -397,7 +409,7 @@ Eu não faço nenhum dos três: exige entrar na sua conta.""")
 
     for c in cmds:
         print(f"\n$ {' '.join(c)}")
-        saida = _rodar(c)
+        saida = _rodar(c, PACOTE)
         ruins = [f for f in FALHAS_SILENCIOSAS if f in saida]
         if ruins:
             raise SystemExit(
