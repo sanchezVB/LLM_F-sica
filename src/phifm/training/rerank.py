@@ -157,8 +157,25 @@ class TreinadorRank:
         self.dev = escolher_dispositivo(cfg.dispositivo)
         self.tok = AutoTokenizer.from_pretrained(cfg.base)
         atencao = "sdpa" if self.dev.type == "cuda" else "eager"
+        # ⚠️ `dtype` EXPLÍCITO em fp32, e não o do checkpoint.
+        #
+        # Medido em 2026-08-31, no T1c: `thenlper/gte-base` guarda os pesos em fp16.
+        # O `transformers` novo carrega no dtype do checkpoint por padrão, e aí o
+        # `GradScaler` morre no primeiro passo:
+        #
+        #     ValueError: Attempting to unscale FP16 gradients.
+        #
+        # O AMP exige pesos-mestres em fp32 — é ele que faz a passagem em fp16, e o
+        # `GradScaler` que desescala os gradientes de volta. Um modelo já em fp16 não
+        # tem para onde desescalar.
+        #
+        # A base do controle (`all-MiniLM-L6-v2`) e o PhysBERT são fp32, então isto
+        # ficou invisível até a primeira base fp16 entrar. Não é propriedade do gte:
+        # qualquer checkpoint fp16 quebraria, e o custo foi um braço inteiro do
+        # experimento.
         self.mod = AutoModelForSequenceClassification.from_pretrained(
-            cfg.base, num_labels=1, attn_implementation=atencao).to(self.dev)
+            cfg.base, num_labels=1, attn_implementation=atencao,
+            dtype=torch.float32).to(self.dev)
         if cfg.checkpointing:
             self.mod.gradient_checkpointing_enable()
             self.mod.config.use_cache = False

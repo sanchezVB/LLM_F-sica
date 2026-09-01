@@ -70,6 +70,47 @@ controle roda de novo, no mesmo protocolo.
 Ele roda PRIMEIRO, e de propósito: é a avaliação mais barata (23 M contra 109 M) e
 exercita o caminho inteiro. Se o encanamento estiver quebrado, isso aparece em ~12
 min em vez de depois de 45 min de treino.
+
+## Execução de 2026-08-31: o que saiu, e os dois erros meus que ela revelou
+
+    variante              fusão   +ΦRank        Δ   disc   p(k=10)   veredito
+    minilm (controle)    0,1576   0,1483  -0,0093    229   0,14584   empate
+    phys (physbert)      0,1576   0,1666  +0,0090    237   0,00625   VENCE
+    gte (gte-base)            —        —        —      —         —   FALHOU
+
+**A predição do T1b se confirmou.** O reranqueador de base diferente bate a fusão com
+p = 0,00625, abaixo do limiar de Bonferroni de 0,025. É a primeira vez que a
+composição inteira funciona: recall@10 de 0,2890 contra 0,2675 da fusão. E o controle
+replicou o empate do T1b com o dobro das consultas (p = 0,146 contra 0,118 antes),
+o que é a evidência de que a diferença é da base e não do protocolo.
+
+⚠️ **Erro 1 — o `gte` morreu por um bug nosso, não dele.** `thenlper/gte-base` guarda
+os pesos em **fp16**, o `transformers` novo carrega no dtype do checkpoint por
+padrão, e o `GradScaler` recusa desescalar gradientes fp16:
+
+    ValueError: Attempting to unscale FP16 gradients.
+
+O AMP exige pesos-mestres em fp32. Consertado com `dtype=torch.float32` explícito em
+`rerank.py`. Ficou invisível até aqui porque MiniLM e PhysBERT são fp32 — qualquer
+base fp16 quebraria, e o custo foi um braço inteiro do experimento.
+
+⚠️ **Erro 2 — o meu pré-registro confundia "perdeu" com "não rodou".** Com o `gte`
+ausente, o script imprimiu *"o mecanismo é CONHECIMENTO DE DOMÍNIO, não
+diversidade"* — uma leitura que **exige** o `gte` ter produzido um número e perdido.
+A lógica olhava só `venceram`, nunca `falhas`. O pré-registro existia para impedir
+exatamente esse tipo de conclusão, e a implementação dele tinha o buraco.
+
+Agora qualquer braço ausente torna o teste de mecanismo **INCONCLUSIVO**. O que está
+estabelecido é que *uma* base diferente vence; **qual propriedade da base** faz isso
+— domínio ou capacidade — segue aberto até o `gte` rodar.
+
+## Vazão medida, contra a minha estimativa
+
+PhysBERT treinou a **35,4 exemplos/s** na T4, com 2.332 MB de VRAM. Eu havia estimado
+14–24/s — **pessimista por ~2×**. As avaliações caíram na faixa estimada (13 min o
+controle, ~40 min o de 109 M). E os 2,3 GB num cartão de 16 GB dizem que `--grupos 2`
+subutiliza a placa — aumentar seria mais rápido e **quebraria a comparabilidade com o
+controle**, então fica como está.
 """
 
 CELULA = r'''
@@ -247,11 +288,25 @@ def treinar(nome, base):
 
 # ── 5. Executar: controle primeiro, que é o mais barato ─────────────────────
 BASES = {"gte": "thenlper/gte-base", "phys": "thellert/physbert_cased"}
+
+# ⚠️ Existe para COMPLETAR um braço que falhou por bug de infraestrutura, não para
+# escolher braços depois de ver resultados. Em 2026-08-31 a `gte` morreu no primeiro
+# passo (checkpoint fp16 contra o GradScaler) e a `phys` venceu; refazer as duas
+# custaria 3 h de cota para remedir um número que já existe.
+#
+# A regra que mantém isto honesto: `SO` só pode conter braços SEM número gravado, e
+# o `mecanismo` fica INCONCLUSIVO enquanto algum braço de `BASES` não tiver o seu. Um
+# braço que rodou e perdeu NUNCA pode ser refeito por aqui.
+SO = {"gte"}
+if SO:
+    print(f"⚠️ rodando só {sorted(SO)} — completando braço que falhou por bug de "
+          f"infraestrutura. Os demais vêm da execução anterior.")
+
 resultados, falhas = {}, {}
 
 resultados["minilm (controle)"] = avaliar("controle", CONTROLE)
 
-for nome, base in BASES.items():
+for nome, base in ((n, b) for n, b in BASES.items() if not SO or n in SO):
     # ⚠️ Uma variante que morre não pode levar a outra com ela. Um id de modelo
     # errado ou um OOM custaria a sessão inteira, e a variante que já treinou
     # continua sendo um resultado.
@@ -310,7 +365,26 @@ for nome, erro in falhas.items():
 
 venceram = sorted(n.split()[0] for n, l in
                   zip(resultados, linhas, strict=True) if "VENCE" in l["veredito"])
-if set(venceram) >= set(BASES):
+
+# ⚠️ Uma variante que NÃO RODOU não é uma variante que PERDEU, e a primeira versão
+# desta lógica confundia as duas.
+#
+# Medido em 2026-08-31: a `gte` morreu no primeiro passo do treino (checkpoint fp16
+# contra o GradScaler), a `phys` venceu, e o script imprimiu "o mecanismo é
+# CONHECIMENTO DE DOMÍNIO, não diversidade" — uma conclusão que exige a `gte` ter
+# produzido um número. O pré-registro existia justamente para impedir esse tipo de
+# leitura, e a implementação dele tinha o buraco.
+#
+# Agora: qualquer braço ausente torna o teste de mecanismo INCONCLUSIVO, e isso é
+# dito antes de qualquer leitura.
+ausentes = sorted(set(BASES) - set(resultados_por_base := {
+    n.split()[0] for n in resultados}) - {"minilm"})
+if ausentes:
+    mecanismo = (f"INCONCLUSIVO sobre o mecanismo: o braço {ausentes} não produziu "
+                 f"número (ver `falhas`). Venceram: {venceram or 'nenhuma'}. Uma "
+                 f"variante ausente não é uma variante que perdeu, e sem ela "
+                 f"'domínio' e 'diversidade' não se separam.")
+elif set(venceram) >= set(BASES):
     mecanismo = "DIVERSIDADE de base basta — as duas venceram"
 elif venceram == ["phys"]:
     mecanismo = "o mecanismo é CONHECIMENTO DE DOMÍNIO, não diversidade"
@@ -322,6 +396,7 @@ else:
     mecanismo = ("NENHUMA venceu — a redundância informacional não é a restrição "
                  "que manda. O próximo lugar a olhar é o objetivo de treino ou os "
                  "dados, não a base.")
+del resultados_por_base
 print(f"\nveredito pré-registrado: {mecanismo}")
 
 (TRABALHO / "t1c_resultado.json").write_text(json.dumps({

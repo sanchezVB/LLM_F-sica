@@ -130,7 +130,7 @@ def test_o_controle_roda_primeiro_e_diz_por_que():
     """23 M avaliam em ~12 min; 109 M treinam em ~35. Um encanamento quebrado
     descoberto pelo caminho barato custa 12 min, não 45."""
     i_controle = CELULA.index('avaliar("controle"')
-    i_variantes = CELULA.index("for nome, base in BASES.items()")
+    i_variantes = CELULA.index("for nome, base in ((n, b) for n, b in BASES.items()")
     assert i_controle < i_variantes
     assert "mais barata" in DOC or "mais barato" in DOC
 
@@ -319,3 +319,76 @@ def test_o_publicador_gera_o_notebook_do_t1c():
     ast.parse(codigo)
     assert "scripts/train_rerank.py" in codigo
     assert "ALFA_BONFERRONI" in codigo
+
+
+# ─── o que a execução de 2026-08-31 ensinou ──────────────────────────────────
+
+
+def test_um_braco_ausente_torna_o_mecanismo_INCONCLUSIVO():
+    """A asserção mais importante deste arquivo depois do `test_so_a_base_muda`.
+
+    Medido em 2026-08-31: a variante `gte` morreu no primeiro passo do treino, a
+    `phys` venceu, e o script imprimiu "o mecanismo é CONHECIMENTO DE DOMÍNIO, não
+    diversidade" — uma leitura que EXIGE o `gte` ter produzido um número e perdido.
+    A lógica olhava só `venceram` e nunca `falhas`.
+
+    O pré-registro existia para impedir exatamente essa conclusão. O buraco não
+    estava na regra, estava na implementação dela — e é por isso que este teste
+    executa a lógica em vez de procurar texto.
+    """
+    ns = {"BASES": {"gte": "g", "phys": "p"}}
+    trecho = CELULA.split("venceram = sorted(")[1].split("print(f")[0]
+    corpo = "venceram = sorted(" + trecho
+
+    def rodar(resultados, linhas):
+        local = dict(ns, resultados=resultados, linhas=linhas)
+        exec(corpo, {"sorted": sorted, "set": set}, local)  # noqa: S102
+        return local["mecanismo"]
+
+    # o caso real: phys venceu, gte ausente
+    m = rodar({"minilm (controle)": {}, "phys (p)": {}},
+              [{"veredito": "empate"}, {"veredito": "VENCE a fusão"}])
+    assert "INCONCLUSIVO" in m, m
+    assert "gte" in m
+    assert "DOMÍNIO" not in m, (
+        "voltou a concluir mecanismo com um braço ausente — é o erro de 2026-08-31")
+
+    # com os dois braços presentes e só phys vencendo, a leitura vale
+    m = rodar({"minilm (controle)": {}, "gte (g)": {}, "phys (p)": {}},
+              [{"veredito": "empate"}, {"veredito": "empate"},
+               {"veredito": "VENCE a fusão"}])
+    assert "DOMÍNIO" in m, m
+
+    # os dois vencendo
+    m = rodar({"minilm (controle)": {}, "gte (g)": {}, "phys (p)": {}},
+              [{"veredito": "empate"}, {"veredito": "VENCE a fusão"},
+               {"veredito": "VENCE a fusão"}])
+    assert "DIVERSIDADE" in m, m
+
+    # nenhuma vencendo, com os dois presentes
+    m = rodar({"minilm (controle)": {}, "gte (g)": {}, "phys (p)": {}},
+              [{"veredito": "empate"}] * 3)
+    assert "NENHUMA" in m, m
+
+
+def test_o_reranker_carrega_em_fp32_explicito():
+    """`thenlper/gte-base` guarda os pesos em fp16, e o GradScaler morre neles.
+
+    Medido em 2026-08-31:
+
+        ValueError: Attempting to unscale FP16 gradients.
+
+    O AMP exige pesos-mestres em fp32 — é ele que faz a passagem em fp16 e o
+    GradScaler que desescala de volta. Um modelo já em fp16 não tem para onde. O
+    `transformers` novo carrega no dtype do checkpoint por padrão, então confiar no
+    padrão faz o treino depender do formato em que o autor da base salvou.
+
+    Ficou invisível porque MiniLM e PhysBERT são fp32. Custou um braço do T1c.
+    """
+    fonte = (RAIZ / "src/phifm/training/rerank.py").read_text(encoding="utf-8")
+    assert "dtype=torch.float32" in fonte, (
+        "o carregamento voltou a herdar o dtype do checkpoint — qualquer base fp16 "
+        "morre no primeiro passo do AMP")
+    assert "unscale FP16" in fonte, (
+        "o comentário que explica o erro concreto desapareceu; sem ele o próximo a "
+        "'limpar' este argumento não sabe o que está removendo")
