@@ -106,7 +106,22 @@ def main() -> int:
                    help="quantos candidatos chegam ao ΦRank (DOC-07 §4 diz top-100)")
     p.add_argument("--max-tokens", type=int, default=192)
     p.add_argument("--lote", type=int, default=64)
-    p.add_argument("--lote-rank", type=int, default=32)
+    # ⚠️ 8 e não 32, desde que o ΦRank do sistema passou a ser de 109 M (2026-09-03).
+    #
+    # Medido nesta máquina, na primeira avaliação depois da troca:
+    #
+    #     RuntimeError: Could not allocate tensor with 150994944 bytes.
+    #                   There is not enough GPU video memory available!
+    #
+    # São os 151 MB de UM tensor intermediário: lote 32 × 384 tokens × 3.072 do
+    # `intermediate` do BERT-base × 4 bytes. O MiniLM anterior tinha 1.536 e 6
+    # camadas, então 32 caberia — o default foi calibrado para um modelo que deixou
+    # de ser o default, e quem rodasse o avaliador local receberia OOM.
+    #
+    # 8 dá 37,7 MB por tensor e roda no cartão de 8 GB. Numa T4 de 16 GB um lote
+    # maior é mais rápido e vale passar explicitamente; o default existe para
+    # FUNCIONAR em todo lugar, não para ser ótimo em um.
+    p.add_argument("--lote-rank", type=int, default=8)
     p.add_argument("--out", type=Path,
                    default=Path("data/processed/avaliacao/t1b_resultado.json"))
     p.add_argument("--dispositivo", default="auto",

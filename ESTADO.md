@@ -107,6 +107,13 @@ sozinha. O que mudou no repositório:
 | `models/` | — | `phirank-physbert-melhor/` (438,7 MB, passo 5.500, acerto@1 0,608) |
 | `rerank.py` `BASE_PADRAO` | `all-MiniLM-L6-v2` | **`thellert/physbert_cased`** |
 | `avaliar_t1b.py --rank` | `phirank-minilm-melhor` | **`phirank-physbert-melhor`** |
+| `avaliar_t1b.py --lote-rank` | 32 | **8** — 32 estoura os 8 GB com um modelo de 109 M |
+
+⚠️ O `--lote-rank 32` foi calibrado para o MiniLM e **OOM com o modelo novo**:
+`Could not allocate tensor with 150994944 bytes` — 151 MB de UM tensor intermediário
+(32 × 384 × 3.072 × 4 bytes). Quem rodasse o avaliador local depois da troca
+receberia isso. Numa T4 de 16 GB o lote maior cabe e é mais rápido; o default existe
+para funcionar em todo lugar.
 
 `scripts/instalar_phirank.py` grava o manifesto de etapa junto dos pesos, com a
 medição que justifica **e** o que ela não diz — que este ΦRank generalize para outro
