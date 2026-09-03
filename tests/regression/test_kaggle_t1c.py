@@ -32,6 +32,8 @@ sys.path.insert(0, str(RAIZ / "kaggle"))
 
 import t1c_phirank  # noqa: E402
 
+from conftest import so_codigo  # noqa: E402
+
 CELULA = t1c_phirank.CELULA
 DOC = t1c_phirank.__doc__ or ""
 
@@ -43,33 +45,7 @@ CONTROLE = {"--max-grupos": "12500", "--grupos": "2", "--n-negativos": "7",
             "--lr": "2e-5", "--max-tokens": "384", "--semente": "17"}
 
 
-def _so_codigo(fonte: str) -> str:
-    """A celula sem comentarios, para asserçoes de AUSENCIA.
-
-    ⚠️ Esta e a TERCEIRA vez que um teste deste repositorio reprova o comentario que
-    EXPLICA um erro em vez do codigo que o comete:
-
-      1. `test_kaggle_t1a.py` buscava "InfoNCE" e o achava na explicaçao de por que
-         nao usar DataParallel;
-      2. o teste de `check=False` o achava na docstring que conta que `check=False`
-         foi um erro;
-      3. e o de `phifm_src.zip` o achava no comentario que diz por que o Kaggle
-         descompacta `.zip` — justamente a liçao que nao se quer perder.
-
-    Um teste que confunde o codigo com a explicaçao do codigo reprova a explicaçao
-    por ser boa, e a correçao errada e apagar o comentario. `ast.unparse` sobre a
-    arvore devolve o codigo sem nenhum `#`, o que resolve a classe inteira.
-
-    Ressalva: strings e docstrings SOBREVIVEM ao unparse, porque sao expressoes. Para
-    asserçoes de ausencia isto e conservador na direçao segura — um falso positivo
-    faz o teste reclamar de mais, nunca de menos.
-    """
-    import ast
-
-    return ast.unparse(ast.parse(fonte))
-
-
-CODIGO_DA_CELULA = _so_codigo(t1c_phirank.CELULA)
+CODIGO_DA_CELULA = so_codigo(t1c_phirank.CELULA)
 
 
 def test_a_celula_e_python_valido():

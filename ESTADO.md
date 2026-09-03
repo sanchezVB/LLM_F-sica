@@ -15,12 +15,12 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
-| **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank no-op | RRF entrega **nDCG 0,1584** e vence os isolados (p<0,001); o reranker empata (p=0,118) porque parte da **mesma base** do ΦEmb |
+| **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reranqueador **entrou no sistema** em 2026-09-03 |
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🔴 não existe | `training/pretrain/` está vazio. É o gargalo agora, e não é de dinheiro |
 
-Suíte: **501 testes** (9 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **514 testes** (10 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 
@@ -96,6 +96,50 @@ métrica intrínseca não pode decidi-la.
 `kernels push` seguinte não resolveu a fonte, avisou numa linha, criou o notebook
 **sem dados** e disse "successfully pushed" com código 0. O `FALHAS_SILENCIOSAS`
 pegou; agora espera `datasets status` dizer `ready`.
+
+## O ΦRank de PhysBERT ENTROU no sistema (2026-09-03)
+
+Pela primeira vez a composição inteira — BM25 + ΦEmb → RRF → ΦRank — bate a fusão
+sozinha. O que mudou no repositório:
+
+| onde | de | para |
+|---|---|---|
+| `models/` | — | `phirank-physbert-melhor/` (438,7 MB, passo 5.500, acerto@1 0,608) |
+| `rerank.py` `BASE_PADRAO` | `all-MiniLM-L6-v2` | **`thellert/physbert_cased`** |
+| `avaliar_t1b.py --rank` | `phirank-minilm-melhor` | **`phirank-physbert-melhor`** |
+
+`scripts/instalar_phirank.py` grava o manifesto de etapa junto dos pesos, com a
+medição que justifica **e** o que ela não diz — que este ΦRank generalize para outro
+recuperador, outro benchmark ou outro domínio não foi medido.
+
+`tests/regression/test_phirank_do_sistema.py` tranca as duas linhas de configuração.
+São uma linha cada, e uma linha se reverte sem nada quebrar: o sistema voltaria a
+compor com um reranqueador que a medição diz ser no-op, e a métrica cairia 0,009 sem
+nenhum teste vermelho. Os testes leem o FONTE em vez de importar `rerank.py`, que
+arrasta torch — um `importorskip` faria o guarda pular justamente no CI.
+
+### ⚠️ Duas coisas que este passo revelou
+
+**1. A proveniência gravada dentro do modelo estava errada.** O `phirank.json` do
+modelo de PhysBERT saiu do treino afirmando *"inicializado do MiniLM, a mesma base do
+ΦEmb campeão"* — a string era fixa em `rerank.py` e valia para qualquer base.
+`scripts/train_rerank.py` já tinha sido parametrizado; **esta cópia dentro do
+treinador escapou**, e é a que vai para dentro do diretório do modelo.
+
+Consertado para `f"inicializado de {self.cfg.base}"`. O arquivo do modelo instalado
+**não foi reescrito**: é o que a execução produziu, e reescrever proveniência depois
+do fato é pior que registrar a divergência. O manifesto de etapa aponta o erro pelo
+nome.
+
+**2. A armadilha do teste-que-reprova-o-comentário chegou à quarta ocorrência.**
+`test_kaggle_t1a` com "InfoNCE", `test_kaggle_t1c` com `check=False` e com
+`phifm_src.zip`, e agora este com a string de proveniência antiga — quatro testes que
+buscavam um padrão proibido e o achavam no comentário que explica por que ele é
+proibido. A correção errada, nas quatro, seria apagar o comentário.
+
+`tests/conftest.py` agora expõe `so_codigo()`, que passa o fonte por `ast.unparse` e
+devolve o código sem nenhum `#`. Resolve a classe inteira, e a tabela das quatro
+ocorrências está na docstring dele.
 
 ## T1c — o que o reranqueador precisa é DOMÍNIO, não diversidade (2026-09-03)
 

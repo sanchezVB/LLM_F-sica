@@ -57,7 +57,26 @@ from phifm.training.embedding import _agora, _vram_mb, escolher_dispositivo
 
 log = logging.getLogger(__name__)
 
-BASE_PADRAO = "sentence-transformers/all-MiniLM-L6-v2"
+# ⚠️ Base de DOMÍNIO, decidido pelo T1c em 2026-09-03 e não por gosto.
+#
+# Três bases, mesma receita (mesmos seis hiperparâmetros, mesmos dados, mesma
+# semente, mesmo protocolo de 2.000 consultas), contra a fusão RRF de 0,1576:
+#
+#     base                        params  acc@1  nDCG    p(k=10)
+#     all-MiniLM-L6-v2 (= ΦEmb)      23M  0,498  0,1483   0,1458  empate
+#     thenlper/gte-base             109M  0,510  0,1530   0,6371  empate
+#     thellert/physbert_cased       109M  0,566  0,1666   0,0062  VENCE
+#
+# `gte-base` tem o MESMO tamanho e a mesma arquitetura do vencedor, e não
+# acrescenta nada. Então não é diversidade de base nem capacidade: é pré-treino no
+# domínio. Trocar este default para o MiniLM de volta reverteria a única variante
+# que faz a composição inteira bater a fusão.
+#
+# ⚠️ E o PhysBERT é um recuperador RUIM neste benchmark (nDCG 0,2752 contra 0,4657
+# do ΦEmb — a margem do G1.1). A assimetria é real: para reordenar, base de domínio;
+# para recuperar, ajuste fino de um modelo geral pequeno. Não use este default para
+# `train_embedding.py`.
+BASE_PADRAO = "thellert/physbert_cased"
 
 
 @dataclass
@@ -268,10 +287,19 @@ class TreinadorRank:
         pesos = {k: v.detach().to("cpu") for k, v in self.mod.state_dict().items()}
         self.mod.save_pretrained(saida, state_dict=pesos)
         self.tok.save_pretrained(saida)
+        # ⚠️ A base sai de `self.cfg.base`, não de uma string fixa.
+        #
+        # Até 2026-09-03 esta nota dizia "inicializado do MiniLM, a mesma base do
+        # ΦEmb campeão" — literal, para qualquer base. O `phirank.json` do modelo de
+        # PhysBERT saiu do treino afirmando que ele veio do MiniLM, o que é
+        # proveniência errada gravada com a mesma confiança da certa.
+        #
+        # `scripts/train_rerank.py` já tinha sido parametrizado; esta cópia dentro do
+        # treinador escapou, e é a que vai para dentro do diretório do modelo.
         meta = {"config": asdict(self.cfg), "base": self.cfg.base,
                 "desvio_de_especificacao": (
-                    "DOC-07 §4 pede inicialização do ΦEnc, que não existe; "
-                    "inicializado do MiniLM, a mesma base do ΦEmb campeão"),
+                    f"DOC-07 §4 pede inicialização do ΦEnc, que não existe; "
+                    f"inicializado de {self.cfg.base}"),
                 "actual_count": m.passo if m else 0}
         if concluido:
             meta["completed_at"] = _agora()
