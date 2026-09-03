@@ -1,0 +1,104 @@
+{
+  "n_consultas": 2000,
+  "universo": 88807,
+  "profundidade": 50,
+  "modelos": {
+    "emb": "/kaggle/working/modelos/phiemb-minilm-melhor",
+    "rank": "/kaggle/working/phirank-gte-melhor"
+  },
+  "teto_do_reranker": 0.4495,
+  "nota_teto": "recall@50 da fusão. Um ΦRank perfeito não passa disto, e nenhuma melhora de reranking aparece nas consultas em que o documento certo não chegou.",
+  "sistemas": [
+    {
+      "sistema": "BM25",
+      "recall_1": 0.06,
+      "recall_10": 0.2285,
+      "recall_50": 0.386,
+      "ndcg_10": 0.134
+    },
+    {
+      "sistema": "ΦEmb",
+      "recall_1": 0.0555,
+      "recall_10": 0.2325,
+      "recall_50": 0.4365,
+      "ndcg_10": 0.1323
+    },
+    {
+      "sistema": "ΦEmb+BM25 (RRF)",
+      "recall_1": 0.07,
+      "recall_10": 0.2675,
+      "recall_50": 0.4495,
+      "ndcg_10": 0.1576
+    },
+    {
+      "sistema": "ΦEmb+BM25+ΦRank",
+      "recall_1": 0.064,
+      "recall_10": 0.2635,
+      "recall_50": 0.4495,
+      "ndcg_10": 0.153
+    }
+  ],
+  "pareado_contra_a_fusao": [
+    {
+      "a": "ΦEmb+BM25 (RRF)",
+      "b": "BM25",
+      "k": 1,
+      "ganha_a": 51,
+      "ganha_b": 31,
+      "discordantes": 82,
+      "p": 0.03524144017874745,
+      "veredito": "ΦEmb+BM25 (RRF) vence no top-1 (p=0.035)"
+    },
+    {
+      "a": "ΦEmb+BM25 (RRF)",
+      "b": "BM25",
+      "k": 10,
+      "ganha_a": 135,
+      "ganha_b": 57,
+      "discordantes": 192,
+      "p": 1.7645397095009086e-08,
+      "veredito": "ΦEmb+BM25 (RRF) vence no top-10 (p=1.8e-08)"
+    },
+    {
+      "a": "ΦEmb+BM25 (RRF)",
+      "b": "ΦEmb",
+      "k": 1,
+      "ganha_a": 55,
+      "ganha_b": 26,
+      "discordantes": 81,
+      "p": 0.001688638072721024,
+      "veredito": "ΦEmb+BM25 (RRF) vence no top-1 (p=0.0017)"
+    },
+    {
+      "a": "ΦEmb+BM25 (RRF)",
+      "b": "ΦEmb",
+      "k": 10,
+      "ganha_a": 137,
+      "ganha_b": 67,
+      "discordantes": 204,
+      "p": 1.0771933088313814e-06,
+      "veredito": "ΦEmb+BM25 (RRF) vence no top-10 (p=1.1e-06)"
+    },
+    {
+      "a": "ΦEmb+BM25 (RRF)",
+      "b": "ΦEmb+BM25+ΦRank",
+      "k": 1,
+      "ganha_a": 65,
+      "ganha_b": 53,
+      "discordantes": 118,
+      "p": 0.3112309933213218,
+      "veredito": "empate — 118 discordantes não separam (p=0.311)"
+    },
+    {
+      "a": "ΦEmb+BM25 (RRF)",
+      "b": "ΦEmb+BM25+ΦRank",
+      "k": 10,
+      "ganha_a": 114,
+      "ganha_b": 106,
+      "discordantes": 220,
+      "p": 0.6370697150887977,
+      "veredito": "empate — 220 discordantes não separam (p=0.637)"
+    }
+  ],
+  "nota_pareado": "McNemar exato sobre 'o alvo chegou ao top-k'. A referência é a fusão porque a pergunta do T1b é se o reranker acrescenta algo a ela."
+}

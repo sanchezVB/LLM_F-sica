@@ -46,6 +46,13 @@ Nenhuma das cinco aparece na perda de treino. Todas produzem um número que pare
 comparável. Quatro delas produziram, no nosso caso, um resultado que eu acreditei
 antes de medir de novo.
 
+O diagnóstico da falha 1 fez uma predição, e nós a testamos (§10): um cross-encoder
+de base diferente do recuperador deve acrescentar algo. **Acrescenta — mas só se a
+base for de domínio.** Um modelo de recuperação forte do mesmo tamanho empata
+(p = 0,637); o encoder de Física vence (p = 0,0062). E o encoder de Física é, ele
+mesmo, um recuperador ruim neste benchmark, o que torna a assimetria o achado mais
+interessante do conjunto.
+
 ---
 
 ## 1. Introdução
@@ -341,14 +348,46 @@ conferir**.
 
 ---
 
-## 10. Trabalho em andamento
+## 10. A predição da §3.3, testada: é domínio, não diversidade
 
 A explicação da §3.3 — redundância informacional entre reranqueador e recuperador —
-faz uma predição: um cross-encoder de base **diferente** deve bater a fusão. Está sendo
-medido com duas bases de 109 M (uma geral forte, uma de domínio) contra o controle de
-23 M, com regra de decisão registrada antes: McNemar em k = 10 contra a fusão da mesma
-execução, limiar de Bonferroni 0,025 por serem duas variantes. Se nenhuma vencer, a
-redundância não é a restrição que manda, e essa conclusão também já está escrita.
+faz uma predição falsificável: um cross-encoder de base **diferente** deve bater a
+fusão. Nós a testamos com regra de decisão registrada antes de medir (McNemar em
+k = 10 contra a fusão da mesma execução, limiar de Bonferroni 0,025 por serem duas
+variantes) e as quatro leituras possíveis escritas de antemão.
+
+    variante   base                       params  acc@1  +ΦRank       Δ  disc  p(k=10)
+    controle   MiniLM-L6 (= a do ΦEmb)       23M  0,498  0,1483  -0,0093   229   0,1458
+    gte        gte-base (geral forte)       109M  0,510  0,1530  -0,0046   220   0,6371
+    phys       physbert (Física)            109M  0,566  0,1666  +0,0090   237   0,0062
+
+    fusão RRF = 0,1576 nas três · 2.000 consultas · profundidade 50 · teto 0,4495
+
+**A predição se confirma, e de forma mais estreita do que ela afirmava.** Base
+diferente não basta: `gte-base`, um modelo de recuperação forte com o **mesmo número
+de parâmetros** que o vencedor, empata com a fusão (p = 0,637). O que paga é
+**pré-treino no domínio**.
+
+As duas variantes compartilham tamanho (109 M), arquitetura (`BertModel`), os seis
+hiperparâmetros, os dados de treino, a semente e o protocolo de avaliação. A única
+diferença é o corpus de pré-treino, e é isso que sustenta a leitura causal.
+
+⚠️ O braço `gte` rodou numa execução separada, e a combinação só é legítima porque o
+**controle saiu byte a byte idêntico nas duas** — mesmos `sistemas`, mesmo pareado,
+p = 0,14584 sobre 229 discordantes em ambas.
+
+### 10.1 A assimetria que não estava prevista
+
+O encoder de domínio é um **recuperador ruim** neste benchmark (nDCG 0,2752 contra
+0,4657 do nosso ajuste fino — a margem de +0,190 do §1) e a **melhor base de
+reranqueador** das três testadas. Pré-treino de domínio não produziu um bi-encoder
+competitivo aqui e produziu um cross-encoder competitivo.
+
+Não temos explicação mecanística para a assimetria, e não vamos inventar uma. A
+hipótese barata de testar é que o cross-encoder pode usar interação termo a termo
+entre consulta e documento, onde vocabulário de domínio rende, enquanto o bi-encoder
+precisa comprimir o documento num vetor antes de ver a consulta. É especulação até
+alguém medir.
 
 ---
 

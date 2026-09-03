@@ -71,18 +71,52 @@ Ele roda PRIMEIRO, e de propósito: é a avaliação mais barata (23 M contra 10
 exercita o caminho inteiro. Se o encanamento estiver quebrado, isso aparece em ~12
 min em vez de depois de 45 min de treino.
 
-## Execução de 2026-08-31: o que saiu, e os dois erros meus que ela revelou
+## O RESULTADO: domínio, não diversidade (fechado em 2026-09-03)
 
-    variante              fusão   +ΦRank        Δ   disc   p(k=10)   veredito
-    minilm (controle)    0,1576   0,1483  -0,0093    229   0,14584   empate
-    phys (physbert)      0,1576   0,1666  +0,0090    237   0,00625   VENCE
-    gte (gte-base)            —        —        —      —         —   FALHOU
+    variante   base                       params  acc@1  +ΦRank      Δ  disc  p(k=10)
+    controle   MiniLM-L6 (= a do ΦEmb)       23M  0,498  0,1483  -,0093  229   0,1458
+    gte        gte-base (geral forte)       109M  0,510  0,1530  -,0046  220   0,6371
+    phys       physbert (Física)            109M  0,566  0,1666  +,0090  237   0,0062
+
+    fusão RRF = 0,1576 nas três · 2.000 consultas · profundidade 50 · teto 0,4495
+
+**Leitura pré-registrada: "só a `phys` ⇒ o mecanismo é CONHECIMENTO DE DOMÍNIO, não
+diversidade".** É o que saiu.
+
+O que torna isto uma afirmação de mecanismo e não uma coincidência: `gte-base` e
+`physbert_cased` têm o **mesmo tamanho** (109 M), a **mesma arquitetura**
+(`BertModel`), os **mesmos seis hiperparâmetros**, os **mesmos dados**, a **mesma
+semente** e o **mesmo protocolo**. A única diferença entre as duas é o corpus de
+pré-treino. Diversidade de base não basta; capacidade não basta.
+
+⚠️ **As duas corridas são combináveis, e há evidência disso.** O braço `gte` rodou
+numa execução separada, e o controle saiu **byte a byte idêntico** nas duas —
+`sistemas`, `pareado_contra_a_fusao` e `teto` iguais campo por campo, incluindo
+p=0,14584 sobre 229 discordantes. É isso que licencia comparar `gte` com `phys`.
+
+### O contraponto que este resultado produz
+
+O PhysBERT é um recuperador **ruim** neste benchmark: nDCG 0,2752 contra 0,4657 do
+ΦEmb — perde por 0,190, e foi essa a medição do G1.1. E é a **melhor base de
+reranqueador** das três. Pré-treino de domínio não fez um bi-encoder bom aqui e fez
+um cross-encoder bom. Não é o que eu esperaria, e a assimetria é o achado.
+
+## Os dois erros meus na execução de 2026-08-31, e um terceiro em 2026-09-03
 
 **A predição do T1b se confirmou.** O reranqueador de base diferente bate a fusão com
 p = 0,00625, abaixo do limiar de Bonferroni de 0,025. É a primeira vez que a
 composição inteira funciona: recall@10 de 0,2890 contra 0,2675 da fusão. E o controle
 replicou o empate do T1b com o dobro das consultas (p = 0,146 contra 0,118 antes),
 o que é a evidência de que a diferença é da base e não do protocolo.
+
+⚠️ **Erro 3 — o Kaggle FIXA a versão do dataset no anexo ao kernel.** Consertei o
+fp16, subi versão nova do dataset (`status` = `ready`), empurrei o notebook, e ele
+rodou 15 min sobre o código ANTIGO, morrendo com o mesmo erro. `kernels push` não
+re-resolve para a versão mais recente. O notebook delatou na saída — `git_sha:
+73088dc` contra o conserto em `68fe86e` —, e sem essa linha eu teria concluído que o
+conserto do fp16 não funcionava. Agora o código vem do GitHub num SHA injetado na
+publicação; os dados ficam no dataset, onde a fixação é inofensiva porque eles não
+mudam.
 
 ⚠️ **Erro 1 — o `gte` morreu por um bug nosso, não dele.** `thenlper/gte-base` guarda
 os pesos em **fp16**, o `transformers` novo carrega no dtype do checkpoint por
@@ -333,7 +367,7 @@ BASES = {"gte": "thenlper/gte-base", "phys": "thellert/physbert_cased"}
 # A regra que mantém isto honesto: `SO` só pode conter braços SEM número gravado, e
 # o `mecanismo` fica INCONCLUSIVO enquanto algum braço de `BASES` não tiver o seu. Um
 # braço que rodou e perdeu NUNCA pode ser refeito por aqui.
-SO = {"gte"}
+SO: set[str] = set()
 if SO:
     print(f"⚠️ rodando só {sorted(SO)} — completando braço que falhou por bug de "
           f"infraestrutura. Os demais vêm da execução anterior.")

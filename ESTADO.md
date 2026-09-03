@@ -16,7 +16,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
 | **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank no-op | RRF entrega **nDCG 0,1584** e vence os isolados (p<0,001); o reranker empata (p=0,118) porque parte da **mesma base** do ΦEmb |
-| **T1c** · ΦRank de base diferente | 🟢 **PhysBERT vence** | nDCG **0,1666** contra 0,1576 da fusão, McNemar **p=0,00625** < 0,025 de Bonferroni. Primeira vez que a composição inteira funciona. O braço `gte` falhou por bug meu (fp16) e o mecanismo segue **inconclusivo** |
+| **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🔴 não existe | `training/pretrain/` está vazio. É o gargalo agora, e não é de dinheiro |
 
@@ -97,14 +97,41 @@ métrica intrínseca não pode decidi-la.
 **sem dados** e disse "successfully pushed" com código 0. O `FALHAS_SILENCIOSAS`
 pegou; agora espera `datasets status` dizer `ready`.
 
-## T1c — o reranqueador finalmente acrescenta algo, e dois erros meus (2026-08-31)
+## T1c — o que o reranqueador precisa é DOMÍNIO, não diversidade (2026-09-03)
 
-    variante              fusão   +ΦRank        Δ   disc   p(k=10)   veredito
-    minilm (controle)    0,1576   0,1483  -0,0093    229   0,14584   empate
-    phys (physbert)      0,1576   0,1666  +0,0090    237   0,00625   VENCE
-    gte (gte-base)            —        —        —      —         —   FALHOU
+    variante   base                       params  acc@1  +ΦRank       Δ  disc  p(k=10)
+    controle   MiniLM-L6 (= a do ΦEmb)       23M  0,498  0,1483  -0,0093   229   0,1458
+    gte        gte-base (geral forte)       109M  0,510  0,1530  -0,0046   220   0,6371
+    phys       physbert (Física)            109M  0,566  0,1666  +0,0090   237   0,0062
 
-    2.000 consultas · profundidade 50 · universo 88.807 · teto (recall@50) 0,4495
+    fusão RRF = 0,1576 nas três · 2.000 consultas · profundidade 50 · teto 0,4495
+
+**Leitura pré-registrada aplicada: "só a `phys` ⇒ o mecanismo é CONHECIMENTO DE
+DOMÍNIO, não diversidade".** É o que saiu, e o pré-registro é de antes de medir.
+
+O que faz disto uma afirmação de mecanismo, e não uma coincidência: `gte-base` e
+`physbert_cased` têm o **mesmo tamanho** (109 M), a **mesma arquitetura**
+(`BertModel`), os **mesmos seis hiperparâmetros**, os **mesmos dados**, a **mesma
+semente** e o **mesmo protocolo**. A única diferença entre as duas é o corpus de
+pré-treino. **Diversidade de base não basta. Capacidade não basta.**
+
+⚠️ **As duas corridas são combináveis, e há evidência disso.** O `gte` rodou numa
+execução separada (a primeira morreu num bug meu), e o controle saiu **byte a byte
+idêntico** nas duas — `sistemas`, `pareado_contra_a_fusao` e `teto` iguais campo por
+campo, p=0,14584 sobre 229 discordantes nas duas. É isso que licencia comparar `gte`
+com `phys`; sem essa verificação a comparação seria entre protocolos, não entre bases.
+
+### O contraponto, que é o achado mais interessante
+
+O PhysBERT é um recuperador **ruim** neste benchmark: nDCG 0,2752 contra 0,4657 do
+ΦEmb — perde por 0,190, e foi exatamente essa a medição do G1.1. E é a **melhor base
+de reranqueador** das três.
+
+Pré-treino de domínio não fez um bi-encoder bom aqui, e fez um cross-encoder bom. A
+assimetria não era o que eu esperava, e é ela que dá uma receita: **para reordenar,
+partir de um modelo do domínio; para recuperar, ajustar um modelo geral pequeno.**
+
+### A predição do T1b se confirmou
 
 **A predição do T1b se confirmou.** O diagnóstico dizia que o ΦRank empatava por
 **redundância informacional** — partia do mesmo MiniLM do ΦEmb e re-derivava a ordem

@@ -1,0 +1,37 @@
+{
+  "n_consultas": 2000,
+  "profundidade": 50,
+  "alfa_bonferroni": 0.025,
+  "bases": {
+    "gte": "thenlper/gte-base",
+    "phys": "thellert/physbert_cased"
+  },
+  "git_sha_dados": "68fe86e",
+  "git_sha_codigo": "96434bc052f94239df0ca573189ee20f5ad4c28d",
+  "linhas": [
+    {
+      "variante": "minilm (controle)",
+      "ndcg_fusao": 0.1576,
+      "ndcg_rank": 0.1483,
+      "delta": -0.0093,
+      "discordantes": 229,
+      "p_k10": 0.1458384109048898,
+      "veredito": "empate",
+      "teto_recall": 0.4495
+    },
+    {
+      "variante": "gte (thenlper/gte-base)",
+      "ndcg_fusao": 0.1576,
+      "ndcg_rank": 0.153,
+      "delta": -0.0046,
+      "discordantes": 220,
+      "p_k10": 0.6370697150887977,
+      "veredito": "empate",
+      "teto_recall": 0.4495
+    }
+  ],
+  "falhas": {},
+  "mecanismo": "INCONCLUSIVO sobre o mecanismo: o braço ['phys'] não produziu número (ver `falhas`). Venceram: nenhuma. Uma variante ausente não é uma variante que perdeu, e sem ela 'domínio' e 'diversidade' não se separam.",
+  "fixo": "max-grupos 12500, grupos 2, n-negativos 7, lr 2e-5, 384 tokens, semente 17 — idênticos ao controle phirank-rrf-melhor. Só a base muda.",
+  "ressalva": "o lr 2e-5 não foi re-ajustado para 109 M de parâmetros; se as duas variantes falharem, 'a taxa estava errada para este tamanho' segue sendo explicação viva"
+}
