@@ -1,0 +1,192 @@
+23:07:21 INFO    divisão POR DOCUMENTO: 677 citados reservados de 13,544
+23:07:21 INFO    grupos: 13,575 treino · 714 validação
+23:07:21 INFO    vazamento: 0 documentos citados, 11 âncoras
+23:07:21 INFO      (âncoras repetidas são esperadas: mesma consulta, documento alvo inédito — não é o vazamento que importa)
+23:07:22 INFO    dispositivo: Tesla T4 (CUDA 7.5, 16 GB)
+23:07:22 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+23:07:22 WARNING Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+23:07:22 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/config.json "HTTP/1.1 200 OK"
+23:07:22 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/config.json "HTTP/1.1 200 OK"
+23:07:22 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+23:07:22 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/tokenizer_config.json "HTTP/1.1 200 OK"
+23:07:22 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/tokenizer_config.json "HTTP/1.1 200 OK"
+23:07:22 INFO    HTTP Request: GET https://huggingface.co/api/models/thellert/physbert_cased/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+23:07:22 INFO    HTTP Request: GET https://huggingface.co/api/models/thellert/physbert_cased/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/vocab.txt "HTTP/1.1 307 Temporary Redirect"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/vocab.txt "HTTP/1.1 200 OK"
+23:07:23 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/vocab.txt "HTTP/1.1 200 OK"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/tokenizer.json "HTTP/1.1 307 Temporary Redirect"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/tokenizer.json "HTTP/1.1 200 OK"
+23:07:23 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/tokenizer.json "HTTP/1.1 200 OK"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/special_tokens_map.json "HTTP/1.1 307 Temporary Redirect"
+23:07:23 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/special_tokens_map.json "HTTP/1.1 200 OK"
+23:07:23 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/special_tokens_map.json "HTTP/1.1 200 OK"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/config.json "HTTP/1.1 200 OK"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/adapter_config.json "HTTP/1.1 404 Not Found"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thellert/physbert_cased/2d8340bd3f93d5d7f66a34daa73531d701f143b2/config.json "HTTP/1.1 200 OK"
+23:07:24 INFO    HTTP Request: HEAD https://huggingface.co/thellert/physbert_cased/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+23:07:25 INFO    HTTP Request: GET https://huggingface.co/api/models/thellert/physbert_cased/xet-read-token/2d8340bd3f93d5d7f66a34daa73531d701f143b2 "HTTP/1.1 200 OK"
+BertForSequenceClassification LOAD REPORT from: thellert/physbert_cased
+Key               | Status  | 
+------------------+---------+-
+classifier.bias   | MISSING | 
+classifier.weight | MISSING | 
+Notes:
+- MISSING	:those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+23:07:31 INFO    ΦRank sobre thellert/physbert_cased · atenção sdpa · AMP True · grupos de 8
+23:07:31 INFO    treino: 12,500 grupos sorteados · 11,904 documentos distintos (de 12,867 disponiveis)
+23:07:53 INFO    base | grupos de 8: acerto@1 0.094 ±0.026 · MRR 0.324 (481 documentos)
+23:07:53 INFO      (acaso = 0.125)
+23:08:13 INFO    passo 50 | perda 2.0767 | 41.3 exemplos/s | VRAM 2,332 MB
+23:08:32 INFO    passo 100 | perda 2.0632 | 41.3 exemplos/s | VRAM 2,332 MB
+23:08:51 INFO    passo 150 | perda 2.0799 | 41.3 exemplos/s | VRAM 2,332 MB
+23:09:11 INFO    passo 200 | perda 2.0575 | 41.1 exemplos/s | VRAM 2,332 MB
+23:09:33 INFO    passo 250 | perda 2.0379 | 40.1 exemplos/s | VRAM 2,332 MB
+23:09:53 INFO    passo 300 | perda 1.9892 | 40.2 exemplos/s | VRAM 2,332 MB
+23:10:13 INFO    passo 350 | perda 1.9516 | 40.2 exemplos/s | VRAM 2,332 MB
+23:10:32 INFO    passo 400 | perda 1.9800 | 40.2 exemplos/s | VRAM 2,332 MB
+23:10:55 INFO    passo 450 | perda 1.9311 | 39.6 exemplos/s | VRAM 2,332 MB
+23:11:15 INFO    passo 500 | perda 1.9002 | 39.7 exemplos/s | VRAM 2,332 MB
+23:11:38 INFO      aval: acerto@1 0.366 ±0.043 · MRR 0.570 (481 documentos)
+23:11:40 INFO      melhor ate agora (acerto@1 0.366) -> phirank-phys-melhor
+23:12:00 INFO    passo 550 | perda 1.8651 | 35.7 exemplos/s | VRAM 2,332 MB
+23:12:20 INFO    passo 600 | perda 1.7320 | 36.0 exemplos/s | VRAM 2,332 MB
+23:12:42 INFO    passo 650 | perda 1.7647 | 36.0 exemplos/s | VRAM 2,332 MB
+23:13:02 INFO    passo 700 | perda 1.6692 | 36.2 exemplos/s | VRAM 2,332 MB
+23:13:22 INFO    passo 750 | perda 1.5999 | 36.5 exemplos/s | VRAM 2,332 MB
+23:13:42 INFO    passo 800 | perda 1.6415 | 36.7 exemplos/s | VRAM 2,332 MB
+23:14:05 INFO    passo 850 | perda 1.6410 | 36.6 exemplos/s | VRAM 2,332 MB
+23:14:24 INFO    passo 900 | perda 1.6274 | 36.8 exemplos/s | VRAM 2,332 MB
+23:14:44 INFO    passo 950 | perda 1.5520 | 37.0 exemplos/s | VRAM 2,332 MB
+23:15:04 INFO    passo 1000 | perda 1.5126 | 37.1 exemplos/s | VRAM 2,332 MB
+23:15:27 INFO      aval: acerto@1 0.476 ±0.045 · MRR 0.649 (481 documentos)
+23:15:29 INFO      melhor ate agora (acerto@1 0.476) -> phirank-phys-melhor
+23:15:52 INFO    passo 1050 | perda 1.5681 | 35.1 exemplos/s | VRAM 2,332 MB
+23:16:11 INFO    passo 1100 | perda 1.4582 | 35.3 exemplos/s | VRAM 2,332 MB
+23:16:31 INFO    passo 1150 | perda 1.3805 | 35.5 exemplos/s | VRAM 2,332 MB
+23:16:51 INFO    passo 1200 | perda 1.5624 | 35.7 exemplos/s | VRAM 2,332 MB
+23:17:13 INFO    passo 1250 | perda 1.6197 | 35.7 exemplos/s | VRAM 2,332 MB
+23:17:33 INFO    passo 1300 | perda 1.6296 | 35.9 exemplos/s | VRAM 2,332 MB
+23:17:52 INFO    passo 1350 | perda 1.5439 | 36.0 exemplos/s | VRAM 2,332 MB
+23:18:12 INFO    passo 1400 | perda 1.4491 | 36.2 exemplos/s | VRAM 2,332 MB
+23:18:34 INFO    passo 1450 | perda 1.4774 | 36.2 exemplos/s | VRAM 2,332 MB
+23:18:54 INFO    passo 1500 | perda 1.2243 | 36.3 exemplos/s | VRAM 2,332 MB
+23:19:17 INFO      aval: acerto@1 0.544 ±0.045 · MRR 0.699 (481 documentos)
+23:19:19 INFO      melhor ate agora (acerto@1 0.544) -> phirank-phys-melhor
+23:19:39 INFO    passo 1550 | perda 1.4491 | 35.1 exemplos/s | VRAM 2,332 MB
+23:19:59 INFO    passo 1600 | perda 1.3378 | 35.3 exemplos/s | VRAM 2,332 MB
+23:20:21 INFO    passo 1650 | perda 1.4198 | 35.3 exemplos/s | VRAM 2,332 MB
+23:20:40 INFO    passo 1700 | perda 1.5198 | 35.5 exemplos/s | VRAM 2,332 MB
+23:21:00 INFO    passo 1750 | perda 1.4996 | 35.6 exemplos/s | VRAM 2,332 MB
+23:21:20 INFO    passo 1800 | perda 1.4000 | 35.7 exemplos/s | VRAM 2,332 MB
+23:21:42 INFO    passo 1850 | perda 1.2193 | 35.7 exemplos/s | VRAM 2,332 MB
+23:22:02 INFO    passo 1900 | perda 1.5037 | 35.8 exemplos/s | VRAM 2,332 MB
+23:22:21 INFO    passo 1950 | perda 1.5085 | 35.9 exemplos/s | VRAM 2,332 MB
+23:22:41 INFO    passo 2000 | perda 1.2655 | 36.0 exemplos/s | VRAM 2,332 MB
+23:23:04 INFO      aval: acerto@1 0.560 ±0.044 · MRR 0.713 (481 documentos)
+23:23:06 INFO      melhor ate agora (acerto@1 0.560) -> phirank-phys-melhor
+23:23:29 INFO    passo 2050 | perda 1.2939 | 35.1 exemplos/s | VRAM 2,332 MB
+23:23:48 INFO    passo 2100 | perda 1.3199 | 35.2 exemplos/s | VRAM 2,332 MB
+23:24:08 INFO    passo 2150 | perda 1.5749 | 35.3 exemplos/s | VRAM 2,332 MB
+23:24:27 INFO    passo 2200 | perda 1.4553 | 35.4 exemplos/s | VRAM 2,332 MB
+23:24:50 INFO    passo 2250 | perda 1.4339 | 35.4 exemplos/s | VRAM 2,332 MB
+23:25:10 INFO    passo 2300 | perda 1.6201 | 35.5 exemplos/s | VRAM 2,332 MB
+23:25:29 INFO    passo 2350 | perda 1.4427 | 35.6 exemplos/s | VRAM 2,332 MB
+23:25:49 INFO    passo 2400 | perda 1.5028 | 35.7 exemplos/s | VRAM 2,332 MB
+23:26:11 INFO    passo 2450 | perda 1.3797 | 35.7 exemplos/s | VRAM 2,332 MB
+23:26:31 INFO    passo 2500 | perda 1.3206 | 35.8 exemplos/s | VRAM 2,332 MB
+23:26:53 INFO      aval: acerto@1 0.566 ±0.044 · MRR 0.719 (481 documentos)
+23:26:56 INFO      melhor ate agora (acerto@1 0.566) -> phirank-phys-melhor
+23:27:15 INFO    passo 2550 | perda 1.3894 | 35.1 exemplos/s | VRAM 2,332 MB
+23:27:35 INFO    passo 2600 | perda 1.3045 | 35.2 exemplos/s | VRAM 2,332 MB
+23:27:57 INFO    passo 2650 | perda 1.4434 | 35.2 exemplos/s | VRAM 2,332 MB
+23:28:17 INFO    passo 2700 | perda 1.3486 | 35.3 exemplos/s | VRAM 2,332 MB
+23:28:36 INFO    passo 2750 | perda 1.3912 | 35.4 exemplos/s | VRAM 2,332 MB
+23:28:56 INFO    passo 2800 | perda 1.4396 | 35.5 exemplos/s | VRAM 2,332 MB
+23:29:18 INFO    passo 2850 | perda 1.5955 | 35.5 exemplos/s | VRAM 2,332 MB
+23:29:38 INFO    passo 2900 | perda 1.5054 | 35.6 exemplos/s | VRAM 2,332 MB
+23:29:57 INFO    passo 2950 | perda 1.4373 | 35.6 exemplos/s | VRAM 2,332 MB
+23:30:17 INFO    passo 3000 | perda 1.3889 | 35.7 exemplos/s | VRAM 2,332 MB
+23:30:40 INFO      aval: acerto@1 0.606 ±0.044 · MRR 0.742 (481 documentos)
+23:30:42 INFO      melhor ate agora (acerto@1 0.606) -> phirank-phys-melhor
+23:31:04 INFO    passo 3050 | perda 1.5084 | 35.1 exemplos/s | VRAM 2,332 MB
+23:31:24 INFO    passo 3100 | perda 1.4483 | 35.2 exemplos/s | VRAM 2,332 MB
+23:31:43 INFO    passo 3150 | perda 1.4612 | 35.2 exemplos/s | VRAM 2,332 MB
+23:32:03 INFO    passo 3200 | perda 1.3063 | 35.3 exemplos/s | VRAM 2,332 MB
+23:32:25 INFO    passo 3250 | perda 1.4775 | 35.3 exemplos/s | VRAM 2,332 MB
+23:32:45 INFO    passo 3300 | perda 1.4740 | 35.4 exemplos/s | VRAM 2,332 MB
+23:33:04 INFO    passo 3350 | perda 1.3595 | 35.5 exemplos/s | VRAM 2,332 MB
+23:33:24 INFO    passo 3400 | perda 1.3213 | 35.5 exemplos/s | VRAM 2,332 MB
+23:33:46 INFO    passo 3450 | perda 1.4929 | 35.5 exemplos/s | VRAM 2,332 MB
+23:34:06 INFO    passo 3500 | perda 1.3989 | 35.6 exemplos/s | VRAM 2,332 MB
+23:34:28 INFO      aval: acerto@1 0.582 ±0.044 · MRR 0.736 (481 documentos)
+23:34:49 INFO    passo 3550 | perda 1.3440 | 35.1 exemplos/s | VRAM 2,332 MB
+23:35:09 INFO    passo 3600 | perda 1.4382 | 35.2 exemplos/s | VRAM 2,332 MB
+23:35:31 INFO    passo 3650 | perda 1.3689 | 35.2 exemplos/s | VRAM 2,332 MB
+23:35:50 INFO    passo 3700 | perda 1.2861 | 35.3 exemplos/s | VRAM 2,332 MB
+23:36:10 INFO    passo 3750 | perda 1.4491 | 35.4 exemplos/s | VRAM 2,332 MB
+23:36:30 INFO    passo 3800 | perda 1.2521 | 35.4 exemplos/s | VRAM 2,332 MB
+23:36:52 INFO    passo 3850 | perda 1.3833 | 35.4 exemplos/s | VRAM 2,332 MB
+23:37:11 INFO    passo 3900 | perda 1.4196 | 35.5 exemplos/s | VRAM 2,332 MB
+23:37:31 INFO    passo 3950 | perda 1.3329 | 35.6 exemplos/s | VRAM 2,332 MB
+23:37:51 INFO    passo 4000 | perda 1.5052 | 35.6 exemplos/s | VRAM 2,332 MB
+23:38:13 INFO      aval: acerto@1 0.574 ±0.044 · MRR 0.729 (481 documentos)
+23:38:36 INFO    passo 4050 | perda 1.5268 | 35.2 exemplos/s | VRAM 2,332 MB
+23:38:56 INFO    passo 4100 | perda 1.1985 | 35.2 exemplos/s | VRAM 2,332 MB
+23:39:16 INFO    passo 4150 | perda 1.0279 | 35.3 exemplos/s | VRAM 2,332 MB
+23:39:35 INFO    passo 4200 | perda 1.5066 | 35.3 exemplos/s | VRAM 2,332 MB
+23:39:57 INFO    passo 4250 | perda 1.2695 | 35.3 exemplos/s | VRAM 2,332 MB
+23:40:17 INFO    passo 4300 | perda 1.1233 | 35.4 exemplos/s | VRAM 2,332 MB
+23:40:37 INFO    passo 4350 | perda 1.2233 | 35.5 exemplos/s | VRAM 2,332 MB
+23:40:56 INFO    passo 4400 | perda 1.5799 | 35.5 exemplos/s | VRAM 2,332 MB
+23:41:18 INFO    passo 4450 | perda 1.1458 | 35.5 exemplos/s | VRAM 2,332 MB
+23:41:38 INFO    passo 4500 | perda 1.4283 | 35.6 exemplos/s | VRAM 2,332 MB
+23:42:01 INFO      aval: acerto@1 0.598 ±0.044 · MRR 0.740 (481 documentos)
+23:42:21 INFO    passo 4550 | perda 1.3218 | 35.2 exemplos/s | VRAM 2,332 MB
+23:42:41 INFO    passo 4600 | perda 1.1937 | 35.3 exemplos/s | VRAM 2,332 MB
+23:43:03 INFO    passo 4650 | perda 1.3801 | 35.3 exemplos/s | VRAM 2,332 MB
+23:43:23 INFO    passo 4700 | perda 1.2443 | 35.3 exemplos/s | VRAM 2,332 MB
+23:43:42 INFO    passo 4750 | perda 1.4388 | 35.4 exemplos/s | VRAM 2,332 MB
+23:44:02 INFO    passo 4800 | perda 1.3246 | 35.4 exemplos/s | VRAM 2,332 MB
+23:44:24 INFO    passo 4850 | perda 1.2075 | 35.4 exemplos/s | VRAM 2,332 MB
+23:44:44 INFO    passo 4900 | perda 1.1841 | 35.5 exemplos/s | VRAM 2,332 MB
+23:45:03 INFO    passo 4950 | perda 1.3452 | 35.5 exemplos/s | VRAM 2,332 MB
+23:45:23 INFO    passo 5000 | perda 1.3138 | 35.6 exemplos/s | VRAM 2,332 MB
+23:45:46 INFO      aval: acerto@1 0.598 ±0.044 · MRR 0.743 (481 documentos)
+23:46:09 INFO    passo 5050 | perda 1.3939 | 35.2 exemplos/s | VRAM 2,332 MB
+23:46:28 INFO    passo 5100 | perda 1.2351 | 35.3 exemplos/s | VRAM 2,332 MB
+23:46:48 INFO    passo 5150 | perda 1.2917 | 35.3 exemplos/s | VRAM 2,332 MB
+23:47:08 INFO    passo 5200 | perda 1.2903 | 35.3 exemplos/s | VRAM 2,332 MB
+23:47:30 INFO    passo 5250 | perda 1.5153 | 35.3 exemplos/s | VRAM 2,332 MB
+23:47:49 INFO    passo 5300 | perda 1.2205 | 35.4 exemplos/s | VRAM 2,332 MB
+23:48:09 INFO    passo 5350 | perda 1.3664 | 35.4 exemplos/s | VRAM 2,332 MB
+23:48:29 INFO    passo 5400 | perda 1.3498 | 35.5 exemplos/s | VRAM 2,332 MB
+23:48:51 INFO    passo 5450 | perda 1.4127 | 35.5 exemplos/s | VRAM 2,332 MB
+23:49:10 INFO    passo 5500 | perda 1.3265 | 35.5 exemplos/s | VRAM 2,332 MB
+23:49:33 INFO      aval: acerto@1 0.608 ±0.044 · MRR 0.746 (481 documentos)
+23:49:35 INFO      melhor ate agora (acerto@1 0.608) -> phirank-phys-melhor
+23:49:55 INFO    passo 5550 | perda 1.4870 | 35.2 exemplos/s | VRAM 2,332 MB
+23:50:14 INFO    passo 5600 | perda 1.4177 | 35.3 exemplos/s | VRAM 2,332 MB
+23:50:36 INFO    passo 5650 | perda 1.1758 | 35.3 exemplos/s | VRAM 2,332 MB
+23:50:56 INFO    passo 5700 | perda 1.5633 | 35.3 exemplos/s | VRAM 2,332 MB
+23:51:16 INFO    passo 5750 | perda 1.3810 | 35.4 exemplos/s | VRAM 2,332 MB
+23:51:35 INFO    passo 5800 | perda 1.2759 | 35.4 exemplos/s | VRAM 2,332 MB
+23:51:58 INFO    passo 5850 | perda 1.2458 | 35.4 exemplos/s | VRAM 2,332 MB
+23:52:17 INFO    passo 5900 | perda 1.4880 | 35.4 exemplos/s | VRAM 2,332 MB
+23:52:37 INFO    passo 5950 | perda 1.2734 | 35.5 exemplos/s | VRAM 2,332 MB
+23:52:57 INFO    passo 6000 | perda 1.2565 | 35.5 exemplos/s | VRAM 2,332 MB
+23:53:19 INFO      aval: acerto@1 0.606 ±0.044 · MRR 0.741 (481 documentos)
+23:53:42 INFO    passo 6050 | perda 1.2480 | 35.2 exemplos/s | VRAM 2,332 MB
+23:54:02 INFO    passo 6100 | perda 1.2791 | 35.3 exemplos/s | VRAM 2,332 MB
+23:54:22 INFO    passo 6150 | perda 1.1702 | 35.3 exemplos/s | VRAM 2,332 MB
+23:54:41 INFO    passo 6200 | perda 1.3495 | 35.3 exemplos/s | VRAM 2,332 MB
+23:55:03 INFO    passo 6250 | perda 1.2408 | 35.3 exemplos/s | VRAM 2,332 MB
+23:55:29 INFO    passo 6250 | CONCLUIDO · acerto@1 0.566 ±0.044 · MRR 0.716 (481 documentos)
+==================================================================
+  ΦRank · passo 6,250 · acerto@1 0.566 (acaso 0.125) · MRR 0.716
+==================================================================

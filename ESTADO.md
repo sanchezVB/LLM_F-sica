@@ -16,7 +16,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
 | **T1b** · busca híbrida | 🟡 fusão ✅ / ΦRank no-op | RRF entrega **nDCG 0,1584** e vence os isolados (p<0,001); o reranker empata (p=0,118) porque parte da **mesma base** do ΦEmb |
-| **T1c** · ΦRank de base diferente | 🔵 rodando na T4 | testa a predição do T1b: base diferente deve bater a fusão. Regra de decisão e limiar de Bonferroni registrados antes de medir |
+| **T1c** · ΦRank de base diferente | 🟢 **PhysBERT vence** | nDCG **0,1666** contra 0,1576 da fusão, McNemar **p=0,00625** < 0,025 de Bonferroni. Primeira vez que a composição inteira funciona. O braço `gte` falhou por bug meu (fp16) e o mecanismo segue **inconclusivo** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🔴 não existe | `training/pretrain/` está vazio. É o gargalo agora, e não é de dinheiro |
 
@@ -96,6 +96,78 @@ métrica intrínseca não pode decidi-la.
 `kernels push` seguinte não resolveu a fonte, avisou numa linha, criou o notebook
 **sem dados** e disse "successfully pushed" com código 0. O `FALHAS_SILENCIOSAS`
 pegou; agora espera `datasets status` dizer `ready`.
+
+## T1c — o reranqueador finalmente acrescenta algo, e dois erros meus (2026-08-31)
+
+    variante              fusão   +ΦRank        Δ   disc   p(k=10)   veredito
+    minilm (controle)    0,1576   0,1483  -0,0093    229   0,14584   empate
+    phys (physbert)      0,1576   0,1666  +0,0090    237   0,00625   VENCE
+    gte (gte-base)            —        —        —      —         —   FALHOU
+
+    2.000 consultas · profundidade 50 · universo 88.807 · teto (recall@50) 0,4495
+
+**A predição do T1b se confirmou.** O diagnóstico dizia que o ΦRank empatava por
+**redundância informacional** — partia do mesmo MiniLM do ΦEmb e re-derivava a ordem
+que a fusão já tinha (Spearman −0,466). A predição: uma base com pré-treino diferente
+deve bater a fusão. Bateu, com **p = 0,00625**, abaixo do limiar de Bonferroni de
+**0,025** registrado antes de medir.
+
+| | fusão | + PhysBERT |
+|---|---|---|
+| recall@1 | 0,0700 | 0,0690 |
+| **recall@10** | 0,2675 | **0,2890** |
+| recall@50 | 0,4495 | 0,4495 |
+| **nDCG@10** | 0,1576 | **0,1666** |
+
+No pareado k=10: a fusão ganha 97, o reranqueador ganha **140**, 237 discordantes. Em
+k=1 é empate (p=0,930) — o ganho é na cauda do top-10, não no primeiro lugar, o que é
+o que se espera de reordenação.
+
+**O controle replicou o empate do T1b** com o dobro das consultas: p=0,146 sobre 229
+discordantes, contra p=0,118 sobre 105 antes. É isso que mostra que a diferença é da
+**base** e não do protocolo — as duas variantes rodaram no mesmo universo, com os
+mesmos 2.000 sorteios e os mesmos seis hiperparâmetros.
+
+Acerto@1 no grupo de 8: **0,566 ±0,044** contra 0,498 do controle e 0,125 do acaso.
+
+### ⚠️ Erro 1 — o `gte` morreu por bug nosso, não dele
+
+    ValueError: Attempting to unscale FP16 gradients.
+
+`thenlper/gte-base` guarda os pesos em **fp16**, o `transformers` novo carrega no
+dtype do checkpoint por padrão, e o `GradScaler` recusa desescalar gradientes fp16 —
+o AMP exige pesos-mestres em fp32, porque é ele que faz a passagem em fp16 e o
+scaler que desescala de volta. Um modelo já em fp16 não tem para onde.
+
+Consertado com `dtype=torch.float32` explícito em `rerank.py`. Ficou invisível até
+aqui porque MiniLM e PhysBERT são fp32 — **qualquer base fp16 quebraria**, e o custo
+foi um braço inteiro do experimento.
+
+### ⚠️ Erro 2 — o meu pré-registro confundia "perdeu" com "não rodou"
+
+Com o `gte` ausente, o script imprimiu **"o mecanismo é CONHECIMENTO DE DOMÍNIO, não
+diversidade"** — uma leitura que *exige* o `gte` ter produzido um número e perdido. A
+lógica olhava só `venceram` e nunca `falhas`.
+
+O pré-registro existia para impedir exatamente esse tipo de conclusão, e o buraco não
+estava na regra: estava na implementação dela. Agora qualquer braço ausente torna o
+mecanismo **INCONCLUSIVO**, e há um teste que **executa** a lógica nos quatro
+desfechos em vez de procurar texto.
+
+**O que está estabelecido:** uma base diferente vence a fusão.
+**O que segue aberto:** *qual propriedade* da base faz isso — domínio ou capacidade
+de pré-treino. Só o `gte` separa as duas, e ele está sendo refeito com o conserto.
+
+### Vazão medida contra a minha estimativa
+
+PhysBERT treinou a **35,4 exemplos/s** com **2.332 MB** de VRAM. Eu estimei 14–24/s
+ao usuário — **pessimista por ~2×**. As avaliações caíram na faixa estimada (13 min o
+de 23 M, ~40 min o de 109 M). Execução inteira: 1 h 42 min, dos quais ~50 min o
+treino e ~40 min a avaliação da variante que sobreviveu.
+
+E 2,3 GB num cartão de 16 GB dizem que `--grupos 2` subutiliza a placa. Aumentar
+seria mais rápido e **quebraria a comparabilidade com o controle**, então fica —
+`--grupos` é um dos seis parâmetros que o teste de uma-variável tranca.
 
 ## Bake-off do tokenizer — §11.1 medido, e dois achados contra o documento (2026-08-27)
 

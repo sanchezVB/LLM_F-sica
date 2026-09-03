@@ -1,0 +1,63 @@
+23:06:34 INFO    divisão POR DOCUMENTO: 677 citados reservados de 13,544
+23:06:34 INFO    grupos: 13,575 treino · 714 validação
+23:06:34 INFO    vazamento: 0 documentos citados, 11 âncoras
+23:06:34 INFO      (âncoras repetidas são esperadas: mesma consulta, documento alvo inédito — não é o vazamento que importa)
+23:06:34 INFO    dispositivo: Tesla T4 (CUDA 7.5, 16 GB)
+23:06:34 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+23:06:34 WARNING Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+23:06:34 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/config.json "HTTP/1.1 200 OK"
+23:06:34 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/config.json "HTTP/1.1 200 OK"
+23:06:34 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+23:06:34 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/tokenizer_config.json "HTTP/1.1 200 OK"
+23:06:34 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/tokenizer_config.json "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: GET https://huggingface.co/api/models/thenlper/gte-base/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+23:06:35 INFO    HTTP Request: GET https://huggingface.co/api/models/thenlper/gte-base/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/vocab.txt "HTTP/1.1 307 Temporary Redirect"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/vocab.txt "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/vocab.txt "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/tokenizer.json "HTTP/1.1 307 Temporary Redirect"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/tokenizer.json "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/tokenizer.json "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/special_tokens_map.json "HTTP/1.1 307 Temporary Redirect"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/special_tokens_map.json "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/special_tokens_map.json "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/config.json "HTTP/1.1 200 OK"
+23:06:35 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/adapter_config.json "HTTP/1.1 404 Not Found"
+23:06:36 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+23:06:36 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/thenlper/gte-base/c078288308d8dee004ab72c6191778064285ec0c/config.json "HTTP/1.1 200 OK"
+23:06:36 INFO    HTTP Request: HEAD https://huggingface.co/thenlper/gte-base/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+23:06:36 INFO    HTTP Request: GET https://huggingface.co/api/models/thenlper/gte-base/xet-read-token/c078288308d8dee004ab72c6191778064285ec0c "HTTP/1.1 200 OK"
+BertForSequenceClassification LOAD REPORT from: thenlper/gte-base
+Key                     | Status     | 
+------------------------+------------+-
+embeddings.position_ids | UNEXPECTED | 
+classifier.weight       | MISSING    | 
+classifier.bias         | MISSING    | 
+Notes:
+- UNEXPECTED	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING	:those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+23:06:46 INFO    ΦRank sobre thenlper/gte-base · atenção sdpa · AMP True · grupos de 8
+23:06:46 INFO    treino: 12,500 grupos sorteados · 11,904 documentos distintos (de 12,867 disponiveis)
+23:07:09 INFO    base | grupos de 8: acerto@1 0.082 ±0.025 · MRR 0.320 (481 documentos)
+23:07:09 INFO      (acaso = 0.125)
+Traceback (most recent call last):
+  File "/kaggle/working/codigo/scripts/train_rerank.py", line 169, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/kaggle/working/codigo/scripts/train_rerank.py", line 142, in main
+    m = TreinadorRank(cfg).treinar(treino, val, a.out)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/kaggle/working/codigo/phifm/training/rerank.py", line 355, in treinar
+    self.escala.step(self.opt)
+  File "/usr/local/lib/python3.12/dist-packages/torch/amp/grad_scaler.py", line 457, in step
+    self.unscale_(optimizer)
+  File "/usr/local/lib/python3.12/dist-packages/torch/amp/grad_scaler.py", line 343, in unscale_
+    optimizer_state["found_inf_per_device"] = self._unscale_grads_(
+                                              ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/amp/grad_scaler.py", line 261, in _unscale_grads_
+    raise ValueError("Attempting to unscale FP16 gradients.")
+ValueError: Attempting to unscale FP16 gradients.

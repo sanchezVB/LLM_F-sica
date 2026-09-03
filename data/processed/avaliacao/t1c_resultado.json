@@ -1,0 +1,38 @@
+{
+  "n_consultas": 2000,
+  "profundidade": 50,
+  "alfa_bonferroni": 0.025,
+  "bases": {
+    "gte": "thenlper/gte-base",
+    "phys": "thellert/physbert_cased"
+  },
+  "git_sha": "73088dc",
+  "linhas": [
+    {
+      "variante": "minilm (controle)",
+      "ndcg_fusao": 0.1576,
+      "ndcg_rank": 0.1483,
+      "delta": -0.0093,
+      "discordantes": 229,
+      "p_k10": 0.1458384109048898,
+      "veredito": "empate",
+      "teto_recall": 0.4495
+    },
+    {
+      "variante": "phys (thellert/physbert_cased)",
+      "ndcg_fusao": 0.1576,
+      "ndcg_rank": 0.1666,
+      "delta": 0.009,
+      "discordantes": 237,
+      "p_k10": 0.0062486022606727245,
+      "veredito": "VENCE a fusão",
+      "teto_recall": 0.4495
+    }
+  ],
+  "falhas": {
+    "gte": "SystemExit: /kaggle/working/codigo/scripts/train_rerank.py saiu com 1; log em /kaggle/working/treino_gte.log"
+  },
+  "mecanismo": "o mecanismo é CONHECIMENTO DE DOMÍNIO, não diversidade",
+  "fixo": "max-grupos 12500, grupos 2, n-negativos 7, lr 2e-5, 384 tokens, semente 17 — idênticos ao controle phirank-rrf-melhor. Só a base muda.",
+  "ressalva": "o lr 2e-5 não foi re-ajustado para 109 M de parâmetros; se as duas variantes falharem, 'a taxa estava errada para este tamanho' segue sendo explicação viva"
+}
