@@ -43,6 +43,35 @@ CONTROLE = {"--max-grupos": "12500", "--grupos": "2", "--n-negativos": "7",
             "--lr": "2e-5", "--max-tokens": "384", "--semente": "17"}
 
 
+def _so_codigo(fonte: str) -> str:
+    """A celula sem comentarios, para asserçoes de AUSENCIA.
+
+    ⚠️ Esta e a TERCEIRA vez que um teste deste repositorio reprova o comentario que
+    EXPLICA um erro em vez do codigo que o comete:
+
+      1. `test_kaggle_t1a.py` buscava "InfoNCE" e o achava na explicaçao de por que
+         nao usar DataParallel;
+      2. o teste de `check=False` o achava na docstring que conta que `check=False`
+         foi um erro;
+      3. e o de `phifm_src.zip` o achava no comentario que diz por que o Kaggle
+         descompacta `.zip` — justamente a liçao que nao se quer perder.
+
+    Um teste que confunde o codigo com a explicaçao do codigo reprova a explicaçao
+    por ser boa, e a correçao errada e apagar o comentario. `ast.unparse` sobre a
+    arvore devolve o codigo sem nenhum `#`, o que resolve a classe inteira.
+
+    Ressalva: strings e docstrings SOBREVIVEM ao unparse, porque sao expressoes. Para
+    asserçoes de ausencia isto e conservador na direçao segura — um falso positivo
+    faz o teste reclamar de mais, nunca de menos.
+    """
+    import ast
+
+    return ast.unparse(ast.parse(fonte))
+
+
+CODIGO_DA_CELULA = _so_codigo(t1c_phirank.CELULA)
+
+
 def test_a_celula_e_python_valido():
     """O extrator do publicador é um regex sobre este arquivo; se o formato mudar,
     o notebook gerado sai vazio e a descoberta custa uma sessão de GPU."""
@@ -199,7 +228,11 @@ def test_o_log_vai_para_arquivo_e_o_subprocesso_recebe_pythonpath():
     """A API do Kaggle devolveu log de 0 bytes em três execuções seguidas, e o
     `sys.path` da célula não vale para o processo filho."""
     assert "stderr=subprocess.STDOUT" in CELULA
-    assert '"PYTHONPATH": str(CODIGO)' in CELULA
+    # ⚠️ `FONTE` e nao `CODIGO`: o tarball do GitHub preserva `src/`, entao o pacote
+    # vive em `<raiz>/src/phifm`. O zip antigo gravava `phifm/` na raiz, e apontar o
+    # PYTHONPATH para a raiz do tarball daria ModuleNotFoundError.
+    assert '"PYTHONPATH": str(FONTE)' in CELULA
+    assert 'FONTE = CODIGO / "src"' in CELULA
     assert "env=AMBIENTE" in CELULA
 
 
@@ -392,3 +425,64 @@ def test_o_reranker_carrega_em_fp32_explicito():
     assert "unscale FP16" in fonte, (
         "o comentário que explica o erro concreto desapareceu; sem ele o próximo a "
         "'limpar' este argumento não sabe o que está removendo")
+
+
+def test_o_codigo_vem_do_github_num_sha_e_nao_do_dataset():
+    """⚠️ O Kaggle FIXA a versão do dataset no anexo ao kernel.
+
+    Medido em 2026-09-03, e custou duas execuções. Consertei o bug do fp16, subi uma
+    versão nova do dataset (`datasets version` ok, `datasets status` = `ready`),
+    empurrei o notebook — e ele rodou 15 min sobre o código ANTIGO, morrendo com o
+    mesmo erro. `kernels push` não re-resolve o dataset para a versão mais recente, e
+    o `dataset_sources` do metadado não carrega número de versão.
+
+    O notebook delatou na própria saída (`git_sha: 73088dc` contra o conserto em
+    `68fe86e`), e é só por isso que eu percebi em vez de concluir que o conserto não
+    funcionava.
+
+    O notebook, ao contrário do dataset, é reempurrado a cada publicação. Então o
+    código vem do GitHub num SHA injetado, e não há versão a fixar.
+    """
+    assert "codeload.github.com" in CELULA
+    assert 'SHA = "__SHA__"' in CELULA, (
+        "o marcador do SHA saiu; sem ele o publicador não tem onde injetar")
+    assert "phifm_src.zip" not in CODIGO_DA_CELULA, (
+        "o código voltou a vir do dataset — é a falha de 2026-09-03")
+
+    from phifm.core.kaggle import T1C
+
+    assert T1C.repo, "o registro precisa declarar o repo de onde o código vem"
+    assert "phifm_src.zip.bin" not in T1C.arquivos, (
+        "o zip do fonte voltou para o pacote; ele reintroduz código velho no dataset")
+
+
+def test_a_celula_confere_que_o_tarball_tem_o_que_ela_chama():
+    """Um SHA errado, ou um arquivo renomeado, daria erro longe da causa."""
+    for exigido in ("src/phifm/training/rerank.py", "scripts/train_rerank.py",
+                    "scripts/avaliar_t1b.py"):
+        assert exigido in CELULA, f"a célula não confere a presença de {exigido}"
+
+
+def test_a_proveniencia_separa_o_git_do_codigo_do_git_dos_dados():
+    """Os dois podem divergir de propósito: os parquets não mudam, o código muda.
+
+    Fundir os dois num campo `git_sha` foi o que tornou a falha de 2026-09-03
+    diagnosticável (o dataset delatou), e separá-los é o que a torna impossível de
+    passar em silêncio.
+    """
+    assert '"git_sha_codigo": SHA' in CELULA
+    assert '"git_sha_dados": man["git_sha"]' in CELULA
+
+
+def test_o_publicador_barra_sha_sujo_ou_nao_empurrado():
+    """Um commit local não empurrado faria o notebook baixar um 404 — depois de o
+    Kaggle alocar GPU. Uma árvore suja significa que o disco não é o que o SHA diz.
+    """
+    fonte = (RAIZ / "scripts/publicar_kaggle.py").read_text(encoding="utf-8")
+    assert "_sha_publicavel" in fonte
+    assert "branch" in fonte and "--contains" in fonte, (
+        "a checagem de que o commit está no remoto desapareceu")
+    assert "status" in fonte and "--porcelain" in fonte
+    assert '"__SHA__" in celula' in fonte or 'marcador in celula' in fonte, (
+        "publicar com o marcador não substituído daria um notebook que baixa a "
+        "string literal `__SHA__`")

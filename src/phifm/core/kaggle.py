@@ -67,6 +67,21 @@ class Experimento:
     # pesos são públicos e o Kaggle os baixa do HuggingFace — subir 90 MB de
     # `all-MiniLM-L6-v2` seria pagar banda por algo que já está lá.
     modelos: tuple[str, ...] = ()
+    # `owner/repo` do GitHub. Quando preenchido, o código NÃO viaja no dataset: o
+    # notebook baixa o tarball do commit exato.
+    #
+    # ⚠️ Isto existe por uma falha medida em 2026-09-03. O Kaggle **fixa a versão do
+    # dataset** no momento em que ela é anexada ao kernel, e `kernels push` não
+    # re-resolve para a mais recente — o `dataset_sources` do metadado nem carrega
+    # número de versão. Resultado: o conserto do fp16 subiu numa versão nova, o
+    # `datasets status` disse `ready`, e o notebook rodou 15 min sobre o código
+    # ANTIGO. Ele delatou na saída (`git_sha: 73088dc` contra o conserto em
+    # `68fe86e`), que foi a única razão de eu perceber.
+    #
+    # Com o código vindo do GitHub num SHA, não há versão a fixar: o notebook é
+    # reempurrado a cada publicação. E os dados podem ficar no dataset justamente
+    # porque não mudam — era o zip de 188 KB que mudava dentro dos 457 MB.
+    repo: str | None = None
 
     def conferir(self) -> None:
         """Só o notebook. Ver a ressalva na docstring do módulo."""
@@ -101,9 +116,11 @@ T1C = Experimento(
     slug_notebook="phifm-t1c-rerank",
     pacote="data/processed/kaggle_t1c",
     fonte_celula="kaggle/t1c_phirank.py",
+    # Sem `phifm_src.zip.bin`: o código vem do GitHub (ver `repo`).
     arquivos=("pares_do_recuperador_limpos.parquet", "pares_validacao.parquet",
-              "modelos.zip.bin", "phifm_src.zip.bin"),
+              "modelos.zip.bin"),
     scripts=("train_rerank.py", "avaliar_t1b.py"),
+    repo="sanchezVB/LLM_F-sica",
     # ⚠️ O ΦEmb vai junto e é o `phiemb-minilm-melhor`, NÃO o `-t4-melhor`.
     # O resultado de referência do T1b (nDCG 0,1584) foi medido com este, e trocar
     # o recuperador ao mesmo tempo que o reranqueador mediria duas coisas.

@@ -137,6 +137,8 @@ assert candidatos, (
 DADOS = candidatos[0]
 man = json.loads((DADOS / "MANIFESTO.json").read_text())
 print(f"dataset: {DADOS} · git {man['git_sha']} · {man.get('grupos', '?')} grupos")
+print("⚠️ o git do dataset é a proveniência dos DADOS. O do CÓDIGO é o SHA abaixo, "
+      "e os dois podem divergir de propósito: os parquets não mudam, o código muda.")
 
 # ── 2. Conferir os hashes ANTES de treinar ──────────────────────────────────
 # Sem isto, um upload truncado produziria um número que parece comparável ao medido
@@ -198,9 +200,43 @@ def _abrir(nomes, destino, rotulo):
         f"não achei o {rotulo} no dataset. Esperava um de {nomes} em {DADOS}. "
         f"Presentes: {sorted(p.name for p in DADOS.iterdir())}")
 
-CODIGO = _abrir(("phifm_src.zip.bin", "phifm_src.zip"), TRABALHO / "codigo", "código")
 MODELOS = _abrir(("modelos.zip.bin", "modelos.zip"), TRABALHO / "modelos", "modelos")
-sys.path.insert(0, str(CODIGO))
+
+# ⚠️ O CÓDIGO vem do GitHub, num SHA fixo — NÃO do dataset.
+#
+# Medido em 2026-09-03: o Kaggle FIXA a versão do dataset no momento em que ela é
+# anexada ao kernel, e `kernels push` não re-resolve para a mais recente. O conserto
+# do fp16 subiu numa versão nova do dataset, `datasets status` disse `ready`, e o
+# notebook rodou 15 min sobre o código ANTIGO — morrendo com o mesmo erro. Ele
+# delatou na própria saída: `git_sha: 73088dc`, e o conserto estava em `68fe86e`.
+#
+# O notebook, ao contrário do dataset, é reempurrado a cada publicação. Então um SHA
+# injetado aqui é sempre o do commit atual, e não há versão a fixar.
+SHA = "__SHA__"
+REPO = "__REPO__"
+import io, tarfile, urllib.request
+alvo = TRABALHO / "codigo"
+url = f"https://codeload.github.com/{REPO}/tar.gz/{SHA}"
+print(f"baixando o código de {url}", flush=True)
+with urllib.request.urlopen(url, timeout=180) as r:
+    bruto = r.read()
+with tarfile.open(fileobj=io.BytesIO(bruto)) as tf:
+    raizes = {m.name.split("/")[0] for m in tf.getmembers()}
+    assert len(raizes) == 1, f"tarball com {len(raizes)} raízes: {sorted(raizes)}"
+    tf.extractall(alvo, filter="data")
+CODIGO = alvo / raizes.pop()
+print(f"código em {CODIGO} · {len(bruto)/1e3:.0f} KB · SHA {SHA[:7]}")
+
+# O tarball do GitHub preserva `src/`, então o pacote vive em `<raiz>/src/phifm` —
+# ao contrário do zip antigo, que gravava `phifm/` na raiz.
+FONTE = CODIGO / "src"
+for exigido in ("src/phifm/training/rerank.py", "scripts/train_rerank.py",
+                "scripts/avaliar_t1b.py"):
+    assert (CODIGO / exigido).exists(), (
+        f"{exigido} não está no tarball de {SHA[:7]} — o SHA está errado ou o "
+        f"arquivo foi renomeado. Presentes na raiz: "
+        f"{sorted(p.name for p in CODIGO.iterdir())}")
+sys.path.insert(0, str(FONTE))
 
 EMB = MODELOS / "phiemb-minilm-melhor"
 CONTROLE = MODELOS / "phirank-rrf-melhor"
@@ -217,7 +253,7 @@ assert torch.cuda.is_available(), (
 # para o filho, e o `sys.path.insert(parents[1] / "src")` que os scripts fazem não
 # resolve: no repositório o pacote vive em `src/phifm/`, mas o ZIP grava `phifm/` na
 # raiz. Medido em 2026-08-26: ModuleNotFoundError: No module named 'phifm'.
-AMBIENTE = {**os.environ, "PYTHONPATH": str(CODIGO)}
+AMBIENTE = {**os.environ, "PYTHONPATH": str(FONTE)}
 
 # ── 4. A REGRA DE DECISÃO, impressa antes de qualquer número ────────────────
 N_CONSULTAS = 2000
@@ -402,7 +438,8 @@ print(f"\nveredito pré-registrado: {mecanismo}")
 (TRABALHO / "t1c_resultado.json").write_text(json.dumps({
     "n_consultas": N_CONSULTAS, "profundidade": PROFUNDIDADE,
     "alfa_bonferroni": ALFA_BONFERRONI, "bases": BASES,
-    "git_sha": man["git_sha"], "linhas": linhas, "falhas": falhas,
+    "git_sha_dados": man["git_sha"], "git_sha_codigo": SHA,
+    "linhas": linhas, "falhas": falhas,
     "mecanismo": mecanismo,
     "fixo": ("max-grupos 12500, grupos 2, n-negativos 7, lr 2e-5, 384 tokens, "
              "semente 17 — idênticos ao controle phirank-rrf-melhor. Só a base muda."),

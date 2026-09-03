@@ -35,13 +35,21 @@ o `-t4-melhor` no lugar trocaria o recuperador junto com o reranqueador.
 
 | arquivo | para quê |
 |---|---|
-| `phifm_src.zip.bin` | o pacote `phifm` + os scripts, para o notebook não reimplementar nada |
 | `MANIFESTO.json` | hashes BLAKE3 e proveniência, para o que roda lá ser o que está aqui |
+| `phifm_src.zip.bin` | o pacote + os scripts — **só quando o experimento não declara `repo`** |
 
-⚠️ O código vai como ZIP e não copiado no notebook. Um notebook que reimplementa o
-laço de treino é um segundo laço para manter em sincronia, e a divergência entre os
-dois seria invisível: os dois rodariam, com resultados diferentes, e nada apontaria
-qual está certo. O manifesto existe para provar que o que rodou lá é este código.
+⚠️ O código nunca é copiado dentro do notebook. Um notebook que reimplementa o laço
+de treino é um segundo laço para manter em sincronia, e a divergência entre os dois
+seria invisível: os dois rodariam, com resultados diferentes, e nada apontaria qual
+está certo.
+
+⚠️ **Mas ele também deixou de viajar no dataset**, para os experimentos que declaram
+`repo`. Medido em 2026-09-03: o Kaggle FIXA a versão do dataset no anexo ao kernel e
+`kernels push` não re-resolve, então um conserto subiu numa versão nova, o
+`datasets status` disse `ready`, e o notebook rodou 15 min sobre o código ANTIGO.
+Agora o código vem de `codeload.github.com/<repo>/tar.gz/<sha>`, com o SHA injetado
+pelo publicador — o notebook é reempurrado a cada publicação, então não há versão a
+fixar. Os dados ficam no dataset justamente porque não mudam.
 
 ## O que NÃO vai
 
@@ -150,10 +158,15 @@ def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
     shutil.copy2(origem, out / origem.name)
     shutil.copy2(a.pares / "pares_validacao.parquet", out / "pares_validacao.parquet")
     n_mod = _zipar_modelos(raiz, out / f"modelos{SUFIXO_ZIP}", exp.modelos)
-    n_py = _zipar_fonte(raiz, out / f"phifm_src{SUFIXO_ZIP}", exp.scripts)
+    # ⚠️ Sem zip de fonte quando `exp.repo` está setado. O código viaja pelo GitHub
+    # num SHA porque o Kaggle fixa a versão do dataset no anexo e não re-resolve —
+    # ver a nota em `phifm.core.kaggle`. Deixar o zip aqui só reintroduziria a
+    # possibilidade de o notebook rodar código velho.
+    n_py = (0 if exp.repo
+            else _zipar_fonte(raiz, out / f"phifm_src{SUFIXO_ZIP}", exp.scripts))
     grupos = pl.scan_parquet(origem).select(pl.len()).collect().item()
     return {"grupos": grupos, "modulos_python": n_py, "arquivos_de_modelo": n_mod,
-            "modelos": list(exp.modelos),
+            "modelos": list(exp.modelos), "codigo_de": exp.repo or "dataset",
             "negativos": str(origem).replace("\\", "/")}
 
 

@@ -88,6 +88,39 @@ def _celula(fonte: Path) -> str:
     return m.group(1)
 
 
+def _sha_publicavel(repo: str) -> str:
+    """SHA do HEAD, só se ele existir no remoto e a árvore estiver limpa.
+
+    ⚠️ As duas condições são o que separa "o notebook roda o código que eu escrevi"
+    de "o notebook baixa um 404".
+
+    O código do notebook vem de `codeload.github.com/<repo>/tar.gz/<sha>`, e o
+    GitHub só serve um SHA que ele conhece. Um commit local não empurrado daria 404
+    — depois de o Kaggle alocar GPU e começar a contar a cota. E uma árvore suja
+    significa que o que está no disco não é o que o SHA descreve, o que reintroduz
+    exatamente a divergência silenciosa que este caminho existe para eliminar.
+    """
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=RAIZ, capture_output=True,
+                         text=True, check=True).stdout.strip()
+    sujo = subprocess.run(["git", "status", "--porcelain"], cwd=RAIZ,
+                          capture_output=True, text=True, check=True).stdout.strip()
+    if sujo:
+        raise SystemExit(
+            f"a árvore tem {len(sujo.splitlines())} mudanças não commitadas. O "
+            f"notebook baixaria {sha[:7]} do GitHub, que NÃO inclui elas — o que "
+            "roda lá deixaria de ser o que está aqui.\n\nCommite e empurre antes "
+            "de publicar.")
+    remotos = subprocess.run(["git", "branch", "-r", "--contains", sha], cwd=RAIZ,
+                             capture_output=True, text=True).stdout.strip()
+    if not remotos:
+        raise SystemExit(
+            f"o commit {sha[:7]} não está em nenhum branch remoto. O notebook baixa "
+            f"o código de codeload.github.com/{repo}/tar.gz/{sha[:7]}, e o GitHub "
+            "responderia 404 — depois de o Kaggle alocar a GPU.\n\n"
+            "Rode `git push` antes de publicar.")
+    return sha
+
+
 def _ipynb(codigo: str) -> dict:
     linhas = codigo.splitlines(keepends=True)
     return {
@@ -338,7 +371,23 @@ def main() -> int:
     # ── notebook + metadados dele ───────────────────────────────────────────
     SAIDA_NB.mkdir(parents=True, exist_ok=True)
     nb = SAIDA_NB / f"{FONTE_CELULA.stem}.ipynb"
-    nb.write_text(json.dumps(_ipynb(_celula(FONTE_CELULA)), indent=1), encoding="utf-8")
+    celula = _celula(FONTE_CELULA)
+    if exp.repo:
+        # ⚠️ O SHA é injetado AQUI, no momento da publicação, porque o notebook é
+        # reempurrado a cada publicação enquanto o dataset fica fixado na versão do
+        # anexo. É essa assimetria que faz o código vir do GitHub e os dados do
+        # dataset — ver a nota em `phifm.core.kaggle`.
+        sha = _sha_publicavel(exp.repo)
+        celula = celula.replace("__SHA__", sha).replace("__REPO__", exp.repo)
+        print(f"  código: github.com/{exp.repo} @ {sha[:7]}")
+    for marcador in ("__SHA__", "__REPO__"):
+        if marcador in celula:
+            raise SystemExit(
+                f"o marcador {marcador} sobrou na célula de {exp.nome}. Ou o "
+                f"experimento precisa de `repo` no registro, ou a célula não devia "
+                "ter o marcador — publicar assim daria um notebook que baixa a "
+                "string literal.")
+    nb.write_text(json.dumps(_ipynb(celula), indent=1), encoding="utf-8")
     (SAIDA_NB / "kernel-metadata.json").write_text(json.dumps({
         "id": id_nb,
         "title": exp.titulo_notebook,
