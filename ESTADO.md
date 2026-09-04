@@ -18,11 +18,91 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reranqueador **entrou no sistema** em 2026-09-03 |
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
-| **ΦEnc** · código | 🔴 não existe | `training/pretrain/` está vazio. É o gargalo agora, e não é de dinheiro |
+| **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
+| **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
 
-Suíte: **514 testes** (10 saltados, os de torch), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **586 testes** (12 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Mais 9 do laço de pré-treino, que rodam na venv de treino:
+`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O código de pré-treino do ΦEnc existe (2026-09-03)
+
+Quatro peças, separadas de propósito — só o laço importa torch, e as outras três
+rodam na suíte rápida:
+
+| peça | o que garante |
+|---|---|
+| `pretrain/mascaramento.py` | a hipótese do DOC-07 §2.3, com orçamento igual entre os braços |
+| `pretrain/dados.py` | o fluxo SEM ESTADO do DOC-08 §7.2, puro em `(semente, passo)` |
+| `pretrain/spike.py` | detecção e resposta do §6.1, e o WSD do §4 |
+| `pretrain/laco.py` | a costura, o checkpoint e o rollback |
+| `models/encoder/` | a config conferida contra o `transformers` |
+
+### O número que prova que o MLM está certo
+
+    perda inicial 10,7343   contra   ln(40.960) = 10,6204
+
+Um MLM não treinado prevê uniforme, então a entropia cruzada inicial **é** `ln(V)`.
+Se o mascaramento apagasse os alvos, se o `-100` estivesse no lugar errado, ou se os
+alvos viessem da entrada já mascarada, esse número sairia diferente e **nenhum outro
+sintoma apareceria**. Está travado num teste.
+
+Junto: taxa efetiva 0,2998 contra os 30% pedidos, retomada no passo certo com o
+plano WSD do disco, e o aviso de `fracao_tratada` baixa disparando.
+
+### Três coisas que o desenho do mascaramento decidiu, e a medição de cada uma
+
+**Orçamento igual entre os braços.** `n_alvo = round(taxa × mascaráveis)` vale para
+os dois; no tratado escolhe-se uma equação que caiba e o resto é aleatório. Sem isso
+a ablação mediria "consciente de equações" **e** "mascara 6× mais".
+
+**Só equações em DISPLAY.** Medido em 120 documentos do RedPajama-arXiv:
+
+    tipo      por doc   tokens: p10  mediana  p90   p99     max
+    display      40,6            39       79  214   678  19.587
+    inline      260,9             4        7   19    39     103
+
+A mediana de 7 tokens do inline é uma **variável** (`$\rho$`), não uma equação. A
+primeira versão tratava qualquer `$…$` e a ablação mediria o nada. 91,7% dos
+documentos têm display, e 99,8% delas cabem no orçamento.
+
+**A equação vai inteira para `[MASK]`, sem 80/10/10** — registrado como escolha, não
+achado: se o tratamento ganhar, "ganhou porque mascara 100% com `[MASK]`" segue
+sendo explicação viva, e a ablação que a mata está escrita na docstring.
+
+### ⚠️ O bug que a sonda pegou, e que teria invalidado a ablação inteira
+
+`DISPLAY` era `re.compile(r"^(?:...)")` usado com `DISPLAY.match(texto, i)`.
+`Pattern.match(s, pos)` **já** ancora em `pos`, mas o `^` continua se referindo ao
+início REAL da string — então o padrão nunca casava para nenhuma equação que não
+começasse no caractere 0.
+
+Medido: **0 de 120** documentos tratados, `recaida_sem_equacao` em 120, contra 91,7%
+de documentos com display medidos por outra sonda que fatiava a string antes de
+casar. Foi a **discordância entre as duas sondas** que localizou o erro. Sem a
+`fracao_tratada` nos contadores, a ablação teria rodado inteira comparando aleatório
+com aleatório e reportado empate.
+
+Depois do conserto: `tratada 0,883` com `p_equacao=1,0`.
+
+### E um defeito no agendamento, achado por um teste que falhou
+
+O `lr_wsd` recebia `frac_warmup=0.03` e calculava o warmup como `total × 0,03`. Com
+isso, estender o treino de 10 mil para 200 mil passos alongava o warmup de 300 para
+6.000 — e a LR do passo 5.000, **que já havia sido dado com o pico**, passaria a
+valer 8,3e-4. O agendamento deixava de ser extensível, que é o argumento inteiro do
+DOC-08 §4 para preferir WSD a cosseno.
+
+Agora `passos_warmup` é absoluto, derivado uma vez por `plano_wsd()` e guardado no
+checkpoint. A tentação era ajustar o número esperado no teste.
+
+### O que NÃO existe, e é o gargalo agora
+
+**Avaliação.** O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em
+equações e uma sonda de estrutura tensorial. Um `phienc.json` com perda baixa **não
+é veredito** sobre a hipótese do §2.3 — é só evidência de que o laço funciona.
 
 ## Itens de custo zero executados (2026-08-31)
 
