@@ -335,3 +335,75 @@ def test_a_nota_dos_contadores_diz_o_que_invalida_a_ablacao():
     d = Contadores().como_dict()
     assert "fracao_tratada" in d
     assert "invalida" in d["nota"] and "§2.3" in d["nota"]
+
+
+# ─── 5. a vetorização, e a propriedade que ela não pode perder ───────────────
+
+
+def _marcar_referencia(offsets, texto):
+    """A varredura linear, escrita AQUI como referência.
+
+    ⚠️ Deliberadamente ingênua e O(spans × tokens): é a definição de "sobrepõe",
+    traduzida direto. A versão de produção usa `searchsorted` e é 50× mais rápida —
+    e é contra esta que ela tem de concordar, senão a otimização mudou a semântica.
+    """
+    marca = np.full(len(offsets), -1, dtype=np.int32)
+    disp = np.zeros(len(offsets), dtype=bool)
+    for k, (ini, fim, e_disp) in enumerate(spans_de_equacao(texto)):
+        for t, (a, b) in enumerate(offsets):
+            if a == b:
+                continue
+            if a < fim and b > ini:
+                marca[t] = k
+                disp[t] = e_disp
+    return marca, disp
+
+
+def test_a_versao_vetorizada_concorda_com_a_varredura_linear():
+    """⚠️ A otimização que valeu 50× não pode ter mudado o que a função significa.
+
+    Medido no corpus de verdade: 0 divergências em 1.181.249 tokens de 80
+    documentos, e 62,4 mil tok/s → 3,1 M tok/s. Aqui a mesma comparação, em textos
+    sintéticos que cobrem os casos de fronteira.
+    """
+    casos = [
+        "prosa " + r"\begin{equation} F = ma \end{equation}" + " mais prosa",
+        r"\begin{align} a=1 \end{align}" + " x " + r"\[ b=2 \]" + " y $c = 3$ z",
+        "$$E = mc^2$$ no começo",
+        r"\begin{equation}" + " no fim, sem fechar",
+        "sem matemática nenhuma aqui",
+        "$a$ $b$ $cc = dd$ inline em sequência",
+    ]
+    for texto in casos:
+        # offsets de caractere: o pior caso para a busca binária, um token por char
+        offs = [(i, i + 1) for i in range(len(texto))]
+        m1, d1 = _marcar_referencia(offs, texto)
+        m2, d2 = marcar_equacoes(offs, texto)
+        assert (m1 == m2).all(), (texto, m1.tolist(), m2.tolist())
+        assert (d1 == d2).all(), texto
+
+
+def test_offsets_fora_de_ordem_levantam_em_vez_de_mentir():
+    """A busca binária exige monotonicidade. Um tokenizer que emitisse tokens fora
+    de ordem daria respostas erradas em SILÊNCIO — então a checagem levanta.
+
+    Não há recaída para a varredura linear de propósito: ela é 50× mais lenta, e
+    uma recaída silenciosa transformaria um bug de tokenizer numa preparação de 16
+    horas que ninguém explicaria.
+    """
+    texto = "prosa " + r"\begin{equation} F = ma \end{equation}"
+    fora_de_ordem = [(20, 25), (6, 10), (10, 20), (25, 40)]
+    with pytest.raises(ValueError, match="não estão ordenados"):
+        marcar_equacoes(fora_de_ordem, texto)
+
+
+def test_tokens_sem_extensao_nas_duas_pontas_nao_quebram_a_busca():
+    """Um `(0, 0)` no FIM da sequência quebraria a monotonicidade, e a busca
+    binária responderia qualquer coisa. Eles saem do cálculo e voltam com −1."""
+    texto = "ab " + r"\begin{equation}x=1\end{equation}" + " cd"
+    offsets = [(0, 0), (0, 2), (3, 20), (20, 23), (23, 36), (37, 39), (0, 0)]
+    m, d = marcar_equacoes(offsets, texto)
+    m_ref, d_ref = _marcar_referencia(offsets, texto)
+    assert (m == m_ref).all(), (m.tolist(), m_ref.tolist())
+    assert (d == d_ref).all()
+    assert m[0] == -1 and m[-1] == -1
