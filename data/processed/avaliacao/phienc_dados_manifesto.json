@@ -1,0 +1,28 @@
+{
+  "etapa": "phienc_dados",
+  "git_sha": "6c04ff1",
+  "corpus": "data/processed/redpajama_fisica",
+  "tokenizer": "data/processed/tokenizer/variante_A.json",
+  "tokenizer_sha": "288c4573b9db0e40",
+  "tokens": 2001270262,
+  "documentos_nesta_execucao": 143810,
+  "partes_feitas": 9,
+  "partes_totais": 44,
+  "partes_usadas": [
+    "part-00035.parquet",
+    "part-00014.parquet",
+    "part-00002.parquet",
+    "part-00009.parquet",
+    "part-00003.parquet",
+    "part-00013.parquet",
+    "part-00000.parquet",
+    "part-00043.parquet",
+    "part-00028.parquet"
+  ],
+  "semente_do_sorteio": 17,
+  "em_ordem": false,
+  "max_tokens": 2000000000,
+  "id_cls": 2,
+  "id_sep": 3,
+  "nota": "Corpus do RedPajama-arXiv, construído do fonte LaTeX (ADR-0002). NÃO peS2o: 0,0% de ambiente de equação contra 84,9% desta fatia. As partes são SORTEADAS: medido que as 8 primeiras têm 32,4% de matemática contra 42,7% das demais, então pegar as primeiras enviesaria o corpus contra a hipótese do DOC-07 §2.3."
+}

@@ -1,0 +1,37 @@
+{
+  "etapa": "conferencia_phienc_dados",
+  "git_sha": "6c04ff1",
+  "n_sequencias_amostradas": 300,
+  "contexto": 8192,
+  "prepared_vs_cru": {
+    "math_preparado": 0.378,
+    "math_cru": 0.388,
+    "display_preparado": 0.25,
+    "display_cru": 0.252,
+    "nota": "medido em 300 sequencias sorteadas do binario preparado, contra a media do corpus cru. E a comparacao que decide: o binario e o que o treino le."
+  },
+  "mascaramento": {
+    "fracao_tratada": 0.903,
+    "taxa_efetiva": 0.3,
+    "recaida_sem_display": 28,
+    "recaida_curta": 0,
+    "recaida_grande": 1
+  },
+  "ids": {
+    "min": 2,
+    "max": 40958,
+    "vocab": 40960
+  },
+  "grupos_no_corpus_cru": {
+    "usadas_9_sorteadas": {
+      "math": 0.427,
+      "display": 0.284
+    },
+    "fora_35": {
+      "math": 0.476,
+      "display": 0.321
+    },
+    "nota": "40 documentos por grupo — uma diferenca de ~5 pontos esta dentro do ruido dessa amostra. Antes do sorteio a diferenca era de 10,3 pontos em math e 10,7 em display, com as 8 PRIMEIRAS partes."
+  },
+  "armadilha_no_proprio_conferidor": "a primeira versao desta conferencia usava `head(200)` sobre uma LISTA de parquets, que le as 200 primeiras linhas — todas do PRIMEIRO arquivo. A comparacao entre grupos virava comparacao entre dois arquivos, e devolveu exatamente os 32,4% da medicao enviesada que ela existia para refutar. Quinta vez que `head()` sobre dado ordenado morde neste repositorio."
+}

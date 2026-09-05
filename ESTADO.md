@@ -19,6 +19,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
+| **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
 
 Suíte: **586 testes** (12 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
@@ -26,6 +27,71 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O corpus do ΦEnc está preparado e conferido (2026-09-05)
+
+**2.001.270.262 tokens** de 143.810 documentos, 9 partes sorteadas de 44, 6,0 GB —
+`tokens.u16.bin` + `marcas.u8.bin` em `data/processed/phienc_dados/`. A ~1.046 mil
+tok/s, 35 min.
+
+Por que 2 B e não mais: no proxy de 48 M, 1 B por braço custa **3,2–5,3 h** de T4, e
+a ablação inteira (controle + tratado) cabe em 6,4–10,7 h — dentro da cota de 30 h
+por semana, com cada braço numa sessão de 9 h. Preparar além disso seria preparar
+dado que não dá para treinar de graça.
+
+### A conferência, antes de dizer que está pronto
+
+| | preparado | corpus cru |
+|---|---|---|
+| matemática | **37,8%** | 38,8% |
+| display | **25,0%** | 25,2% |
+| `fracao_tratada` | **0,903** | — |
+| taxa efetiva | **0,3000** | pedida 0,3000 |
+| ids | [2, 40958] | vocabulário 40.960 ✓ |
+
+Medido em 300 sequências sorteadas do binário — que é o que o treino lê. E o trecho
+decodificado é LaTeX de Física íntegro: `\begin{equation}`, `\label{BASForDC}`,
+`\bar{c}_s`, `f^{a_1 a_2 b}`.
+
+### ⚠️ O viés que a conferência pegou, e que eu quase gravei
+
+A primeira preparação usou as **8 PRIMEIRAS** de 44 partes:
+
+    partes 0-7  (usadas)      math 32,4%   display 18,8%
+    partes 8-43 (NÃO usadas)  math 42,7%   display 29,5%
+
+As que ficaram de fora tinham **57% mais equação em display**. As partes não são
+intercambiáveis, e pegar as primeiras é `head()` no nível de arquivo — **quarta vez**
+que este repositório tropeça nisso (o peS2o amostrado no começo e concluído sem
+LaTeX; o `val.head(500)` que eram 35 documentos; o `pares_treino` cortado por posição
+com 49,6% de vazamento).
+
+O viés ia **contra** a hipótese do DOC-07 §2.3 — menos equação enfraquece o
+tratamento —, que é o lado seguro. Um viés que ajuda não deixa de ser viés.
+
+Consertado: partes sorteadas com semente, **a lista** no manifesto (com sorteio,
+saber que 9 entraram não permite reconstruir quais), e retomar com outra semente
+**levanta**. `--em-ordem` fica para reproduzir a preparação antiga, rotulado.
+
+Depois do conserto o binário passou de 36,7% para **37,8%** de matemática contra os
+38,8% do cru, e de 23,9% para **25,0%** de display contra 25,2%.
+
+### ⚠️ E a QUINTA ocorrência da mesma armadilha, dentro do conferidor
+
+A primeira versão da conferência usava `head(200)` sobre uma **lista** de parquets —
+que lê as 200 primeiras linhas, **todas do primeiro arquivo**. A comparação entre
+grupos virava comparação entre dois arquivos, e devolveu exatamente os 32,4% da
+medição enviesada que ela existia para refutar.
+
+Eu quase reportei isso como "o viés persistiu". O número que decide é o do binário
+preparado contra o corpus cru, e lá a diferença é de 1,0 ponto em matemática e 0,2 em
+display.
+
+### Antes disso: a preparação levava 16 horas
+
+`marcar_equacoes` era **98% do tempo** — O(spans × tokens) em Python puro, 188
+milhões de iterações por documento. Vetorizado com `searchsorted`: **33 mil → 1.046
+mil tok/s**, com 0 divergências em 1.181.249 tokens contra a implementação lenta.
 
 ## O código de pré-treino do ΦEnc existe (2026-09-03)
 
