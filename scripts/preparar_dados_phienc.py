@@ -29,6 +29,26 @@ silenciosamente o que o passo 60.000 contém.
 mascaramento consciente de equações sobre peS2o seria treinar o tratamento sobre um
 corpus sem tratamento possível.
 
+## ⚠️ As partes são SORTEADAS, não as primeiras
+
+Medido depois de uma primeira preparação que usou as 8 primeiras de 44 partes:
+
+    partes 0-7  (usadas)      math 32,4%   display 18,8%
+    partes 8-43 (NÃO usadas)  math 42,7%   display 29,5%
+
+As partes **não são intercambiáveis**: as que ficaram de fora têm 57% mais equação
+em display. Pegar as primeiras é `head()` no nível de arquivo — o mesmo erro que
+este repositório já pagou três vezes (o peS2o amostrado no começo e concluído sem
+LaTeX, o `val.head(500)` que eram 35 documentos, o `pares_treino` cortado por
+posição com 49,6% de vazamento).
+
+O efeito aqui vai **contra** a hipótese — menos equação enfraquece o tratamento —,
+mas um viés que ajuda não deixa de ser viés, e a ablação passaria a comparar dois
+braços num corpus que não representa o corpus.
+
+O sorteio usa `--semente` e a lista escolhida vai para o manifesto, então continua
+determinístico e reproduzível.
+
 ## Retomada
 
 O progresso é gravado a cada parte. Uma execução interrompida continua da parte
@@ -45,6 +65,7 @@ import glob
 import hashlib
 import json
 import logging
+import random
 import sys
 import time
 from pathlib import Path
@@ -95,6 +116,13 @@ def main() -> int:
                         "paraleliza dentro do lote")
     p.add_argument("--recomecar", action="store_true",
                    help="apaga o que existe em --out em vez de retomar")
+    p.add_argument("--semente", type=int, default=17,
+                   help="sorteio das partes. Com o teto de tokens, só uma fração "
+                        "das partes é lida, e pegar as primeiras enviesa — ver a "
+                        "docstring")
+    p.add_argument("--em-ordem", action="store_true",
+                   help="lê as partes na ordem do disco em vez de sortear. Só para "
+                        "reproduzir uma preparação antiga; enviesa")
     a = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
@@ -105,6 +133,10 @@ def main() -> int:
     partes = sorted(glob.glob(str(a.corpus / "part-*.parquet")))
     if not partes:
         raise SystemExit(f"nenhum part-*.parquet em {a.corpus}")
+    # ⚠️ Sorteia. Com `--max-tokens` abaixo do corpus inteiro, só uma fração das
+    # partes é lida, e as partes não são intercambiáveis — ver a docstring.
+    if not a.em_ordem:
+        random.Random(a.semente).shuffle(partes)
     if not a.tokenizer.exists():
         raise SystemExit(
             f"{a.tokenizer} não existe. Ele sai de `scripts/bakeoff_tokenizer.py`; "
@@ -127,6 +159,13 @@ def main() -> int:
                 f"{prog.get('tokenizer_sha')} e o atual é {h_tok}. Retomar "
                 "concatenaria dois vocabulários no mesmo binário — use "
                 "--recomecar, ou volte o tokenizer.")
+        if (prog.get("semente"), prog.get("em_ordem")) != (a.semente, a.em_ordem):
+            raise SystemExit(
+                f"o progresso foi gravado com semente={prog.get('semente')} e "
+                f"em_ordem={prog.get('em_ordem')}, e agora são {a.semente} e "
+                f"{a.em_ordem}. Retomar leria partes DIFERENTES achando que "
+                "continua a mesma preparação — use --recomecar, ou volte os "
+                "parâmetros.")
         feitas = prog.get("partes_feitas", [])
         log.info("retomando: %d de %d partes já feitas", len(feitas), len(partes))
 
@@ -168,7 +207,8 @@ def main() -> int:
                      n_tokens / max(dt, 1e-9) / 1e3)
             prog_p.write_text(json.dumps(
                 {"partes_feitas": feitas, "tokenizer_sha": h_tok,
-                 "tokens": n_tokens}, indent=2), encoding="utf-8")
+                 "tokens": n_tokens, "semente": a.semente,
+                 "em_ordem": a.em_ordem}, indent=2), encoding="utf-8")
 
     manifesto = {
         "etapa": "phienc_dados",
@@ -180,10 +220,18 @@ def main() -> int:
         "documentos_nesta_execucao": n_docs,
         "partes_feitas": len(feitas),
         "partes_totais": len(partes),
+        # ⚠️ A LISTA, não só a contagem: com sorteio, saber quantas partes entraram
+        # não permite reconstruir quais.
+        "partes_usadas": list(feitas),
+        "semente_do_sorteio": a.semente,
+        "em_ordem": a.em_ordem,
         "max_tokens": a.max_tokens,
         "id_cls": ID_CLS, "id_sep": ID_SEP,
         "nota": ("Corpus do RedPajama-arXiv, construído do fonte LaTeX (ADR-0002). "
-                 "NÃO peS2o: 0,0% de ambiente de equação contra 84,9% desta fatia."),
+                 "NÃO peS2o: 0,0% de ambiente de equação contra 84,9% desta fatia. "
+                 "As partes são SORTEADAS: medido que as 8 primeiras têm 32,4% de "
+                 "matemática contra 42,7% das demais, então pegar as primeiras "
+                 "enviesaria o corpus contra a hipótese do DOC-07 §2.3."),
     }
     (a.out / NOME_MANIFESTO).write_text(
         json.dumps(manifesto, indent=2, ensure_ascii=False), encoding="utf-8")
