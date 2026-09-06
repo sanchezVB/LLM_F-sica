@@ -39,11 +39,31 @@ representações, que é trabalho e ainda não foi feito.
 
 As duas primeiras linhas são restrições do DirectML que eu quase tratei como
 propriedades do problema. `escolher_dispositivo` já prefere CUDA e liga as duas.
+
+## ⚠️ Retreino de 2026-09-06: os pares agora são SORTEADOS
+
+O run original empacotou `head(400.000)` de `pares_treino.parquet`, que vem
+agrupado por documento citado. Medido:
+
+    n=  400.000   head -> 17.844 documentos citados   sorteio -> 191.300   10,7×
+
+O modelo campeão do G1 treinou com **17.844** documentos distintos onde o sorteio
+do mesmo tamanho dá **191.300** — mesma GPU, mesmo tempo. Ver `amostrar_do_plano`
+em `phifm.training.amostragem`.
+
+Duas coisas mudaram por causa disso:
+
+* **O código vem do GitHub num SHA**, não do dataset. O Kaggle fixa a versão do
+  dataset no momento em que ela é anexada ao kernel e `kernels push` não
+  re-resolve — na T1c isso custou 15 min de execução sobre código antigo.
+* **A assinatura do `pares_treino.parquet` é injetada nesta célula** na publicação,
+  e a célula levanta se o manifesto do dataset anexado declarar outra. Um bundle
+  errado falha em segundos, e não depois de 36 min de T4.
 """
 
 CELULA = r'''
 # ─── ΦEmb / T1a — cole isto numa célula do Kaggle ────────────────────────────
-import hashlib, json, os, subprocess, sys, zipfile
+import hashlib, json, os, subprocess, sys
 from pathlib import Path
 
 ENTRADA = Path("/kaggle/input")
@@ -73,7 +93,9 @@ assert candidatos, (
 DADOS = candidatos[0]
 print(f"dataset em {DADOS}")
 man = json.loads((DADOS / "MANIFESTO.json").read_text())
-print(f"dataset: {DADOS.name} · git {man['git_sha']} · {man['linhas_treino']:,} pares")
+print(f"dataset: {DADOS.name} · git {man['git_sha']} · {man['linhas_treino']:,} pares"
+      f" · {man.get('documentos_distintos', 0):,} documentos citados distintos")
+
 
 # 2. ⚠️ CONFERIR OS HASHES antes de treinar.
 #
@@ -123,32 +145,67 @@ if algo == "blake3":
         assert (DADOS / obrigatorio).exists(), (
             f"{obrigatorio} não está no dataset. Confira o Input do notebook.")
 
-# 3. O código vem do pacote: o notebook NÃO reimplementa o treino.
+# 3. O CÓDIGO vem do GitHub, num SHA fixo — NÃO do dataset. O notebook NÃO
+#    reimplementa o treino.
 #
-# ⚠️ Duas formas possíveis, e a segunda é o Kaggle mexendo no que subiu. Medido em
-# 2026-08-24: um `phifm_src.zip` é DESCOMPACTADO no upload e chega como o diretório
-# `phifm_src/` — o `ZipFile` morria em FileNotFoundError aos 26 s. O empacotador
-# passou a gravar `.zip.bin` por isso, mas um dataset antigo ainda tem a forma
-# extraída, então as duas são aceitas.
-_zip = next((DADOS / n for n in ("phifm_src.zip.bin", "phifm_src.zip")
-             if (DADOS / n).exists()), None)
-if _zip is not None:
-    with zipfile.ZipFile(_zip) as z:
-        z.extractall(TRABALHO / "codigo")
-    CODIGO = TRABALHO / "codigo"
-elif (DADOS / "phifm_src").is_dir():
-    # Não dá para conferir hash de árvore extraída contra um manifesto de arquivo,
-    # e dizer isso alto é melhor que treinar em silêncio sobre código não conferido.
-    print("⚠️ usando `phifm_src/` que o Kaggle extraiu. A integridade do CÓDIGO "
-          "não foi conferida — só a dos parquets. Para conferir, republique o "
-          "dataset com `scripts/empacotar_kaggle.py`, que agora grava .zip.bin")
-    CODIGO = DADOS / "phifm_src"
-else:
-    raise SystemExit(
-        f"não achei o código no dataset. Esperava `phifm_src.zip.bin` ou o "
-        f"diretório `phifm_src/` em {DADOS}. Presentes: "
-        f"{sorted(p.name for p in DADOS.iterdir())}")
-sys.path.insert(0, str(CODIGO))
+# Medido em 2026-09-03 na T1c: o Kaggle fixa a versão do dataset no anexo e
+# `kernels push` não re-resolve, então o notebook rodou 15 min sobre o código
+# ANTIGO. O notebook, ao contrário do dataset, é reempurrado a cada publicação —
+# um SHA injetado aqui é sempre o do commit atual, e não há versão a fixar.
+SHA = "__SHA__"
+REPO = "__REPO__"
+import io, tarfile, urllib.request
+alvo = TRABALHO / "codigo"
+url = f"https://codeload.github.com/{REPO}/tar.gz/{SHA}"
+print(f"baixando o código de {url}", flush=True)
+with urllib.request.urlopen(url, timeout=180) as r:
+    bruto = r.read()
+with tarfile.open(fileobj=io.BytesIO(bruto)) as tf:
+    raizes = {m.name.split("/")[0] for m in tf.getmembers()}
+    assert len(raizes) == 1, f"tarball com {len(raizes)} raízes: {sorted(raizes)}"
+    tf.extractall(alvo, filter="data")
+CODIGO = alvo / raizes.pop()
+print(f"código em {CODIGO} · {len(bruto)/1e3:.0f} KB · SHA {SHA[:7]}")
+
+# O tarball do GitHub preserva `src/`, então o pacote vive em `<raiz>/src/phifm` —
+# ao contrário do zip antigo, que gravava `phifm/` na raiz.
+FONTE = CODIGO / "src"
+for exigido in ("src/phifm/training/embedding.py",
+                "src/phifm/training/amostragem.py",
+                "scripts/train_embedding.py"):
+    assert (CODIGO / exigido).exists(), (
+        f"{exigido} não está no tarball de {SHA[:7]} — o SHA está errado ou o "
+        f"arquivo foi renomeado. Presentes na raiz: "
+        f"{sorted(p.name for p in CODIGO.iterdir())}")
+sys.path.insert(0, str(FONTE))
+
+# 3b. ⚠️ A ASSINATURA DO BUNDLE — um `assert`, não um print.
+#
+# O Kaggle FIXA a versão do dataset quando ela é anexada ao kernel, e `kernels
+# push` não re-resolve. Medido na T1c em 2026-09-03: uma versão nova subiu,
+# `datasets status` disse `ready`, e o notebook rodou 15 min sobre o conteúdo
+# ANTIGO. Só foi percebido porque a saída imprimia o `git_sha` e alguém leu —
+# depender de leitura humana não é uma guarda.
+#
+# A conferência de blake3 do passo 2 compara os arquivos com o manifesto QUE VEIO
+# NO MESMO dataset: pega upload truncado, e não bundle da versão errada, porque um
+# bundle velho é internamente consistente. Só um valor de FORA distingue os dois, e
+# ele é injetado aqui na publicação.
+#
+# Vem DEPOIS do download do código de propósito: assim a conta mora num lugar só
+# (`phifm.core.kaggle`) em vez de ser reimplementada nesta célula. Custa os ~10 s
+# do tarball, e não os 36 min de T4.
+from phifm.core.kaggle import assinatura_do_manifesto
+
+ASSINATURA_ESPERADA = "__ASSINATURA_DADOS__"
+_obtida = assinatura_do_manifesto(man["arquivos"])
+assert _obtida == ASSINATURA_ESPERADA, (
+    f"o dataset anexado tem assinatura {_obtida} e esta célula foi publicada para "
+    f"{ASSINATURA_ESPERADA}. O Kaggle fixou uma versão ANTIGA do dataset no anexo "
+    f"— treinar aqui reproduziria justamente o run que se queria substituir. "
+    f"Troque o Input do notebook pelo dataset novo. Arquivos vistos: "
+    f"{sorted(man['arquivos'])}")
+print(f"✅ assinatura do bundle confere: {_obtida}")
 
 import torch
 print(f"torch {torch.__version__} · CUDA {torch.cuda.is_available()} · "
@@ -171,6 +228,10 @@ cmd = [
     "--passos-aval", "200",
     "--n-candidatos", "1000",
     "--dispositivo", "cuda",
+    # A semente do pool de avaliação e de qualquer corte. Explícita porque o
+    # `-melhor` é eleito por esta métrica, e um pool que muda entre execuções
+    # tornaria a eleição irreprodutível.
+    "--semente", "17",
 ]
 print(" ".join(cmd))
 
@@ -184,11 +245,10 @@ print(" ".join(cmd))
 #     ModuleNotFoundError: No module named 'phifm'
 #       em /kaggle/working/codigo/scripts/train_embedding.py
 #
-# E o `sys.path.insert(parents[1] / "src")` que o próprio script faz não resolve
-# aqui: no repositório o pacote vive em `src/phifm/`, mas o ZIP grava `phifm/` na
-# RAIZ (`_zipar_fonte` usa `relative_to(raiz / "src")`), então `codigo/src` não
-# existe. Apontar o PYTHONPATH para `CODIGO` funciona nos dois layouts.
-AMBIENTE = {**os.environ, "PYTHONPATH": str(CODIGO)}
+# Com o tarball do GitHub o pacote vive em `<raiz>/src/phifm`, então o PYTHONPATH
+# é `CODIGO/src` — e não `CODIGO`, que era o certo para o zip antigo (ele gravava
+# `phifm/` na raiz, porque `_zipar_fonte` usava `relative_to(raiz / "src")`).
+AMBIENTE = {**os.environ, "PYTHONPATH": str(FONTE)}
 
 TREINO_LOG = TRABALHO / "treino.log"
 with open(TREINO_LOG, "w", encoding="utf-8") as fh:

@@ -60,7 +60,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(RAIZ / "src"))
-from phifm.core.kaggle import EXPERIMENTOS, obter  # noqa: E402
+from phifm.core.kaggle import (  # noqa: E402
+    EXPERIMENTOS,
+    assinatura_do_manifesto,
+    obter,
+)
 
 # ⚠️ Os slugs, títulos e a lista de arquivos moram em `phifm.core.kaggle`, e não
 # aqui, porque `empacotar_kaggle.py` precisa dos mesmos. Com uma constante em cada
@@ -380,7 +384,22 @@ def main() -> int:
         sha = _sha_publicavel(exp.repo)
         celula = celula.replace("__SHA__", sha).replace("__REPO__", exp.repo)
         print(f"  código: github.com/{exp.repo} @ {sha[:7]}")
-    for marcador in ("__SHA__", "__REPO__"):
+
+    # ⚠️ A assinatura do bundle de DADOS, para a célula poder LEVANTAR quando o
+    # Kaggle anexar uma versão velha do dataset.
+    #
+    # A conferência de blake3 que a célula já faz compara os arquivos com o
+    # manifesto que veio no MESMO dataset: ela pega upload truncado, e não bundle
+    # da versão errada, porque um bundle velho é internamente consistente. Só um
+    # valor vindo de FORA do dataset distingue os dois, e este é o momento em que
+    # esse valor existe.
+    if "__ASSINATURA_DADOS__" in celula:
+        assinatura = assinatura_do_manifesto(man["arquivos"])
+        celula = celula.replace("__ASSINATURA_DADOS__", assinatura)
+        print(f"  dados: assinatura do bundle {assinatura} "
+              f"({len(man['arquivos'])} arquivos)")
+
+    for marcador in ("__SHA__", "__REPO__", "__ASSINATURA_DADOS__"):
         if marcador in celula:
             raise SystemExit(
                 f"o marcador {marcador} sobrou na célula de {exp.nome}. Ou o "

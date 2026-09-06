@@ -30,6 +30,7 @@ título legível em português por um problema que o dataset não tem.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 
@@ -41,6 +42,34 @@ _NAO_SLUG = re.compile(r"[^a-z0-9]+")
 
 def slug_derivado(titulo: str) -> str:
     return _NAO_SLUG.sub("-", titulo.lower()).strip("-")
+
+
+def assinatura_do_manifesto(arquivos: dict[str, dict]) -> str:
+    """Uma impressão digital do bundle inteiro, a partir dos hashes declarados.
+
+    ## ⚠️ Por que ela não é redundante com a conferência de blake3
+
+    A célula já confere cada arquivo contra o `MANIFESTO.json` — mas contra o
+    manifesto que veio **no mesmo dataset**. Isso pega upload truncado e arquivo
+    trocado, e **não** pega bundle da versão errada, porque um bundle velho é
+    internamente consistente: os hashes dele batem com os arquivos dele.
+
+    O Kaggle FIXA a versão do dataset no momento em que ela é anexada ao kernel, e
+    `kernels push` não re-resolve para a mais recente. Medido em 2026-09-03 na T1c:
+    uma versão nova subiu, `datasets status` disse `ready`, e o notebook rodou 15
+    min sobre o conteúdo ANTIGO. Só foi percebido porque a saída imprimia o
+    `git_sha` e alguém leu — e depender de leitura humana não é uma guarda.
+
+    Só um valor vindo de FORA do dataset distingue os dois. Este é injetado na
+    célula no momento da publicação, quando esse valor existe.
+
+    Cobre TODOS os arquivos declarados, e não um escolhido pela ordem da tupla.
+    """
+    if not arquivos:
+        raise ValueError("manifesto sem arquivos: não há bundle para assinar")
+    corpo = "".join(f"{nome}:{arquivos[nome]['blake3']}\n"
+                    for nome in sorted(arquivos))
+    return hashlib.sha256(corpo.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -96,16 +125,25 @@ class Experimento:
 
 T1A = Experimento(
     nome="t1a",
-    # Título como estava publicado desde 2026-08-24; o slug vem do `id`, não dele.
-    titulo_dados="PhiFM T1a — pares de citação arXiv",
-    slug_dados="phifm-t1a-pares-citacao",
+    # ⚠️ Slug NOVO em 2026-09-06, e o motivo é a versão fixada no anexo.
+    #
+    # O `pares_treino.parquet` mudou: deixou de ser `head(400.000)` e passou a ser
+    # sorteio — 191.300 documentos citados distintos em vez de 17.844. O dataset
+    # antigo (`phifm-t1a-pares-citacao`, publicado em 2026-08-24) continua anexado
+    # ao kernel na versão dele, e `kernels push` não re-resolve para a mais
+    # recente: subir uma versão nova ali produziria um retreino silencioso sobre os
+    # dados velhos. Um dataset recém-criado tem uma versão só, e não há versão
+    # velha para o kernel fixar.
+    titulo_dados="PhiFM T1a — pares de citação arXiv sorteados",
+    slug_dados="phifm-t1a-pares-sorteados",
     titulo_notebook="PhiFM T1a Gpu",
     slug_notebook="phifm-t1a-gpu",
     pacote="data/processed/kaggle_t1a",
     fonte_celula="kaggle/t1a_phiemb.py",
-    arquivos=("pares_treino.parquet", "pares_validacao.parquet",
-              "phifm_src.zip.bin"),
+    # Sem `phifm_src.zip.bin`: o código vem do GitHub (ver `repo`).
+    arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
     scripts=("train_embedding.py",),
+    repo="sanchezVB/LLM_F-sica",
 )
 
 T1C = Experimento(

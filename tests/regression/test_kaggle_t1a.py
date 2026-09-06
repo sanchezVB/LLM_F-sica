@@ -116,8 +116,12 @@ def test_empacotador_existe_e_declara_o_volume():
 def test_pacote_gerado_tem_o_que_o_notebook_espera(tmp_path):
     """Contrato entre o empacotador e a célula, testado nos dois lados.
 
-    Se o empacotador parar de gerar `phifm_src.zip.bin`, ou o manifesto perder a chave
-    `arquivos`, a célula falha no Kaggle — a 211 MB de upload de distância.
+    Se o manifesto perder a chave `arquivos`, a célula falha no Kaggle — a 211 MB
+    de upload de distância.
+
+    ⚠️ Desde 2026-09-06 o pacote NÃO leva `phifm_src.zip.bin`: o código vem do
+    GitHub num SHA, porque o Kaggle fixa a versão do dataset no anexo e `kernels
+    push` não re-resolve. Ver a nota em `phifm.core.kaggle`.
     """
     import polars as pl
 
@@ -141,40 +145,46 @@ def test_pacote_gerado_tem_o_que_o_notebook_espera(tmp_path):
 
     man = json.loads((saida / "MANIFESTO.json").read_text(encoding="utf-8"))
     assert set(man["arquivos"]) == {"pares_treino.parquet",
-                                    "pares_validacao.parquet", "phifm_src.zip.bin"}
+                                    "pares_validacao.parquet"}
+    assert not (saida / "phifm_src.zip.bin").exists(), (
+        "o zip de fonte voltou ao pacote; com `repo` no registro o código vem do "
+        "GitHub, e código no dataset é código que pode ficar velho sem avisar")
     for v in man["arquivos"].values():
         assert len(v["blake3"]) == 64 and v["bytes"] > 0
     assert man["hash_algo"] == "blake3"
+    # ⚠️ A procedência do SORTEIO. Sem ela, um pacote feito por `head` e um feito
+    # por sorteio são indistinguíveis depois do fato — e a diferença entre os dois
+    # foi 17.844 contra 191.300 documentos citados distintos.
+    assert man["semente_do_sorteio"] == 17
+    assert man["documentos_distintos"] >= 1
+    assert man["linhas_disponiveis"] >= man["linhas_treino"]
+    assert man["codigo_de"] == "sanchezVB/LLM_F-sica"
 
 
 def test_zip_traz_o_ponto_de_entrada_e_o_pacote(tmp_path):
     """O ZIP tem de conter `scripts/train_embedding.py` E o pacote `phifm`.
 
-    Só o pacote não basta: a célula invoca o script pelo caminho, e um ZIP sem ele
-    falharia com "arquivo não encontrado" depois do upload.
+    Só o pacote não basta: quem invoca o script pelo caminho falharia com "arquivo
+    não encontrado" depois do upload.
+
+    ⚠️ Testa `_zipar_fonte` DIRETAMENTE, e não o pacote da T1a: desde 2026-09-06 a
+    T1a não leva zip de fonte (o código vem do GitHub). A função continua no
+    caminho de qualquer experimento sem `repo`, então a garantia continua valendo —
+    só não tem mais um pacote onde observá-la.
     """
-    import subprocess
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    from empacotar_kaggle import _zipar_fonte
 
-    import polars as pl
-
-    pares = tmp_path / "pares"
-    pares.mkdir()
-    d = pl.DataFrame({"arxiv_id": ["a"], "arxiv_citado": ["b"],
-                      "ancora": ["x"], "positivo": ["y"]})
-    d.write_parquet(pares / "pares_treino.parquet")
-    d.write_parquet(pares / "pares_validacao.parquet")
-    saida = tmp_path / "s"
-    subprocess.run(
-        [sys.executable, str(RAIZ / "scripts" / "empacotar_kaggle.py"),
-         "--pares", str(pares), "--out", str(saida), "--max-pares", "1"],
-        capture_output=True, text=True,
-        env={**__import__("os").environ, "PYTHONPATH": str(RAIZ / "src"),
-             "PYTHONUTF8": "1"}, check=True)
-
-    with zipfile.ZipFile(saida / "phifm_src.zip.bin") as z:
+    destino = tmp_path / "fonte.zip.bin"
+    n = _zipar_fonte(RAIZ, destino, ("train_embedding.py",))
+    assert n > 0
+    with zipfile.ZipFile(destino) as z:
         nomes = z.namelist()
     assert "scripts/train_embedding.py" in nomes
     assert "phifm/training/embedding.py" in nomes
+    assert "phifm/training/amostragem.py" in nomes, (
+        "o `train_embedding.py` importa `amostragem`; sem ele o zip dá "
+        "ModuleNotFoundError depois do upload")
     assert not any("__pycache__" in n for n in nomes)
 
 
@@ -281,26 +291,63 @@ def test_o_fonte_nao_sai_com_extensao_zip():
 
     assert SUFIXO_ZIP == ".zip.bin", (
         "voltou a gravar .zip — o Kaggle vai descompactar e o hash do código morre")
-    # E todo experimento tem de declarar o fonte com esse sufixo: um que declarasse
-    # `.zip` passaria pelo empacotador e quebraria no notebook.
+    # Todo zip DECLARADO tem de usar esse sufixo: um que declarasse `.zip` passaria
+    # pelo empacotador e quebraria no notebook.
+    #
+    # ⚠️ Não exigir que cada experimento declare ALGUM zip. A T1a não declara mais
+    # nenhum desde 2026-09-06 — nem fonte (vem do GitHub) nem modelos (os pesos são
+    # públicos) —, e a versão anterior deste teste exigia pelo menos um, o que
+    # transformaria o conserto em falha.
     for e in EXPERIMENTOS.values():
-        zips = [n for n in e.arquivos if ".zip" in n]
-        assert zips, f"{e.nome} não declara nenhum zip"
-        for n in zips:
+        for n in [x for x in e.arquivos if ".zip" in x]:
             assert n.endswith(".zip.bin"), f"{e.nome} declara {n}, que o Kaggle abre"
+        if e.repo:
+            assert not any("phifm_src" in x for x in e.arquivos), (
+                f"{e.nome} busca o código no GitHub E declara o zip de fonte; o "
+                "zip só reintroduz a chance de rodar código velho")
 
 
-def test_a_celula_aceita_o_fonte_extraido_pelo_kaggle():
-    """Um dataset publicado ANTES do conserto tem `phifm_src/` em vez do arquivo.
+def test_a_celula_busca_o_codigo_no_GITHUB_num_sha():
+    """⚠️ Substitui o teste do zip, e o motivo é a versão fixada no anexo.
 
-    Aceitar as duas formas evita exigir um reupload de 211 MB só para rodar — mas o
-    caminho extraído tem de AVISAR que a integridade do código não foi conferida.
+    Medido em 2026-09-03 na T1c: o Kaggle fixa a versão do dataset no momento em
+    que ela é anexada ao kernel e `kernels push` não re-resolve para a mais
+    recente. O conserto do fp16 subiu numa versão nova, `datasets status` disse
+    `ready`, e o notebook rodou 15 min sobre o código ANTIGO.
+
+    O notebook, ao contrário do dataset, é reempurrado a cada publicação — então um
+    SHA injetado na célula é sempre o do commit atual, e não há versão a fixar.
     """
     celula = CELULA
-    assert 'phifm_src.zip.bin' in celula
-    assert '(DADOS / "phifm_src").is_dir()' in celula
-    assert "não foi conferida" in celula, (
-        "o caminho extraído precisa dizer alto que o código não foi verificado")
+    assert "codeload.github.com" in celula
+    assert 'SHA = "__SHA__"' in celula and 'REPO = "__REPO__"' in celula
+    assert "tarfile" in celula
+    # E o caminho antigo tem de ter SAÍDO: aceitar os dois deixaria o notebook
+    # rodar código do dataset quando o download falhasse, que é o defeito de volta.
+    from conftest import so_codigo
+
+    codigo = so_codigo(CELULA)
+    assert "phifm_src" not in codigo, (
+        "a célula ainda lê o código do dataset; com o GitHub no caminho isso "
+        "reintroduz a possibilidade de rodar código velho")
+
+
+def test_a_celula_LEVANTA_se_o_bundle_de_dados_nao_for_o_publicado():
+    """A conferência de blake3 do passo 2 não pega bundle da versão errada.
+
+    Ela compara os arquivos com o manifesto que veio no MESMO dataset, e um bundle
+    velho é internamente consistente: os hashes dele batem com os arquivos dele. Só
+    um valor vindo de FORA distingue os dois, e ele é injetado na publicação.
+
+    Isto existe porque a T1a foi retreinada com pares SORTEADOS e o dataset antigo
+    continua anexável — rodar sobre ele reproduziria justamente o run que se queria
+    substituir, e o único sinal seria uma linha de log que alguém precisaria ler.
+    """
+    celula = CELULA
+    assert 'ASSINATURA_ESPERADA = "__ASSINATURA_DADOS__"' in celula
+    assert "assinatura_do_manifesto" in celula
+    assert "assert _obtida == ASSINATURA_ESPERADA" in celula, (
+        "a assinatura tem de ser um `assert`; imprimir depende de leitura humana")
 
 
 def test_parquets_ausentes_derrubam_antes_do_treino():
@@ -451,20 +498,29 @@ def test_o_subprocesso_recebe_pythonpath():
         ModuleNotFoundError: No module named 'phifm'
           em /kaggle/working/codigo/scripts/train_embedding.py
 
-    E o `sys.path.insert(parents[1] / "src")` que o próprio script faz não cobre:
-    no repositório o pacote vive em `src/phifm/`, mas `_zipar_fonte` grava `phifm/`
-    na RAIZ do zip, então `codigo/src` não existe no Kaggle.
+    E o `sys.path.insert(parents[1] / "src")` que o próprio script faz não cobre
+    todo layout.
+
+    ⚠️ O alvo MUDOU em 2026-09-06, e é por isso que este teste é específico. Com o
+    zip era `CODIGO`, porque `_zipar_fonte` gravava `phifm/` na raiz. Com o tarball
+    do GitHub o `src/` é preservado, então o pacote vive em `<raiz>/src/phifm` e o
+    PYTHONPATH tem de ser `CODIGO / "src"` — apontar para `CODIGO` daria
+    ModuleNotFoundError depois de o Kaggle alocar a GPU.
     """
-    assert '"PYTHONPATH": str(CODIGO)' in CELULA, (
+    assert '"PYTHONPATH": str(FONTE)' in CELULA, (
         "sem PYTHONPATH no ambiente do subprocesso o treino não importa phifm")
+    assert 'FONTE = CODIGO / "src"' in CELULA, (
+        "o tarball do GitHub preserva `src/`; FONTE tem de apontar para lá")
     assert "env=AMBIENTE" in CELULA, "o env montado não está sendo passado"
 
 
 def test_o_zip_grava_o_pacote_na_raiz_e_nao_sob_src(tmp_path):
-    """Fixa a premissa que o PYTHONPATH acima depende.
+    """O layout do zip, para quem ainda o usa.
 
-    Se o empacotador passar a preservar `src/`, o PYTHONPATH tem de mudar junto — e
-    este teste falha para avisar, em vez de o notebook morrer no Kaggle.
+    ⚠️ A T1a NÃO depende mais disto: o código dela vem do tarball do GitHub, que
+    preserva `src/`, e o PYTHONPATH dela aponta para `CODIGO / "src"`. Este teste
+    fixa o layout de `_zipar_fonte` para um experimento futuro sem `repo` — os dois
+    layouts existem e confundi-los é o que dá ModuleNotFoundError no Kaggle.
     """
     import sys as _sys
 

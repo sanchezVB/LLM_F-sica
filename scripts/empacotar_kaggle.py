@@ -149,10 +149,15 @@ def _montar_t1a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
         pl.scan_parquet(a.pares / "pares_treino.parquet"), a.max_pares, a.semente)
     tr.write_parquet(out / "pares_treino.parquet", compression="zstd")
     shutil.copy2(a.pares / "pares_validacao.parquet", out / "pares_validacao.parquet")
-    n_py = _zipar_fonte(raiz, out / f"phifm_src{SUFIXO_ZIP}", exp.scripts)
+    # ⚠️ Sem zip de fonte quando `exp.repo` está setado — mesma razão da T1c: o
+    # Kaggle fixa a versão do dataset no anexo e não re-resolve, então código no
+    # dataset é código que pode ficar velho sem avisar.
+    n_py = (0 if exp.repo
+            else _zipar_fonte(raiz, out / f"phifm_src{SUFIXO_ZIP}", exp.scripts))
     return {"max_pares": a.max_pares, "linhas_treino": tr.height,
             "linhas_disponiveis": total, "documentos_distintos": n_doc,
-            "semente_do_sorteio": a.semente, "modulos_python": n_py}
+            "semente_do_sorteio": a.semente, "modulos_python": n_py,
+            "codigo_de": exp.repo or "dataset"}
 
 
 def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
