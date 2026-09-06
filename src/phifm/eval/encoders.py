@@ -23,6 +23,42 @@ Sentence-BERT e nenhum dos comparados foi treinado especificamente para ela.
 próprio, então isto mede "quem serve melhor NESTE uso", não "quem é o melhor
 modelo" em abstrato.
 
+## ⚠️ O pool tem de ter alvo e consulta ÚNICOS, senão o teto não é 1,0
+
+O protocolo é recuperação dentro do lote: `sim = va @ vp.T`, e a resposta certa da
+linha *i* é a **coluna** *i*. Duas coisas quebram isso, e as duas estavam presentes
+até 2026-09-06:
+
+1. **`val.head(n)`.** A ordem das linhas do parquet carrega um gradiente de
+   comprimento — a mediana da âncora cai de ~1.180 para ~870 do início ao fim, e o
+   primeiro bloco de 2.000 está no **percentil 94**. Pior: em `head(2000)` há só
+   **1.147 textos positivos distintos**, e **62% das linhas** têm um positivo que
+   aparece outra vez — um deles **28 vezes**. Colunas byte-idênticas têm cosseno
+   idêntico, e o `argsort` desempata de forma arbitrária: a diagonal cai num posto
+   qualquer entre as 28.
+
+2. **Âncoras repetidas.** Linhas que compartilham a consulta compartilham **um**
+   ranking, então só uma delas pode ter posto 1.
+
+Teto de um modelo **perfeito**, medido no `pares_validacao.parquet`:
+
+    head(2000)          recall@1 0,5235   nDCG@10 0,7562   <- o que o G1 usou
+    sample(2000)        recall@1 0,9364   nDCG@10 0,9761
+    dedup + sample      recall@1 1,0000   nDCG@10 1,0000
+
+O G1 reportou recall@1 **0,2620** contra um teto de **0,5235**: metade do que
+parecia erro do modelo era o protocolo. E os discordantes do McNemar incluíam
+desempates arbitrários, então parte do p-value vinha de moeda, não de discordância
+entre modelos.
+
+O empate era **justo** entre modelos — todos sofriam igual — e é por isso que a
+tabela parecia válida. O que ele destruía era a margem: o G1.2 se decide em
+**+0,003** de nDCG@10, e ruído injetado em 62% dos itens não deixa +0,003
+sobreviver.
+
+`preparar_pool` (em `phifm.training.amostragem`) é a única porta de entrada, e
+ela **levanta** se o teto não for 1,0.
+
 ## Por que roda em CPU por padrão
 
 A GPU tem 8 GB e costuma estar ocupada pelo treino. Avaliar 512 textos sem
@@ -42,6 +78,10 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
 
+# `preparar_pool` mora em `training/amostragem.py`, livre de torch, para o teste
+# da guarda rodar na suíte rápida — e ao lado do irmão deste defeito, o
+# `amostrar_por_documento`.
+from phifm.training.amostragem import SEMENTE_POOL, preparar_pool
 from phifm.training.embedding import media_mascarada
 
 log = logging.getLogger(__name__)
@@ -118,7 +158,8 @@ def _codificar(mod, tok, textos: list[str], dev, max_tokens: int, lote: int) -> 
 
 
 def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
-               max_tokens: int = 192, lote: int = 16, dispositivo: str = "cpu") -> Resultado:
+               max_tokens: int = 192, lote: int = 16, dispositivo: str = "cpu",
+               semente: int = SEMENTE_POOL) -> Resultado:
     t0 = time.perf_counter()
     dev = torch.device(dispositivo)
     try:
@@ -128,7 +169,7 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
         return Resultado(nome, caminho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                          erro=f"{type(exc).__name__}: {str(exc)[:120]}")
 
-    amostra = val.head(n)
+    amostra = preparar_pool(val, n, semente)
     va = _codificar(mod, tok, amostra["ancora"].to_list(), dev, max_tokens, lote)
     vp = _codificar(mod, tok, amostra["positivo"].to_list(), dev, max_tokens, lote)
 
@@ -153,17 +194,22 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
     )
 
 
-def _digesto(val: pl.DataFrame, n: int) -> str:
+def _digesto(val: pl.DataFrame, n: int, semente: int = SEMENTE_POOL) -> str:
     """Impressão digital da amostra avaliada.
 
     O cache só vale se a amostra for a MESMA. Comparar um modelo medido nos
     pares de ontem com outro medido nos de hoje seria o pior tipo de erro: a
     tabela pareceria válida e não seria.
+
+    ⚠️ Passa por `preparar_pool`, o MESMO caminho de `avaliar_um`. Montar a
+    amostra em dois lugares é como o alvo pré-comprometido da folha de revisão
+    ficou escrito duas vezes: os dois divergem e nada avisa.
     """
     import hashlib
     h = hashlib.sha256()
+    pool = preparar_pool(val, n, semente)
     for c in ("ancora", "positivo"):
-        for s in val.head(n)[c].to_list():
+        for s in pool[c].to_list():
             h.update(s.encode("utf-8", "replace"))
     return h.hexdigest()[:16]
 
@@ -186,7 +232,8 @@ def comparar(val: pl.DataFrame, extras: dict[str, str] | None = None,
     nossos = set(extras or {})
     alvos = {**CONCORRENTES, **(extras or {})}
     n, mt = kw.get("n", 256), kw.get("max_tokens", 192)
-    dig = _digesto(val, n)
+    sem = kw.get("semente", SEMENTE_POOL)
+    dig = _digesto(val, n, sem)
 
     guardado: dict[str, dict] = {}
     if cache and cache.exists():
@@ -217,13 +264,14 @@ def comparar(val: pl.DataFrame, extras: dict[str, str] | None = None,
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(
-            {"digesto": dig, "n": n, "max_tokens": mt,
+            {"digesto": dig, "n": n, "max_tokens": mt, "semente": sem,
              "resultados": {r.caminho: asdict(r) for r in out if not r.erro}},
             ensure_ascii=False), encoding="utf-8")
     return out
 
 
-def salvar(rs: list[Resultado], destino: Path, n: int) -> dict:
+def salvar(rs: list[Resultado], destino: Path, n: int,
+           teto: dict[str, float]) -> dict:
     """Grava o RESULTADO, que é coisa diferente do cache.
 
     O cache guarda posições por item e é chaveado pelo protocolo: existe para não
@@ -237,6 +285,10 @@ def salvar(rs: list[Resultado], destino: Path, n: int) -> dict:
     destino.parent.mkdir(parents=True, exist_ok=True)
     d = {
         "n_candidatos": n,
+        # ⚠️ O teto do protocolo, ao lado dos números. Sem ele um nDCG@10 de
+        # 0,4657 não diz se o modelo é medíocre ou se o protocolo é. Foi
+        # exatamente essa pergunta que ficou dois meses sem resposta.
+        "teto_do_protocolo": teto,
         "modelos": [{k: v for k, v in asdict(r).items() if k != "posicoes"} for r in rs],
         "pareado": [comparar_pareado(campeao(rs), r)
                     for r in rs if not r.erro and r is not campeao(rs)]

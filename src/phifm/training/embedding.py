@@ -66,6 +66,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 
+from phifm.training.amostragem import amostrar_por_documento, preparar_pool
+
 log = logging.getLogger(__name__)
 
 BASE_PADRAO = "allenai/scibert_scivocab_uncased"
@@ -549,16 +551,34 @@ class TreinadorEmb:
         return perda.detach()
 
     @torch.no_grad()
-    def avaliar(self, val: pl.DataFrame, n: int | None = None) -> tuple[float, float, float]:
+    def avaliar(self, val: pl.DataFrame,
+                n: int | None = None) -> tuple[float, float, float, float]:
         """Recuperação num conjunto fechado: dado o texto A, achar o citado B.
 
-        `recall@1`, `recall@10` e MRR sobre `n` candidatos. É a métrica do G1 em
-        miniatura — o benchmark completo do DOC-11 vem depois, mas medir aqui
-        já distingue aprendizado de ruído.
+        `recall@1`, `recall@10`, MRR e nDCG@10 sobre `n` candidatos. É a métrica
+        do G1 em miniatura — o benchmark completo do DOC-11 vem depois, mas medir
+        aqui já distingue aprendizado de ruído.
+
+        ## ⚠️ O pool passa por `preparar_pool`, e não por `head`
+
+        Era `val.head(n)`. Num pool com alvos repetidos as colunas são
+        byte-idênticas, o cosseno empata e o desempate do `argsort` é arbitrário
+        — o teto da métrica cai abaixo de 1,0. No pool do G1 ele era **0,7562**
+        de nDCG@10. Ver o §"o pool de candidatos" em
+        `phifm.training.amostragem`.
+
+        Aqui isso não era só cosmético: é esta função que elege o checkpoint
+        `-melhor`, e ruído arbitrário na métrica é exatamente como um checkpoint
+        pior vira campeão. Já aconteceu uma vez por outro motivo — o
+        `-gc-melhor` foi eleito por MRR quando o portão pede nDCG@10.
+
+        `exigir_n=False` porque abortar um treino de horas pelo tamanho do pool
+        de acompanhamento seria pior que medir com menos; a comparação aqui é
+        entre checkpoints do MESMO pool.
         """
         n = n or self.cfg.n_candidatos
         self.mod.eval()
-        amostra = val.head(n)
+        amostra = preparar_pool(val, n, exigir_n=False)
         lf = self.lote_fisico
         va = torch.cat([self._codificar(amostra["ancora"].to_list()[i:i + lf])
                         for i in range(0, amostra.height, lf)]).cpu()
@@ -581,8 +601,14 @@ class TreinadorEmb:
                 dcg.mean().item())
 
     def treinar(self, treino: pl.DataFrame, val: pl.DataFrame, saida: Path) -> Metricas:
-        if self.cfg.max_pares:
-            treino = treino.head(self.cfg.max_pares)
+        if self.cfg.max_pares and self.cfg.max_pares < treino.height:
+            # ⚠️ Sorteio, não `head` — o mesmo conserto que `rerank.py` já tinha
+            # e que nunca chegou aqui. Ver `amostrar_do_plano`: 400 mil pares por
+            # `head` cobrem 17.844 documentos citados; sorteados, 191.300.
+            treino, n_doc = amostrar_por_documento(
+                treino, self.cfg.max_pares, self.cfg.semente)
+            log.info("treino: %s pares sorteados · %s documentos citados "
+                     "distintos", f"{treino.height:,}", f"{n_doc:,}")
         # Gerador com semente explícita: a ordem dos lotes tem de ser a MESMA
         # entre execuções, senão retomar do passo N não significa nada — pularia
         # lotes diferentes dos que já foram vistos.

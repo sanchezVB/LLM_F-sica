@@ -18,7 +18,8 @@ from pathlib import Path
 
 import polars as pl
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+RAIZ = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(RAIZ / "src"))
 
 from phifm.training.amostragem import amostrar_por_documento  # noqa: E402
 
@@ -90,3 +91,83 @@ def test_sem_a_coluna_de_documento_cai_para_linhas():
     d = pl.DataFrame({"ancora": ["a", "b", "c"], "positivo": ["x", "y", "z"]})
     amostra, n = amostrar_por_documento(d, 2, semente=17)
     assert len(amostra) == 2 and n == 2
+
+
+# ─── `amostrar_do_plano`: o corte do TREINO, e os 10,7× que ele custou ───────
+#
+# O mesmo defeito deste arquivo, no caminho do embedding, onde nunca foi
+# consertado. Medido em `pares_treino.parquet` (6.564.111 linhas, 667.304
+# documentos citados distintos):
+#
+#     n=   20.000   head ->    984 docs   sample ->  17.837 docs   18,1x
+#     n=  400.000   head -> 17.844 docs   sample -> 191.300 docs   10,7x
+#     n=1.500.000   head -> 67.232 docs   sample -> 390.966 docs    5,8x
+#
+# O run da T1a — 400 mil pares, que produziu o campeão atual do G1 — treinou com
+# 17.844 documentos distintos onde o sorteio do MESMO tamanho daria 191.300.
+
+
+def test_amostrar_do_plano_sorteia_e_nao_pega_o_prefixo(tmp_path):
+    """⚠️ A asserção central desta seção. Ver o comentário acima.
+
+    O corte tem de acontecer no PLANO — coletar 6,5 M pares com 1,0 GB de RAM
+    livre matava o processo antes do primeiro passo, sem traceback.
+    """
+    from phifm.training.amostragem import amostrar_do_plano
+
+    # 300 documentos citados, 20 linhas cada, AGRUPADOS: a patologia do parquet.
+    linhas = [{"arxiv_id": f"{d}.{k}", "arxiv_citado": f"cit{d:04d}",
+               "ancora": f"a{d}-{k}", "positivo": f"p{d}"}
+              for d in range(300) for k in range(20)]
+    arq = tmp_path / "pares.parquet"
+    pl.DataFrame(linhas).write_parquet(arq)
+
+    d, total, n_doc = amostrar_do_plano(pl.scan_parquet(arq), 600, semente=17)
+    assert (d.height, total) == (600, 6000)
+    # `head(600)` cobriria 30 documentos; o sorteio tem de cobrir muito mais.
+    por_head = pl.read_parquet(arq).head(600)["arxiv_citado"].n_unique()
+    assert por_head == 30, f"a patologia mudou: head(600) cobre {por_head}"
+    assert n_doc > 250, (
+        f"o sorteio cobriu {n_doc} documentos de 300 — perto dos {por_head} do "
+        "`head`, então ele não está sorteando")
+
+
+def test_amostrar_do_plano_e_deterministico_e_pede_o_n_exato(tmp_path):
+    """Um treino que não é reproduzível não isola variável nenhuma, e um corte
+    que devolve menos linhas do que pediu treina sobre outro conjunto."""
+    from phifm.training.amostragem import amostrar_do_plano
+
+    arq = tmp_path / "p.parquet"
+    pl.DataFrame({"arxiv_id": [str(i) for i in range(1000)],
+                  "arxiv_citado": [f"c{i // 5}" for i in range(1000)],
+                  "ancora": [f"a{i}" for i in range(1000)],
+                  "positivo": [f"p{i // 5}" for i in range(1000)]}
+                 ).write_parquet(arq)
+    a, _, _ = amostrar_do_plano(pl.scan_parquet(arq), 200, semente=17)
+    b, _, _ = amostrar_do_plano(pl.scan_parquet(arq), 200, semente=17)
+    assert a["arxiv_id"].to_list() == b["arxiv_id"].to_list()
+    c, _, _ = amostrar_do_plano(pl.scan_parquet(arq), 200, semente=99)
+    assert c["arxiv_id"].to_list() != a["arxiv_id"].to_list()
+    assert a.height == 200
+
+    # n maior que o total devolve tudo, sem levantar: é o caso "sem teto".
+    d, total, _ = amostrar_do_plano(pl.scan_parquet(arq), 5000, semente=17)
+    assert (d.height, total) == (1000, 1000)
+
+
+def test_os_pontos_de_corte_do_treino_nao_usam_head():
+    """Os quatro lugares que cortavam com `head`, e o preço de cada um.
+
+    O de `rerank.py` já estava consertado — com a explicação escrita — e o
+    conserto nunca chegou ao caminho do embedding.
+    """
+    from conftest import so_codigo_de
+
+    for caminho, agulha in (
+        ("src/phifm/training/embedding.py", "treino.head(self.cfg.max_pares)"),
+        ("scripts/train_embedding.py", "head(a.max_pares)"),
+        ("scripts/empacotar_kaggle.py", "head(a.max_pares)"),
+    ):
+        fonte = so_codigo_de(RAIZ / caminho)
+        assert agulha not in fonte, f"voltou o `head` em {caminho}"
+        assert "amostrar_" in fonte, f"{caminho} não sorteia"

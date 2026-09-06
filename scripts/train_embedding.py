@@ -15,6 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
+from phifm.training.amostragem import (  # noqa: E402
+    amostrar_do_plano,
+    amostrar_por_documento,
+)
 from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: E402
 
 
@@ -32,7 +36,11 @@ def _com_negativos_dificeis(a) -> tuple:
     """
     treino = pl.read_parquet(a.negativos)
     if a.max_pares:
-        treino = treino.head(a.max_pares)
+        # ⚠️ Sorteio, e não `head`: o parquet minerado herda a ordem dos pares,
+        # agrupada por documento citado. Ver `amostrar_do_plano`.
+        treino, n_doc = amostrar_por_documento(treino, a.max_pares, a.semente)
+        logging.info("negativos: %s linhas sorteadas · %s documentos distintos",
+                     f"{treino.height:,}", f"{n_doc:,}")
     proib = (pl.scan_parquet(a.pares / "pares_treino.parquet")
              .group_by("arxiv_id")
              .agg(pl.col("arxiv_citado").unique().alias("proibidos"))
@@ -70,6 +78,10 @@ def main() -> int:
     p.add_argument("--passos-aval", type=int, default=500)
     p.add_argument("--n-candidatos", type=int, default=256,
                    help="pool da avaliação; 256 dá erro padrão de ±0,031")
+    p.add_argument("--semente", type=int, default=17,
+                   help="sorteio dos pares e do pool de avaliação. Ver "
+                        "`amostrar_do_plano`: `head` cobria 10,7x menos "
+                        "documentos citados pelo mesmo custo de GPU")
     p.add_argument("--dispositivo", default="auto",
                    choices=["auto", "cuda", "dml", "cpu"])
     # ⚠️ `--sem-amp` desliga precisão mista. Existe por dois motivos concretos, não
@@ -108,18 +120,22 @@ def main() -> int:
     if a.negativos:
         treino, total = _com_negativos_dificeis(a)
     else:
-        plano = pl.scan_parquet(a.pares / "pares_treino.parquet")
-        total = plano.select(pl.len()).collect().item()
-        treino = (plano.head(a.max_pares) if a.max_pares else plano).collect()
+        # ⚠️ SORTEIO no plano, não `head`. Ver `amostrar_do_plano`: com 400 mil
+        # pares o `head` cobria 17.844 documentos citados distintos e o sorteio
+        # cobre 191.300, pelo mesmo custo.
+        treino, total, n_doc = amostrar_do_plano(
+            pl.scan_parquet(a.pares / "pares_treino.parquet"),
+            a.max_pares, a.semente)
     val = pl.read_parquet(a.pares / "pares_validacao.parquet")
-    logging.info("pares: %s de %s disponíveis · %s validação",
-                 f"{treino.height:,}", f"{total:,}", f"{val.height:,}")
+    logging.info("pares: %s de %s disponíveis · %s documentos citados distintos "
+                 "· %s validação", f"{treino.height:,}", f"{total:,}",
+                 f"{n_doc:,}", f"{val.height:,}")
 
     cfg = Config(base=a.base, lote=a.lote, sub_lote=a.sub_lote,
                  max_tokens=a.max_tokens, lr=a.lr,
                  max_pares=a.max_pares, passos_aval=a.passos_aval,
                  n_candidatos=a.n_candidatos, dispositivo=a.dispositivo, amp=not a.sem_amp,
-                 pedaco_negativos=a.pedaco_negativos)
+                 pedaco_negativos=a.pedaco_negativos, semente=a.semente)
     if a.sub_lote:
         logging.info("GradCache ligado: lote lógico %d (%d negativos) com a memória "
                      "de %d", a.lote, a.lote - 1, a.sub_lote)

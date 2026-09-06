@@ -74,6 +74,7 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     git_sha_curto,
     hash_arquivo,
 )
+from phifm.training.amostragem import amostrar_do_plano  # noqa: E402
 
 log = logging.getLogger("empacotar")
 
@@ -141,11 +142,17 @@ def _zipar_modelos(raiz: Path, destino: Path, modelos: tuple[str, ...]) -> int:
 
 
 def _montar_t1a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
-    tr = pl.scan_parquet(a.pares / "pares_treino.parquet").head(a.max_pares).collect()
+    # ⚠️ SORTEIO, não `head`. Era `head(a.max_pares)`, e o run da T1a treinou com
+    # 17.844 documentos citados distintos onde o sorteio do mesmo tamanho dá
+    # 191.300 — 10,7×, pelo mesmo custo de GPU. Ver `amostrar_do_plano`.
+    tr, total, n_doc = amostrar_do_plano(
+        pl.scan_parquet(a.pares / "pares_treino.parquet"), a.max_pares, a.semente)
     tr.write_parquet(out / "pares_treino.parquet", compression="zstd")
     shutil.copy2(a.pares / "pares_validacao.parquet", out / "pares_validacao.parquet")
     n_py = _zipar_fonte(raiz, out / f"phifm_src{SUFIXO_ZIP}", exp.scripts)
-    return {"max_pares": a.max_pares, "linhas_treino": tr.height, "modulos_python": n_py}
+    return {"max_pares": a.max_pares, "linhas_treino": tr.height,
+            "linhas_disponiveis": total, "documentos_distintos": n_doc,
+            "semente_do_sorteio": a.semente, "modulos_python": n_py}
 
 
 def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
@@ -179,6 +186,9 @@ def main() -> int:
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
     p.add_argument("--out", type=Path, default=None,
                    help="por omissão, o `pacote` declarado pelo experimento")
+    p.add_argument("--semente", type=int, default=17,
+                   help="sorteio dos pares de treino. Ver `amostrar_do_plano`: "
+                        "`head` cobria 10,7x menos documentos")
     p.add_argument("--max-pares", type=int, default=400_000,
                    help="T1a: volume do campeão do G1.1; mais que isso a medição "
                         "diz que não compra nada (p=0,950)")

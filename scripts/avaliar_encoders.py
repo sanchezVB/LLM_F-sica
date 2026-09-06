@@ -28,6 +28,11 @@ from phifm.eval.encoders import (  # noqa: E402
     tabela_pareada,
     veredito,
 )
+from phifm.training.amostragem import (  # noqa: E402
+    SEMENTE_POOL,
+    preparar_pool,
+    teto_do_pool,
+)
 
 # Nossos candidatos. O `-melhor` é o checkpoint de pico, não o último passo — no
 # treino sobre MiniLM o pico deu MRR 0,477 contra 0,469 do fim.
@@ -76,6 +81,9 @@ def main() -> int:
                    help="acrescenta um modelo nosso; repetível. Sem isto usa os padrões.")
     p.add_argument("--n", type=int, default=2000,
                    help="candidatos na avaliação; 256 não separa margens de ~0,02")
+    p.add_argument("--semente", type=int, default=SEMENTE_POOL,
+                   help="sorteio do pool. Mudar isto muda o protocolo e invalida "
+                        "o cache — de propósito")
     p.add_argument("--max-tokens", type=int, default=192)
     p.add_argument("--lote", type=int, default=16)
     p.add_argument("--dispositivo", default="cpu", choices=["cpu", "dml"])
@@ -91,7 +99,12 @@ def main() -> int:
                         datefmt="%H:%M:%S", stream=sys.stdout)
 
     val = pl.read_parquet(a.pares / "pares_validacao.parquet")
-    logging.info("validação: %s pares · usando os %d primeiros", f"{val.height:,}", a.n)
+    # ⚠️ Não são "os n primeiros". Eram, até 2026-09-06, e por isso o teto de
+    # nDCG@10 do protocolo era 0,7562 em vez de 1,0 — ver `preparar_pool`.
+    pool = preparar_pool(val, a.n, a.semente)
+    logging.info("validação: %s pares · pool sorteado (semente %d) e "
+                 "desduplicado: %s candidatos, alvo e consulta únicos",
+                 f"{val.height:,}", a.semente, f"{pool.height:,}")
 
     pedidos = dict(NOSSOS)
     for spec in a.modelo:
@@ -116,7 +129,7 @@ def main() -> int:
     impedir_suspensao()
     try:
         rs = comparar(val, extras, cache=a.cache, n=a.n, max_tokens=a.max_tokens,
-                      lote=a.lote, dispositivo=a.dispositivo)
+                      lote=a.lote, dispositivo=a.dispositivo, semente=a.semente)
     finally:
         liberar_suspensao()
 
@@ -128,7 +141,17 @@ def main() -> int:
     print()
     print("=" * 78)
     print(veredito(rs, a.n))
-    salvar(rs, a.out, a.n)
+    # ⚠️ O teto sai junto. Um nDCG@10 de 0,4657 não diz se o modelo é mediano ou
+    # se o protocolo é: até 2026-09-06 o teto deste protocolo era 0,7562, e
+    # ninguém sabia porque ninguém tinha medido.
+    teto = teto_do_pool(pool)
+    print()
+    print(f"teto do protocolo (modelo perfeito neste pool): "
+          f"nDCG@10 {teto['ndcg_10']:.4f} · recall@1 {teto['recall_1']:.4f}")
+    if teto["ndcg_10"] < 0.999:
+        print("⚠️ teto abaixo de 1,0 — há empate no pool e o desempate é "
+              "arbitrário. Ver `phifm.training.amostragem`.")
+    salvar(rs, a.out, a.n, teto)
     return 0
 
 

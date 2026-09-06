@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-05
+# Estado do projeto — 2026-09-06
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -11,7 +11,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🟢 G1.1 ✅ / G1.2 ✅ | nDCG@10 **0,4657** contra 0,4628 do GTE-large, com 1/14,8 dos parâmetros. ⚠️ A margem é +0,003 e o pareado em recall@1 dá EMPATE — o defensável é paridade a 1/15 do tamanho, não vitória |
+| **ΦEmb** | 🟠 **G1 sob remedição** | os números de 2026-08-27 (nDCG@10 0,4657 contra 0,4628) saíram de um protocolo com **teto de 0,7562**, não 1,0: `val.head(2000)` tinha 62% das linhas com alvo repetido e o desempate era arbitrário. Protocolo consertado em 2026-09-06; remedição em curso |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -23,11 +23,89 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
 
-Suíte: **604 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **618 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## ⚠️ O Portão G1 media contra um teto de 0,7562, e o treino via um prefixo (2026-09-06)
+
+Auditoria da armadilha do `head()` depois da sexta ocorrência. Os conjuntos de
+avaliação da T1b e da T1c estão limpos (`val.sample(n=..., seed=...)`), a divisão
+treino/validação de `pairs.py` está limpa (embaralha por âncora e confere
+vazamento), e o `classifier.py` embaralha antes de cortar. **O G1 não estava.**
+
+### O protocolo tinha teto, e ninguém o havia medido
+
+O G1 avalia recuperação **dentro do lote**: `sim = ancoras @ positivos.T`, e a
+resposta certa da linha *i* é a **coluna** *i*. Isso só é tarefa bem posta se cada
+coluna for distinta. Duas coisas quebravam isso:
+
+1. **`amostra = val.head(n)`.** A ordem de `pares_validacao.parquet` não é neutra —
+   a mediana do comprimento da âncora cai de ~1.180 para ~870 do início ao fim, e o
+   primeiro bloco de 2.000 fica no **percentil 94**. Pior: em `head(2000)` havia só
+   **1.147 textos positivos distintos**, com **62% das linhas** num positivo
+   repetido e um deles aparecendo **28 vezes**. Textos byte-idênticos dão cosseno
+   idêntico e o desempate do `argsort` é arbitrário: a diagonal cai num posto
+   qualquer entre as 28.
+2. **Âncoras repetidas.** Linhas com a mesma consulta compartilham **um** ranking,
+   então no máximo uma delas pode ter posto 1.
+
+Teto de um modelo **perfeito**, medido:
+
+| pool | recall@1 | nDCG@10 |
+|---|---|---|
+| `head(2000)` — o que o G1 usou | **0,5235** | **0,7562** |
+| `sample(2000)` | 0,9364 | 0,9761 |
+| sorteio + desduplicação | **1,0000** | **1,0000** |
+
+O G1 reportou recall@1 **0,2620** contra um teto de **0,5235**. Metade do que
+parecia limitação do modelo era o protocolo.
+
+O empate era **justo** entre modelos — todos sofriam igual —, e é por isso que a
+tabela parecia válida. O que ele destruía era a **margem**: o G1.2 se decidiu em
+**+0,003** de nDCG@10, e ruído arbitrário em 62% dos itens não deixa +0,003
+sobreviver. Pelo mesmo motivo, parte dos discordantes do McNemar era moeda e não
+discordância entre modelos.
+
+Consertado com `preparar_pool` em `phifm.training.amostragem` — sorteio com
+semente, desduplicação por texto, e uma guarda que **levanta** se o teto não for
+1,0. O `avaliar` do treino usa o mesmo pool, porque é ele que elege os checkpoints
+`-melhor`. `teto_do_pool` sai junto no artefato versionado: um nDCG@10 de 0,4657
+não diz se o modelo é mediano ou se o protocolo é.
+
+### E o treino via 10,7× menos documentos do que podia
+
+Medido em `pares_treino.parquet` (6.564.111 linhas, **667.304** documentos citados
+distintos):
+
+| pares | `head` → documentos | sorteio → documentos | |
+|---|---|---|---|
+| 20.000 | 984 | 17.837 | **18,1×** |
+| 400.000 | 17.844 | 191.300 | **10,7×** |
+| 1.500.000 | 67.232 | 390.966 | 5,8× |
+
+O run da T1a — 400 mil pares, que produziu o **campeão atual do G1** — treinou com
+**17.844** documentos citados distintos onde o sorteio do mesmo tamanho daria
+**191.300**. Mesma GPU, mesmo tempo.
+
+`rerank.py` já tinha esse conserto, **com a explicação escrita no código**, e ela
+nunca foi aplicada ao caminho do embedding. Agora os quatro pontos de corte
+sorteiam, e o corte acontece no plano (`amostrar_do_plano`) porque coletar 6,5 M
+pares com 1,0 GB de RAM livre matava o processo antes do primeiro passo.
+
+**Vale suspeitar do platô que interrompeu o run de 1,5 M em 38%.** Ele foi
+justificado por "256 mil pares a mais, metade inéditos, e o nDCG@10 oscilou sem
+tendência" — mas esses pares saíam de **67 mil** documentos. Exaurir um conjunto
+pequeno de documentos se parece exatamente com um platô de dados.
+
+### O que isto NÃO diz
+
+Que o ΦEmb é melhor ou pior do que se pensava. Diz que **não se sabe**: os números
+antigos vieram de um protocolo com teto de 0,76 e o modelo veio de um treino com
+1/10,7 da diversidade disponível. A remedição no pool corrigido responde a primeira
+metade; a segunda exige treinar de novo — 36 min de T4 gratuita para a T1a.
 
 ## ⚠️ A amostra que decide a confiança no corpus cobria 0,67% dele (2026-09-05)
 
