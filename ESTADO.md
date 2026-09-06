@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-08-31
+# Estado do projeto — 2026-09-05
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -20,13 +20,74 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
+| **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
 
-Suíte: **586 testes** (12 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **604 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## ⚠️ A amostra que decide a confiança no corpus cobria 0,67% dele (2026-09-05)
+
+A revisão dos 400 documentos do peS2o ia medir a coisa errada. O filtro montava a
+amostra de passagem:
+
+    if len(f.amostra) < N_AMOSTRA and f.vistos % 97 == 0:
+
+Isto **para** de amostrar assim que junta 400. Medido nos parquets prontos: os 400
+documentos de `_amostra_para_revisao.json` estão todos em `part-00000` e
+`part-00001`, e o último ocupa a posição **37.087 de 5.526.331 aceitos — 0,67%**.
+
+E o peS2o filtrado não é uma população só:
+
+| | documentos | dos docs | dos tokens | tamanho |
+|---|---|---|---|---|
+| resumo (s2ag) | 3.626.168 | 65,6% | **7,9%** | 1.280 B/doc |
+| texto pleno (s2orc) | 1.900.163 | 34,4% | **92,1%** | 28.454 B/doc |
+
+Os resumos vêm primeiro (`part-00000` a `part-00180`), então a amostra antiga é
+**100% resumo**. Ela mediria a precisão do filtro nos 7,9% do corpus e nada nos
+92,1%.
+
+### E isso invertia a justificativa da própria medição
+
+`apurar_revisao.py` dizia, com razão: os 1,5–13,6% de referência foram medidos em
+**resumos do arXiv**, e o corpus agora é texto pleno — outra distribuição, a taxa não
+transfere de graça. **A amostra que ia testar isso era de resumos.** O experimento
+media o braço de controle e chamava de tratamento.
+
+Sexta ocorrência de `head()` sobre dado ordenado neste repositório — depois do peS2o
+amostrado no começo, do `val.head(500)` que eram 35 documentos, do `pares_treino`
+cortado por posição (49,6% de vazamento), das 8 primeiras de 44 partes do RedPajama e
+do `head(200)` sobre uma lista de parquets dentro do próprio conferidor.
+
+### O conserto, nas duas pontas
+
+`scripts/amostrar_para_revisao.py` sorteia uniforme **sem reposição dentro de cada
+estrato**, sobre os 277 parquets prontos, e grava `(arquivo, linha)` de cada
+documento. 200 + 200, embaralhados — julgar 200 resumos e depois 200 papers
+confundiria o estrato com o cansaço de quem julga. Para o texto pleno a folha mostra
+o início **e um trecho a 45% do documento**: num paper de 28 mil caracteres o começo é
+a capa, e a contaminação aparece no corpo.
+
+Dentro do filtro, `Filtragem.considerar` passa a ser um **reservatório** (algoritmo
+R), então uma coleta futura já sai com amostra uniforme. A ressalva que ele não
+resolve: com retomada, cada execução vê só os seus arquivos — para medir, o
+amostrador de verdade é o script.
+
+### Duas contas que também estavam erradas
+
+A apuração multiplicava a taxa do peS2o pelos **27,75 B do corpus inteiro**,
+atribuindo ao RedPajama-arXiv e ao OpenWebMath uma contaminação que ninguém mediu.
+Agora traduz nos **14,60 B do peS2o** e diz o que não cobre.
+
+E o número final passa a ser a **combinação ponderada por token** dos dois estratos,
+não a taxa da amostra: com estratos de tamanhos iguais e pesos de 8% e 92%, a taxa da
+amostra diz mais sobre quantos de cada um foram sorteados do que sobre o corpus. O
+intervalo é a soma ponderada dos limites de Wilson — conservadora de propósito, porque
+a alternativa normal dá largura zero quando um estrato sai com 0 falsos positivos.
 
 ## O corpus do ΦEnc está preparado e conferido (2026-09-05)
 

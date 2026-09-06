@@ -1,0 +1,31 @@
+{
+  "corpus": "data/processed/pes2o_fisica",
+  "arquivos": 277,
+  "documentos": 5526331,
+  "estratos": {
+    "resumo": {
+      "documentos": 3626168,
+      "fracao_de_documentos": 0.6562,
+      "bytes_de_texto": 4642789166,
+      "peso_em_tokens": 0.0791,
+      "sorteados": 200
+    },
+    "texto pleno": {
+      "documentos": 1900163,
+      "fracao_de_documentos": 0.3438,
+      "bytes_de_texto": 54067062519,
+      "peso_em_tokens": 0.9209,
+      "sorteados": 200
+    }
+  },
+  "semente": 17,
+  "por_estrato": 200,
+  "chars_inicio": 1000,
+  "chars_meio": 600,
+  "amostra_anterior": {
+    "como_era": "f.vistos % 97 == 0, parando ao juntar 400",
+    "cobertura": "part-00000 e part-00001; ultima posicao 37.087 de 5.526.331 aceitos = 0,67%",
+    "estratos": "100% resumo, 0% texto pleno"
+  },
+  "nota": "Sorteio uniforme sem reposição DENTRO de cada estrato. O peso em tokens é aproximado por bytes UTF-8 da coluna `texto`, dos metadados do parquet; a diferença para caracteres é o texto não-ASCII. Isto mede PRECISÃO do filtro, não recall."
+}

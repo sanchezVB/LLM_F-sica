@@ -51,6 +51,7 @@ import gzip
 import json
 import logging
 import pickle
+import random
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -88,6 +89,22 @@ FLUSH = 20_000
 # Documentos guardados para inspeção humana. 400 é o que uma pessoa revisa numa
 # sessão; mais que isso vira arquivo que ninguém abre.
 N_AMOSTRA = 400
+# ⚠️ A amostra é um RESERVATÓRIO (algoritmo R), não os primeiros que aparecem.
+#
+# A primeira versão era `len(f.amostra) < N_AMOSTRA and f.vistos % 97 == 0`, que
+# PARA de amostrar ao juntar 400. Medido nos parquets prontos do peS2o: os 400
+# documentos saíram todos de `part-00000` e `part-00001`, e o último ocupa a
+# posição 37.087 de 5.526.331 aceitos — **0,67% do corpus**. E o peS2o não é
+# homogêneo nessa ordem: os resumos (1.280 B/doc) vêm antes do texto pleno
+# (28.454 B/doc), então a amostra era 100% resumo num corpus cujos tokens são
+# 92,1% texto pleno.
+#
+# O reservatório custa o mesmo e dá uma amostra uniforme sobre os ACEITOS desta
+# execução. A ressalva que ele NÃO resolve: com retomada, cada execução vê só os
+# seus arquivos, e o que fica gravado é a amostra da última. Para medir, o
+# amostrador de verdade é `scripts/amostrar_para_revisao.py`, que sorteia sobre
+# os parquets prontos e estratifica.
+SEMENTE_AMOSTRA = 17
 # Tentativas por arquivo quando a rede cai. Ver o aviso em `filtrar`.
 MAX_TENTATIVAS = 8
 
@@ -110,8 +127,23 @@ class Filtragem:
     # Distribuição de domínios de URL do que foi ACEITO. É o sinal objetivo sobre
     # o que está entrando, quando não há rótulo para conferir.
     dominios: Counter = field(default_factory=Counter)
+    # Reservatório uniforme sobre os aceitos DESTA execução — ver SEMENTE_AMOSTRA.
     amostra: list[dict] = field(default_factory=list)
+    rng: random.Random = field(
+        default_factory=lambda: random.Random(SEMENTE_AMOSTRA))
     falhas: list[str] = field(default_factory=list)
+
+    def considerar(self, registro: dict) -> None:
+        """Algoritmo R: o k-ésimo aceito entra com probabilidade N/k.
+
+        `self.aceitos` já foi incrementado quando isto é chamado, então ele é o k.
+        """
+        if len(self.amostra) < N_AMOSTRA:
+            self.amostra.append(registro)
+            return
+        j = self.rng.randrange(self.aceitos)
+        if j < N_AMOSTRA:
+            self.amostra[j] = registro
 
     @property
     def taxa(self) -> float:
@@ -341,10 +373,9 @@ def filtrar(
                             f.dominios[urlparse(url).netloc.lower()] += 1
                         buffer.append({"texto": texto, "url": url if isinstance(url, str) else None,
                                        "score": s})
-                        if len(f.amostra) < N_AMOSTRA and f.vistos % 97 == 0:
-                            f.amostra.append({"score": round(s, 4), "url": url
-                                              if isinstance(url, str) else None,
-                                              "inicio": texto[:600]})
+                        f.considerar({"score": round(s, 4),
+                                      "url": url if isinstance(url, str) else None,
+                                      "inicio": texto[:600]})
                         if len(buffer) >= FLUSH:
                             _gravar(buffer, destino, indice)
                             buffer.clear()

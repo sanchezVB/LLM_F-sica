@@ -30,8 +30,11 @@ import folha_de_revisao  # noqa: E402
 PAGINA = folha_de_revisao.PAGINA
 
 AMOSTRA_FALSA = [
-    {"score": "0.912", "url": "s2ag/train", "inicio": "Sobre o efeito Hall quântico."},
-    {"score": "0.998", "url": "s2orc/train", "inicio": "Uma revisão de mercado."},
+    {"score": "0.912", "url": "s2ag/train", "estrato": "resumo", "n_chars": 800,
+     "inicio": "Sobre o efeito Hall quântico."},
+    {"score": "0.998", "url": "s2orc/train", "estrato": "texto pleno",
+     "n_chars": 30000, "inicio": "Uma revisão de mercado.",
+     "meio": "e o mercado seguiu crescendo"},
 ]
 
 
@@ -58,11 +61,13 @@ def test_o_escore_nao_e_renderizado_antes_do_julgamento():
     dados embutidos — o JavaScript precisa dele para revelar depois —, mas o trecho
     que monta o cartão não pode tocá-lo.
     """
-    cartao = PAGINA.split('document.getElementById("area").innerHTML =')[1]
-    cartao = cartao.split("document.querySelector")[0]
-    assert "d.score" not in cartao, (
+    cartao = PAGINA.split("function montaCartao(d){")[1].split("\n}")[0]
+    assert "score" not in cartao, (
         "o escore voltou para o cartão do documento em julgamento — isto ancora a "
         "resposta e o número medido deixa de significar precisão do filtro")
+    # E o cartão é montado por essa função, não em linha: se alguém voltar a
+    # montá-lo direto no `pinta()`, a asserção acima passa a olhar código morto.
+    assert 'innerHTML = montaCartao(' in PAGINA
 
 
 def test_o_escore_e_revelado_depois_do_julgamento():
@@ -96,6 +101,33 @@ def test_a_assinatura_da_amostra_entra_na_chave_de_armazenamento(tmp_path):
     assert chave(a) != chave(b), (
         "a chave do localStorage não distingue as duas amostras")
     assert "revisao_pes2o_" in chave(a)
+
+
+def test_o_estrato_aparece_no_cartao_e_o_painel_conta_separado(tmp_path):
+    """Os dois estratos não são a mesma população: 65,6% dos documentos do peS2o
+    são resumo, e eles são 7,9% dos tokens.
+
+    Um número único misturando os dois depende de quantos de cada um foram
+    sorteados, não de como o corpus é — então a folha conta separado e a
+    combinação por peso fica em `apurar_revisao.py`.
+    """
+    cartao = PAGINA.split("function montaCartao(d){")[1].split("\n}")[0]
+    assert "d.estrato" in cartao and "d.meio" in cartao
+    painel = PAGINA.split("function montaPainel(){")[1].split("\n}")[0]
+    assert "estrato" in painel
+    assert "apurar_revisao.py" in painel, (
+        "o painel tem de dizer onde sai o número ponderado; sem isso a taxa "
+        "por estrato ao vivo passa por resposta final")
+    html = _gerar(tmp_path).read_text(encoding="utf-8")
+    assert "texto pleno" in html and "resumo" in html
+
+
+def test_o_trecho_do_miolo_vai_por_textContent(tmp_path):
+    """O texto vem do corpus. Por `innerHTML` um documento com `<script>` no meio
+    executaria — e o corpus tem HTML de verdade dentro."""
+    for alvo in ('getElementById("t1").textContent',
+                 'getElementById("t2").textContent'):
+        assert alvo in PAGINA, f"{alvo} sumiu; o texto do corpus não pode ir por HTML"
 
 
 def test_a_pagina_nao_faz_rede(tmp_path):
@@ -140,14 +172,20 @@ def test_amostra_ausente_quebra_alto(tmp_path):
     assert "não existe" in (r.stdout + r.stderr)
 
 
-def test_o_alvo_e_pre_comprometido_e_o_vies_de_parada_esta_dito():
+def test_o_alvo_e_pre_comprometido_e_o_vies_de_parada_esta_dito(tmp_path):
     """Mostrar o intervalo ao vivo convida a parar quando ele fica bonito.
 
     O convite não pode ser retirado — o intervalo é útil —, então o aviso tem de
     estar na página, não só na docstring que o usuário não lê.
     """
     assert "parada opcional" in PAGINA or "vies de parada" in PAGINA
-    assert "alvo_pre_comprometido: 200" in PAGINA
+    # ⚠️ O alvo vem de UM lugar. Escrito na página e no `baixar()` em separado,
+    # os dois divergem e o alvo pré-comprometido passa a depender de qual você leu.
+    assert "alvo_pre_comprometido: __ALVO__" in PAGINA
+    assert folha_de_revisao.ALVO_POR_ESTRATO == 200
+    html = _gerar(tmp_path).read_text(encoding="utf-8")
+    assert f"alvo_pre_comprometido: {folha_de_revisao.ALVO_POR_ESTRATO}" in html
+    assert "__ALVO__" not in html
 
 
 # ─── a apuração ──────────────────────────────────────────────────────────────
