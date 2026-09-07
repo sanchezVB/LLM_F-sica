@@ -2,8 +2,8 @@
 """Renderiza um rascunho de artigo de `docs/papers/` em PDF.
 
     PYTHONPATH=src python scripts/artigo_pdf.py \
-        --entrada docs/papers/rascunho-artigo-programa-phifm.md \
-        --saida build/rascunho-artigo-programa-phifm.pdf
+        --entrada docs/papers/rascunho-artigo-recuperacao-fisica.md \
+        --saida build/rascunho-artigo-recuperacao-fisica.pdf
 
 ## Por que um renderizador e não o PDF escrito à mão
 
@@ -15,8 +15,8 @@ rascunhos de `docs/papers/`.
 Então a fonte é o `.md` e o PDF é ARTEFATO DE BUILD (`*.pdf` está no
 `.gitignore`). Gerar o PDF e versioná-lo criaria duas cópias do mesmo texto, e
 este repositório já pagou o preço disso uma vez: três cópias da tabela de estado,
-no README, no índice e no DOC-00 §11, divergiram e as três afirmavam coisas
-diferentes sobre o mesmo fato.
+no README, no índice de documentos e na carta de projeto, divergiram e as três
+afirmavam coisas diferentes sobre o mesmo fato.
 
 ## O subconjunto de Markdown que ele entende
 
@@ -32,8 +32,8 @@ que é o modo de falha que importa num renderizador de documento.
 
 Linha de bloco de código não quebra: o `Preformatted` do reportlab escreve reto e
 deixa o excesso sair da margem **sem erro e sem aviso**. As tabelas de largura
-fixa deste projeto (o bake-off do tokenizer, o T1c) têm 60–75 caracteres, e uma
-delas passando a 90 sairia cortada num PDF que alguém leria como completo.
+fixa deste projeto têm 60–75 caracteres, e uma delas passando a 90 sairia
+cortada num PDF que alguém leria como completo.
 
 `_fonte_que_cabe` calcula o corpo que faz a linha mais longa caber na margem e
 `--estrito` levanta se nem no piso couber. É a mesma regra do resto do
@@ -50,10 +50,11 @@ from datetime import date
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
     HRFlowable,
     KeepTogether,
@@ -68,27 +69,35 @@ from reportlab.platypus import (
 
 log = logging.getLogger(__name__)
 
-MARGEM = 20 * mm
+# Layout de artigo: margens de 25 mm, corpo em Times 12, entrelinha 1,3.
+MARGEM = 25 * mm
 LARGURA_UTIL = A4[0] - 2 * MARGEM
+CORPO = 12
+ENTRELINHA = 15.6
 
-TINTA = colors.HexColor("#1a1a1a")
-SUAVE = colors.HexColor("#5b6470")
-LINHA = colors.HexColor("#d5dae0")
-FUNDO = colors.HexColor("#f2f5f8")
-REALCE = colors.HexColor("#3b6ea5")
+SERIFA = "Times-Roman"
+SERIFA_N = "Times-Bold"
+SERIFA_I = "Times-Italic"
+
+TINTA = colors.black
+SUAVE = colors.HexColor("#444444")
+LINHA = colors.HexColor("#999999")
+FUNDO = colors.HexColor("#f0f0f0")
+REALCE = colors.HexColor("#666666")
 
 # Courier tem largura fixa de 0,6 em por caractere. É isto que torna a conta de
 # `_fonte_que_cabe` exata em vez de estimada.
 RAZAO_COURIER = 0.6
-CORPO_CODIGO_MAX = 8.5
-CORPO_CODIGO_MIN = 5.5
+CORPO_CODIGO_MAX = 10.0
+CORPO_CODIGO_MIN = 6.0
 
 # ── Cobertura de glifo, e por que existe uma guarda em vez de confiança ──────
 #
 # O documento fica nas fontes base-14 (Helvetica/Courier), que o reportlab tem
 # embutidas: o PDF sai IDÊNTICO no Windows do autor e no runner do CI. Registrar
 # uma DejaVu do sistema resolveria todo o Unicode e faria o resultado depender da
-# máquina — a troca não vale num repositório cujo portão G1.5 é reprodutibilidade.
+# máquina — a troca não vale num repositório cujo critério de aceitação declarado
+# é reprodutibilidade byte a byte.
 #
 # O preço é que o base-14 não cobre tudo, e o reportlab **não avisa**: caractere
 # ausente vira retângulo preto no PDF, sem exceção e sem log. Foi o que aconteceu
@@ -99,7 +108,7 @@ CORPO_CODIGO_MIN = 5.5
 # reportlab substitui de Symbol/ZapfDingbats (grego, setas, relações) é
 # permitido, e o resto **levanta**. Um glifo novo num rascunho futuro tem de ser
 # uma decisão de quem escreve, não uma caixa preta que ninguém vê.
-EXPOENTES = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
+EXPOENTES = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+")
 # Substituídos pelo reportlab a partir de Symbol e ZapfDingbats.
 SIMBOLOS_OK = set("–—…‘’“”−≈≤≥≠∈∉⊂∞±×÷·§→←↔⇒⇐√∂∑∏∫✓✗")
 
@@ -131,30 +140,44 @@ def _conferir_glifos(md: str, estrito: bool) -> None:
 def _estilos() -> dict[str, ParagraphStyle]:
     s = getSampleStyleSheet()
     return {
-        "titulo": ParagraphStyle("titulo", parent=s["Title"], fontSize=19, leading=24,
-                                 textColor=TINTA, alignment=0, spaceAfter=10),
-        "meta": ParagraphStyle("meta", parent=s["Normal"], fontSize=9, leading=13,
-                               textColor=SUAVE, spaceAfter=4),
-        "h1": ParagraphStyle("h1", parent=s["Heading1"], fontSize=13.5, leading=17,
-                             textColor=TINTA, spaceBefore=18, spaceAfter=7,
-                             keepWithNext=True),
-        "h2": ParagraphStyle("h2", parent=s["Heading2"], fontSize=11, leading=14,
-                             textColor=TINTA, spaceBefore=12, spaceAfter=5,
-                             keepWithNext=True),
-        "h3": ParagraphStyle("h3", parent=s["Heading3"], fontSize=9.8, leading=13,
-                             textColor=SUAVE, spaceBefore=10, spaceAfter=4,
-                             keepWithNext=True),
-        "p": ParagraphStyle("p", parent=s["Normal"], fontSize=9.4, leading=13.6,
-                            textColor=TINTA, alignment=TA_JUSTIFY, spaceAfter=7),
-        "item": ParagraphStyle("item", parent=s["Normal"], fontSize=9.4, leading=13.2,
-                               textColor=TINTA, alignment=TA_JUSTIFY,
-                               leftIndent=9 * mm, bulletIndent=3.5 * mm, spaceAfter=4),
-        "cita": ParagraphStyle("cita", parent=s["Normal"], fontSize=9.2, leading=13.2,
-                               textColor=TINTA, alignment=TA_JUSTIFY, spaceAfter=5),
-        "cel": ParagraphStyle("cel", parent=s["Normal"], fontSize=7.9, leading=10.2,
-                              textColor=TINTA),
-        "celh": ParagraphStyle("celh", parent=s["Normal"], fontSize=7.9, leading=10.2,
-                               textColor=TINTA, fontName="Helvetica-Bold"),
+        "titulo": ParagraphStyle("titulo", parent=s["Title"], fontName=SERIFA_N,
+                                 fontSize=16, leading=20, textColor=TINTA,
+                                 alignment=TA_CENTER, spaceAfter=12),
+        "meta": ParagraphStyle("meta", parent=s["Normal"], fontName=SERIFA,
+                               fontSize=11, leading=14, textColor=TINTA,
+                               alignment=TA_CENTER, spaceAfter=3),
+        "h1": ParagraphStyle("h1", parent=s["Heading1"], fontName=SERIFA_N,
+                             fontSize=13, leading=16, textColor=TINTA,
+                             spaceBefore=16, spaceAfter=6, keepWithNext=True),
+        "h2": ParagraphStyle("h2", parent=s["Heading2"], fontName=SERIFA_N,
+                             fontSize=12, leading=15, textColor=TINTA,
+                             spaceBefore=12, spaceAfter=5, keepWithNext=True),
+        "h3": ParagraphStyle("h3", parent=s["Heading3"], fontName=SERIFA_I,
+                             fontSize=12, leading=15, textColor=TINTA,
+                             spaceBefore=10, spaceAfter=4, keepWithNext=True),
+        "p": ParagraphStyle("p", parent=s["Normal"], fontName=SERIFA,
+                            fontSize=CORPO, leading=ENTRELINHA, textColor=TINTA,
+                            alignment=TA_JUSTIFY, firstLineIndent=0, spaceAfter=8),
+        "item": ParagraphStyle("item", parent=s["Normal"], fontName=SERIFA,
+                               fontSize=CORPO, leading=ENTRELINHA, textColor=TINTA,
+                               alignment=TA_JUSTIFY, leftIndent=10 * mm,
+                               bulletIndent=4 * mm, spaceAfter=5),
+        # Resumo e legenda: um corpo abaixo do texto, que é a convenção.
+        "cita": ParagraphStyle("cita", parent=s["Normal"], fontName=SERIFA,
+                               fontSize=11, leading=14, textColor=TINTA,
+                               alignment=TA_JUSTIFY, spaceAfter=6),
+        "legenda": ParagraphStyle("legenda", parent=s["Normal"], fontName=SERIFA,
+                                  fontSize=10.5, leading=13, textColor=TINTA,
+                                  alignment=TA_JUSTIFY, spaceBefore=4, spaceAfter=4,
+                                  keepWithNext=True),
+        "ref": ParagraphStyle("ref", parent=s["Normal"], fontName=SERIFA,
+                              fontSize=11, leading=13.6, textColor=TINTA,
+                              alignment=0, leftIndent=10 * mm, firstLineIndent=-10 * mm,
+                              spaceAfter=4),
+        "cel": ParagraphStyle("cel", parent=s["Normal"], fontName=SERIFA,
+                              fontSize=9.5, leading=11.8, textColor=TINTA),
+        "celh": ParagraphStyle("celh", parent=s["Normal"], fontName=SERIFA_N,
+                               fontSize=9.5, leading=11.8, textColor=TINTA),
     }
 
 
@@ -173,7 +196,7 @@ def _inline(txt: str) -> str:
     txt = txt.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     txt = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", txt)
     txt = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", txt)
-    txt = re.sub(r"[⁰¹²³⁴⁵⁶⁷⁸⁹]+",
+    txt = re.sub(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+",
                  lambda m: f"<super>{m.group(0).translate(EXPOENTES)}</super>", txt)
 
     guardados: list[str] = []
@@ -187,7 +210,7 @@ def _inline(txt: str) -> str:
     txt = re.sub(r"(?<![\*\w])\*([^*\n]+)\*(?!\*)", r"<i>\1</i>", txt)
     return re.sub(
         r"\x00(\d+)\x00",
-        lambda m: f'<font face="Courier" size="8.2">{guardados[int(m.group(1))]}</font>',
+        lambda m: f'<font face="Courier" size="10.5">{guardados[int(m.group(1))]}</font>',
         txt,
     )
 
@@ -233,15 +256,18 @@ def bloco_codigo(linhas: list[str], estrito: bool = False) -> Table:
 
 
 def bloco_citacao(paragrafos: list[str], st: dict) -> Table:
+    """Bloco recuado — é o que carrega o Resumo e as citações em destaque.
+
+    Recuo simétrico de 10 mm e um corpo abaixo do texto, sem fundo nem barra
+    colorida: num artigo o Resumo se distingue por composição, não por adorno.
+    """
     celulas = [[Paragraph(_inline(p), st["cita"])] for p in paragrafos]
-    t = Table(celulas, colWidths=[LARGURA_UTIL], hAlign="LEFT")
+    t = Table(celulas, colWidths=[LARGURA_UTIL - 20 * mm], hAlign="CENTER")
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f9fb")),
-        ("LINEBEFORE", (0, 0), (0, -1), 1.6, REALCE),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5 * mm),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     return t
 
@@ -250,24 +276,43 @@ _NUMERICO = re.compile(r"^[−–—+±<>≈~]?[\d.,]+\s*(%|×|x|B|M|G|GB|MB|h|p
 
 
 def _larguras(linhas: list[list[str]]) -> list[float]:
-    """Reparte a margem entre colunas na proporção do conteúdo, com piso.
+    """Reparte a margem entre colunas na proporção do conteúdo.
 
-    Sem o piso, uma coluna de valores curtos ao lado de uma de prosa fica com 6 mm
-    e quebra um número por linha.
+    O piso de cada coluna é a **maior palavra** que ela contém, medida na fonte
+    em que será composta. Sem isso a repartição só olha o comprimento médio do
+    texto, e uma coluna de números curtos com cabeçalho longo recebe largura
+    menor que o próprio cabeçalho: `Caracteres/doc.` saía quebrado como
+    `Caracteres/do` / `c.`, porque não há espaço onde quebrar e o reportlab parte
+    dentro da palavra.
+
+    Se a soma dos pisos não couber na margem — tabela com muitas colunas de
+    rótulo longo —, todos são reduzidos na mesma proporção: aí a quebra dentro da
+    palavra é inevitável, e o que se pode garantir é que ela seja distribuída em
+    vez de concentrada numa coluna.
     """
     n = len(linhas[0])
-    pesos = []
+    folga = 8.0  # os dois preenchimentos laterais da célula
+
+    pisos, pesos = [], []
     for c in range(n):
+        celulas = [_texto_puro(linha[c]) for linha in linhas]
+        palavras = [p for celula in celulas for p in celula.split()]
+        # O cabeçalho é composto em negrito, que é mais largo: mede-se por ele.
+        pisos.append(folga + max(
+            [stringWidth(p, SERIFA_N, 9.5) for p in palavras] or [0.0]))
         # A média entre o maior e o típico evita que uma célula longa isolada
         # engula a tabela inteira.
-        tamanhos = sorted(len(_texto_puro(linha[c])) for linha in linhas)
-        maior = tamanhos[-1]
-        tipico = tamanhos[len(tamanhos) // 2]
-        pesos.append(max(6.0, (maior + tipico) / 2))
-    piso = 13 * mm if n <= 6 else 10 * mm
-    livre = LARGURA_UTIL - piso * n
+        tamanhos = sorted(len(celula) for celula in celulas)
+        pesos.append(max(6.0, (tamanhos[-1] + tamanhos[len(tamanhos) // 2]) / 2))
+
+    if sum(pisos) > LARGURA_UTIL:
+        escala = LARGURA_UTIL / sum(pisos)
+        return [p * escala for p in pisos]
+
+    livre = LARGURA_UTIL - sum(pisos)
     total = sum(pesos)
-    return [piso + livre * (p / total) for p in pesos]
+    return [piso + livre * (peso / total)
+            for piso, peso in zip(pisos, pesos, strict=True)]
 
 
 def bloco_tabela(linhas: list[list[str]], st: dict) -> Table:
@@ -280,15 +325,18 @@ def bloco_tabela(linhas: list[list[str]], st: dict) -> Table:
     dados += [[Paragraph(_inline(c), st["cel"]) for c in linha] for linha in corpo]
 
     t = Table(dados, colWidths=_larguras(linhas), hAlign="LEFT", repeatRows=1)
+    # Estilo de tabela científica: três filetes horizontais, nenhum vertical, sem
+    # fundo. É a convenção tipográfica de periódico (booktabs), e não decoração:
+    # régua vertical em tabela numérica compete com a leitura por coluna.
     estilo = [
-        ("BACKGROUND", (0, 0), (-1, 0), FUNDO),
-        ("GRID", (0, 0), (-1, -1), 0.25, LINHA),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.6, LINHA),
+        ("LINEABOVE", (0, 0), (-1, 0), 1.0, TINTA),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, TINTA),
+        ("LINEBELOW", (0, -1), (-1, -1), 1.0, TINTA),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3.5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
     ]
     estilo += [("ALIGN", (c, 1), (c, -1), "RIGHT") for c in direita]
     t.setStyle(TableStyle(estilo))
@@ -313,11 +361,35 @@ def _e_separador(linha: str) -> bool:
     return all(re.fullmatch(r":?-{2,}:?", c) for c in _celulas(linha) if c)
 
 
+_LEGENDA = re.compile(r"^\*\*(Tabela|Figura|Quadro)\s")
+_REFERENCIA = re.compile(r"^\[\d+\]\s")
+
+
+def _estilo_de(texto: str, no_cabecalho: bool) -> str:
+    """Qual estilo um parágrafo recebe, pela função que ele exerce no artigo.
+
+    Três papéis se distinguem do corpo por forma, e num artigo isso não é
+    cosmético: a folha de rosto é centrada, a legenda de tabela é um corpo menor
+    e fica colada à tabela, e a referência leva recuo pendente para o número
+    saltar na varredura visual.
+    """
+    if no_cabecalho:
+        return "meta"
+    if _LEGENDA.match(texto):
+        return "legenda"
+    if _REFERENCIA.match(texto):
+        return "ref"
+    return "p"
+
+
 def montar(md: str, st: dict, estrito: bool) -> list:
     linhas = md.splitlines()
     flow: list = []
     i, n = 0, len(linhas)
     primeiro_titulo = True
+    # Tudo entre o título e a primeira seção é folha de rosto: autoria, filiação,
+    # data. Delimitar por posição evita ter de marcar cada linha no Markdown.
+    no_cabecalho = False
 
     while i < n:
         linha = linhas[i]
@@ -390,7 +462,9 @@ def montar(md: str, st: dict, estrito: bool) -> list:
             if nivel == 1 and primeiro_titulo:
                 flow.append(Paragraph(_inline(texto), st["titulo"]))
                 primeiro_titulo = False
+                no_cabecalho = True
             else:
+                no_cabecalho = False
                 flow.append(Paragraph(_inline(texto),
                                       st[{1: "h1", 2: "h1", 3: "h2"}.get(nivel, "h3")]))
             i += 1
@@ -430,8 +504,7 @@ def montar(md: str, st: dict, estrito: bool) -> list:
             partes.append(atual_linha.strip())
             i += 1
         texto = " ".join(partes)
-        estilo = "meta" if texto.startswith(("**Rascunho", "**Autoria", "**Estado do")) else "p"
-        flow.append(Paragraph(_inline(texto), st[estilo]))
+        flow.append(Paragraph(_inline(texto), st[_estilo_de(texto, no_cabecalho)]))
 
     return _agrupar_titulos(flow)
 
@@ -472,15 +545,16 @@ def _agrupar_titulos(flow: list) -> list:
 # ─── documento ──────────────────────────────────────────────────────────────
 
 def _rodape(rotulo: str):
+    """Número de página centrado, e nada mais.
+
+    A versão anterior punha um rótulo à esquerda e um filete acima. Num artigo o
+    rodapé é folha corrida — cabeçalho e adorno são de relatório.
+    """
     def desenhar(canvas, doc):
         canvas.saveState()
-        canvas.setFont("Helvetica", 7.5)
-        canvas.setFillColor(SUAVE)
-        canvas.drawString(MARGEM, 12 * mm, rotulo)
-        canvas.drawRightString(A4[0] - MARGEM, 12 * mm, str(canvas.getPageNumber()))
-        canvas.setStrokeColor(LINHA)
-        canvas.setLineWidth(0.4)
-        canvas.line(MARGEM, 15 * mm, A4[0] - MARGEM, 15 * mm)
+        canvas.setFont(SERIFA, 10)
+        canvas.setFillColor(TINTA)
+        canvas.drawCentredString(A4[0] / 2, 14 * mm, str(canvas.getPageNumber()))
         canvas.restoreState()
     return desenhar
 
@@ -496,10 +570,10 @@ def render(entrada: Path, saida: Path, estrito: bool = False) -> Path:
     doc = SimpleDocTemplate(
         str(saida), pagesize=A4,
         leftMargin=MARGEM, rightMargin=MARGEM,
-        topMargin=18 * mm, bottomMargin=22 * mm,
-        title=titulo, author="ΦFM", subject="rascunho de trabalho",
+        topMargin=MARGEM, bottomMargin=MARGEM,
+        title=titulo, author="Vinicius Sanchez", subject="rascunho de artigo",
     )
-    rotulo = f"ΦFM · rascunho de trabalho · {date.today():%Y-%m-%d}"
+    rotulo = f"{date.today():%Y-%m-%d}"
     doc.build(montar(md, st, estrito), onFirstPage=_rodape(rotulo),
               onLaterPages=_rodape(rotulo))
     return saida
@@ -508,7 +582,7 @@ def render(entrada: Path, saida: Path, estrito: bool = False) -> Path:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--entrada", type=Path,
-                   default=Path("docs/papers/rascunho-artigo-programa-phifm.md"))
+                   default=Path("docs/papers/rascunho-artigo-recuperacao-fisica.md"))
     p.add_argument("--saida", type=Path, default=None,
                    help="padrão: build/<nome-da-entrada>.pdf")
     p.add_argument("--estrito", action="store_true",

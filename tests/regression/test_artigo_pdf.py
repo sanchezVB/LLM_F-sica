@@ -1,11 +1,11 @@
 """O renderizador de artigo falha em silêncio de duas formas, e as duas aconteceram.
 
 Regressão de 2026-09-07, escrita durante a primeira renderização do
-`rascunho-artigo-programa-phifm.md`. Os dois defeitos abaixo são reais e o
+`rascunho-artigo-recuperacao-fisica.md`. Os dois defeitos abaixo são reais e o
 segundo é do próprio código que existe para pegar o primeiro.
 
-**1. A ênfase atravessava trechos de código.** A §5.4 do artigo cita a notação
-mutilada do peS2o: `p^*` virou `p *`. São dois trechos de código separados, cada
+**1. A ênfase atravessava trechos de código.** A §4.3 do artigo cita a notação
+mutilada do corpus extraído de PDF: `p^*` virou `p *`. São dois trechos de código separados, cada
 um com um `*`, e o regex de itálico casava do primeiro para o segundo — gerando
 `<i>` aberto dentro de um `<font>` e fechado dentro do outro. O reportlab levantou
 `saw </font> instead of expected </i>`, o que ao menos é barulhento. O MESMO
@@ -35,7 +35,7 @@ import pytest
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
 
-ARTIGO = RAIZ / "docs" / "papers" / "rascunho-artigo-programa-phifm.md"
+ARTIGO = RAIZ / "docs" / "papers" / "rascunho-artigo-recuperacao-fisica.md"
 
 
 def _modulo():
@@ -49,7 +49,7 @@ def _modulo():
 # ── 1. ênfase contra trecho de código ────────────────────────────────────────
 
 def test_italico_nao_atravessa_dois_trechos_de_codigo():
-    """O caso literal da §5.4, que quebrou a primeira renderização."""
+    """O caso literal da §4.3, que quebrou a primeira renderização."""
     saida = _modulo()._inline("No segundo, `p^*` virou `p *` e o índice caiu")
     assert "<i>" not in saida, f"o itálico atravessou os dois trechos: {saida}"
     assert saida.count("<font") == 2, "cada trecho de código continua sendo um font"
@@ -92,9 +92,9 @@ def test_a_guarda_levanta_no_glifo_que_o_base_14_nao_tem():
 
 
 def test_a_guarda_aceita_grego_e_acento():
-    """Φ, ρ e a acentuação do português são o corpo do documento, não exceção."""
+    """ρ, Δ e a acentuação do português são o corpo do documento, não exceção."""
     mod = _modulo()
-    mod._conferir_glifos("O ΦEmb mede ρ_xy com precisão — e a fusão não.", estrito=True)
+    mod._conferir_glifos("mede-se ρ_xy e Δ com precisão — a fusão não.", estrito=True)
 
 
 # ── 3. bloco de código contra a margem ───────────────────────────────────────
