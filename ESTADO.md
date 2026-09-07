@@ -11,8 +11,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🔴 **G1.1 ✅ / G1.2 ✗** | GTE-large **0,5788** contra **0,5462** do nosso melhor — **−0,033**, não os +0,003 que o protocolo quebrado dava. G1.1 passa com folga (+0,195 sobre o PhysBERT) |
-| **T1a** · retreino sorteado | 🟢 **+0,020 de graça** | 10,7× mais documentos citados no MESMO custo: nDCG@10 0,5265 → **0,5462**, pareado p=0,0153. Não fecha o G1.2, e a curva **não platôou** |
+| **ΦEmb** | 🟠 **G1.1 ✅ / G1.2 empate técnico** | nDCG@10 **0,5780** contra **0,5788** do GTE-large — **−0,0008**, a 1/14,8 dos parâmetros. Ganhamos recall@10 (**0,785** contra 0,764) e perdemos recall@1 (0,389 contra 0,414, pareado p=0,0083). O critério pede SUPERAR, então segue vermelho |
+| **T1a** · volume × diversidade | 🟢 **−0,052 → −0,0008** | três runs, uma variável cada: `head`→sorteio (+0,020) e 400 mil→1,5 M (+0,032). A curva **ainda não platôou** no passo 11.400 de 11.718 |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -29,6 +29,55 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## 1,5 M de pares sorteados empatam com o GTE-large (2026-09-07)
+
+Três runs, uma variável cada, no protocolo de teto 1,0 e 2.000 candidatos:
+
+| run | documentos citados | nDCG@10 | margem vs GTE-large |
+|---|---|---|---|
+| 400 mil `head` | 17.844 | 0,5265 | −0,0523 |
+| 400 mil sorteado | 191.198 | 0,5462 | −0,0326 |
+| **1,5 M sorteado** | **390.856** | **0,5780** | **−0,0008** |
+| GTE-large (335M) | — | 0,5788 | — |
+
+**O `head` custava 0,052 de nDCG@10. Metade disso era amostragem, metade era volume.**
+
+### O que é empate e o que não é
+
+| | ΦEmb 1,5M (23M) | GTE-large (335M) | |
+|---|---|---|---|
+| nDCG@10 | **0,5780** | 0,5788 | −0,0008 — empate |
+| recall@10 | **0,7850** | 0,7640 | **nós** |
+| recall@1 | 0,3890 | **0,4140** | eles, pareado p=0,0083 |
+| MRR | 0,5216 | **0,5293** | eles |
+
+O modelo **acha o documento certo no top-10 mais vezes** que um genérico 14,8×
+maior, e **o põe em primeiro menos vezes**. Isso não é uma vitória nem uma derrota
+— é um perfil diferente, e dizer "empatamos" sem essa tabela esconderia metade.
+
+**G1.2 continua NÃO PASSOU**, e é o correto: o critério pede *superar*, e −0,0008
+não supera. Mas a ressalva que o ESTADO carregava desde agosto — "o defensável é
+paridade a 1/15 do tamanho, não vitória" — passa a ser **verdade medida** em vez de
+artefato de um protocolo com teto 0,7562.
+
+⚠️ E vale lembrar como chegamos aqui: em agosto o G1.2 "passou" por +0,003 num
+protocolo quebrado. Agora estamos a −0,0008 num protocolo de teto 1,0. Números
+parecidos, significados opostos — a diferença é que este vem com o teto medido e o
+pareado reportado.
+
+### A curva ainda não platôou
+
+    passo       0    1600    3200    4800    6400    8800   11400
+    nDCG@10  0,5515  0,6073  0,6209  0,6292  0,6392  0,6515  0,6567
+
+(na avaliação interna de 1.000 candidatos.) O pico está no passo **11.400 de
+11.718** — 97% do caminho. 196,2 pares/s, 2h08 de T4 gratuita.
+
+O corpus tem **6.564.111** pares e **667.304** documentos citados distintos: ainda
+há 4,4× mais dado disponível. Um run de 3 M levaria ~4,3 h e um do corpus inteiro
+~9,3 h — os dois cabem na cota de 30 h/semana, o segundo no limite de uma sessão.
+É o caminho para superar em vez de empatar, e ele está medido, não suposto.
 
 ## O retreino da T1a com pares sorteados: +0,020 de graça (2026-09-07)
 
