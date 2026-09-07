@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-06
+# Estado do projeto — 2026-09-07
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -11,7 +11,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🔴 **G1.1 ✅ / G1.2 ✗** | remedido no pool corrigido: GTE-large **0,5788** contra **0,5442** do nosso melhor — **−0,035**, não os +0,003 que o protocolo quebrado dava. G1.1 passa com folga (+0,193 sobre o PhysBERT). O campeão passou a ser o **ΦEmb/MiniLM 1,5M**, não o T4 |
+| **ΦEmb** | 🔴 **G1.1 ✅ / G1.2 ✗** | GTE-large **0,5788** contra **0,5462** do nosso melhor — **−0,033**, não os +0,003 que o protocolo quebrado dava. G1.1 passa com folga (+0,195 sobre o PhysBERT) |
+| **T1a** · retreino sorteado | 🟢 **+0,020 de graça** | 10,7× mais documentos citados no MESMO custo: nDCG@10 0,5265 → **0,5462**, pareado p=0,0153. Não fecha o G1.2, e a curva **não platôou** |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -28,6 +29,49 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O retreino da T1a com pares sorteados: +0,020 de graça (2026-09-07)
+
+A ablação mais limpa do projeto até aqui — mesma base, mesmos 400.000 pares, mesmo
+lote 128, mesmos 3.125 passos, mesma semente. **A única variável é a amostragem.**
+
+| | documentos citados distintos | nDCG@10 | recall@1 |
+|---|---|---|---|
+| ΦEmb-T4 (`head`) | 17.844 | 0,5265 | 0,3560 |
+| ΦEmb-T4 (sorteado) | **191.198** | **0,5462** | **0,3725** |
+| | 10,7× | **+0,0197** | +0,0165 |
+
+Pareado em recall@1 entre os dois: **104 a 71, p=0,0153**. O ganho é real, não ruído.
+E custou **zero**: 3.125 passos a 211,8 pares/s, 36 min de T4 gratuita — o mesmo
+que o run original.
+
+O modelo novo é o melhor dos nossos por nDCG@10 (0,5462 contra 0,5442 do
+ΦEmb/MiniLM 1,5M), mas os dois **empatam em recall@1** (163 discordantes,
+p=0,4336). A troca de liderança vale na métrica do portão, não nas duas.
+
+### O que ele NÃO resolve
+
+O G1.2 continua vermelho. A distância até o GTE-large sai de −0,0346 para
+**−0,0326**: fechou 0,002 de 0,035. O ganho de +0,020 foi sobre a versão `head` do
+MESMO run, e o campeão anterior já era o de 1,5 M de pares — então a diversidade
+melhorou o modelo sem mover o portão.
+
+Contra o GTE-large o pareado segue decisivo: **132 a 215, p=0,0000**.
+
+### E a curva não platôou
+
+    passo      0    200    800   1600   2200   2800   3000
+    nDCG@10 0,5515 0,5837 0,5930 0,6064 0,6146 0,6147 0,6146
+
+Subindo até o fim, com o pico no passo 2.800 de 3.125. Isso fecha a suspeita
+levantada ontem: o "platô medido" que interrompeu o run de 1,5 M em 38% era
+artefato do prefixo — 256 mil pares novos tirados de 67 mil documentos se parecem
+com platô de dados porque **eram** exaustão de documentos, não de dados.
+
+**O experimento seguinte está definido:** 1,5 M de pares sorteados dão **390.966**
+documentos distintos contra os 67.232 do prefixo. A 211,8 pares/s são ~2 h de T4 —
+cabe numa sessão de 9 h e na cota de 30 h/semana. É o candidato real a fechar os
+0,033.
 
 ## O G1.2 passava por +0,003 e, medido direito, perde por −0,035 (2026-09-06)
 
