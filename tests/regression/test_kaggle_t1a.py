@@ -621,26 +621,30 @@ def test_o_volume_vem_do_EXPERIMENTO_e_nao_de_um_default_solto():
     assert "exp.max_pares" in fonte
 
 
-def test_os_dois_experimentos_de_volume_nao_compartilham_slug():
-    """Slugs próprios, e não versões novas dos do t1a.
+def test_as_variantes_de_volume_so_diferem_no_volume_e_nos_slugs():
+    """⚠️ Três entradas quase idênticas divergem em silêncio.
 
-    O Kaggle fixa a versão do dataset no momento do anexo e `kernels push` não
-    re-resolve: subir 1,5 M como versão nova de `phifm-t1a-pares-sorteados` faria
-    a assinatura do bundle LEVANTAR na célula — a guarda funcionando, e o run
-    bloqueado. Notebook separado também preserva a execução de 400 mil como
-    registro em vez de sobrescrevê-la.
+    Slugs próprios são obrigatórios: o Kaggle fixa a versão do dataset no momento
+    do anexo e `kernels push` não re-resolve, então subir 3 M como versão nova de
+    um dataset existente faria a assinatura do bundle LEVANTAR na célula — a
+    guarda funcionando, e o run bloqueado. Notebook separado também preserva cada
+    execução como registro em vez de sobrescrever a anterior.
+
+    E todo o RESTO tem de ser idêntico, porque o volume é a única variável da
+    curva. Uma variante que mudasse a célula ou o repo mediria duas coisas.
     """
-    from phifm.core.kaggle import EXPERIMENTOS
+    from phifm.core.kaggle import EXPERIMENTOS, VARIANTES_DE_VOLUME
 
-    a, b = EXPERIMENTOS["t1a"], EXPERIMENTOS["t1a15"]
-    assert a.slug_dados != b.slug_dados
-    assert a.slug_notebook != b.slug_notebook
-    assert a.pacote != b.pacote
-    # E o resto é o MESMO, porque o volume é a única variável do experimento.
-    assert a.fonte_celula == b.fonte_celula
-    assert a.arquivos == b.arquivos
-    assert a.scripts == b.scripts
-    assert a.repo == b.repo
+    vs = [EXPERIMENTOS[n] for n in VARIANTES_DE_VOLUME]
+    assert len(vs) >= 3, "a curva de volume perdeu um ponto"
+    for campo in ("slug_dados", "slug_notebook", "pacote", "max_pares"):
+        valores = [getattr(v, campo) for v in vs]
+        assert len(set(valores)) == len(valores), f"{campo} repetido: {valores}"
+    for campo in ("fonte_celula", "arquivos", "scripts", "repo"):
+        valores = {getattr(v, campo) for v in vs}
+        assert len(valores) == 1, (
+            f"as variantes de volume divergem em {campo}: {valores}. O volume é a "
+            "única variável; mudar outra coisa mediria duas")
 
 
 def test_o_montador_do_t1a_serve_os_dois():

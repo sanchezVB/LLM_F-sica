@@ -191,6 +191,26 @@ T1A15 = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# Terceiro ponto da curva de volume. O run de 1,5 M empatou com o GTE-large
+# (nDCG@10 0,5780 contra 0,5788) e o pico ficou no passo 11.400 de 11.718 -- 97%
+# do caminho, sem plato. O corpus tem 6.564.111 pares e 667.304 documentos
+# citados distintos, entao 3 M ainda ficam bem abaixo do teto de dado.
+#
+# ~4h45 de T4 a 196,2 pares/s: cabe numa sessao de 9 h e na cota de 30 h/semana.
+T1A3M = Experimento(
+    nome="t1a3m",
+    titulo_dados="PhiFM T1a 3 M — pares de citação arXiv sorteados",
+    slug_dados="phifm-t1a-pares-3m",
+    titulo_notebook="PhiFM T1a 3m Gpu",
+    slug_notebook="phifm-t1a-3m-gpu",
+    pacote="data/processed/kaggle_t1a3m",
+    fonte_celula="kaggle/t1a_phiemb.py",
+    arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
+    scripts=("train_embedding.py",),
+    max_pares=3_000_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
 T1C = Experimento(
     nome="t1c",
     titulo_dados="PhiFM T1c — ΦRank de base diferente",
@@ -214,7 +234,13 @@ T1C = Experimento(
     modelos=("models/phiemb-minilm-melhor", "models/phirank-rrf-melhor"),
 )
 
-EXPERIMENTOS: dict[str, Experimento] = {e.nome: e for e in (T1A, T1A15, T1C)}
+# ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
+# eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
+# em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
+VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m")
+
+EXPERIMENTOS: dict[str, Experimento] = {
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1C)}
 
 
 def obter(nome: str) -> Experimento:

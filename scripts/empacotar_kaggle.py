@@ -184,7 +184,8 @@ def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
 
 # O t1a15 usa o MESMO montador: o volume é a única diferença, e ele vem
 # do `max_pares` do experimento.
-MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a, "t1c": _montar_t1c}
+MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
+              "t1a3m": _montar_t1a, "t1c": _montar_t1c}
 
 
 def main() -> int:
