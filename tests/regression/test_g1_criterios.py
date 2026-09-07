@@ -267,3 +267,51 @@ def test_o_campeao_e_o_mesmo_que_a_tabela_ordena_primeiro():
     ordenada = sorted([r for r in rs if not r.erro], key=lambda r: -r.ndcg_10)
     primeiro_nosso = next(r for r in ordenada if r.nosso)
     assert campeao(rs).nome == primeiro_nosso.nome
+
+
+def test_o_cabecalho_das_ressalvas_nao_afirma_VERDE_quando_um_portao_e_vermelho():
+    """⚠️ O artefato versionado saía se contradizendo.
+
+    O cabeçalho era a frase fixa "RESSALVAS que mantêm o G1 aberto mesmo com G1.1
+    e G1.2 verdes", impressa SEMPRE. Em 2026-09-06, quando o pool do protocolo foi
+    consertado, o G1.2 não passou — e o `g1_resultado.json` gravou essa frase duas
+    linhas abaixo de "G1.2: NÃO PASSOU".
+
+    Uma frase fixa sobre um estado variável é uma afirmação que ninguém está
+    mantendo, e num artefato de portão isso é pior que texto nenhum.
+    """
+    perdendo = [R("nosso", "models/b", ndcg=0.544, params=23, nosso=True),
+                R("PhysBERT", ALVO_DOMINIO, ndcg=0.351),
+                R("GTE-large", GTE, ndcg=0.579, params=335)]
+    v = veredito(perdendo, 2000)
+    assert "G1.2: NÃO PASSOU" in v
+    assert "G1.1 e G1.2 verdes" not in v, (
+        "o cabeçalho afirma que os dois portões estão verdes com o G1.2 vermelho")
+    assert "ALÉM de G1.2 não ter passado" in v
+
+    # E o caso verde continua dizendo o que dizia: as ressalvas do G1.3/4/5 não
+    # dependem de um portão ter falhado.
+    ganhando = [R("nosso", "models/b", ndcg=0.9, params=23, nosso=True),
+                R("PhysBERT", ALVO_DOMINIO, ndcg=0.1),
+                R("GTE-large", GTE, ndcg=0.2, params=335)]
+    assert "G1.1 e G1.2 verdes" in veredito(ganhando, 2000)
+
+
+def test_o_veredito_sobrevive_a_falta_das_posicoes_por_item():
+    """`comparar_pareado` devolve `{"erro": ...}` quando faltam as posições, e elas
+    faltam sempre que o veredito é reconstruído do JSON salvo — que não as guarda.
+
+    Com indexação direta, o `KeyError` engolia o veredito INTEIRO por causa de uma
+    linha acessória. Medido ao tentar re-renderizar o veredito de 2026-09-06 a
+    partir do `g1_resultado.json`.
+    """
+    rs = [Resultado("nosso", "models/b", 0.3, 0.0, 0.0, 0.544, 23.0, 1.0,
+                    nosso=True, posicoes=[]),
+          Resultado("PhysBERT", ALVO_DOMINIO, 0.2, 0.0, 0.0, 0.351, 109.0, 1.0,
+                    posicoes=[]),
+          Resultado("GTE-large", GTE, 0.4, 0.0, 0.0, 0.579, 335.0, 1.0,
+                    posicoes=[])]
+    v = veredito(rs, 2000)
+    assert "G1.1: PASSOU" in v and "G1.2: NÃO PASSOU" in v
+    assert "faltam posições" in v, (
+        "a ausência do pareado tem de aparecer, não ser omitida em silêncio")

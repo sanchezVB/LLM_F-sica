@@ -450,6 +450,12 @@ def veredito(rs: list[Resultado], n: int = 256) -> str:
 
     L = [f"nosso candidato: {nosso.nome} · {nosso.parametros_m:.0f}M params · "
          f"nDCG@10 {nosso.ndcg_10:.3f}", ""]
+    # ⚠️ O estado de cada portão, e não só o texto impresso. O cabeçalho das
+    # ressalvas afirmava "mesmo com G1.1 e G1.2 verdes" SEMPRE — e em 2026-09-06 o
+    # G1.2 não passou, então o artefato versionado saiu se contradizendo duas
+    # linhas abaixo de "G1.2: NÃO PASSOU". Uma frase fixa sobre um estado variável
+    # é uma afirmação que ninguém está mantendo.
+    passou: dict[str, bool] = {}
 
     # ── G1.1 · contra o competidor de mesmo domínio ────────────────────────
     alvo = next((r for r in ok if r.caminho == ALVO_DOMINIO), None)
@@ -464,8 +470,14 @@ def veredito(rs: list[Resultado], n: int = 256) -> str:
         d = round(nosso.ndcg_10 - alvo.ndcg_10, 3)
         pareado = comparar_pareado(nosso, alvo)
         st = "PASSOU" if d >= MARGEM_G1_1 else "NÃO PASSOU"
+        passou["G1.1"] = st == "PASSOU"
+        # `.get`: `comparar_pareado` devolve `{"erro": ...}` quando faltam as
+        # posições por item — e faltam sempre que o veredito é reconstruído do
+        # JSON salvo, que não guarda `posicoes`. Com indexação direta o KeyError
+        # engolia o veredito INTEIRO por causa de uma linha acessória.
         L.append(f"G1.1: {st} — nDCG@10 {d:+.3f} sobre o PhysBERT "
-                 f"(limiar +{MARGEM_G1_1:.2f}) · pareado em recall@1: {pareado['veredito']}")
+                 f"(limiar +{MARGEM_G1_1:.2f}) · pareado em recall@1: "
+                 f"{pareado.get('veredito') or pareado.get('erro', 'sem dado')}")
 
     # ── G1.2 · contra o melhor genérico, com a cláusula de tamanho ─────────
     gs = [r for r in ok if r.caminho in GENERICOS]
@@ -482,6 +494,7 @@ def veredito(rs: list[Resultado], n: int = 256) -> str:
             st = "PARCIAL (vence, mas a razão de tamanho não fecha)"
         else:
             st = "NÃO PASSOU"
+        passou["G1.2"] = st == "PASSOU"
         L.append(f"G1.2: {st} — melhor genérico é {melhor.nome} "
                  f"({melhor.parametros_m:.0f}M, nDCG@10 {melhor.ndcg_10:.3f}); "
                  f"nDCG@10 {nosso.ndcg_10 - melhor.ndcg_10:+.3f}, "
@@ -496,8 +509,14 @@ def veredito(rs: list[Resultado], n: int = 256) -> str:
     faltou = [r.nome for r in rs if r.erro]
     if faltou:
         L.append(f"⚠️ não avaliados: {', '.join(faltou)}")
-    L += ["",
-          "RESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:",
+    reprovados = sorted(k for k, v in passou.items() if not v)
+    cabecalho = (
+        "RESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:"
+        if passou and not reprovados else
+        f"RESSALVAS, ALÉM de {' e '.join(reprovados)} não ter passado acima:"
+        if reprovados else
+        "RESSALVAS que mantêm o G1 aberto, com portões indeterminados acima:")
+    L += ["", cabecalho,
           "  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado",
           "  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)",
           "    não são tocados por esta medição",
