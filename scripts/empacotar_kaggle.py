@@ -182,7 +182,9 @@ def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
             "negativos": str(origem).replace("\\", "/")}
 
 
-MONTADORES = {"t1a": _montar_t1a, "t1c": _montar_t1c}
+# O t1a15 usa o MESMO montador: o volume é a única diferença, e ele vem
+# do `max_pares` do experimento.
+MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a, "t1c": _montar_t1c}
 
 
 def main() -> int:
@@ -194,9 +196,13 @@ def main() -> int:
     p.add_argument("--semente", type=int, default=17,
                    help="sorteio dos pares de treino. Ver `amostrar_do_plano`: "
                         "`head` cobria 10,7x menos documentos")
-    p.add_argument("--max-pares", type=int, default=400_000,
-                   help="T1a: volume do campeão do G1.1; mais que isso a medição "
-                        "diz que não compra nada (p=0,950)")
+    # ⚠️ Sem `default`: o volume vem do EXPERIMENTO. Ver `max_pares` em
+    # `phifm.core.kaggle` — com um default fixo aqui, montar o `t1a15` sem a
+    # bandeira produziria 400 mil pares sob o nome do de 1,5 M.
+    p.add_argument("--max-pares", type=int, default=None,
+                   help="sobrepõe o volume declarado pelo experimento. O do t1a é "
+                        "o volume do campeão do G1.1; o do t1a15 testa se mais "
+                        "documentos fecham os 0,033 que faltam para o G1.2")
     p.add_argument("--negativos", type=Path,
                    default=Path("data/processed/negativos_dificeis/"
                                 "pares_do_recuperador_limpos.parquet"),
@@ -206,6 +212,10 @@ def main() -> int:
                         stream=sys.stdout)
 
     exp = obter(a.experimento)
+    if a.max_pares is None:
+        a.max_pares = exp.max_pares
+    logging.info("%s · %s pares · semente %d", exp.nome, f"{a.max_pares:,}",
+                 a.semente)
     raiz = Path(__file__).resolve().parents[1]
     out = a.out or (raiz / exp.pacote)
     out.mkdir(parents=True, exist_ok=True)

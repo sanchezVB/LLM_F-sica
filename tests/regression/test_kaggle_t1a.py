@@ -105,12 +105,26 @@ def test_lote_e_o_do_campeao():
 # ─── o empacotador ───────────────────────────────────────────────────────────
 
 
-def test_empacotador_existe_e_declara_o_volume():
-    doc = (RAIZ / "scripts" / "empacotar_kaggle.py").read_text(encoding="utf-8")
-    assert "400_000" in doc
-    # O volume tem justificativa medida, não é número redondo por gosto.
+def test_o_volume_tem_justificativa_MEDIDA_e_nao_e_numero_redondo():
+    """⚠️ A justificativa mudou de lugar E de conteúdo em 2026-09-07.
+
+    O número mora agora no registro (`max_pares` do experimento), não num default
+    do empacotador — ver `test_o_volume_vem_do_EXPERIMENTO_...`.
+
+    E a justificativa original — "mais que isso a medição diz que não compra nada
+    (p=0,950)" — está em DÚVIDA: ela vinha do run de 1,5 M interrompido em 38% por
+    platô, e o platô era artefato do prefixo. Manter a frase antiga seria repetir
+    uma afirmação que a própria medição deste repositório minou; o registro tem de
+    dizer que ela está sob revisão, e é para isso que o `t1a15` existe.
+    """
+    doc = (RAIZ / "src/phifm/core/kaggle.py").read_text(encoding="utf-8")
+    assert "max_pares=400_000" in doc
     assert "p=0,950" in doc, (
-        "o volume de 400 mil pares precisa citar a medição que o justifica")
+        "o volume de 400 mil precisa citar a medição que o justificou, mesmo "
+        "agora que ela está em dúvida")
+    assert "DUVIDA" in doc or "DÚVIDA" in doc, (
+        "a justificativa do volume foi refutada em parte; o registro tem de "
+        "dizer isso, senão alguém a cita como se valesse")
 
 
 def test_pacote_gerado_tem_o_que_o_notebook_espera(tmp_path):
@@ -581,3 +595,58 @@ def test_o_zip_grava_o_pacote_na_raiz_e_nao_sob_src(tmp_path):
     assert not any(n.startswith("src/") for n in nomes), (
         "o zip passou a preservar `src/` — o PYTHONPATH do notebook precisa "
         "apontar para `CODIGO / 'src'` agora")
+
+
+# ─── o experimento de volume ─────────────────────────────────────────────────
+
+
+def test_o_volume_vem_do_EXPERIMENTO_e_nao_de_um_default_solto():
+    """⚠️ O volume é a variável do t1a15, então pertence à identidade dele.
+
+    Com `--max-pares` tendo um default fixo no empacotador, rodar
+    `empacotar_kaggle.py --experimento t1a15` sem a bandeira montaria 400 mil
+    pares sob o nome do experimento de 1,5 M — e o manifesto atestaria o número
+    errado com a cara certa.
+    """
+    from phifm.core.kaggle import EXPERIMENTOS
+
+    assert EXPERIMENTOS["t1a"].max_pares == 400_000
+    assert EXPERIMENTOS["t1a15"].max_pares == 1_500_000
+
+    fonte = (RAIZ / "scripts/empacotar_kaggle.py").read_text(encoding="utf-8")
+    bloco = fonte.split('"--max-pares"')[1].split("p.add_argument")[0]
+    assert "default=None" in bloco, (
+        "o empacotador voltou a ter um volume default próprio; ele tem de cair "
+        "no `max_pares` do experimento")
+    assert "exp.max_pares" in fonte
+
+
+def test_os_dois_experimentos_de_volume_nao_compartilham_slug():
+    """Slugs próprios, e não versões novas dos do t1a.
+
+    O Kaggle fixa a versão do dataset no momento do anexo e `kernels push` não
+    re-resolve: subir 1,5 M como versão nova de `phifm-t1a-pares-sorteados` faria
+    a assinatura do bundle LEVANTAR na célula — a guarda funcionando, e o run
+    bloqueado. Notebook separado também preserva a execução de 400 mil como
+    registro em vez de sobrescrevê-la.
+    """
+    from phifm.core.kaggle import EXPERIMENTOS
+
+    a, b = EXPERIMENTOS["t1a"], EXPERIMENTOS["t1a15"]
+    assert a.slug_dados != b.slug_dados
+    assert a.slug_notebook != b.slug_notebook
+    assert a.pacote != b.pacote
+    # E o resto é o MESMO, porque o volume é a única variável do experimento.
+    assert a.fonte_celula == b.fonte_celula
+    assert a.arquivos == b.arquivos
+    assert a.scripts == b.scripts
+    assert a.repo == b.repo
+
+
+def test_o_montador_do_t1a_serve_os_dois():
+    """Duplicar o montador duplicaria também cada lição já paga nele — o sorteio,
+    o `.zip.bin`, a procedência no manifesto — e as cópias divergiriam."""
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    from empacotar_kaggle import MONTADORES
+
+    assert MONTADORES["t1a"] is MONTADORES["t1a15"]

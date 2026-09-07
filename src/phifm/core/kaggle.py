@@ -96,6 +96,13 @@ class Experimento:
     # pesos são públicos e o Kaggle os baixa do HuggingFace — subir 90 MB de
     # `all-MiniLM-L6-v2` seria pagar banda por algo que já está lá.
     modelos: tuple[str, ...] = ()
+    # ⚠️ Volume de pares do experimento, e não uma bandeira de linha de comando.
+    #
+    # Ele é a VARIÁVEL de um experimento de volume, então pertence à identidade
+    # dele: com `--max-pares` solto, rodar `empacotar_kaggle.py --experimento
+    # t1a15` sem a bandeira montaria 400 mil pares sob o nome do de 1,5 M, e o
+    # manifesto atestaria o número errado com a cara certa.
+    max_pares: int = 400_000
     # `owner/repo` do GitHub. Quando preenchido, o código NÃO viaja no dataset: o
     # notebook baixa o tarball do commit exato.
     #
@@ -143,6 +150,44 @@ T1A = Experimento(
     # Sem `phifm_src.zip.bin`: o código vem do GitHub (ver `repo`).
     arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
     scripts=("train_embedding.py",),
+    # 400 mil: o volume do campeao do G1.1.
+    #
+    # A justificativa original era "mais que isso a medicao diz que nao compra
+    # nada (p=0,950)", e ela esta EM DUVIDA desde 2026-09-07. Ela vinha do run de
+    # 1,5 M interrompido em 38% por plato -- e o plato era artefato do prefixo:
+    # os 256 mil pares novos saiam de 67 mil documentos, entao era exaustao de
+    # DOCUMENTOS, nao de dados. O run sorteado de 400 mil tambem nao platoou
+    # (nDCG@10 subindo ate o passo 2.800 de 3.125).
+    #
+    # E por isso que o `t1a15` existe: para remedir com 390.966 documentos.
+    max_pares=400_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
+# ⚠️ Mesma célula, mesmo código, mesmo tudo — o volume é a única variável.
+#
+# O run de 400 mil sorteados NÃO platôou: nDCG@10 subiu até o passo 2.800 de 3.125
+# (0,5515 → 0,6147). E o "platô medido" que interrompeu o run histórico de 1,5 M em
+# 38% era artefato do prefixo: os 256 mil pares novos saíam de 67 mil documentos,
+# então era exaustão de DOCUMENTOS, não de dados. Sorteados, 1,5 M dão **390.966**
+# documentos citados distintos.
+#
+# Slug de dataset e de notebook próprios, e não uma versão nova dos do T1a: o
+# Kaggle fixa a versão do dataset no anexo e `kernels push` não re-resolve. Subir
+# 1,5 M como versão nova faria a assinatura do bundle LEVANTAR na célula — a guarda
+# funcionando, e o run bloqueado. Notebook separado também preserva a execução de
+# 400 mil como registro, em vez de sobrescrevê-la.
+T1A15 = Experimento(
+    nome="t1a15",
+    titulo_dados="PhiFM T1a 1,5 M — pares de citação arXiv sorteados",
+    slug_dados="phifm-t1a-pares-15m",
+    titulo_notebook="PhiFM T1a 15m Gpu",
+    slug_notebook="phifm-t1a-15m-gpu",
+    pacote="data/processed/kaggle_t1a15",
+    fonte_celula="kaggle/t1a_phiemb.py",
+    arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
+    scripts=("train_embedding.py",),
+    max_pares=1_500_000,
     repo="sanchezVB/LLM_F-sica",
 )
 
@@ -169,7 +214,7 @@ T1C = Experimento(
     modelos=("models/phiemb-minilm-melhor", "models/phirank-rrf-melhor"),
 )
 
-EXPERIMENTOS: dict[str, Experimento] = {e.nome: e for e in (T1A, T1C)}
+EXPERIMENTOS: dict[str, Experimento] = {e.nome: e for e in (T1A, T1A15, T1C)}
 
 
 def obter(nome: str) -> Experimento:
