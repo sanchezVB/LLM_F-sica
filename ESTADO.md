@@ -11,7 +11,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🟠 **G1 sob remedição** | os números de 2026-08-27 (nDCG@10 0,4657 contra 0,4628) saíram de um protocolo com **teto de 0,7562**, não 1,0: `val.head(2000)` tinha 62% das linhas com alvo repetido e o desempate era arbitrário. Protocolo consertado em 2026-09-06; remedição em curso |
+| **ΦEmb** | 🔴 **G1.1 ✅ / G1.2 ✗** | remedido no pool corrigido: GTE-large **0,5788** contra **0,5442** do nosso melhor — **−0,035**, não os +0,003 que o protocolo quebrado dava. G1.1 passa com folga (+0,193 sobre o PhysBERT). O campeão passou a ser o **ΦEmb/MiniLM 1,5M**, não o T4 |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -28,6 +28,52 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O G1.2 passava por +0,003 e, medido direito, perde por −0,035 (2026-09-06)
+
+Remedição no pool corrigido, 2.000 candidatos, **teto do protocolo 1,0000**:
+
+| modelo | params | nDCG@10 | recall@1 | recall@10 | MRR |
+|---|---|---|---|---|---|
+| GTE-large (genérico) | 335M | **0,5788** | 0,4140 | 0,7640 | 0,5293 |
+| **ΦEmb/MiniLM 1,5M** (nosso) | 23M | **0,5442** | 0,3670 | 0,7425 | 0,4917 |
+| ΦEmb/MiniLM+GC (nosso) | 23M | 0,5272 | 0,3620 | 0,7145 | 0,4790 |
+| ΦEmb-T4 (nosso, era o campeão) | 23M | 0,5265 | 0,3560 | 0,7185 | 0,4773 |
+| ΦEmb/MiniLM (nosso) | 23M | 0,5246 | 0,3480 | 0,7195 | 0,4738 |
+| MiniLM-L6 (genérico) | 23M | 0,4761 | 0,3135 | 0,6640 | 0,4279 |
+| ΦEmb/SciBERT (nosso) | 110M | 0,4746 | 0,3070 | 0,6705 | 0,4263 |
+| PhysBERT (alvo do G1.1) | 109M | 0,3507 | 0,2220 | 0,4910 | 0,3170 |
+| SciBERT (base do ΦEmb) | 110M | 0,2537 | 0,1490 | 0,3825 | 0,2275 |
+
+### O que mudou de veredito
+
+| | protocolo quebrado (teto 0,7562) | pool corrigido (teto 1,0) |
+|---|---|---|
+| GTE-large | 0,4628 | 0,5788 |
+| nosso melhor | 0,4657 | 0,5442 |
+| margem | **+0,003 a nosso favor** | **−0,035 contra** |
+
+**G1.1: PASSOU** — +0,193 de nDCG@10 sobre o PhysBERT, contra um limiar de +0,05,
+e o pareado em recall@1 dá p=0,0000. Passa com mais folga que antes.
+
+**G1.2: NÃO PASSOU.** A vitória de +0,003 era artefato: com 62% dos itens carregando
+desempate arbitrário, uma margem de três milésimos não significava nada. Medido num
+pool de teto 1,0 a diferença é **doze vezes maior e no sentido oposto**.
+
+O honesto agora é: **o ΦEmb bate o PhysBERT com folga e não bate o melhor embedder
+geral**, a 1/14,8 dos parâmetros dele. Isso é um resultado defensável — só não é o
+que o G1.2 pede.
+
+### Duas coisas que a remedição também mostrou
+
+**O campeão mudou.** O `PhiEmb-T4` (0,5265) deixou de ser o melhor dos nossos; o
+**ΦEmb/MiniLM 1,5M** (0,5442) é. E ele é justamente o run que foi **interrompido em
+38% por "platô medido"** — o que reforça a suspeita de que o platô era artefato do
+prefixo: os 256 mil pares extras vinham de 67 mil documentos, e mais dados ainda
+estavam ajudando.
+
+**O ΦEmb/SciBERT de 110M (0,4746) empata com o MiniLM-L6 genérico de 23M (0,4761).**
+Um modelo nosso, com quase 5× os parâmetros, não supera o genérico pequeno.
 
 ## ⚠️ O Portão G1 media contra um teto de 0,7562, e o treino via um prefixo (2026-09-06)
 
