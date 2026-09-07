@@ -250,12 +250,31 @@ print(" ".join(cmd))
 # `phifm/` na raiz, porque `_zipar_fonte` usava `relative_to(raiz / "src")`).
 AMBIENTE = {**os.environ, "PYTHONPATH": str(FONTE)}
 
+# ⚠️ Os DOIS destinos, arquivo E stdout — não um.
+#
+# Era `subprocess.run(stdout=fh)`, com o `print` do arquivo depois. Funcionava, e
+# custou horas de cegueira em 2026-09-07: nada aparecia no log da célula entre o
+# lançamento do treino (aos 18,9 s) e o fim dele, então uma execução saudável era
+# indistinguível de uma travada. Eu passei 33 h sem saber se o kernel estava na
+# fila do Kaggle ou morto — e estava na fila.
+#
+# O arquivo continua, porque a razão de ele existir não mudou: o `kernels output`
+# da API devolveu 0 BYTE em três execuções seguidas em 2026-08-26, e um arquivo em
+# `/kaggle/working` é baixável mesmo quando o log da API não vem.
+#
+# `bufsize=1` com `text=True` dá linha a linha; sem isso o pipe acumula e o
+# problema volta com outra cara.
 TREINO_LOG = TRABALHO / "treino.log"
 with open(TREINO_LOG, "w", encoding="utf-8") as fh:
-    r = subprocess.run(cmd, stdout=fh, stderr=subprocess.STDOUT, text=True,
-                       env=AMBIENTE)
-print(TREINO_LOG.read_text(encoding="utf-8", errors="replace")[-6000:])
-print(f"código de saída: {r.returncode}")
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, bufsize=1, encoding="utf-8",
+                            errors="replace", env=AMBIENTE)
+    for linha in proc.stdout:
+        fh.write(linha)
+        fh.flush()
+        print(linha, end="", flush=True)
+    saida_treino = proc.wait()
+print(f"código de saída: {saida_treino}")
 
 # ⚠️ E LEVANTA se falhou. Antes era `check=False` com o código apenas impresso, e a
 # justificativa era "uma sessão que cai deixa o estado para a próxima retomar" — o
@@ -263,10 +282,10 @@ print(f"código de saída: {r.returncode}")
 # independentemente de a célula levantar. O que o `check=False` fazia de verdade era
 # transformar um treino morto num notebook `COMPLETE`, e foi assim que uma execução
 # sem NENHUM modelo treinado passou por sucesso em 2026-08-26.
-if r.returncode != 0:
+if saida_treino != 0:
     raise SystemExit(
-        f"o treino saiu com {r.returncode}. As últimas linhas estão acima e o log "
-        f"inteiro em {TREINO_LOG.name}, que desce junto com a saída do notebook.")
+        f"o treino saiu com {saida_treino}. As linhas estão acima e o log inteiro "
+        f"em {TREINO_LOG.name}, que desce junto com a saída do notebook.")
 
 # 5. O que salvar. `/kaggle/working` persiste como output do notebook; o resto some.
 for f in sorted(SAIDA.parent.rglob("*")):

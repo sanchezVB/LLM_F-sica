@@ -473,10 +473,54 @@ def test_treino_que_falha_derruba_o_notebook():
     A justificativa original do `check=False` ("uma sessão que cai deixa o estado
     para a próxima retomar") estava errada: `/kaggle/working` persiste como saída do
     notebook independentemente de a célula levantar.
+
+    ⚠️ A asserção é ESTRUTURAL, não textual. A primeira versão exigia a string
+    `"if r.returncode != 0:"` e reprovou quando o `subprocess.run` virou `Popen` e
+    a variável passou a se chamar `saida_treino` — um teste que quebra ao renomear
+    uma variável não está guardando a propriedade, está guardando o nome.
+
+    A propriedade é: existe um `if <algo> != 0` cujo corpo levanta.
     """
-    assert "if r.returncode != 0:" in CELULA, (
-        "o notebook voltou a engolir o código de saída do treino")
-    assert "raise SystemExit" in CELULA
+    import ast as _ast
+
+    def levanta_se_nao_zero(no) -> bool:
+        if not isinstance(no, _ast.If):
+            return False
+        teste = no.test
+        if not (isinstance(teste, _ast.Compare) and len(teste.ops) == 1
+                and isinstance(teste.ops[0], _ast.NotEq)):
+            return False
+        if not any(isinstance(c, _ast.Constant) and c.value == 0
+                   for c in teste.comparators):
+            return False
+        return any(isinstance(n, _ast.Raise) for n in _ast.walk(no))
+
+    arvore = _ast.parse(CELULA)
+    assert any(levanta_se_nao_zero(n) for n in _ast.walk(arvore)), (
+        "o notebook voltou a engolir o código de saída do treino: não há um "
+        "`if <saída> != 0` que levante")
+
+
+def test_a_saida_do_treino_vai_para_stdout_TAMBEM_e_nao_so_para_o_arquivo():
+    """⚠️ Mandar só para o arquivo custou 33 h de cegueira.
+
+    Medido em 2026-09-07: entre o lançamento do treino (aos 18,9 s) e o fim dele
+    NADA aparecia no log da célula, porque o `stdout` do subprocesso ia inteiro
+    para `treino.log` e o `print` só acontecia depois. Uma execução saudável ficou
+    indistinguível de uma travada, e eu não soube dizer se o kernel estava na fila
+    do Kaggle ou morto — estava na fila.
+
+    O arquivo continua: o `kernels output` da API devolveu 0 byte em três
+    execuções seguidas em 2026-08-26. Os dois destinos, não um.
+    """
+    celula = CELULA
+    assert "subprocess.Popen" in celula, (
+        "voltou o `subprocess.run` com stdout no arquivo; sem streaming não há "
+        "sinal de progresso durante a corrida")
+    assert "for linha in proc.stdout:" in celula
+    assert "fh.write(linha)" in celula and "flush=True" in celula, (
+        "sem flush o pipe acumula e a cegueira volta com outra cara")
+    assert "bufsize=1" in celula, "sem bufsize=1 a leitura não é linha a linha"
 
 
 def test_log_do_treino_vai_para_arquivo_baixavel():
