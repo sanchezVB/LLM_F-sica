@@ -1,0 +1,152 @@
+{
+  "n_consultas": 2000,
+  "profundidade": 100,
+  "git_sha_dados": "9a4ec94",
+  "git_sha_codigo": "f84f9bbe73606ecab209066dc9d5cf50781869f1",
+  "reranqueador": "phirank-physbert-melhor",
+  "bracos": {
+    "novo": "phiemb-do-sistema"
+  },
+  "resultados": {
+    "novo": {
+      "n_consultas": 2000,
+      "universo": 88807,
+      "custo_segundos": {
+        "bm25_indexar_s": 16.6,
+        "embutir_universo_s": 177.1,
+        "total_s": 10938.0,
+        "reordenar_s": 10744.3
+      },
+      "nota_custo": "Medido nesta execução, em cuda. O reordenar domina: são n_consultas × profundidade passagens de um cross-encoder. Gravado porque os artefatos anteriores guardavam as métricas e nunca o custo, e por isso uma estimativa de 2026-09-08 errou por 7×.",
+      "profundidade": 100,
+      "modelos": {
+        "emb": "/kaggle/working/modelos/phiemb-do-sistema",
+        "rank": "/kaggle/working/modelos/phirank-physbert-melhor"
+      },
+      "teto_do_reranker": 0.6065,
+      "teto_do_reranker_sem_fusao": 0.6325,
+      "nota_teto": "recall@100 da fusão. Um ΦRank perfeito não passa disto, e nenhuma melhora de reranking aparece nas consultas em que o documento certo não chegou.",
+      "sistemas": [
+        {
+          "sistema": "BM25",
+          "recall_1": 0.06,
+          "recall_10": 0.2285,
+          "recall_100": 0.454,
+          "ndcg_10": 0.134
+        },
+        {
+          "sistema": "ΦEmb",
+          "recall_1": 0.0655,
+          "recall_10": 0.281,
+          "recall_100": 0.6325,
+          "ndcg_10": 0.1585
+        },
+        {
+          "sistema": "ΦEmb+BM25 (RRF)",
+          "recall_1": 0.072,
+          "recall_10": 0.282,
+          "recall_100": 0.6065,
+          "ndcg_10": 0.1643
+        },
+        {
+          "sistema": "ΦEmb+BM25+ΦRank",
+          "recall_1": 0.068,
+          "recall_10": 0.297,
+          "recall_100": 0.6065,
+          "ndcg_10": 0.1688
+        },
+        {
+          "sistema": "ΦEmb+ΦRank (sem fusão)",
+          "recall_1": 0.0675,
+          "recall_10": 0.2945,
+          "recall_100": 0.6325,
+          "ndcg_10": 0.1676
+        }
+      ],
+      "pareado_contra_a_fusao": [
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "BM25",
+          "k": 1,
+          "ganha_a": 56,
+          "ganha_b": 32,
+          "discordantes": 88,
+          "p": 0.01375038573850291,
+          "veredito": "ΦEmb+BM25 (RRF) vence no top-1 (p=0.014)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "BM25",
+          "k": 10,
+          "ganha_a": 152,
+          "ganha_b": 45,
+          "discordantes": 197,
+          "p": 8.956372819028382e-15,
+          "veredito": "ΦEmb+BM25 (RRF) vence no top-10 (p=9e-15)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "ΦEmb",
+          "k": 1,
+          "ganha_a": 51,
+          "ganha_b": 38,
+          "discordantes": 89,
+          "p": 0.20311681873649556,
+          "veredito": "empate — 89 discordantes não separam (p=0.203)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "ΦEmb",
+          "k": 10,
+          "ganha_a": 124,
+          "ganha_b": 122,
+          "discordantes": 246,
+          "p": 0.9491804104656163,
+          "veredito": "empate — 246 discordantes não separam (p=0.949)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "ΦEmb+BM25+ΦRank",
+          "k": 1,
+          "ganha_a": 67,
+          "ganha_b": 59,
+          "discordantes": 126,
+          "p": 0.5330527502675572,
+          "veredito": "empate — 126 discordantes não separam (p=0.533)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "ΦEmb+BM25+ΦRank",
+          "k": 10,
+          "ganha_a": 128,
+          "ganha_b": 158,
+          "discordantes": 286,
+          "p": 0.08620281482797955,
+          "veredito": "empate — 286 discordantes não separam (p=0.086)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "ΦEmb+ΦRank (sem fusão)",
+          "k": 1,
+          "ganha_a": 67,
+          "ganha_b": 58,
+          "discordantes": 125,
+          "p": 0.47442157344095126,
+          "veredito": "empate — 125 discordantes não separam (p=0.474)"
+        },
+        {
+          "a": "ΦEmb+BM25 (RRF)",
+          "b": "ΦEmb+ΦRank (sem fusão)",
+          "k": 10,
+          "ganha_a": 126,
+          "ganha_b": 151,
+          "discordantes": 277,
+          "p": 0.14916476969167589,
+          "veredito": "empate — 277 discordantes não separam (p=0.149)"
+        }
+      ],
+      "nota_pareado": "McNemar exato sobre 'o alvo chegou ao top-k'. A referência é a fusão porque a pergunta do T1b é se o reranker acrescenta algo a ela."
+    }
+  },
+  "nota": "Os dois braços na MESMA sessão, mesmo commit, mesmas consultas. Comparar contra o numero de agosto seria invalido: entre agosto e hoje mudaram o protocolo do G1, o pool de candidatos e quatro versoes do codigo. Encolher o ganho marginal do PhiRank NAO e regressao -- o recall@100 do recuperador e o teto do reranker."
+}

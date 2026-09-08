@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Negativos com a DISTRIBUIÇÃO DA AVALIAÇÃO: o top-K do RRF, não o top-K do denso.
+"""Negativos com a DISTRIBUIÇÃO DA AVALIAÇÃO — seja ela qual for hoje.
 
     .venv-treino/Scripts/python.exe scripts/minerar_do_recuperador.py --max-ancoras 30000
 
@@ -24,12 +24,24 @@ sozinha) para **0,0179**, pior que ordem aleatória.
 
 ## A correção: treinar na distribuição do teste
 
-Aqui o grupo é montado do **RRF top-K de verdade** — o mesmo BM25 + ΦEmb + fusão
-por posto que a avaliação usa. O positivo é a citação verdadeira **que apareceu no
-top-K**, e os negativos são os outros candidatos do mesmo top-K.
+O grupo é montado do **top-K que a avaliação realmente usa**. O positivo é a
+citação verdadeira **que apareceu no top-K**, e os negativos são os outros
+candidatos do mesmo top-K.
 
 Com isso "estar no topo" deixa de prever o rótulo: o positivo também está no topo,
 porque foi assim que ele entrou no grupo.
+
+## ⚠️ E qual é essa distribuição mudou em 2026-09-08
+
+Em 2026-08-24 a composição avaliada era a fusão RRF, então o grupo vinha do RRF.
+No T1b2 a regra pré-registrada **tirou o BM25 da composição** — a cadeia passou a
+ser `ΦEmb → ΦRank` — e o **default deste script mudou junto**: o grupo vem do
+top-K do ΦEmb.
+
+Não é uma reversão do conserto acima; é o mesmo princípio aplicado à composição
+nova. Continuar minerando da fusão seria treinar o reranqueador numa distribuição
+que ele não vê mais — o defeito de 2026-08-24 com outra roupa. `--com-fusao`
+reproduz os negativos antigos e existe só para isso.
 
 ## ⚠️ O par só existe quando o recuperador acerta
 
@@ -112,6 +124,21 @@ def main() -> int:
     p.add_argument("--max-ancoras", type=int, default=30000)
     p.add_argument("--universo", type=int, default=88807,
                    help="tamanho do pool; o padrão é o do avaliador do T1b")
+    # ⚠️ O DEFAULT é minerar SEM o BM25, e isso mudou em 2026-09-08.
+    #
+    # Todo o argumento deste script é "treinar na distribuição do teste". Em
+    # 2026-08-24 essa distribuição era a fusão RRF. No T1b2 a regra
+    # pré-registrada tirou o BM25 da composição — a cadeia passou a ser
+    # ΦEmb → ΦRank — e minerar da fusão voltaria a treinar o reranqueador numa
+    # distribuição que ele não vai ver. Seria o mesmo defeito de 2026-08-24 com
+    # outra roupa, e é a causa mecânica provável de o ganho do ΦRank ter
+    # encolhido de p=0,0081 para p=0,086.
+    #
+    # `--com-fusao` existe para reproduzir os negativos antigos, não para uso.
+    p.add_argument("--com-fusao", action="store_true",
+                   help="minera do RRF (ΦEmb+BM25) em vez do ΦEmb sozinho; era "
+                        "o comportamento até 2026-09-08, quando a regra "
+                        "pré-registrada do T1b2 tirou o BM25 da composição")
     p.add_argument("--profundidade", type=int, default=50,
                    help="top-K do RRF de onde o grupo sai; igual ao do avaliador")
     p.add_argument("--max-tokens", type=int, default=192)
@@ -181,9 +208,16 @@ def main() -> int:
     del docs
 
     # ── índices ────────────────────────────────────────────────────────────
-    t0 = time.perf_counter()
-    bm = BM25().indexar(textos_pool)
-    log.info("BM25 indexado em %.0f s", time.perf_counter() - t0)
+    if a.com_fusao:
+        t0 = time.perf_counter()
+        bm = BM25().indexar(textos_pool)
+        log.info("BM25 indexado em %.0f s", time.perf_counter() - t0)
+    else:
+        # Sem `--com-fusao` o índice não é consultado; construí-lo custaria
+        # minutos sobre 89 mil documentos para nada.
+        bm = None
+        log.info("BM25 NÃO indexado: minerando do ΦEmb sozinho, que é a "
+                 "composição decidida no T1b2 (2026-09-08)")
 
     dev = escolher_dispositivo(a.dispositivo)
     tok = AutoTokenizer.from_pretrained(a.emb)
@@ -215,9 +249,13 @@ def main() -> int:
         alvo_idx = onde.get(cid)
         if alvo_idx is None:
             continue
-        ord_bm = top_k(bm.pontuar(consulta), a.profundidade)
         ord_emb = top_k(Vq[i] @ Vt, a.profundidade)
-        rrf = fundir_rrf(ord_emb, ord_bm)[:a.profundidade]
+        if a.com_fusao:
+            ord_bm = top_k(bm.pontuar(consulta), a.profundidade)
+            rrf = fundir_rrf(ord_emb, ord_bm)[:a.profundidade]
+        else:
+            # A composição decidida no T1b2: o candidato é o top-K DENSO.
+            rrf = ord_emb[:a.profundidade]
         if alvo_idx not in rrf:
             fora_do_topo += 1
             continue

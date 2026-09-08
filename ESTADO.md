@@ -14,7 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Primeiro sinal de virada: o pico do 6 M está a 93,4% do treino, não a 99,8% |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
-| **T1b2** · a cadeia | 🔴 **o gargalo mudou de lugar** | a fusão RRF **parou de somar** (empate com o ΦEmb sozinho, p=0,95) e agora **custa** 0,026 de recall@100. O ΦRank caiu de p=0,0081 para **p=0,086** |
+| **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu: a cadeia é `ΦEmb → ΦRank`. A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -26,11 +26,68 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
 
-Suíte: **618 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **649 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O BM25 saiu da composição pela regra pré-registrada (2026-09-08)
+
+A pergunta do run, escrita na célula **antes** de rodar: o reranqueador vai melhor
+sobre o top-100 da fusão RRF ou sobre o top-100 do ΦEmb sozinho? E a regra:
+
+> se `ΦEmb+ΦRank` VENCER `ΦEmb+BM25+ΦRank` no pareado, o BM25 sai da composição.
+> Se EMPATAR, ele sai também — não paga o próprio custo nem os 0,026 de teto que
+> cobra. Só fica se vencer.
+
+As duas cadeias na MESMA execução, mesmas 2.000 consultas, mesmo reranqueador em
+memória, universo de 88.807:
+
+| sistema | r@1 | r@10 | r@100 | nDCG@10 |
+|---|---|---|---|---|
+| BM25 | 0,060 | 0,229 | 0,454 | 0,1340 |
+| ΦEmb | 0,066 | 0,281 | **0,632** | 0,1585 |
+| ΦEmb+BM25 (RRF) | 0,072 | 0,282 | 0,607 | 0,1643 |
+| ΦEmb+BM25+ΦRank | 0,068 | 0,297 | 0,607 | **0,1688** |
+| **ΦEmb+ΦRank (sem fusão)** | 0,068 | 0,294 | **0,632** | 0,1676 |
+
+**A cadeia com fusão fica 0,0012 de nDCG à frente — e isso não é vencer.** No
+top-10 ela acerta 594 das 2.000 contra 589: um líquido de **5 consultas**.
+
+### ⚠️ O pareado da regra NÃO foi calculado pela rodada
+
+Os oito pareados do artefato têm a **fusão** como referência, porque era a pergunta
+original do T1b ("o reranker acrescenta algo à fusão?"). O confronto que a regra
+nomeia — cadeia contra cadeia — não estava lá. Duas comparações contra um terceiro
+sistema não são a comparação entre elas.
+
+Deu para decidir por aritmética, e é uma aritmética fechada: o McNemar exato só olha
+os discordantes, e para um líquido de 5 o menor `p` possível é o caso extremo 5 a 0,
+que dá **0,0625**. Qualquer outra estrutura de discordantes dá mais. Logo a fusão
+**não podia vencer sob nenhuma estrutura** — a regra resolvia sem o número.
+
+Mas isso foi sorte do tamanho do efeito, não desenho. O `avaliar_t1b.py` agora
+calcula `confronto_das_cadeias` diretamente, e um teste guarda tanto a existência do
+confronto quanto o argumento aritmético em forma executável.
+
+### O que sai disto, concretamente
+
+1. **A composição do sistema é `ΦEmb → ΦRank`.** O BM25 sai. Ele não estava em
+   nenhum caminho de serviço — só no avaliador e no minerador —, então a mudança é
+   de projeto e de default, não de deploy.
+2. **O minerador de negativos mudou de default junto** — e isto é o ponto que
+   importa. Todo o argumento do `minerar_do_recuperador.py` é *treinar na
+   distribuição do teste*; a distribuição do teste acabou de mudar. Continuar
+   minerando da fusão seria repetir o defeito de 2026-08-24 com outra roupa, e é a
+   causa mecânica provável de o ganho do ΦRank ter encolhido. `--com-fusao`
+   reproduz os negativos antigos e existe só para isso.
+3. **O teto subiu 0,026** sem custo nenhum: 0,6065 → **0,6325**. Ainda assim 37%
+   das consultas não recebem o alvo no top-100, e nenhuma melhora de reordenação
+   alcança essas.
+
+Custo do run: **10.938 s** (3h02) — 16,6 s de BM25, 177 s de embutir o universo,
+**10.744 s de reordenar** (98%), agora com duas passagens em vez de uma.
 
 ## O recuperador melhorou 0,098 e a cadeia melhorou 0,0003 (2026-09-08)
 
@@ -164,11 +221,11 @@ destes** — vem de outra fonte de pares, de outra base, ou de mais parâmetros.
 continua em `models/` porque é um ponto da curva em `avaliar_encoders.py` —
 sobrescrevê-lo apagaria a evidência de que 400 mil pares sobre MiniLM dão 0,5246.
 
-⚠️ **A referência do T1b/T1c está obsoleta.** O nDCG **0,1666** do ΦRank
-(p=0,0062) foi medido sobre a fusão RRF do recuperador ANTIGO. Remedir a cadeia é
-parte desta etapa, e não um detalhe para depois — e há uma razão para esperar que
-o ΦRank ganhe menos agora: o `recall@100` do recuperador é o teto do reranker, e
-um recuperador melhor deixa menos para reordenar.
+✅ **A referência do T1b/T1c foi remedida** (ver a seção do T1b2 acima). O nDCG
+**0,1666** de agosto era da fusão RRF sobre o recuperador ANTIGO; com o novo a
+cadeia dá **0,1688**, e a razão para esperar menos ganho do ΦRank se confirmou —
+o `recall@100` do recuperador é o teto do reranker, e um recuperador melhor deixa
+menos para reordenar.
 
 Custo medido: a avaliação da cadeia embute os **88.807** documentos do universo e
 reordena 2.000×100 pares com um cross-encoder de 109M. Em CPU local isso é da

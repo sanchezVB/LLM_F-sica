@@ -289,6 +289,21 @@ def main() -> int:
             pareados.append(mcnemar_em(pos_rrf, pos, k,
                                        "ΦEmb+BM25 (RRF)", nome))
 
+    # ⚠️ O confronto DIRETO entre as duas cadeias — o teste que a regra
+    # pré-registrada do T1b2 nomeia, e que a primeira versão desta função não
+    # calculava.
+    #
+    # A regra era: "se ΦEmb+ΦRank VENCER ΦEmb+BM25+ΦRank no pareado, o BM25 sai
+    # da composição; se EMPATAR, sai também". Mas todos os pareados acima têm a
+    # FUSÃO como referência, porque a pergunta original do T1b era outra ("o
+    # reranker acrescenta algo à fusão?"). Duas comparações contra um terceiro
+    # sistema não são a comparação entre elas: em 2026-09-08 as duas cadeias
+    # deram p=0,086 e p=0,149 contra a fusão, e nenhum desses números é o
+    # veredito que a regra pedia.
+    confronto = [mcnemar_em(pos_rank_denso, pos_rank, k,
+                            "ΦEmb+ΦRank (sem fusão)", "ΦEmb+BM25+ΦRank")
+                 for k in (1, 10)] if tem_rank else []
+
     teto = recall_em(pos_rrf, a.profundidade)
     # ⚠️ DOIS tetos, porque agora há duas cadeias. O da fusão limita o
     # `ΦEmb+BM25+ΦRank`; o do denso limita o `ΦEmb+ΦRank`. Reportar um só faria
@@ -315,6 +330,15 @@ def main() -> int:
                       "consultas em que o documento certo não chegou."),
         "sistemas": sistemas,
         "pareado_contra_a_fusao": pareados,
+        # ⚠️ Separado de `pareado_contra_a_fusao` de propósito: aquela chave
+        # promete que a referência é a fusão, e enfiar aqui um par sem ela
+        # dentro faria o nome mentir para quem lê o artefato.
+        "confronto_das_cadeias": confronto,
+        "nota_confronto": ("O pareado que a regra pré-registrada do T1b2 nomeia: "
+                           "a cadeia SEM o BM25 contra a cadeia COM. A regra é "
+                           "que o BM25 só fica se a cadeia com ele VENCER — "
+                           "empate já o tira, porque ele não paga o próprio "
+                           "custo nem o teto que cobra."),
         "nota_pareado": ("McNemar exato sobre 'o alvo chegou ao top-k'. A referência "
                          "é a fusão porque a pergunta do T1b é se o reranker "
                          "acrescenta algo a ela."),
@@ -334,8 +358,23 @@ def main() -> int:
     for s in sistemas:
         print(f"  {s['sistema']:<24} {s['recall_1']:>7.3f} {s['recall_10']:>7.3f} "
               f"{s[rk]:>7.3f} {s['ndcg_10']:>9.4f}")
+    if confronto:
+        print()
+        print("  CONFRONTO das cadeias (a regra pré-registrada do BM25):")
+        for c in confronto:
+            if "erro" in c:
+                print(f"    {c['erro']}")
+                continue
+            print(f"    top-{c['k']:<3} {c['ganha_a']:>3} a {c['ganha_b']:<3} · "
+                  f"{c['veredito']}")
+        print("    a regra: o BM25 só fica se a cadeia COM ele vencer.")
     print("=" * 74)
     print(f"  TETO do reranker (recall@{a.profundidade} da fusão): {teto:.4f}")
+    # ⚠️ Os DOIS tetos impressos, não só o da fusão: se a cadeia escolhida for a
+    # sem fusão, imprimir só o da fusão mostraria o limite do braço descartado.
+    if tem_rank:
+        print(f"  TETO sem a fusão (recall@{a.profundidade} do ΦEmb):    "
+              f"{teto_denso:.4f}")
     print()
     print("  PAREADO contra a fusão (McNemar exato, mesmas consultas):")
     for r in pareados:
