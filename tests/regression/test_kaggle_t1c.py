@@ -538,3 +538,35 @@ def test_o_avaliador_da_cadeia_grava_o_CUSTO_e_nao_so_as_metricas():
     # O total tem de vir de um relógio da execução INTEIRA, não da soma das
     # parcelas — somar esconderia o que não foi instrumentado.
     assert "t_inicio = time.perf_counter()" in fonte
+
+
+def test_o_avaliador_mede_o_reranker_SEM_a_fusao_tambem():
+    """⚠️ O T1b2 mediu que a fusão passou a CUSTAR.
+
+    Com o recuperador novo, o recall@100 da fusão RRF (0,6065) é MENOR que o do
+    ΦEmb sozinho (0,6325): misturar o BM25, cujo recall@100 é 0,4540, desloca
+    candidatos bons do top-100 e derruba o teto do reranker em 0,026. E o pareado
+    virou empate com o denso sozinho (p=0,949 no top-10, contra p=1,5e-08 com o
+    recuperador antigo).
+
+    Como 39% das consultas não recebem o alvo no top-100, o teto é onde está o
+    retorno — nenhuma reordenação alcança essas consultas.
+
+    As duas passagens rodam na MESMA execução: reordenar é 96% do custo e embutir
+    o universo é compartilhado, então custa o mesmo que dois runs e o pareamento
+    fica exato.
+    """
+    from conftest import so_codigo_de
+
+    fonte = so_codigo_de(RAIZ / "scripts/avaliar_t1b.py")
+    assert "pos_rank_denso" in fonte, (
+        "o avaliador voltou a medir o reranqueador só sobre a fusão")
+    assert "sem fusão" in fonte
+    # Dois tetos, porque agora há duas cadeias com limites diferentes.
+    assert "teto_do_reranker_sem_fusao" in fonte, (
+        "sem o segundo teto, uma das cadeias apareceria limitada pelo teto da "
+        "outra")
+    # E a função de reordenar recebe a consulta por PARÂMETRO.
+    assert "_reordenar(q: str, candidatos: list)" in fonte, (
+        "a consulta voltou a ser capturada do laço; uma chamada movida para fora "
+        "veria a última consulta e o número sairia com a cara certa")

@@ -191,6 +191,18 @@ def main() -> int:
                     "assim, e são o teto do que o reranker poderia melhorar", a.rank)
 
     pos_bm, pos_emb, pos_rrf, pos_rank = [], [], [], []
+    # ⚠️ O reranqueador sobre o DENSO SOZINHO, além de sobre a fusão.
+    #
+    # Medido no T1b2: com o recuperador novo, o recall@100 da fusão (0,6065) é
+    # MENOR que o do ΦEmb sozinho (0,6325) — misturar o BM25 (0,4540) desloca
+    # candidatos bons do top-100 e derruba o teto do reranker em 0,026. E o
+    # pareado diz que a fusão virou empate com o denso sozinho (p=0,949 no
+    # top-10, contra p=1,5e-08 com o recuperador antigo).
+    #
+    # Na MESMA execução, e não em dois runs: reordenar é 96% do custo e embutir o
+    # universo é compartilhado, então duas passagens custam o mesmo que dois runs
+    # — e o pareamento fica exato, com as mesmas consultas na mesma ordem.
+    pos_rank_denso: list = []
     depurados = [0]
     t0 = time.perf_counter()
     for i, (consulta, alvo) in enumerate(zip(consultas, alvos, strict=True)):
@@ -205,19 +217,30 @@ def main() -> int:
         pos_rrf.append(_posicao(ord_rrf, alvo))
 
         if tem_rank:
-            with torch.no_grad():
-                escores = []
-                for j in range(0, len(ord_rrf), a.lote_rank):
-                    pedaco = ord_rrf[j:j + a.lote_rank]
-                    b = tok_r([consulta] * len(pedaco),
-                              [textos_pool[d] for d in pedaco],
-                              padding="max_length", truncation=True,
-                              max_length=384, return_tensors="pt")
-                    b = {k: v.to(dev) for k, v in b.items()}
-                    escores.append(mod_r(**b).logits.float().view(-1).cpu().numpy())
-            e = np.concatenate(escores)
-            ord_rank = [ord_rrf[k] for k in np.argsort(-e)]
+            # `q` como PARAMETRO, nao capturado do laco: o ruff B023 pega
+            # isso, e com razao. A funcao e chamada dentro da iteracao hoje,
+            # mas uma chamada movida para fora veria a ULTIMA consulta em vez
+            # desta, e o numero sairia com a cara certa.
+            def _reordenar(q: str, candidatos: list) -> tuple[list, np.ndarray]:
+                with torch.no_grad():
+                    escores = []
+                    for j in range(0, len(candidatos), a.lote_rank):
+                        pedaco = candidatos[j:j + a.lote_rank]
+                        b = tok_r([q] * len(pedaco),
+                                  [textos_pool[d] for d in pedaco],
+                                  padding="max_length", truncation=True,
+                                  max_length=384, return_tensors="pt")
+                        b = {k: v.to(dev) for k, v in b.items()}
+                        escores.append(
+                            mod_r(**b).logits.float().view(-1).cpu().numpy())
+                e = np.concatenate(escores)
+                return [candidatos[k] for k in np.argsort(-e)], e
+
+            ord_rank, e = _reordenar(consulta, ord_rrf)
             pos_rank.append(_posicao(ord_rank, alvo))
+            # A segunda passagem: o mesmo reranqueador sobre o top-100 DENSO.
+            ord_rank_denso, _ = _reordenar(consulta, ord_emb)
+            pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
             if a.depurar and pos_rrf[-1] is not None and depurados[0] < a.depurar:
                 depurados[0] += 1
                 k_ = ord_rrf.index(alvo)
@@ -247,6 +270,7 @@ def main() -> int:
                 bloco("ΦEmb+BM25 (RRF)", pos_rrf)]
     if tem_rank:
         sistemas.append(bloco("ΦEmb+BM25+ΦRank", pos_rank))
+        sistemas.append(bloco("ΦEmb+ΦRank (sem fusão)", pos_rank_denso))
 
     # ── comparação PAREADA contra a fusão ───────────────────────────────────
     # ⚠️ Sem isto a tabela convida a ler diferença onde há ruído: 300 consultas dão
@@ -258,12 +282,18 @@ def main() -> int:
     # exatamente "o reranker acrescenta algo à fusão?".
     pareados = []
     for nome, pos in (("BM25", pos_bm), ("ΦEmb", pos_emb),
-                      *(( ("ΦEmb+BM25+ΦRank", pos_rank),) if tem_rank else ())):
+                      *((("ΦEmb+BM25+ΦRank", pos_rank),
+                         ("ΦEmb+ΦRank (sem fusão)", pos_rank_denso))
+                        if tem_rank else ())):
         for k in (1, 10):
             pareados.append(mcnemar_em(pos_rrf, pos, k,
                                        "ΦEmb+BM25 (RRF)", nome))
 
     teto = recall_em(pos_rrf, a.profundidade)
+    # ⚠️ DOIS tetos, porque agora há duas cadeias. O da fusão limita o
+    # `ΦEmb+BM25+ΦRank`; o do denso limita o `ΦEmb+ΦRank`. Reportar um só faria
+    # uma das duas cadeias parecer limitada pelo teto da outra.
+    teto_denso = recall_em(pos_emb, a.profundidade)
     custo["total_s"] = round(time.perf_counter() - t_inicio, 1)
     custo["reordenar_s"] = round(
         custo["total_s"] - custo.get("embutir_universo_s", 0.0)
@@ -279,6 +309,7 @@ def main() -> int:
         "profundidade": a.profundidade,
         "modelos": {"emb": str(a.emb), "rank": str(a.rank) if tem_rank else None},
         "teto_do_reranker": round(teto, 4),
+        "teto_do_reranker_sem_fusao": round(teto_denso, 4),
         "nota_teto": (f"recall@{a.profundidade} da fusão. Um ΦRank perfeito não "
                       "passa disto, e nenhuma melhora de reranking aparece nas "
                       "consultas em que o documento certo não chegou."),
