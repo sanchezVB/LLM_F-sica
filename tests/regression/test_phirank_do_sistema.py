@@ -80,9 +80,21 @@ def test_o_motivo_esta_no_codigo_com_os_numeros():
 
 
 def test_o_default_do_avaliador_aponta_para_o_modelo_instalado():
-    """A composição do T1b tem de compor com o vencedor, não com o no-op."""
+    """A composição do T1b tem de compor com o vencedor, não com o no-op.
+
+    ⚠️ Desde 2026-09-08 o caminho vem de `phifm.core.modelos.RERANQUEADOR`, e não
+    de uma string no script — a versão anterior deste teste exigia
+    `default=Path("models/phirank-physbert-melhor")` literal e reprovou a
+    centralização. O que ele guarda é o VALOR que o default resolve, não onde a
+    string está escrita.
+    """
+    from phifm.core.modelos import RERANQUEADOR
+
+    assert RERANQUEADOR == "models/phirank-physbert-melhor", (
+        "o reranqueador do sistema mudou; se foi de propósito, a referência do "
+        "T1b precisa ser remedida junto")
     fonte = (RAIZ / "scripts/avaliar_t1b.py").read_text(encoding="utf-8")
-    assert 'default=Path("models/phirank-physbert-melhor")' in fonte, (
+    assert "default=Path(RERANQUEADOR)" in fonte, (
         "o avaliador voltou a compor com outro ΦRank")
     assert "phirank-minilm-melhor" not in fonte, (
         "o caminho do reranqueador que empata com a fusão voltou como default")
