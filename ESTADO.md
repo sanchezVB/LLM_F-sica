@@ -24,13 +24,16 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
-| **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
+| **ΦEnc** · avaliação | 🟡 destravada, 1 de 3 | o **exportador** existe: checkpoint → diretório do `transformers`, com round-trip conferido. O MLM por região está pronto; faltam o avaliador de recuperação e a sonda tensorial |
+| **§11.2** · o bake-off | 🔴 **não roda na T4 gratuita** | 44 h por variante × 6 = **263 h** ≈ 8,8 semanas de cota, pela vazão MEDIDA (9,5 TFLOP/s). O DOC-05 orça **US$ 15** numa 4090 alugada — as rodadas são decisão de dinheiro, não de fila |
 
-Suíte: **649 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **649 testes** na venv rápida (15 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
+`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
 
 ## O BM25 saiu da composição pela regra pré-registrada (2026-09-08)
 
@@ -88,6 +91,75 @@ confronto quanto o argumento aritmético em forma executável.
 
 Custo do run: **10.938 s** (3h02) — 16,6 s de BM25, 177 s de embutir o universo,
 **10.744 s de reordenar** (98%), agora com duas passagens em vez de uma.
+
+### E os negativos novos já estão minerados — com 23% mais grupos
+
+Rodou local, na RX 7600 por DirectML, em **7 minutos** (444–489 sequências/s). O
+grupo agora vem do top-50 do ΦEmb, que é a composição decidida:
+
+| | RRF, 2026-08-24 | **ΦEmb, 2026-09-08** |
+|---|---|---|
+| recall@50 (âncoras que produzem grupo) | 0,443 | **0,546** |
+| grupos de 30.000 âncoras | ~13.290 | **16.391** |
+| negativos por grupo | — | 47,96 |
+| posição média do alvo no candidato | — | 12,48 (p50 7, p90 35) |
+
+**+23% de grupos de treino, de graça.** Um reranker só age quando o alvo está no
+conjunto de candidatos, então a melhora do recuperador aparece duas vezes: mais
+grupos utilizáveis *e* na distribuição que o modelo vai ver na avaliação.
+
+⚠️ **Duas correções no minerador saíram desta rodada.** Ele gravava o resumo num
+nome fixo (`_do_recuperador.json`) e a primeira execução **sobrescreveu em
+silêncio o resumo de 2026-08-24** — o diretório não é versionado, então aquele
+número só sobreviveu porque estava citado na docstring do próprio script. O resumo
+agora leva o nome do parquet, e os rótulos `posicao_do_alvo_no_rrf` e o `por_que`
+deixaram de afirmar "RRF" quando a composição é o denso.
+
+⚠️ **E a mineração não é reprodutível bit a bit.** Duas execuções com a mesma
+semente deram 16.362 e 16.391 grupos: a soma em float na GPU não é associativa,
+documentos de cosseno quase igual trocam de lugar, e perto da posição 50 isso
+decide se o alvo entra no grupo. 0,18%. Inofensivo para negativos (são entrada de
+treino), mas **o hash do parquet não bate entre execuções** e nenhum número deste
+script serve de medida.
+
+Falta passar por `filtrar_cocitacao.py` antes de treinar: co-citados com o
+positivo continuam entrando como negativo.
+
+## O exportador do ΦEnc, e o defeito que ele pegou em 2 minutos (2026-09-08)
+
+O bloqueio era real: o `laco.py` grava `torch.save({"modelo": state_dict, ...})`, e
+`AutoModel.from_pretrained` precisa de um `config.json` ao lado dos pesos. O
+`scripts/exportar_phienc.py` fecha isso, com quatro recusas — configuração vinda do
+run e nunca de um nome, tokenizer conferido contra o `vocab` da configuração,
+`strict=True` no load, e run inacabado ou com spike exigindo `--mesmo-assim`.
+
+### ⚠️ O avaliador de recuperação do §11.2 NÃO era código novo
+
+`scripts/avaliar_encoders.py` já carrega um diretório com `AutoModel`, faz média
+mascarada e roda o protocolo do G1 com teto e McNemar. Escrever um segundo daria
+duas réguas com o mesmo nome. O que faltava era só o exportador — e o §11.2 passa
+a ser `avaliar_encoders.py --modelo "variante A=models/phienc-variante-A"`.
+
+### E a medida discrimina MLM puro, sem estágio contrastivo
+
+A dúvida era se seis encoders sem treino contrastivo cairiam todos no ruído. Os
+números que já estavam no `g1_resultado.json` respondem: **SciBERT 0,2537 e
+PhysBERT 0,3507** — MLM puro, média mascarada, zero contrastivo, **0,097 de
+separação** entre encoders que diferem no domínio do pré-treino. É a comparação
+análoga à do §11.2, e tem faixa de sobra. Nenhum estágio de adaptação é necessário,
+o que poupa ~6 h de T4 no bake-off.
+
+### O teste de ponta a ponta pegou um `TypeError` que teria custado 44 h
+
+Um ΦEnc de brinquedo (2 camadas, vocab 512) atravessando laço → exportador →
+avaliador levou 2,5 min e falhou: o `PreTrainedTokenizerFast` embrulhado declarava
+`token_type_ids` por default e `ModernBertModel.forward()` **não aceita** esse
+argumento. O artefato passava em toda conferência de pesos e morria na primeira
+linha de quem fosse usá-lo.
+
+Corrigido no `model_input_names`, e a exportação agora confere também
+`modelo(**tokenizer(texto))` — uma terceira conferência, porque pesos idênticos e
+logits idênticos não dizem nada sobre a compatibilidade entre os dois artefatos.
 
 ## O recuperador melhorou 0,098 e a cadeia melhorou 0,0003 (2026-09-08)
 

@@ -45,10 +45,27 @@ reproduz os negativos antigos e existe só para isso.
 
 ## ⚠️ O par só existe quando o recuperador acerta
 
-Recall@50 é 0,443, então ~56% das âncoras não produzem grupo — o alvo nunca chegou
-ao candidato. Isso é correto e não é perda: um reranker só age quando o documento
-certo está no conjunto. Treinar nos casos em que ele não está seria treinar num
-grupo sem resposta certa.
+Recall@50 é **0,546** com o recuperador de 2026-09-08 (era 0,443 com a fusão do
+recuperador antigo), então ~45% das âncoras não produzem grupo — o alvo nunca
+chegou ao candidato. Isso é correto e não é perda: um reranker só age quando o
+documento certo está no conjunto. Treinar nos casos em que ele não está seria
+treinar num grupo sem resposta certa.
+
+E a melhora do recuperador aparece **duas vezes**: 16.391 grupos em vez de ~13.290
+para as mesmas 30.000 âncoras, e na distribuição que o modelo vai ver.
+
+## ⚠️ Não é reprodutível bit a bit, e o motivo está na GPU
+
+Duas execuções com a MESMA semente deram 16.362 e 16.391 grupos (2026-09-08,
+RX 7600 por DirectML). A amostra de âncoras e o pool são idênticos — o que varia é
+a **ordem do top-50**: a soma em float na GPU não é associativa, e documentos com
+cosseno praticamente igual trocam de lugar. Perto da posição 50 isso decide se o
+alvo entra no grupo ou não. Deu 0,18% de diferença.
+
+Para negativos difíceis é inofensivo — eles são entrada de treino, não medição.
+Mas duas coisas seguem dali: **o hash do parquet no manifesto não bate entre
+execuções**, e **nenhum número deste script serve de medida**. O `recall@50` aqui
+é diagnóstico; a medida é a do avaliador do T1b.
 
 ## O universo, e por que ele tem o tamanho que tem
 
@@ -92,7 +109,7 @@ from phifm.training.embedding import (  # noqa: E402
     media_mascarada,
 )
 
-log = logging.getLogger("minerar-rrf")
+log = logging.getLogger("minerar-do-recuperador")
 
 
 def _codificar(mod, tok, textos: list[str], dev, max_tokens: int,
@@ -119,8 +136,19 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
     p.add_argument("--emb", type=Path, default=Path(RECUPERADOR))
-    p.add_argument("--out", type=Path, default=Path(
-        "data/processed/negativos_dificeis/pares_do_recuperador.parquet"))
+    # ⚠️ O nome do arquivo CARREGA a composição, e o default era fixo.
+    #
+    # Era `pares_do_recuperador.parquet` para as duas composições. Uma rodada com
+    # `--com-fusao` sobrescreveria a sem fusão e vice-versa, e o parquet
+    # resultante seria internamente consistente — não há hash que pegue isso,
+    # porque o defeito não é corrupção, é o rótulo. É o mesmo problema do pacote
+    # obsoleto que a `assinatura_do_manifesto` existe para pegar.
+    #
+    # Também protege os negativos de 2026-08-24, que são a evidência do ΦRank
+    # instalado: eles ficam onde estão, no nome antigo.
+    p.add_argument("--out", type=Path, default=None,
+                   help="padrão: negativos_dificeis/pares_do_recuperador_"
+                        "{denso,rrf}.parquet, conforme --com-fusao")
     p.add_argument("--max-ancoras", type=int, default=30000)
     p.add_argument("--universo", type=int, default=88807,
                    help="tamanho do pool; o padrão é o do avaliador do T1b")
@@ -154,6 +182,17 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
+
+    # ⚠️ O destino resolvido e criado ANTES do trabalho caro, não depois.
+    # Embutir 119 mil sequências leva ~20 min; descobrir um destino inválido no
+    # fim gastaria os 20 min para nada. Mesma lição de `amostrar_para_revisao.py`.
+    if a.out is None:
+        a.out = (Path("data/processed/negativos_dificeis")
+                 / f"pares_do_recuperador_{'rrf' if a.com_fusao else 'denso'}"
+                   ".parquet")
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    log.info("composição: %s · destino %s",
+             "RRF (ΦEmb+BM25)" if a.com_fusao else "ΦEmb sozinho", a.out)
 
     treino = a.pares / "pares_treino.parquet"
 
@@ -305,24 +344,37 @@ def main() -> int:
         "negativos_total": total_neg,
         "negativos_por_grupo": round(total_neg / n, 2),
         "descartados_por_serem_citacao_verdadeira": descartados_por_serem_citacao,
-        "posicao_do_alvo_no_rrf": {
+        "composicao": "RRF (ΦEmb+BM25)" if a.com_fusao else "ΦEmb sozinho",
+        "posicao_do_alvo_no_candidato": {
             "media": round(float(np.mean(posicoes)), 2) if posicoes else None,
             "p50": int(np.percentile(posicoes, 50)) if posicoes else None,
             "p90": int(np.percentile(posicoes, 90)) if posicoes else None,
         },
-        "por_que": ("negativos com a distribuição da AVALIAÇÃO (top-K do RRF). Os "
-                    "de minerar_negativos.py vinham do top-K do denso menos o "
-                    "positivo, o que rotula negativo tudo que o recuperador acha "
-                    "bom — e o ΦRank aprendeu a inverter o recuperador"),
+        "por_que": ("negativos com a distribuição da AVALIAÇÃO — que em "
+                    "2026-08-24 era a fusão RRF e desde 2026-09-08 é o ΦEmb "
+                    "sozinho, porque a regra pré-registrada do T1b2 tirou o BM25 "
+                    "da composição. Os de minerar_negativos.py vinham do top-K do "
+                    "denso MENOS o positivo, o que rotula negativo tudo que o "
+                    "recuperador acha bom — e o ΦRank aprendeu a inverter o "
+                    "recuperador"),
         "ainda_falta": ("passar por scripts/filtrar_cocitacao.py: co-citados com o "
                         "positivo continuam entrando como negativo"),
     }
-    (a.out.parent / "_do_recuperador.json").write_text(
+    # ⚠️ O resumo leva o nome do PARQUET, e não um nome fixo.
+    #
+    # Era `_do_recuperador.json` para qualquer composição, e a rodada de
+    # 2026-09-08 sobrescreveu em silêncio o resumo de 2026-08-24 — o diretório
+    # não é versionado, então aquele número se perdeu (sobreviveu só porque
+    # estava citado na docstring deste arquivo). Perder proveniência sem aviso é
+    # o que o módulo de manifestos existe para impedir, e o resumo escrito à mão
+    # ao lado dele estava fora dessa proteção.
+    (a.out.parent / f"{a.out.stem}_resumo.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
     gravar_manifesto_etapa(
         etapa="negativos_do_recuperador",
-        descricao="Negativos com a distribuição da avaliação (RRF top-K)",
+        descricao=("Negativos com a distribuição da avaliação: top-K do "
+                   + ("RRF (ΦEmb+BM25)" if a.com_fusao else "ΦEmb sozinho")),
         # ⚠️ O ARQUIVO, nao o diretorio: `negativos_dificeis/` ja guarda a saida
         # de `minerar_negativos.py` e de `filtrar_cocitacao.py`, e gravar o
         # manifesto no diretorio apagaria o deles. Com o arquivo, o destino vira
@@ -339,7 +391,8 @@ def main() -> int:
     print(f"  {len(d):,} grupos de {len(ids_anc):,} âncoras "
           f"(recall@{a.profundidade} = {len(d)/max(len(ids_anc),1):.3f})")
     print(f"  {total_neg/n:.2f} negativos por grupo · alvo em posição média "
-          f"{meta['posicao_do_alvo_no_rrf']['media']}")
+          f"{meta['posicao_do_alvo_no_candidato']['media']}")
+    print(f"  composição: {meta['composicao']}")
     print(f"  -> {a.out}")
     print("=" * 70)
     return 0
