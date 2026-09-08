@@ -136,7 +136,18 @@ def main() -> int:
                      "relacionado que ninguém citou junto com o positivo continua "
                      "passando como negativo, e esse residual NÃO é medido."),
     }
-    (a.out.parent / "_cocitacao.json").write_text(
+    # ⚠️ O resumo leva o nome do PARQUET, e não um nome fixo.
+    #
+    # Era `_cocitacao.json` para qualquer saída, então filtrar um artefato novo
+    # sobrescrevia o resumo do anterior — e o diretório não é versionado. Em
+    # 2026-09-08 aconteceu: a filtragem dos negativos densos apagou o resumo de
+    # 2026-08-24.
+    #
+    # Ali não custou nada, e o motivo vale registrar: o `gravar_manifesto_etapa`
+    # abaixo passa `**meta` em `parametros`, e o manifesto é POR ARQUIVO. As
+    # estatísticas estavam nos dois lugares. O resumo solto é conveniência; o
+    # manifesto é o registro.
+    (a.out.parent / f"{a.out.stem}_resumo.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
     gravar_manifesto_etapa(

@@ -99,14 +99,30 @@ grupo agora vem do top-50 do ΦEmb, que é a composição decidida:
 
 | | RRF, 2026-08-24 | **ΦEmb, 2026-09-08** |
 |---|---|---|
-| recall@50 (âncoras que produzem grupo) | 0,443 | **0,546** |
-| grupos de 30.000 âncoras | ~13.290 | **16.391** |
+| recall@50 (âncoras que produzem grupo) | 0,476 | **0,546** |
+| grupos de 30.000 âncoras | 14.289 | **16.391** |
 | negativos por grupo | — | 47,96 |
 | posição média do alvo no candidato | — | 12,48 (p50 7, p90 35) |
 
-**+23% de grupos de treino, de graça.** Um reranker só age quando o alvo está no
+**+14,7% de grupos de treino, de graça.** Um reranker só age quando o alvo está no
 conjunto de candidatos, então a melhora do recuperador aparece duas vezes: mais
 grupos utilizáveis *e* na distribuição que o modelo vai ver na avaliação.
+
+⚠️ O 0,476 de agosto veio do `registros: 14289` do manifesto por arquivo daquela
+rodada. Eu havia escrito "~13.290", estimando de 0,443 × 30.000 — e o 0,443 da
+docstring do minerador é de outra medição, não daquela execução. O número estava
+no disco e eu derivei em vez de ler.
+
+### E a co-citação passou a remover MAIS, não menos
+
+O `filtrar_cocitacao.py` sobre os negativos densos remove **12,51%** (98.331 de
+786.063, sobrando 41,96 por grupo). Sobre os da fusão, em agosto, removia **9,1%**.
+
+Faz sentido e é a favor do filtro: um recuperador melhor traz ao top-50 mais
+documentos topicamente próximos, e proximidade tópica é justamente o que faz dois
+papers serem citados juntos. **O filtro importa mais agora, não menos** — e sem
+ele o ΦRank aprenderia a afastar o que a literatura agrupa, que foi o defeito
+medido em 2026-08-18.
 
 ⚠️ **Duas correções no minerador saíram desta rodada.** Ele gravava o resumo num
 nome fixo (`_do_recuperador.json`) e a primeira execução **sobrescreveu em

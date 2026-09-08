@@ -51,8 +51,10 @@ chegou ao candidato. Isso é correto e não é perda: um reranker só age quando
 documento certo está no conjunto. Treinar nos casos em que ele não está seria
 treinar num grupo sem resposta certa.
 
-E a melhora do recuperador aparece **duas vezes**: 16.391 grupos em vez de ~13.290
-para as mesmas 30.000 âncoras, e na distribuição que o modelo vai ver.
+E a melhora do recuperador aparece **duas vezes**: **16.391** grupos em vez de
+**14.289** para as mesmas 30.000 âncoras (0,546 contra 0,476), e na distribuição
+que o modelo vai ver. O 0,443 acima é de outra medição, não da rodada de agosto —
+aquela está no `registros` do manifesto por arquivo dela.
 
 ## ⚠️ Não é reprodutível bit a bit, e o motivo está na GPU
 
@@ -383,7 +385,18 @@ def main() -> int:
         entradas=[Entrada(caminho=str(treino)), Entrada(caminho=str(a.emb))],
         parametros={"script": "scripts/minerar_do_recuperador.py",
                     "max_ancoras": a.max_ancoras, "universo": a.universo,
-                    "profundidade": a.profundidade, "semente": a.semente},
+                    "profundidade": a.profundidade, "semente": a.semente,
+                    # ⚠️ As ESTATISTICAS tambem, e nao so os argumentos.
+                    #
+                    # O manifesto por arquivo nao e compartilhado entre etapas,
+                    # entao o que esta aqui sobrevive a um resumo solto
+                    # sobrescrito. Ate 2026-09-08 este manifesto levava apenas
+                    # os argumentos, e por isso a sobrescrita do resumo de
+                    # agosto custou o recall@50 e a distribuicao de posicao
+                    # daquela rodada de verdade -- restou so `registros`, que e
+                    # a contagem de grupos. O `filtrar_cocitacao.py` ja fazia
+                    # certo, e foi a comparacao entre os dois que mostrou isto.
+                    **meta},
         registros=len(d))
 
     print()
