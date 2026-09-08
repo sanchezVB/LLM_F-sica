@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -42,6 +43,41 @@ def amostrar_por_documento(d: pl.DataFrame, n: int,
     n_doc = (amostra["arxiv_citado"].n_unique()
              if "arxiv_citado" in amostra.columns else len(amostra))
     return amostra, int(n_doc)
+
+
+def sortear_para_parquet(lf: pl.LazyFrame, n: int, destino: Path,
+                         semente: int = 17) -> tuple[int, int, int]:
+    """Sorteia `n` linhas e ESCREVE direto no parquet. `(linhas, total, n_doc)`.
+
+    ⚠️ Não materializa. `amostrar_do_plano` coleta antes de devolver, e a 6 M de
+    pares isso são ~2,4 GB em disco — 4 a 5 GB em memória, com 7,1 GB livres
+    nesta máquina. O `sink_parquet` escreve em fluxo.
+
+    A contagem de documentos vem DEPOIS, de uma varredura de uma coluna só do
+    arquivo escrito: é o que foi gravado que interessa, não o que o plano
+    pretendia gravar.
+    """
+    total = int(lf.select(pl.len()).collect().item())
+    plano = lf
+    if n and n < total:
+        idx = np.sort(np.random.default_rng(semente).choice(total, size=n,
+                                                            replace=False))
+        plano = (lf.with_row_index("_i")
+                   .filter(pl.col("_i").is_in(idx))
+                   .drop("_i"))
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    plano.sink_parquet(destino, compression="zstd")
+
+    escrito = int(pl.scan_parquet(destino).select(pl.len()).collect().item())
+    esperado = min(n, total) if n else total
+    if escrito != esperado:
+        raise RuntimeError(
+            f"pedi {esperado} linhas e o parquet tem {escrito}. O treino rodaria "
+            "sobre outro conjunto e a comparação com os runs anteriores deixaria "
+            "de isolar a variável.")
+    coluna = pl.scan_parquet(destino).select("arxiv_citado").collect(
+        engine="streaming")["arxiv_citado"]
+    return escrito, total, int(coluna.n_unique())
 
 
 def amostrar_do_plano(lf: pl.LazyFrame, n: int,

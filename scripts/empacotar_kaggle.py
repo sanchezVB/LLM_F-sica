@@ -74,7 +74,7 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     git_sha_curto,
     hash_arquivo,
 )
-from phifm.training.amostragem import amostrar_do_plano  # noqa: E402
+from phifm.training.amostragem import sortear_para_parquet  # noqa: E402
 
 log = logging.getLogger("empacotar")
 
@@ -145,16 +145,19 @@ def _montar_t1a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
     # ⚠️ SORTEIO, não `head`. Era `head(a.max_pares)`, e o run da T1a treinou com
     # 17.844 documentos citados distintos onde o sorteio do mesmo tamanho dá
     # 191.300 — 10,7×, pelo mesmo custo de GPU. Ver `amostrar_do_plano`.
-    tr, total, n_doc = amostrar_do_plano(
-        pl.scan_parquet(a.pares / "pares_treino.parquet"), a.max_pares, a.semente)
-    tr.write_parquet(out / "pares_treino.parquet", compression="zstd")
+    # ⚠️ Escreve em FLUXO. A versão anterior coletava antes de gravar, e a 6 M de
+    # pares isso são 4 a 5 GB em memória com 7,1 GB livres — ver
+    # `sortear_para_parquet`.
+    n_linhas, total, n_doc = sortear_para_parquet(
+        pl.scan_parquet(a.pares / "pares_treino.parquet"),
+        a.max_pares, out / "pares_treino.parquet", a.semente)
     shutil.copy2(a.pares / "pares_validacao.parquet", out / "pares_validacao.parquet")
     # ⚠️ Sem zip de fonte quando `exp.repo` está setado — mesma razão da T1c: o
     # Kaggle fixa a versão do dataset no anexo e não re-resolve, então código no
     # dataset é código que pode ficar velho sem avisar.
     n_py = (0 if exp.repo
             else _zipar_fonte(raiz, out / f"phifm_src{SUFIXO_ZIP}", exp.scripts))
-    return {"max_pares": a.max_pares, "linhas_treino": tr.height,
+    return {"max_pares": a.max_pares, "linhas_treino": n_linhas,
             "linhas_disponiveis": total, "documentos_distintos": n_doc,
             "semente_do_sorteio": a.semente, "modulos_python": n_py,
             "codigo_de": exp.repo or "dataset"}
@@ -185,7 +188,8 @@ def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
 # O t1a15 usa o MESMO montador: o volume é a única diferença, e ele vem
 # do `max_pares` do experimento.
 MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
-              "t1a3m": _montar_t1a, "t1c": _montar_t1c}
+              "t1a3m": _montar_t1a, "t1a6m": _montar_t1a,
+              "t1c": _montar_t1c}
 
 
 def main() -> int:

@@ -211,6 +211,32 @@ T1A3M = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# Quarto ponto da curva, e o ultimo que cabe numa sessao.
+#
+# Medido no run de 3 M: 197,8 pares/s ponta a ponta, ja com as avaliacoes. Entao
+#
+#     5,4 M -> 7h35    630.173 documentos (94,4%)
+#     6,0 M -> 8h25    650.162 documentos (97,4%)   <- este
+#     6,56 M -> 9h13   667.304 documentos (100%)    <- ESTOURA a sessao de 9 h
+#
+# 6 M e o maior volume com margem real (~35 min) e entrega 97,4% dos documentos.
+# O corpus inteiro precisaria de retomada entre sessoes, e a retomada do Kaggle
+# depende de `/kaggle/working` que NAO sobrevive a um relancamento -- seria outro
+# problema de engenharia, nao mais dado.
+T1A6M = Experimento(
+    nome="t1a6m",
+    titulo_dados="PhiFM T1a 6 M — pares de citação arXiv sorteados",
+    slug_dados="phifm-t1a-pares-6m",
+    titulo_notebook="PhiFM T1a 6m Gpu",
+    slug_notebook="phifm-t1a-6m-gpu",
+    pacote="data/processed/kaggle_t1a6m",
+    fonte_celula="kaggle/t1a_phiemb.py",
+    arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
+    scripts=("train_embedding.py",),
+    max_pares=6_000_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
 T1C = Experimento(
     nome="t1c",
     titulo_dados="PhiFM T1c — ΦRank de base diferente",
@@ -237,10 +263,10 @@ T1C = Experimento(
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
-VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m")
+VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1C)}
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1C)}
 
 
 def obter(nome: str) -> Experimento:

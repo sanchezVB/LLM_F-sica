@@ -171,3 +171,56 @@ def test_os_pontos_de_corte_do_treino_nao_usam_head():
         fonte = so_codigo_de(RAIZ / caminho)
         assert agulha not in fonte, f"voltou o `head` em {caminho}"
         assert "amostrar_" in fonte, f"{caminho} não sorteia"
+
+
+def test_sortear_para_parquet_escreve_em_fluxo_e_confere_o_que_gravou(tmp_path):
+    """⚠️ A 6 M de pares não cabe materializar.
+
+    `amostrar_do_plano` coleta antes de devolver, e 6 M de pares são ~2,4 GB em
+    disco — 4 a 5 GB em memória, com 7,1 GB livres na máquina deste projeto. Este
+    caminho usa `sink_parquet`.
+
+    E ele confere o que GRAVOU, não o que o plano pretendia gravar: um parquet com
+    menos linhas do que se pediu faria o treino rodar sobre outro conjunto e a
+    comparação com os runs anteriores deixaria de isolar a variável.
+    """
+    from phifm.training.amostragem import sortear_para_parquet
+
+    linhas = [{"arxiv_id": f"{d}.{k}", "arxiv_citado": f"cit{d:04d}",
+               "ancora": f"a{d}-{k}", "positivo": f"p{d}"}
+              for d in range(300) for k in range(20)]
+    src = tmp_path / "pares.parquet"
+    pl.DataFrame(linhas).write_parquet(src)
+
+    destino = tmp_path / "sub" / "saida.parquet"
+    n, total, n_doc = sortear_para_parquet(pl.scan_parquet(src), 600, destino,
+                                           semente=17)
+    assert (n, total) == (600, 6000)
+    assert destino.exists(), "o diretório de destino tem de ser criado"
+    assert pl.read_parquet(destino).height == 600
+    # `head(600)` cobriria 30 documentos; o sorteio cobre quase todos.
+    assert n_doc > 250, f"o sorteio cobriu só {n_doc} de 300 documentos"
+
+    # n >= total grava tudo, sem levantar.
+    tudo = tmp_path / "tudo.parquet"
+    n2, total2, _ = sortear_para_parquet(pl.scan_parquet(src), 99_999, tudo)
+    assert (n2, total2) == (6000, 6000)
+
+
+def test_sortear_para_parquet_e_deterministico_na_semente(tmp_path):
+    """Um treino que não é reproduzível não isola variável nenhuma."""
+    from phifm.training.amostragem import sortear_para_parquet
+
+    src = tmp_path / "p.parquet"
+    pl.DataFrame({"arxiv_id": [str(i) for i in range(2000)],
+                  "arxiv_citado": [f"c{i // 4}" for i in range(2000)],
+                  "ancora": [f"a{i}" for i in range(2000)],
+                  "positivo": [f"p{i // 4}" for i in range(2000)]}
+                 ).write_parquet(src)
+    saidas = []
+    for i, semente in enumerate((17, 17, 99)):
+        d = tmp_path / f"s{i}.parquet"
+        sortear_para_parquet(pl.scan_parquet(src), 400, d, semente=semente)
+        saidas.append(pl.read_parquet(d)["arxiv_id"].to_list())
+    assert saidas[0] == saidas[1]
+    assert saidas[2] != saidas[0]
