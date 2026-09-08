@@ -120,6 +120,18 @@ def main() -> int:
                    help="sorteio das partes. Com o teto de tokens, só uma fração "
                         "das partes é lida, e pegar as primeiras enviesa — ver a "
                         "docstring")
+    # ⚠️ A fatia de AVALIACAO sai daqui, e ela tem de EXCLUIR o que o treino viu.
+    #
+    # Medir MLM sobre o mesmo fluxo de tokens em que o modelo treinou mede
+    # memorizacao. Entre seis variantes do §11.2 a comparacao continuaria
+    # "justa" -- todas medidas no proprio texto de treino --, mas ordenaria
+    # capacidade de memorizar, e a hipotese do DOC-07 §2.3 e sobre capacidade.
+    #
+    # A exclusao vem do MANIFESTO do run de treino, nao de uma lista digitada:
+    # as partes sao sorteadas, e reproduzir a mao quais foram e onde se erra.
+    p.add_argument("--excluir-de", type=Path, default=None, metavar="DIR",
+                   help="pula as partes que o run de treino em DIR ja usou; a "
+                        "lista sai do MANIFESTO_DADOS.json dele")
     p.add_argument("--em-ordem", action="store_true",
                    help="lê as partes na ordem do disco em vez de sortear. Só para "
                         "reproduzir uma preparação antiga; enviesa")
@@ -141,6 +153,31 @@ def main() -> int:
         raise SystemExit(
             f"{a.tokenizer} não existe. Ele sai de `scripts/bakeoff_tokenizer.py`; "
             "a variante A é a do DOC-05 §7.3 (BPE, V=40.960, pré-tokenização §8).")
+
+    excluidas: set[str] = set()
+    if a.excluir_de is not None:
+        man_treino = a.excluir_de / NOME_MANIFESTO
+        if not man_treino.exists():
+            raise SystemExit(
+                f"--excluir-de {a.excluir_de} não tem {NOME_MANIFESTO}.\n"
+                "Sem a lista do run de treino não há como garantir que esta "
+                "fatia é disjunta dele, e uma fatia que se sobrepõe ao treino "
+                "mede memorização com a cara de generalização.")
+        usadas = json.loads(man_treino.read_text(encoding="utf-8")).get(
+            "partes_usadas") or []
+        if not usadas:
+            raise SystemExit(
+                f"{man_treino} não lista `partes_usadas`. Prosseguir prepararia "
+                "uma fatia que pode se sobrepor inteira ao treino.")
+        excluidas = {str(x) for x in usadas}
+        antes = len(partes)
+        partes = [x for x in partes if Path(x).name not in excluidas]
+        log.info("excluindo %d partes do treino em %s: sobram %d de %d",
+                 len(excluidas), a.excluir_de, len(partes), antes)
+        if not partes:
+            raise SystemExit(
+                "todas as partes do corpus já foram usadas no treino — não há "
+                "fatia disjunta possível neste corpus")
 
     a.out.mkdir(parents=True, exist_ok=True)
     h_tok = _hash(a.tokenizer)
@@ -225,6 +262,13 @@ def main() -> int:
         "partes_usadas": list(feitas),
         "semente_do_sorteio": a.semente,
         "em_ordem": a.em_ordem,
+        # ⚠️ O que foi EXCLUIDO vai no manifesto. Sem isto, um artefato de
+        # avaliação não prova ser disjunto do treino, e "avaliei em dado
+        # separado" passa a ser afirmação em vez de fato verificável.
+        "excluido_de": (str(a.excluir_de).replace("\\", "/")
+                        if a.excluir_de else None),
+        "partes_excluidas": sorted(excluidas),
+        "disjunto_do_treino": bool(excluidas),
         "max_tokens": a.max_tokens,
         "id_cls": ID_CLS, "id_sep": ID_SEP,
         "nota": ("Corpus do RedPajama-arXiv, construído do fonte LaTeX (ADR-0002). "
