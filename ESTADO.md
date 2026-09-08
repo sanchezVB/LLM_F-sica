@@ -13,7 +13,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Primeiro sinal de virada: o pico do 6 M está a 93,4% do treino, não a 99,8% |
-| **Recuperador do sistema** | 🟠 trocado, **cadeia por remedir** | o `phiemb-do-sistema` (6 M) entrou em 2026-09-08: **+0,098** sobre o anterior. A referência do T1b/T1c (nDCG 0,1666) está **obsoleta** — foi medida com o recuperador antigo |
+| **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
+| **T1b2** · a cadeia | 🔴 **o gargalo mudou de lugar** | a fusão RRF **parou de somar** (empate com o ΦEmb sozinho, p=0,95) e agora **custa** 0,026 de recall@100. O ΦRank caiu de p=0,0081 para **p=0,086** |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -30,6 +31,82 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O recuperador melhorou 0,098 e a cadeia melhorou 0,0003 (2026-09-08)
+
+Os dois recuperadores medidos na MESMA sessão, mesmo commit, mesmas 2.000
+consultas, universo de 88.807. O BM25 sai **idêntico** nos dois braços
+(nDCG@10 0,1340, recall@100 0,4540) — é o controle que prova que o protocolo não
+mudou entre eles.
+
+| sistema | recall@100 | nDCG@10 | | recall@100 | nDCG@10 |
+|---|---|---|---|---|---|
+| | **recuperador NOVO** | | | **ANTIGO** | |
+| BM25 | 0,4540 | 0,1340 | | 0,4540 | 0,1340 |
+| ΦEmb sozinho | **0,6325** | 0,1585 | | 0,5160 | 0,1323 |
+| ΦEmb+BM25 (RRF) | 0,6065 | 0,1643 | | 0,5380 | 0,1594 |
+| **+ ΦRank** | 0,6065 | **0,1688** | | 0,5380 | **0,1685** |
+
+**O recuperador sozinho ganhou muito** — nDCG@10 +0,026, recall@100 **+0,117**. **A
+cadeia inteira ganhou +0,0003.** Praticamente nada.
+
+### ⚠️ A fusão RRF parou de somar, e agora custa
+
+No braço novo o **recall@100 da fusão (0,6065) é MENOR que o do ΦEmb sozinho
+(0,6325)**. Misturar o BM25 — cujo recall@100 é 0,4540 — desloca candidatos bons
+do top-100 e **derruba o teto do reranker em 0,026**.
+
+E o pareado confirma a virada:
+
+| RRF contra o ΦEmb sozinho | top-1 | top-10 |
+|---|---|---|
+| com o recuperador ANTIGO | RRF vence, **p=0,0017** | RRF vence, **p=1,5e-08** |
+| com o recuperador NOVO | empate, p=0,203 | empate, **p=0,949** |
+
+A fusão era um ganho grande quando o ΦEmb era pior que o BM25 em parte do espectro.
+Com o ΦEmb novo ela **não acrescenta nada** e cobra teto. Isto é o achado mais
+acionável do dia.
+
+### O ΦRank encolheu, como a hipótese pré-registrada previa
+
+| | ganho marginal sobre a fusão | pareado no top-10 |
+|---|---|---|
+| recuperador ANTIGO | +0,0091 | vence, **p=0,0081** |
+| recuperador NOVO | +0,0045 | empate, **p=0,086** |
+
+Exatamente o previsto na célula, escrito **antes** do número: o `recall@100` do
+recuperador é o teto do reranker, e um recuperador melhor deixa menos para
+reordenar. **O critério pré-registrado para decidir CONTRA o ΦRank era a cadeia
+completa ficar abaixo da fusão** — e ela não ficou (0,1688 > 0,1643). Ele fica, com
+a evidência enfraquecida.
+
+E há uma causa mecânica provável: o ΦRank instalado foi treinado com negativos
+difíceis **minerados pelo recuperador antigo** (`minerar_do_recuperador.py`). A
+distribuição de treino dele não é mais a distribuição que ele vê. Retreiná-lo com
+negativos do recuperador novo é o experimento seguinte, e é barato.
+
+### ⚠️ Os dois braços salvaram a conclusão de um erro de 7×
+
+O número histórico é **0,1666**. O recuperador ANTIGO, medido nesta sessão, dá
+**0,1685**. Se eu tivesse comparado 0,1688 contra o 0,1666 de agosto, teria
+reportado **+0,0022** da troca do recuperador — sete vezes o efeito real de
+**+0,0003**. A diferença era deriva de código e protocolo entre agosto e hoje.
+
+Era a decisão de desenho central do T1b2, escrita antes de rodar, e ela pagou.
+
+### E duas estimativas minhas erradas, na direção oposta
+
+Estimei ~50 min para os dois braços. No meio do run, lendo o log, "corrigi" para
+2h52 por braço. **O real foi 76 min por braço** — 18 s de BM25, 172 s de embutir o
+universo, 73 min de reordenar (96% do custo).
+
+A segunda estimativa errou porque eu li o `5309.0s` do log do Kaggle como tempo
+de setup do braço 1, quando é **tempo cumulativo do notebook**: naquele instante o
+braço 1 já havia terminado e o que carregava pesos era o braço 2. Corrigir sobre um
+carimbo mal lido é pior que não corrigir.
+
+Custo real gravado em `t1b2_resultado.json`; o `avaliar_t1b.py` agora grava
+`custo_segundos` sozinho.
 
 ## 6 M de pares: supera o GTE-large nas quatro métricas (2026-09-08)
 
