@@ -31,13 +31,19 @@ from __future__ import annotations
 
 # O recuperador denso do sistema.
 #
-# ⚠️ Este NÃO é o melhor ΦEmb medido. Em 2026-09-07 o `phiemb-minilm-3m-sorteado-
-# melhor` deu nDCG@10 0,6026 contra 0,5246 deste — +0,078 — e ainda assim o
-# sistema aponta para o antigo, de propósito: a referência do T1b/T1c (nDCG 0,1666
-# do ΦRank, p=0,0062) foi medida com ESTE recuperador, e trocar os dois ao mesmo
-# tempo mediria duas coisas. A troca é uma etapa deliberada, com remedição da
-# cadeia depois — ver o §"a decisão que isto abre" no ESTADO.md.
-RECUPERADOR = "models/phiemb-minilm-melhor"
+# Trocado em 2026-09-08, depois da curva de volume da T1a: o run de 6 M de pares
+# sorteados (650.162 documentos citados) dá nDCG@10 **0,6223** no protocolo de teto
+# 1,0, contra 0,5246 do `phiemb-minilm-melhor` que estava aqui — **+0,098**. Supera
+# o GTE-large de 335M em todas as quatro métricas, a 1/14,8 dos parâmetros.
+#
+# ⚠️ Instalado em caminho NOVO, e não sobre o antigo. O `phiemb-minilm-melhor`
+# continua em `models/` porque é um PONTO DA CURVA em `avaliar_encoders.py` —
+# sobrescrevê-lo apagaria a evidência de que 400 mil pares sobre MiniLM dão 0,5246.
+#
+# ⚠️ A referência do T1b/T1c (nDCG 0,1666 do ΦRank, p=0,0062) foi medida com o
+# recuperador ANTIGO. Ela está obsoleta desde esta troca, e remedir a cadeia é
+# parte da etapa — não um detalhe para depois.
+RECUPERADOR = "models/phiemb-do-sistema"
 
 # O reranqueador do sistema. Entrou em 2026-09-03: PhysBERT vence a fusão RRF
 # (nDCG 0,1666 contra 0,1576, p=0,0062), e o `gte-base`, do mesmo tamanho, empata

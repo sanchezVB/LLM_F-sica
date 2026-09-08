@@ -1,0 +1,74 @@
+11:13:36 INFO    validação: 133,540 pares · pool sorteado (semente 17) e desduplicado: 2,000 candidatos, alvo e consulta únicos
+11:13:36 INFO    suspensão do sistema impedida enquanto a coleta durar
+11:13:36 INFO    cache: 12 modelo(s) já medidos no mesmo protocolo
+11:13:36 INFO    SciBERT (base do ΦEmb) · do cache: recall@1 0.149 · MRR 0.227
+11:13:36 INFO    PhysBERT (alvo do G1.1) · do cache: recall@1 0.222 · MRR 0.317
+11:13:36 INFO    MiniLM-L6 (genérico 23M) · do cache: recall@1 0.313 · MRR 0.428
+11:13:36 INFO    GTE-large (genérico 335M) · do cache: recall@1 0.414 · MRR 0.529
+11:13:36 INFO    ΦEmb/SciBERT (110M) · do cache: recall@1 0.307 · MRR 0.426
+11:13:36 INFO    ΦEmb/MiniLM (23M) · do cache: recall@1 0.348 · MRR 0.474
+11:13:36 INFO    ΦEmb/MiniLM+GC (23M, 511 neg) · do cache: recall@1 0.362 · MRR 0.479
+11:13:36 INFO    ΦEmb/MiniLM 1,5M (23M, 127 neg) · do cache: recall@1 0.367 · MRR 0.492
+11:13:36 INFO    PhiEmb 400k (head) · do cache: recall@1 0.356 · MRR 0.477
+11:13:36 INFO    PhiEmb 400k (sorteado) · do cache: recall@1 0.373 · MRR 0.495
+11:13:36 INFO    PhiEmb 1,5M (sorteado) · do cache: recall@1 0.389 · MRR 0.522
+11:13:36 INFO    PhiEmb 3M (sorteado) · do cache: recall@1 0.409 · MRR 0.544
+11:13:36 INFO    avaliando PhiEmb 6M (sorteado) (models\phiemb-minilm-6m-sorteado-melhor)
+11:15:31 INFO      recall@1 0.431 · recall@10 0.831 · MRR 0.564 (115s)
+
+==============================================================================
+Recuperação por citação · 2000 candidatos · média mascarada · 192 tokens
+
+modelo                           params  nDCG@10  recall@1  recall@10     MRR
+------------------------------------------------------------------------------
+PhiEmb 6M (sorteado)                23M    0.622     0.431      0.831   0.564
+PhiEmb 3M (sorteado)                23M    0.603     0.409      0.813   0.544
+GTE-large (genérico 335M)          335M    0.579     0.414      0.764   0.529
+PhiEmb 1,5M (sorteado)              23M    0.578     0.389      0.785   0.522
+PhiEmb 400k (sorteado)              23M    0.546     0.373      0.739   0.495
+ΦEmb/MiniLM 1,5M (23M, 127 neg      23M    0.544     0.367      0.743   0.492
+ΦEmb/MiniLM+GC (23M, 511 neg)       23M    0.527     0.362      0.715   0.479
+PhiEmb 400k (head)                  23M    0.527     0.356      0.719   0.477
+ΦEmb/MiniLM (23M)                   23M    0.525     0.348      0.720   0.474
+MiniLM-L6 (genérico 23M)            23M    0.476     0.313      0.664   0.428
+ΦEmb/SciBERT (110M)                110M    0.475     0.307      0.670   0.426
+PhysBERT (alvo do G1.1)            109M    0.351     0.222      0.491   0.317
+SciBERT (base do ΦEmb)             110M    0.254     0.149      0.382   0.227
+==============================================================================
+
+Comparação PAREADA em recall@1 — McNemar exato · nosso = PhiEmb 6M (sorteado)
+
+contra                           nós  eles  disc        p  veredito
+--------------------------------------------------------------------------------------------
+SciBERT (base do ΦEmb)           626    61   687   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+PhysBERT (alvo do G1.1)          535   116   651   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+MiniLM-L6 (genérico 23M)         328    92   420   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+GTE-large (genérico 335M)        188   153   341   0.0654  empate — 341 discordantes não separam os dois (p=0.065)
+ΦEmb/SciBERT (110M)              356   107   463   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+ΦEmb/MiniLM (23M)                247    80   327   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+ΦEmb/MiniLM+GC (23M, 511 neg)    241   102   343   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+ΦEmb/MiniLM 1,5M (23M, 127 neg   222    93   315   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+PhiEmb 400k (head)               247    96   343   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+PhiEmb 400k (sorteado)           211    93   304   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+PhiEmb 1,5M (sorteado)           167    82   249   0.0000  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+PhiEmb 3M (sorteado)             115    70   185   0.0012  PhiEmb 6M (sorteado) vence em recall@1 (p=0.0012)
+
+Itens que ambos acertam ou ambos erram não informam sobre a diferença;
+só os discordantes decidem. É por isso que o pareado enxerga o que
+duas proporções soltas não enxergam.
+
+==============================================================================
+nosso candidato: PhiEmb 6M (sorteado) · 23M params · nDCG@10 0.622
+
+G1.1: PASSOU — nDCG@10 +0.272 sobre o PhysBERT (limiar +0.05) · pareado em recall@1: PhiEmb 6M (sorteado) vence em recall@1 (p=0.0000)
+G1.2: PASSOU — melhor genérico é GTE-large (genérico 335M) (335M, nDCG@10 0.579); nDCG@10 +0.044, razão de params 1/14.8 (≤ 1/10 exigido)
+
+RESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:
+  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado
+  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)
+    não são tocados por esta medição
+  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);
+    um benchmark com julgamentos graduados daria outro número
+
+teto do protocolo (modelo perfeito neste pool): nDCG@10 1.0000 · recall@1 1.0000
+11:15:31 INFO    resultado → data\processed\avaliacao\g1_resultado.json

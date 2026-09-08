@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-07
+# Estado do projeto — 2026-09-08
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -11,8 +11,9 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6026** contra 0,5788 do GTE-large — **+0,024** a 1/14,8 dos parâmetros, num protocolo de teto **1,0000**. Ganhamos nDCG@10, recall@10 e MRR; recall@1 **empata** (pareado p=0,63). Não é o +0,003 de agosto |
-| **T1a** · volume × diversidade | 🟢 **−0,052 → +0,024** | quatro runs, uma variável cada. A curva **ainda não platôou**: pico no passo 23.400 de 23.437 (99,8%) |
+| **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
+| **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Primeiro sinal de virada: o pico do 6 M está a 93,4% do treino, não a 99,8% |
+| **Recuperador do sistema** | 🟠 trocado, **cadeia por remedir** | o `phiemb-do-sistema` (6 M) entrou em 2026-09-08: **+0,098** sobre o anterior. A referência do T1b/T1c (nDCG 0,1666) está **obsoleta** — foi medida com o recuperador antigo |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -29,6 +30,72 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## 6 M de pares: supera o GTE-large nas quatro métricas (2026-09-08)
+
+A curva de volume completa, uma variável por vez, protocolo de teto **1,0000** e
+2.000 candidatos:
+
+| run | documentos citados | nDCG@10 | margem vs GTE-large |
+|---|---|---|---|
+| 400 mil `head` | 17.844 | 0,5265 | −0,0523 |
+| 400 mil sorteado | 191.198 | 0,5462 | −0,0326 |
+| 1,5 M sorteado | 390.856 | 0,5780 | −0,0008 |
+| 3 M sorteado | 518.635 | 0,6026 | +0,0238 |
+| **6 M sorteado** | **650.162** | **0,6223** | **+0,0435** |
+| GTE-large (335M) | — | 0,5788 | — |
+
+### Agora as quatro métricas, e a ressalva de uma delas
+
+| | ΦEmb 6M (23M) | GTE-large (335M) | |
+|---|---|---|---|
+| nDCG@10 | **0,6223** | 0,5788 | **+0,044** |
+| recall@10 | **0,8305** | 0,7640 | **+0,067** |
+| MRR | **0,5636** | 0,5293 | **+0,034** |
+| recall@1 | **0,4315** | 0,4140 | +0,018 — ⚠️ pareado **p=0,065** |
+
+O recall@1 virou a nosso favor em número, mas o **pareado não estabelece**
+(188×153 discordantes, p=0,0654). O honesto: **superamos em nDCG@10, recall@10 e
+MRR; em recall@1 lideramos sem significância**. Contra o run de 3 M, o de 6 M
+vence com p=0,0012.
+
+### Primeiro sinal de virada da curva
+
+| run | passos | pico | fração do treino |
+|---|---|---|---|
+| 400 mil | 3.125 | 0,6147 | 89,6% |
+| 1,5 M | 11.718 | 0,6567 | 97,3% |
+| 3 M | 23.437 | 0,6804 | 99,8% |
+| **6 M** | 46.875 | **0,7022** | **93,4%** |
+
+Nos três primeiros o pico estava no fim — sinal de que mais passos ainda
+ajudariam. No de 6 M ele está a 93,4%, e os dois pontos seguintes caem (0,6919 e
+0,6335 de MRR). **É a primeira vez que a curva não termina subindo.** Não é platô
+de dado provado, mas é o primeiro indício de que o volume começou a saturar.
+
+Ganhos por dobra, no protocolo do portão: **+0,020 / +0,032 / +0,025 / +0,020**.
+Ainda não decrescem monotonicamente, e o dado restante é pouco: 6 M de 6.564.111
+pares, 650.162 de 667.304 documentos. **O próximo ganho não vem de mais pares
+destes** — vem de outra fonte de pares, de outra base, ou de mais parâmetros.
+
+## ⚠️ O recuperador do sistema mudou, e a cadeia está por remedir (2026-09-08)
+
+`phifm.core.modelos.RECUPERADOR` aponta para `models/phiemb-do-sistema` (o run de
+6 M). O anterior, `phiemb-minilm-melhor`, dava **0,5246**: a troca é **+0,098**.
+
+**Instalado em caminho novo, não sobre o antigo.** O `phiemb-minilm-melhor`
+continua em `models/` porque é um ponto da curva em `avaliar_encoders.py` —
+sobrescrevê-lo apagaria a evidência de que 400 mil pares sobre MiniLM dão 0,5246.
+
+⚠️ **A referência do T1b/T1c está obsoleta.** O nDCG **0,1666** do ΦRank
+(p=0,0062) foi medido sobre a fusão RRF do recuperador ANTIGO. Remedir a cadeia é
+parte desta etapa, e não um detalhe para depois — e há uma razão para esperar que
+o ΦRank ganhe menos agora: o `recall@100` do recuperador é o teto do reranker, e
+um recuperador melhor deixa menos para reordenar.
+
+Custo medido: a avaliação da cadeia embute os **88.807** documentos do universo e
+reordena 2.000×100 pares com um cross-encoder de 109M. Em CPU local isso é da
+ordem de horas; o caminho é o mesmo do T1c — a T4 gratuita.
 
 ## O G1.2 passou — 3 M de pares sorteados superam o GTE-large (2026-09-07)
 

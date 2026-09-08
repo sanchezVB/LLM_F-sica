@@ -68,10 +68,16 @@ def test_a_comparacao_do_G1_mantem_o_caminho_LITERAL():
     curva desapareceria.
     """
     fonte = so_codigo_de(RAIZ / "scripts/avaliar_encoders.py")
-    assert RECUPERADOR in fonte, (
+    # ⚠️ Afirma a PROPRIEDADE, não o valor atual da constante. A primeira versão
+    # deste teste checava `RECUPERADOR in fonte` — e isso reprovaria assim que o
+    # recuperador do sistema mudasse, que é justamente o evento que ele existe
+    # para tornar seguro.
+    assert "RECUPERADOR" not in fonte, (
         "o ponto da curva virou referência à constante; instalar um modelo novo "
         "passaria a apagar uma linha da comparação do G1")
-    assert "RECUPERADOR" not in fonte
+    assert "models/phiemb-minilm-melhor" in fonte, (
+        "o checkpoint de 400 mil pares saiu da comparação do G1; ele é a "
+        "evidência de que aquele volume dá nDCG@10 0,5246")
 
 
 def _instalar(tmp_path: Path, *extra: str, de: Path | None = None):
