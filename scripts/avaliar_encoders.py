@@ -38,6 +38,10 @@ from phifm.training.amostragem import (  # noqa: E402
 # treino sobre MiniLM o pico deu MRR 0,477 contra 0,469 do fim.
 NOSSOS = {
     "ΦEmb/SciBERT (110M)": Path("models/phiemb"),
+    # ⚠️ Caminho LITERAL de propósito. Aqui este checkpoint é um ponto da
+    # curva de volume — evidência de uma medição passada —, e não "o
+    # recuperador do sistema". Importar `RECUPERADOR` faria a linha se mover
+    # junto com a instalação e apagaria uma comparação. Ver `phifm.core.modelos`.
     "ΦEmb/MiniLM (23M)": Path("models/phiemb-minilm-melhor"),
     # Lote lógico 512 (511 negativos) via GradCache, contra os 127 do acima. Mesma
     # base, mesmos 400 mil pares — a única variável é o número de negativos.

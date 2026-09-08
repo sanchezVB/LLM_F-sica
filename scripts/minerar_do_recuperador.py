@@ -68,6 +68,7 @@ import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 from transformers import AutoModel, AutoTokenizer  # noqa: E402
 
+from phifm.core.modelos import RECUPERADOR  # noqa: E402
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     Entrada,
     gravar_manifesto_etapa,
@@ -105,7 +106,7 @@ def _codificar(mod, tok, textos: list[str], dev, max_tokens: int,
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
-    p.add_argument("--emb", type=Path, default=Path("models/phiemb-minilm-melhor"))
+    p.add_argument("--emb", type=Path, default=Path(RECUPERADOR))
     p.add_argument("--out", type=Path, default=Path(
         "data/processed/negativos_dificeis/pares_do_recuperador.parquet"))
     p.add_argument("--max-ancoras", type=int, default=30000)

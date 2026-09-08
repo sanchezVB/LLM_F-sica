@@ -58,6 +58,7 @@ from transformers import (  # noqa: E402
     AutoTokenizer,
 )
 
+from phifm.core.modelos import RECUPERADOR, RERANQUEADOR  # noqa: E402
 from phifm.eval.hibrido import (  # noqa: E402
     BM25,
     fundir_rrf,
@@ -95,11 +96,11 @@ def _posicao(ordem: list[int], alvo: int) -> int | None:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
-    p.add_argument("--emb", type=Path, default=Path("models/phiemb-minilm-melhor"))
+    p.add_argument("--emb", type=Path, default=Path(RECUPERADOR))
     # O ΦRank do sistema é o de PhysBERT desde o T1c (2026-09-03): é a única das
     # três bases medidas que bate a fusão (p=0,0062). Ver `phifm.training.rerank`.
     p.add_argument("--rank", type=Path,
-                   default=Path("models/phirank-physbert-melhor"))
+                   default=Path(RERANQUEADOR))
     p.add_argument("--n-consultas", type=int, default=2000,
                    help="âncoras avaliadas; 2.000 é o protocolo do veredito do G1")
     p.add_argument("--profundidade", type=int, default=100,
