@@ -69,7 +69,12 @@ from pathlib import Path
 import polars as pl
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from phifm.core.kaggle import EXPERIMENTOS, Experimento, obter  # noqa: E402
+from phifm.core.kaggle import (  # noqa: E402
+    EXPERIMENTOS,
+    VARIANTES_DE_VOLUME,
+    Experimento,
+    obter,
+)
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     git_sha_curto,
     hash_arquivo,
@@ -232,8 +237,14 @@ def main() -> int:
     exp = obter(a.experimento)
     if a.max_pares is None:
         a.max_pares = exp.max_pares
-    logging.info("%s · %s pares · semente %d", exp.nome, f"{a.max_pares:,}",
-                 a.semente)
+    # ⚠️ O volume só é informação para quem SORTEIA pares. O `t1b2` não amostra
+    # nada — ele mede a cadeia com modelos prontos —, e imprimir "400.000 pares"
+    # ali anunciava um número que não descreve o pacote.
+    if exp.nome in VARIANTES_DE_VOLUME:
+        logging.info("%s · %s pares · semente %d", exp.nome, f"{a.max_pares:,}",
+                     a.semente)
+    else:
+        logging.info("%s · semente %d", exp.nome, a.semente)
     raiz = Path(__file__).resolve().parents[1]
     out = a.out or (raiz / exp.pacote)
     out.mkdir(parents=True, exist_ok=True)
@@ -282,8 +293,16 @@ def main() -> int:
     print(f"  {'TOTAL':34s} {total/1e6:8.1f} MB")
     print("=" * 68)
     print(f"  -> {out}")
-    print(f"  {exp.nome} · git {manifesto['git_sha']} · "
-          f"{manifesto['modulos_python']} módulos")
+    # ⚠️ `.get`, e não indexação. O `modulos_python` só existe quando o pacote
+    # leva um zip de fonte, e o t1b2 não leva nenhum — o código dele vem do
+    # GitHub. Com indexação direta o `KeyError` estourava DEPOIS de gravar o
+    # pacote e o manifesto, dando código de saída 1 para um trabalho que deu
+    # certo: a pior das combinações, e a mesma que o `reconfigure(encoding)`
+    # existe para evitar no fim destes scripts.
+    modulos = manifesto.get("modulos_python")
+    codigo = (f"{modulos} módulos" if modulos
+              else f"código de {manifesto.get('codigo_de', 'dataset')}")
+    print(f"  {exp.nome} · git {manifesto['git_sha']} · {codigo}")
     return 0
 
 
