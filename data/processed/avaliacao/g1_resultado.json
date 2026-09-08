@@ -116,7 +116,7 @@
       "nosso": true
     },
     {
-      "nome": "PhiEmb-T4 400k (sorteado)",
+      "nome": "PhiEmb 400k (sorteado)",
       "caminho": "models\\phiemb-minilm-t4-sorteado-melhor",
       "recall_1": 0.3725000023841858,
       "recall_10": 0.7394999861717224,
@@ -138,99 +138,120 @@
       "segundos": 134.05726420000065,
       "erro": "",
       "nosso": true
+    },
+    {
+      "nome": "PhiEmb 3M (sorteado)",
+      "caminho": "models\\phiemb-minilm-3m-sorteado-melhor",
+      "recall_1": 0.4090000092983246,
+      "recall_10": 0.8130000233650208,
+      "mrr": 0.5438745617866516,
+      "ndcg_10": 0.6026151180267334,
+      "parametros_m": 22.713216,
+      "segundos": 110.12605499999995,
+      "erro": "",
+      "nosso": true
     }
   ],
   "pareado": [
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "SciBERT (base do ΦEmb)",
-      "ganha_a": 558,
-      "ganha_b": 78,
-      "discordantes": 636,
-      "p": 2.43960651536482e-90,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)"
+      "ganha_a": 585,
+      "ganha_b": 65,
+      "discordantes": 650,
+      "p": 1.4702091519454289e-105,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "PhysBERT (alvo do G1.1)",
-      "ganha_a": 473,
-      "ganha_b": 139,
-      "discordantes": 612,
-      "p": 1.6191411577634187e-43,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)"
+      "ganha_a": 501,
+      "ganha_b": 127,
+      "discordantes": 628,
+      "p": 1.9725705508283567e-53,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "MiniLM-L6 (genérico 23M)",
-      "ganha_a": 249,
+      "ganha_a": 289,
       "ganha_b": 98,
-      "discordantes": 347,
-      "p": 2.72108105843852e-16,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)"
+      "discordantes": 387,
+      "p": 5.66019877228889e-23,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "GTE-large (genérico 335M)",
-      "ganha_a": 148,
-      "ganha_b": 198,
-      "discordantes": 346,
-      "p": 0.008338407850182302,
-      "veredito": "GTE-large (genérico 335M) vence em recall@1 (p=0.0083)"
+      "ganha_a": 170,
+      "ganha_b": 180,
+      "discordantes": 350,
+      "p": 0.6305294869488747,
+      "veredito": "empate — 350 discordantes não separam os dois (p=0.631)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "ΦEmb/SciBERT (110M)",
-      "ganha_a": 286,
-      "ganha_b": 122,
-      "discordantes": 408,
-      "p": 2.791445935202211e-16,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)"
+      "ganha_a": 313,
+      "ganha_b": 109,
+      "discordantes": 422,
+      "p": 6.219833271554006e-24,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "ΦEmb/MiniLM (23M)",
-      "ganha_a": 155,
-      "ganha_b": 73,
-      "discordantes": 228,
-      "p": 5.9110376349771686e-08,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)"
+      "ganha_a": 208,
+      "ganha_b": 86,
+      "discordantes": 294,
+      "p": 8.008436014944685e-13,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "ΦEmb/MiniLM+GC (23M, 511 neg)",
-      "ganha_a": 147,
-      "ganha_b": 93,
-      "discordantes": 240,
-      "p": 0.0005945715993311254,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0006)"
+      "ganha_a": 203,
+      "ganha_b": 109,
+      "discordantes": 312,
+      "p": 1.133363423087456e-07,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "ΦEmb/MiniLM 1,5M (23M, 127 neg)",
-      "ganha_a": 131,
-      "ganha_b": 87,
-      "discordantes": 218,
-      "p": 0.0034916404946940417,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0035)"
+      "ganha_a": 170,
+      "ganha_b": 86,
+      "discordantes": 256,
+      "p": 1.6677227874966252e-07,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
+      "a": "PhiEmb 3M (sorteado)",
       "b": "PhiEmb-T4 400k (head)",
-      "ganha_a": 157,
-      "ganha_b": 91,
-      "discordantes": 248,
-      "p": 3.3201535258019456e-05,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)"
+      "ganha_a": 206,
+      "ganha_b": 100,
+      "discordantes": 306,
+      "p": 1.3418661227595665e-09,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
     },
     {
-      "a": "PhiEmb 1,5M (sorteado)",
-      "b": "PhiEmb-T4 400k (sorteado)",
-      "ganha_a": 117,
-      "ganha_b": 84,
-      "discordantes": 201,
-      "p": 0.023761175886632388,
-      "veredito": "PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0238)"
+      "a": "PhiEmb 3M (sorteado)",
+      "b": "PhiEmb 400k (sorteado)",
+      "ganha_a": 166,
+      "ganha_b": 93,
+      "discordantes": 259,
+      "p": 6.7307481431678544e-06,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "PhiEmb 3M (sorteado)",
+      "b": "PhiEmb 1,5M (sorteado)",
+      "ganha_a": 116,
+      "ganha_b": 76,
+      "discordantes": 192,
+      "p": 0.0047552374855475395,
+      "veredito": "PhiEmb 3M (sorteado) vence em recall@1 (p=0.0048)"
     }
   ],
-  "veredito": "nosso candidato: PhiEmb 1,5M (sorteado) · 23M params · nDCG@10 0.578\n\nG1.1: PASSOU — nDCG@10 +0.227 sobre o PhysBERT (limiar +0.05) · pareado em recall@1: PhiEmb 1,5M (sorteado) vence em recall@1 (p=0.0000)\nG1.2: NÃO PASSOU — melhor genérico é GTE-large (genérico 335M) (335M, nDCG@10 0.579); nDCG@10 -0.001, razão de params 1/14.8 (≤ 1/10 exigido)\n\nRESSALVAS, ALÉM de G1.2 não ter passado acima:\n  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado\n  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)\n    não são tocados por esta medição\n  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);\n    um benchmark com julgamentos graduados daria outro número"
+  "veredito": "nosso candidato: PhiEmb 3M (sorteado) · 23M params · nDCG@10 0.603\n\nG1.1: PASSOU — nDCG@10 +0.252 sobre o PhysBERT (limiar +0.05) · pareado em recall@1: PhiEmb 3M (sorteado) vence em recall@1 (p=0.0000)\nG1.2: PASSOU — melhor genérico é GTE-large (genérico 335M) (335M, nDCG@10 0.579); nDCG@10 +0.024, razão de params 1/14.8 (≤ 1/10 exigido)\n\nRESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:\n  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado\n  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)\n    não são tocados por esta medição\n  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);\n    um benchmark com julgamentos graduados daria outro número"
 }

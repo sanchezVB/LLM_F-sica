@@ -1,0 +1,1512 @@
+18:05:13 INFO    pares: 3,000,000 de 3,000,000 disponíveis · 518,635 documentos citados distintos · 133,540 validação
+18:05:13 INFO    dispositivo: Tesla T4 (CUDA 7.5, 16 GB)
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+18:05:13 WARNING Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/config.json "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/config.json "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/tokenizer_config.json "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/tokenizer_config.json "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: GET https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+18:05:13 INFO    HTTP Request: GET https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/vocab.txt "HTTP/1.1 307 Temporary Redirect"
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/vocab.txt "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/vocab.txt "HTTP/1.1 200 OK"
+18:05:13 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json "HTTP/1.1 307 Temporary Redirect"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/tokenizer.json "HTTP/1.1 200 OK"
+18:05:14 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/tokenizer.json "HTTP/1.1 200 OK"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/special_tokens_map.json "HTTP/1.1 307 Temporary Redirect"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/special_tokens_map.json "HTTP/1.1 200 OK"
+18:05:14 INFO    HTTP Request: GET https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/special_tokens_map.json "HTTP/1.1 200 OK"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/config.json "HTTP/1.1 200 OK"
+18:05:14 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json "HTTP/1.1 404 Not Found"
+18:05:15 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+18:05:15 INFO    HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/config.json "HTTP/1.1 200 OK"
+18:05:15 INFO    HTTP Request: HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+18:05:15 INFO    HTTP Request: GET https://huggingface.co/api/models/sentence-transformers/all-MiniLM-L6-v2/xet-read-token/1110a243fdf4706b3f48f1d95db1a4f5529b4d41 "HTTP/1.1 200 OK"
+
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+Loading weights:   1%|          | 1/103 [00:00<00:00, 16980.99it/s, Materializing param=embeddings.LayerNorm.bias]
+Loading weights:   1%|          | 1/103 [00:00<00:00, 6177.18it/s, Materializing param=embeddings.LayerNorm.bias] 
+Loading weights:   2%|▏         | 2/103 [00:00<00:00, 4871.43it/s, Materializing param=embeddings.LayerNorm.weight]
+Loading weights:   2%|▏         | 2/103 [00:00<00:00, 2590.68it/s, Materializing param=embeddings.LayerNorm.weight]
+Loading weights:   3%|▎         | 3/103 [00:00<00:00, 2744.96it/s, Materializing param=embeddings.position_embeddings.weight]
+Loading weights:   3%|▎         | 3/103 [00:00<00:00, 2348.87it/s, Materializing param=embeddings.position_embeddings.weight]
+Loading weights:   4%|▍         | 4/103 [00:00<00:00, 989.75it/s, Materializing param=embeddings.token_type_embeddings.weight]
+Loading weights:   4%|▍         | 4/103 [00:00<00:00, 960.84it/s, Materializing param=embeddings.token_type_embeddings.weight]
+Loading weights:   5%|▍         | 5/103 [00:00<00:00, 1087.40it/s, Materializing param=embeddings.word_embeddings.weight]     
+Loading weights:   5%|▍         | 5/103 [00:00<00:00, 1059.11it/s, Materializing param=embeddings.word_embeddings.weight]
+Loading weights:   6%|▌         | 6/103 [00:00<00:00, 1144.68it/s, Materializing param=encoder.layer.0.attention.output.LayerNorm.bias]
+Loading weights:   6%|▌         | 6/103 [00:00<00:00, 1117.88it/s, Materializing param=encoder.layer.0.attention.output.LayerNorm.bias]
+Loading weights:   7%|▋         | 7/103 [00:00<00:00, 1164.95it/s, Materializing param=encoder.layer.0.attention.output.LayerNorm.weight]
+Loading weights:   7%|▋         | 7/103 [00:00<00:00, 1140.91it/s, Materializing param=encoder.layer.0.attention.output.LayerNorm.weight]
+Loading weights:   8%|▊         | 8/103 [00:00<00:00, 875.36it/s, Materializing param=encoder.layer.0.attention.output.dense.bias]       
+Loading weights:   8%|▊         | 8/103 [00:00<00:00, 863.43it/s, Materializing param=encoder.layer.0.attention.output.dense.bias]
+Loading weights:   9%|▊         | 9/103 [00:00<00:00, 904.40it/s, Materializing param=encoder.layer.0.attention.output.dense.weight]
+Loading weights:   9%|▊         | 9/103 [00:00<00:00, 892.60it/s, Materializing param=encoder.layer.0.attention.output.dense.weight]
+Loading weights:  10%|▉         | 10/103 [00:00<00:00, 894.98it/s, Materializing param=encoder.layer.0.attention.self.key.bias]     
+Loading weights:  10%|▉         | 10/103 [00:00<00:00, 830.88it/s, Materializing param=encoder.layer.0.attention.self.key.bias]
+Loading weights:  11%|█         | 11/103 [00:00<00:00, 765.28it/s, Materializing param=encoder.layer.0.attention.self.key.weight]
+Loading weights:  11%|█         | 11/103 [00:00<00:00, 736.95it/s, Materializing param=encoder.layer.0.attention.self.key.weight]
+Loading weights:  12%|█▏        | 12/103 [00:00<00:00, 764.65it/s, Materializing param=encoder.layer.0.attention.self.query.bias]
+Loading weights:  12%|█▏        | 12/103 [00:00<00:00, 758.40it/s, Materializing param=encoder.layer.0.attention.self.query.bias]
+Loading weights:  13%|█▎        | 13/103 [00:00<00:00, 779.35it/s, Materializing param=encoder.layer.0.attention.self.query.weight]
+Loading weights:  13%|█▎        | 13/103 [00:00<00:00, 742.51it/s, Materializing param=encoder.layer.0.attention.self.query.weight]
+Loading weights:  14%|█▎        | 14/103 [00:00<00:00, 735.98it/s, Materializing param=encoder.layer.0.attention.self.value.bias]  
+Loading weights:  14%|█▎        | 14/103 [00:00<00:00, 731.20it/s, Materializing param=encoder.layer.0.attention.self.value.bias]
+Loading weights:  15%|█▍        | 15/103 [00:00<00:00, 762.48it/s, Materializing param=encoder.layer.0.attention.self.value.weight]
+Loading weights:  15%|█▍        | 15/103 [00:00<00:00, 757.91it/s, Materializing param=encoder.layer.0.attention.self.value.weight]
+Loading weights:  16%|█▌        | 16/103 [00:00<00:00, 788.08it/s, Materializing param=encoder.layer.0.intermediate.dense.bias]    
+Loading weights:  16%|█▌        | 16/103 [00:00<00:00, 783.59it/s, Materializing param=encoder.layer.0.intermediate.dense.bias]
+Loading weights:  17%|█▋        | 17/103 [00:00<00:00, 819.56it/s, Materializing param=encoder.layer.0.intermediate.dense.weight]
+Loading weights:  17%|█▋        | 17/103 [00:00<00:00, 815.30it/s, Materializing param=encoder.layer.0.intermediate.dense.weight]
+Loading weights:  17%|█▋        | 18/103 [00:00<00:00, 834.36it/s, Materializing param=encoder.layer.0.output.LayerNorm.bias]    
+Loading weights:  17%|█▋        | 18/103 [00:00<00:00, 829.83it/s, Materializing param=encoder.layer.0.output.LayerNorm.bias]
+Loading weights:  18%|█▊        | 19/103 [00:00<00:00, 859.68it/s, Materializing param=encoder.layer.0.output.LayerNorm.weight]
+Loading weights:  18%|█▊        | 19/103 [00:00<00:00, 854.89it/s, Materializing param=encoder.layer.0.output.LayerNorm.weight]
+Loading weights:  19%|█▉        | 20/103 [00:00<00:00, 889.83it/s, Materializing param=encoder.layer.0.output.dense.bias]      
+Loading weights:  19%|█▉        | 20/103 [00:00<00:00, 885.62it/s, Materializing param=encoder.layer.0.output.dense.bias]
+Loading weights:  20%|██        | 21/103 [00:00<00:00, 772.06it/s, Materializing param=encoder.layer.0.output.dense.weight]
+Loading weights:  20%|██        | 21/103 [00:00<00:00, 747.52it/s, Materializing param=encoder.layer.0.output.dense.weight]
+Loading weights:  21%|██▏       | 22/103 [00:00<00:00, 756.70it/s, Materializing param=encoder.layer.1.attention.output.LayerNorm.bias]
+Loading weights:  21%|██▏       | 22/103 [00:00<00:00, 753.36it/s, Materializing param=encoder.layer.1.attention.output.LayerNorm.bias]
+Loading weights:  22%|██▏       | 23/103 [00:00<00:00, 753.80it/s, Materializing param=encoder.layer.1.attention.output.LayerNorm.weight]
+Loading weights:  22%|██▏       | 23/103 [00:00<00:00, 750.83it/s, Materializing param=encoder.layer.1.attention.output.LayerNorm.weight]
+Loading weights:  23%|██▎       | 24/103 [00:00<00:00, 764.34it/s, Materializing param=encoder.layer.1.attention.output.dense.bias]      
+Loading weights:  23%|██▎       | 24/103 [00:00<00:00, 761.00it/s, Materializing param=encoder.layer.1.attention.output.dense.bias]
+Loading weights:  24%|██▍       | 25/103 [00:00<00:00, 785.61it/s, Materializing param=encoder.layer.1.attention.output.dense.weight]
+Loading weights:  24%|██▍       | 25/103 [00:00<00:00, 782.29it/s, Materializing param=encoder.layer.1.attention.output.dense.weight]
+Loading weights:  25%|██▌       | 26/103 [00:00<00:00, 782.60it/s, Materializing param=encoder.layer.1.attention.self.key.bias]      
+Loading weights:  25%|██▌       | 26/103 [00:00<00:00, 779.47it/s, Materializing param=encoder.layer.1.attention.self.key.bias]
+Loading weights:  26%|██▌       | 27/103 [00:00<00:00, 765.31it/s, Materializing param=encoder.layer.1.attention.self.key.weight]
+Loading weights:  26%|██▌       | 27/103 [00:00<00:00, 762.49it/s, Materializing param=encoder.layer.1.attention.self.key.weight]
+Loading weights:  27%|██▋       | 28/103 [00:00<00:00, 760.59it/s, Materializing param=encoder.layer.1.attention.self.query.bias]
+Loading weights:  27%|██▋       | 28/103 [00:00<00:00, 757.87it/s, Materializing param=encoder.layer.1.attention.self.query.bias]
+Loading weights:  28%|██▊       | 29/103 [00:00<00:00, 778.07it/s, Materializing param=encoder.layer.1.attention.self.query.weight]
+Loading weights:  28%|██▊       | 29/103 [00:00<00:00, 775.55it/s, Materializing param=encoder.layer.1.attention.self.query.weight]
+Loading weights:  29%|██▉       | 30/103 [00:00<00:00, 792.89it/s, Materializing param=encoder.layer.1.attention.self.value.bias]  
+Loading weights:  29%|██▉       | 30/103 [00:00<00:00, 789.96it/s, Materializing param=encoder.layer.1.attention.self.value.bias]
+Loading weights:  30%|███       | 31/103 [00:00<00:00, 810.73it/s, Materializing param=encoder.layer.1.attention.self.value.weight]
+Loading weights:  30%|███       | 31/103 [00:00<00:00, 807.66it/s, Materializing param=encoder.layer.1.attention.self.value.weight]
+Loading weights:  31%|███       | 32/103 [00:00<00:00, 821.33it/s, Materializing param=encoder.layer.1.intermediate.dense.bias]    
+Loading weights:  31%|███       | 32/103 [00:00<00:00, 818.79it/s, Materializing param=encoder.layer.1.intermediate.dense.bias]
+Loading weights:  32%|███▏      | 33/103 [00:00<00:00, 817.18it/s, Materializing param=encoder.layer.1.intermediate.dense.weight]
+Loading weights:  32%|███▏      | 33/103 [00:00<00:00, 806.98it/s, Materializing param=encoder.layer.1.intermediate.dense.weight]
+Loading weights:  33%|███▎      | 34/103 [00:00<00:00, 813.57it/s, Materializing param=encoder.layer.1.output.LayerNorm.bias]    
+Loading weights:  33%|███▎      | 34/103 [00:00<00:00, 806.90it/s, Materializing param=encoder.layer.1.output.LayerNorm.bias]
+Loading weights:  34%|███▍      | 35/103 [00:00<00:00, 825.34it/s, Materializing param=encoder.layer.1.output.LayerNorm.weight]
+Loading weights:  34%|███▍      | 35/103 [00:00<00:00, 822.29it/s, Materializing param=encoder.layer.1.output.LayerNorm.weight]
+Loading weights:  35%|███▍      | 36/103 [00:00<00:00, 840.29it/s, Materializing param=encoder.layer.1.output.dense.bias]      
+Loading weights:  35%|███▍      | 36/103 [00:00<00:00, 833.75it/s, Materializing param=encoder.layer.1.output.dense.bias]
+Loading weights:  36%|███▌      | 37/103 [00:00<00:00, 850.83it/s, Materializing param=encoder.layer.1.output.dense.weight]
+Loading weights:  36%|███▌      | 37/103 [00:00<00:00, 848.40it/s, Materializing param=encoder.layer.1.output.dense.weight]
+Loading weights:  37%|███▋      | 38/103 [00:00<00:00, 859.86it/s, Materializing param=encoder.layer.2.attention.output.LayerNorm.bias]
+Loading weights:  37%|███▋      | 38/103 [00:00<00:00, 857.32it/s, Materializing param=encoder.layer.2.attention.output.LayerNorm.bias]
+Loading weights:  38%|███▊      | 39/103 [00:00<00:00, 865.39it/s, Materializing param=encoder.layer.2.attention.output.LayerNorm.weight]
+Loading weights:  38%|███▊      | 39/103 [00:00<00:00, 863.21it/s, Materializing param=encoder.layer.2.attention.output.LayerNorm.weight]
+Loading weights:  39%|███▉      | 40/103 [00:00<00:00, 867.70it/s, Materializing param=encoder.layer.2.attention.output.dense.bias]      
+Loading weights:  39%|███▉      | 40/103 [00:00<00:00, 865.06it/s, Materializing param=encoder.layer.2.attention.output.dense.bias]
+Loading weights:  40%|███▉      | 41/103 [00:00<00:00, 872.11it/s, Materializing param=encoder.layer.2.attention.output.dense.weight]
+Loading weights:  40%|███▉      | 41/103 [00:00<00:00, 869.72it/s, Materializing param=encoder.layer.2.attention.output.dense.weight]
+Loading weights:  41%|████      | 42/103 [00:00<00:00, 879.82it/s, Materializing param=encoder.layer.2.attention.self.key.bias]      
+Loading weights:  41%|████      | 42/103 [00:00<00:00, 873.90it/s, Materializing param=encoder.layer.2.attention.self.key.bias]
+Loading weights:  42%|████▏     | 43/103 [00:00<00:00, 871.55it/s, Materializing param=encoder.layer.2.attention.self.key.weight]
+Loading weights:  42%|████▏     | 43/103 [00:00<00:00, 869.42it/s, Materializing param=encoder.layer.2.attention.self.key.weight]
+Loading weights:  43%|████▎     | 44/103 [00:00<00:00, 885.33it/s, Materializing param=encoder.layer.2.attention.self.query.bias]
+Loading weights:  43%|████▎     | 44/103 [00:00<00:00, 882.75it/s, Materializing param=encoder.layer.2.attention.self.query.bias]
+Loading weights:  44%|████▎     | 45/103 [00:00<00:00, 894.46it/s, Materializing param=encoder.layer.2.attention.self.query.weight]
+Loading weights:  44%|████▎     | 45/103 [00:00<00:00, 892.15it/s, Materializing param=encoder.layer.2.attention.self.query.weight]
+Loading weights:  45%|████▍     | 46/103 [00:00<00:00, 896.55it/s, Materializing param=encoder.layer.2.attention.self.value.bias]  
+Loading weights:  45%|████▍     | 46/103 [00:00<00:00, 894.47it/s, Materializing param=encoder.layer.2.attention.self.value.bias]
+Loading weights:  46%|████▌     | 47/103 [00:00<00:00, 900.69it/s, Materializing param=encoder.layer.2.attention.self.value.weight]
+Loading weights:  46%|████▌     | 47/103 [00:00<00:00, 898.37it/s, Materializing param=encoder.layer.2.attention.self.value.weight]
+Loading weights:  47%|████▋     | 48/103 [00:00<00:00, 911.94it/s, Materializing param=encoder.layer.2.intermediate.dense.bias]    
+Loading weights:  47%|████▋     | 48/103 [00:00<00:00, 910.09it/s, Materializing param=encoder.layer.2.intermediate.dense.bias]
+Loading weights:  48%|████▊     | 49/103 [00:00<00:00, 924.76it/s, Materializing param=encoder.layer.2.intermediate.dense.weight]
+Loading weights:  48%|████▊     | 49/103 [00:00<00:00, 922.99it/s, Materializing param=encoder.layer.2.intermediate.dense.weight]
+Loading weights:  49%|████▊     | 50/103 [00:00<00:00, 937.16it/s, Materializing param=encoder.layer.2.output.LayerNorm.bias]    
+Loading weights:  49%|████▊     | 50/103 [00:00<00:00, 934.93it/s, Materializing param=encoder.layer.2.output.LayerNorm.bias]
+Loading weights:  50%|████▉     | 51/103 [00:00<00:00, 948.93it/s, Materializing param=encoder.layer.2.output.LayerNorm.weight]
+Loading weights:  50%|████▉     | 51/103 [00:00<00:00, 946.91it/s, Materializing param=encoder.layer.2.output.LayerNorm.weight]
+Loading weights:  50%|█████     | 52/103 [00:00<00:00, 957.13it/s, Materializing param=encoder.layer.2.output.dense.bias]      
+Loading weights:  50%|█████     | 52/103 [00:00<00:00, 954.42it/s, Materializing param=encoder.layer.2.output.dense.bias]
+Loading weights:  51%|█████▏    | 53/103 [00:00<00:00, 968.68it/s, Materializing param=encoder.layer.2.output.dense.weight]
+Loading weights:  51%|█████▏    | 53/103 [00:00<00:00, 966.83it/s, Materializing param=encoder.layer.2.output.dense.weight]
+Loading weights:  52%|█████▏    | 54/103 [00:00<00:00, 980.20it/s, Materializing param=encoder.layer.3.attention.output.LayerNorm.bias]
+Loading weights:  52%|█████▏    | 54/103 [00:00<00:00, 978.94it/s, Materializing param=encoder.layer.3.attention.output.LayerNorm.bias]
+Loading weights:  53%|█████▎    | 55/103 [00:00<00:00, 993.60it/s, Materializing param=encoder.layer.3.attention.output.LayerNorm.weight]
+Loading weights:  53%|█████▎    | 55/103 [00:00<00:00, 991.01it/s, Materializing param=encoder.layer.3.attention.output.LayerNorm.weight]
+Loading weights:  54%|█████▍    | 56/103 [00:00<00:00, 1004.78it/s, Materializing param=encoder.layer.3.attention.output.dense.bias]     
+Loading weights:  54%|█████▍    | 56/103 [00:00<00:00, 1003.37it/s, Materializing param=encoder.layer.3.attention.output.dense.bias]
+Loading weights:  55%|█████▌    | 57/103 [00:00<00:00, 1018.03it/s, Materializing param=encoder.layer.3.attention.output.dense.weight]
+Loading weights:  55%|█████▌    | 57/103 [00:00<00:00, 1016.40it/s, Materializing param=encoder.layer.3.attention.output.dense.weight]
+Loading weights:  56%|█████▋    | 58/103 [00:00<00:00, 1030.36it/s, Materializing param=encoder.layer.3.attention.self.key.bias]      
+Loading weights:  56%|█████▋    | 58/103 [00:00<00:00, 1028.44it/s, Materializing param=encoder.layer.3.attention.self.key.bias]
+Loading weights:  57%|█████▋    | 59/103 [00:00<00:00, 1042.45it/s, Materializing param=encoder.layer.3.attention.self.key.weight]
+Loading weights:  57%|█████▋    | 59/103 [00:00<00:00, 1040.04it/s, Materializing param=encoder.layer.3.attention.self.key.weight]
+Loading weights:  58%|█████▊    | 60/103 [00:00<00:00, 1053.62it/s, Materializing param=encoder.layer.3.attention.self.query.bias]
+Loading weights:  58%|█████▊    | 60/103 [00:00<00:00, 1052.01it/s, Materializing param=encoder.layer.3.attention.self.query.bias]
+Loading weights:  59%|█████▉    | 61/103 [00:00<00:00, 1067.35it/s, Materializing param=encoder.layer.3.attention.self.query.weight]
+Loading weights:  59%|█████▉    | 61/103 [00:00<00:00, 1064.61it/s, Materializing param=encoder.layer.3.attention.self.query.weight]
+Loading weights:  60%|██████    | 62/103 [00:00<00:00, 1078.10it/s, Materializing param=encoder.layer.3.attention.self.value.bias]  
+Loading weights:  60%|██████    | 62/103 [00:00<00:00, 1076.15it/s, Materializing param=encoder.layer.3.attention.self.value.bias]
+Loading weights:  61%|██████    | 63/103 [00:00<00:00, 1089.82it/s, Materializing param=encoder.layer.3.attention.self.value.weight]
+Loading weights:  61%|██████    | 63/103 [00:00<00:00, 1087.26it/s, Materializing param=encoder.layer.3.attention.self.value.weight]
+Loading weights:  62%|██████▏   | 64/103 [00:00<00:00, 1100.81it/s, Materializing param=encoder.layer.3.intermediate.dense.bias]    
+Loading weights:  62%|██████▏   | 64/103 [00:00<00:00, 1099.41it/s, Materializing param=encoder.layer.3.intermediate.dense.bias]
+Loading weights:  63%|██████▎   | 65/103 [00:00<00:00, 1114.43it/s, Materializing param=encoder.layer.3.intermediate.dense.weight]
+Loading weights:  63%|██████▎   | 65/103 [00:00<00:00, 1112.45it/s, Materializing param=encoder.layer.3.intermediate.dense.weight]
+Loading weights:  64%|██████▍   | 66/103 [00:00<00:00, 1125.31it/s, Materializing param=encoder.layer.3.output.LayerNorm.bias]    
+Loading weights:  64%|██████▍   | 66/103 [00:00<00:00, 1123.24it/s, Materializing param=encoder.layer.3.output.LayerNorm.bias]
+Loading weights:  65%|██████▌   | 67/103 [00:00<00:00, 1135.89it/s, Materializing param=encoder.layer.3.output.LayerNorm.weight]
+Loading weights:  65%|██████▌   | 67/103 [00:00<00:00, 1133.92it/s, Materializing param=encoder.layer.3.output.LayerNorm.weight]
+Loading weights:  66%|██████▌   | 68/103 [00:00<00:00, 1147.00it/s, Materializing param=encoder.layer.3.output.dense.bias]      
+Loading weights:  66%|██████▌   | 68/103 [00:00<00:00, 1144.60it/s, Materializing param=encoder.layer.3.output.dense.bias]
+Loading weights:  67%|██████▋   | 69/103 [00:00<00:00, 1157.88it/s, Materializing param=encoder.layer.3.output.dense.weight]
+Loading weights:  67%|██████▋   | 69/103 [00:00<00:00, 1156.72it/s, Materializing param=encoder.layer.3.output.dense.weight]
+Loading weights:  68%|██████▊   | 70/103 [00:00<00:00, 1171.46it/s, Materializing param=encoder.layer.4.attention.output.LayerNorm.bias]
+Loading weights:  68%|██████▊   | 70/103 [00:00<00:00, 1168.54it/s, Materializing param=encoder.layer.4.attention.output.LayerNorm.bias]
+Loading weights:  69%|██████▉   | 71/103 [00:00<00:00, 1181.43it/s, Materializing param=encoder.layer.4.attention.output.LayerNorm.weight]
+Loading weights:  69%|██████▉   | 71/103 [00:00<00:00, 1180.19it/s, Materializing param=encoder.layer.4.attention.output.LayerNorm.weight]
+Loading weights:  70%|██████▉   | 72/103 [00:00<00:00, 1194.67it/s, Materializing param=encoder.layer.4.attention.output.dense.bias]      
+Loading weights:  70%|██████▉   | 72/103 [00:00<00:00, 1193.30it/s, Materializing param=encoder.layer.4.attention.output.dense.bias]
+Loading weights:  71%|███████   | 73/103 [00:00<00:00, 1204.97it/s, Materializing param=encoder.layer.4.attention.output.dense.weight]
+Loading weights:  71%|███████   | 73/103 [00:00<00:00, 1202.82it/s, Materializing param=encoder.layer.4.attention.output.dense.weight]
+Loading weights:  72%|███████▏  | 74/103 [00:00<00:00, 1214.23it/s, Materializing param=encoder.layer.4.attention.self.key.bias]      
+Loading weights:  72%|███████▏  | 74/103 [00:00<00:00, 1212.54it/s, Materializing param=encoder.layer.4.attention.self.key.bias]
+Loading weights:  73%|███████▎  | 75/103 [00:00<00:00, 1225.05it/s, Materializing param=encoder.layer.4.attention.self.key.weight]
+Loading weights:  73%|███████▎  | 75/103 [00:00<00:00, 1221.95it/s, Materializing param=encoder.layer.4.attention.self.key.weight]
+Loading weights:  74%|███████▍  | 76/103 [00:00<00:00, 1234.26it/s, Materializing param=encoder.layer.4.attention.self.query.bias]
+Loading weights:  74%|███████▍  | 76/103 [00:00<00:00, 1231.64it/s, Materializing param=encoder.layer.4.attention.self.query.bias]
+Loading weights:  75%|███████▍  | 77/103 [00:00<00:00, 1243.06it/s, Materializing param=encoder.layer.4.attention.self.query.weight]
+Loading weights:  75%|███████▍  | 77/103 [00:00<00:00, 1240.99it/s, Materializing param=encoder.layer.4.attention.self.query.weight]
+Loading weights:  76%|███████▌  | 78/103 [00:00<00:00, 1253.28it/s, Materializing param=encoder.layer.4.attention.self.value.bias]  
+Loading weights:  76%|███████▌  | 78/103 [00:00<00:00, 1251.14it/s, Materializing param=encoder.layer.4.attention.self.value.bias]
+Loading weights:  77%|███████▋  | 79/103 [00:00<00:00, 1263.71it/s, Materializing param=encoder.layer.4.attention.self.value.weight]
+Loading weights:  77%|███████▋  | 79/103 [00:00<00:00, 1261.77it/s, Materializing param=encoder.layer.4.attention.self.value.weight]
+Loading weights:  78%|███████▊  | 80/103 [00:00<00:00, 1273.64it/s, Materializing param=encoder.layer.4.intermediate.dense.bias]    
+Loading weights:  78%|███████▊  | 80/103 [00:00<00:00, 1271.21it/s, Materializing param=encoder.layer.4.intermediate.dense.bias]
+Loading weights:  79%|███████▊  | 81/103 [00:00<00:00, 1283.16it/s, Materializing param=encoder.layer.4.intermediate.dense.weight]
+Loading weights:  79%|███████▊  | 81/103 [00:00<00:00, 1281.13it/s, Materializing param=encoder.layer.4.intermediate.dense.weight]
+Loading weights:  80%|███████▉  | 82/103 [00:00<00:00, 1292.29it/s, Materializing param=encoder.layer.4.output.LayerNorm.bias]    
+Loading weights:  80%|███████▉  | 82/103 [00:00<00:00, 1290.07it/s, Materializing param=encoder.layer.4.output.LayerNorm.bias]
+Loading weights:  81%|████████  | 83/103 [00:00<00:00, 1301.81it/s, Materializing param=encoder.layer.4.output.LayerNorm.weight]
+Loading weights:  81%|████████  | 83/103 [00:00<00:00, 1299.35it/s, Materializing param=encoder.layer.4.output.LayerNorm.weight]
+Loading weights:  82%|████████▏ | 84/103 [00:00<00:00, 1310.58it/s, Materializing param=encoder.layer.4.output.dense.bias]      
+Loading weights:  82%|████████▏ | 84/103 [00:00<00:00, 1307.93it/s, Materializing param=encoder.layer.4.output.dense.bias]
+Loading weights:  83%|████████▎ | 85/103 [00:00<00:00, 1318.85it/s, Materializing param=encoder.layer.4.output.dense.weight]
+Loading weights:  83%|████████▎ | 85/103 [00:00<00:00, 1316.51it/s, Materializing param=encoder.layer.4.output.dense.weight]
+Loading weights:  83%|████████▎ | 86/103 [00:00<00:00, 1328.14it/s, Materializing param=encoder.layer.5.attention.output.LayerNorm.bias]
+Loading weights:  83%|████████▎ | 86/103 [00:00<00:00, 1326.17it/s, Materializing param=encoder.layer.5.attention.output.LayerNorm.bias]
+Loading weights:  84%|████████▍ | 87/103 [00:00<00:00, 1337.51it/s, Materializing param=encoder.layer.5.attention.output.LayerNorm.weight]
+Loading weights:  84%|████████▍ | 87/103 [00:00<00:00, 1335.80it/s, Materializing param=encoder.layer.5.attention.output.LayerNorm.weight]
+Loading weights:  85%|████████▌ | 88/103 [00:00<00:00, 1346.75it/s, Materializing param=encoder.layer.5.attention.output.dense.bias]      
+Loading weights:  85%|████████▌ | 88/103 [00:00<00:00, 1344.46it/s, Materializing param=encoder.layer.5.attention.output.dense.bias]
+Loading weights:  86%|████████▋ | 89/103 [00:00<00:00, 1355.26it/s, Materializing param=encoder.layer.5.attention.output.dense.weight]
+Loading weights:  86%|████████▋ | 89/103 [00:00<00:00, 1353.22it/s, Materializing param=encoder.layer.5.attention.output.dense.weight]
+Loading weights:  87%|████████▋ | 90/103 [00:00<00:00, 1363.86it/s, Materializing param=encoder.layer.5.attention.self.key.bias]      
+Loading weights:  87%|████████▋ | 90/103 [00:00<00:00, 1362.01it/s, Materializing param=encoder.layer.5.attention.self.key.bias]
+Loading weights:  88%|████████▊ | 91/103 [00:00<00:00, 1372.62it/s, Materializing param=encoder.layer.5.attention.self.key.weight]
+Loading weights:  88%|████████▊ | 91/103 [00:00<00:00, 1370.44it/s, Materializing param=encoder.layer.5.attention.self.key.weight]
+Loading weights:  89%|████████▉ | 92/103 [00:00<00:00, 1381.56it/s, Materializing param=encoder.layer.5.attention.self.query.bias]
+Loading weights:  89%|████████▉ | 92/103 [00:00<00:00, 1379.45it/s, Materializing param=encoder.layer.5.attention.self.query.bias]
+Loading weights:  90%|█████████ | 93/103 [00:00<00:00, 1390.05it/s, Materializing param=encoder.layer.5.attention.self.query.weight]
+Loading weights:  90%|█████████ | 93/103 [00:00<00:00, 1387.85it/s, Materializing param=encoder.layer.5.attention.self.query.weight]
+Loading weights:  91%|█████████▏| 94/103 [00:00<00:00, 1400.27it/s, Materializing param=encoder.layer.5.attention.self.value.bias]  
+Loading weights:  91%|█████████▏| 94/103 [00:00<00:00, 1398.57it/s, Materializing param=encoder.layer.5.attention.self.value.bias]
+Loading weights:  92%|█████████▏| 95/103 [00:00<00:00, 1408.99it/s, Materializing param=encoder.layer.5.attention.self.value.weight]
+Loading weights:  92%|█████████▏| 95/103 [00:00<00:00, 1406.14it/s, Materializing param=encoder.layer.5.attention.self.value.weight]
+Loading weights:  93%|█████████▎| 96/103 [00:00<00:00, 1417.13it/s, Materializing param=encoder.layer.5.intermediate.dense.bias]    
+Loading weights:  93%|█████████▎| 96/103 [00:00<00:00, 1415.87it/s, Materializing param=encoder.layer.5.intermediate.dense.bias]
+Loading weights:  94%|█████████▍| 97/103 [00:00<00:00, 1427.41it/s, Materializing param=encoder.layer.5.intermediate.dense.weight]
+Loading weights:  94%|█████████▍| 97/103 [00:00<00:00, 1425.83it/s, Materializing param=encoder.layer.5.intermediate.dense.weight]
+Loading weights:  95%|█████████▌| 98/103 [00:00<00:00, 1436.38it/s, Materializing param=encoder.layer.5.output.LayerNorm.bias]    
+Loading weights:  95%|█████████▌| 98/103 [00:00<00:00, 1433.92it/s, Materializing param=encoder.layer.5.output.LayerNorm.bias]
+Loading weights:  96%|█████████▌| 99/103 [00:00<00:00, 1444.13it/s, Materializing param=encoder.layer.5.output.LayerNorm.weight]
+Loading weights:  96%|█████████▌| 99/103 [00:00<00:00, 1442.83it/s, Materializing param=encoder.layer.5.output.LayerNorm.weight]
+Loading weights:  97%|█████████▋| 100/103 [00:00<00:00, 1454.07it/s, Materializing param=encoder.layer.5.output.dense.bias]     
+Loading weights:  97%|█████████▋| 100/103 [00:00<00:00, 1451.58it/s, Materializing param=encoder.layer.5.output.dense.bias]
+Loading weights:  98%|█████████▊| 101/103 [00:00<00:00, 1462.64it/s, Materializing param=encoder.layer.5.output.dense.weight]
+Loading weights:  98%|█████████▊| 101/103 [00:00<00:00, 1459.70it/s, Materializing param=encoder.layer.5.output.dense.weight]
+Loading weights:  99%|█████████▉| 102/103 [00:00<00:00, 1469.81it/s, Materializing param=pooler.dense.bias]                  
+Loading weights:  99%|█████████▉| 102/103 [00:00<00:00, 1467.44it/s, Materializing param=pooler.dense.bias]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 1477.75it/s, Materializing param=pooler.dense.weight]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 1475.83it/s, Materializing param=pooler.dense.weight]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 1472.00it/s, Materializing param=pooler.dense.weight]
+BertModel LOAD REPORT from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+18:05:16 INFO    AMP fp16 ligado (cuda:0) · atenção sdpa
+18:05:23 INFO    base sentence-transformers/all-MiniLM-L6-v2 | entre 1000 candidatos: recall@1 0.381 · recall@10 0.739 · MRR 0.501 · nDCG@10 0.552
+18:05:53 INFO    passo 50 | perda 1.4272 | 210.4 pares/s | VRAM 1,508 MB
+18:06:26 INFO    passo 100 | perda 1.3395 | 201.3 pares/s | VRAM 1,508 MB
+18:06:59 INFO    passo 150 | perda 1.3203 | 200.5 pares/s | VRAM 1,508 MB
+18:07:30 INFO    passo 200 | perda 1.3222 | 202.0 pares/s | VRAM 1,508 MB
+18:07:31 INFO      aval: recall@1 0.406 · recall@10 0.765 · MRR 0.531 · nDCG@10 0.580
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.29it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.27it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.91it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.89it/s]
+18:07:31 INFO      ★ melhor até agora (nDCG@10 0.580) → phiemb-minilm-t4-melhor
+18:08:04 INFO    passo 250 | perda 1.2612 | 198.7 pares/s | VRAM 1,508 MB
+18:08:35 INFO    passo 300 | perda 1.2793 | 199.4 pares/s | VRAM 1,508 MB
+18:09:07 INFO    passo 350 | perda 1.2727 | 199.4 pares/s | VRAM 1,508 MB
+18:09:39 INFO    passo 400 | perda 1.2618 | 199.8 pares/s | VRAM 1,508 MB
+18:09:40 INFO      aval: recall@1 0.394 · recall@10 0.773 · MRR 0.530 · nDCG@10 0.582
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.87it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.86it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.28it/s]
+18:09:41 INFO      ★ melhor até agora (nDCG@10 0.582) → phiemb-minilm-t4-melhor
+18:10:13 INFO    passo 450 | perda 1.2556 | 198.5 pares/s | VRAM 1,508 MB
+18:10:45 INFO    passo 500 | perda 1.2499 | 198.9 pares/s | VRAM 1,508 MB
+18:11:17 INFO    passo 550 | perda 1.2260 | 198.9 pares/s | VRAM 1,508 MB
+18:11:49 INFO    passo 600 | perda 1.2066 | 199.1 pares/s | VRAM 1,508 MB
+18:11:50 INFO      aval: recall@1 0.408 · recall@10 0.775 · MRR 0.536 · nDCG@10 0.587
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.33it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.33it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.54it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.53it/s]
+18:11:50 INFO      ★ melhor até agora (nDCG@10 0.587) → phiemb-minilm-t4-melhor
+18:12:23 INFO    passo 650 | perda 1.2310 | 198.2 pares/s | VRAM 1,508 MB
+18:12:54 INFO    passo 700 | perda 1.2238 | 198.6 pares/s | VRAM 1,508 MB
+18:13:26 INFO    passo 750 | perda 1.1846 | 198.5 pares/s | VRAM 1,508 MB
+18:13:58 INFO    passo 800 | perda 1.1801 | 198.8 pares/s | VRAM 1,508 MB
+18:13:59 INFO      aval: recall@1 0.412 · recall@10 0.794 · MRR 0.543 · nDCG@10 0.597
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.50it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+18:14:00 INFO      ★ melhor até agora (nDCG@10 0.597) → phiemb-minilm-t4-melhor
+18:14:32 INFO    passo 850 | perda 1.1814 | 198.1 pares/s | VRAM 1,508 MB
+18:15:04 INFO    passo 900 | perda 1.1739 | 198.4 pares/s | VRAM 1,508 MB
+18:15:36 INFO    passo 950 | perda 1.2000 | 198.4 pares/s | VRAM 1,508 MB
+18:16:07 INFO    passo 1000 | perda 1.1960 | 198.6 pares/s | VRAM 1,508 MB
+18:16:09 INFO      aval: recall@1 0.416 · recall@10 0.786 · MRR 0.546 · nDCG@10 0.597
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+18:16:41 INFO    passo 1050 | perda 1.2157 | 198.2 pares/s | VRAM 1,508 MB
+18:17:13 INFO    passo 1100 | perda 1.1767 | 198.4 pares/s | VRAM 1,508 MB
+18:17:45 INFO    passo 1150 | perda 1.1798 | 198.4 pares/s | VRAM 1,508 MB
+18:18:16 INFO    passo 1200 | perda 1.1656 | 198.6 pares/s | VRAM 1,508 MB
+18:18:18 INFO      aval: recall@1 0.422 · recall@10 0.804 · MRR 0.552 · nDCG@10 0.607
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.27it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.26it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.92it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.91it/s]
+18:18:18 INFO      ★ melhor até agora (nDCG@10 0.607) → phiemb-minilm-t4-melhor
+18:18:50 INFO    passo 1250 | perda 1.1687 | 198.1 pares/s | VRAM 1,508 MB
+18:19:22 INFO    passo 1300 | perda 1.1424 | 198.3 pares/s | VRAM 1,508 MB
+18:19:54 INFO    passo 1350 | perda 1.1540 | 198.3 pares/s | VRAM 1,508 MB
+18:20:26 INFO    passo 1400 | perda 1.1432 | 198.5 pares/s | VRAM 1,508 MB
+18:20:27 INFO      aval: recall@1 0.421 · recall@10 0.799 · MRR 0.549 · nDCG@10 0.604
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.36it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.35it/s]
+18:20:59 INFO    passo 1450 | perda 1.1478 | 198.2 pares/s | VRAM 1,508 MB
+18:21:31 INFO    passo 1500 | perda 1.1227 | 198.4 pares/s | VRAM 1,508 MB
+18:22:03 INFO    passo 1550 | perda 1.1704 | 198.3 pares/s | VRAM 1,508 MB
+18:22:34 INFO    passo 1600 | perda 1.1538 | 198.5 pares/s | VRAM 1,508 MB
+18:22:36 INFO      aval: recall@1 0.416 · recall@10 0.798 · MRR 0.550 · nDCG@10 0.603
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.53it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.52it/s]
+18:23:08 INFO    passo 1650 | perda 1.1490 | 198.3 pares/s | VRAM 1,508 MB
+18:23:40 INFO    passo 1700 | perda 1.1480 | 198.4 pares/s | VRAM 1,508 MB
+18:24:12 INFO    passo 1750 | perda 1.1263 | 198.3 pares/s | VRAM 1,508 MB
+18:24:44 INFO    passo 1800 | perda 1.1192 | 198.4 pares/s | VRAM 1,508 MB
+18:24:45 INFO      aval: recall@1 0.418 · recall@10 0.797 · MRR 0.549 · nDCG@10 0.602
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.25it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.25it/s]
+18:25:18 INFO    passo 1850 | perda 1.1247 | 198.2 pares/s | VRAM 1,508 MB
+18:25:49 INFO    passo 1900 | perda 1.1250 | 198.3 pares/s | VRAM 1,508 MB
+18:26:22 INFO    passo 1950 | perda 1.1031 | 198.3 pares/s | VRAM 1,508 MB
+18:26:53 INFO    passo 2000 | perda 1.1051 | 198.4 pares/s | VRAM 1,508 MB
+18:26:54 INFO      aval: recall@1 0.420 · recall@10 0.801 · MRR 0.553 · nDCG@10 0.606
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+18:27:27 INFO    passo 2050 | perda 1.0726 | 198.2 pares/s | VRAM 1,508 MB
+18:27:59 INFO    passo 2100 | perda 1.0834 | 198.2 pares/s | VRAM 1,508 MB
+18:28:31 INFO    passo 2150 | perda 1.1229 | 198.3 pares/s | VRAM 1,508 MB
+18:29:02 INFO    passo 2200 | perda 1.1499 | 198.4 pares/s | VRAM 1,508 MB
+18:29:04 INFO      aval: recall@1 0.432 · recall@10 0.799 · MRR 0.559 · nDCG@10 0.611
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.31it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.46it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.45it/s]
+18:29:04 INFO      ★ melhor até agora (nDCG@10 0.611) → phiemb-minilm-t4-melhor
+18:29:36 INFO    passo 2250 | perda 1.0958 | 198.1 pares/s | VRAM 1,508 MB
+18:30:08 INFO    passo 2300 | perda 1.1243 | 198.3 pares/s | VRAM 1,508 MB
+18:30:40 INFO    passo 2350 | perda 1.1085 | 198.2 pares/s | VRAM 1,508 MB
+18:31:12 INFO    passo 2400 | perda 1.1298 | 198.3 pares/s | VRAM 1,508 MB
+18:31:13 INFO      aval: recall@1 0.436 · recall@10 0.800 · MRR 0.562 · nDCG@10 0.614
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.32it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.31it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+18:31:13 INFO      ★ melhor até agora (nDCG@10 0.614) → phiemb-minilm-t4-melhor
+18:31:46 INFO    passo 2450 | perda 1.1013 | 198.1 pares/s | VRAM 1,508 MB
+18:32:17 INFO    passo 2500 | perda 1.1250 | 198.2 pares/s | VRAM 1,508 MB
+18:32:50 INFO    passo 2550 | perda 1.1103 | 198.2 pares/s | VRAM 1,508 MB
+18:33:21 INFO    passo 2600 | perda 1.0835 | 198.3 pares/s | VRAM 1,508 MB
+18:33:22 INFO      aval: recall@1 0.427 · recall@10 0.809 · MRR 0.560 · nDCG@10 0.614
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.32it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.31it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+18:33:23 INFO      ★ melhor até agora (nDCG@10 0.614) → phiemb-minilm-t4-melhor
+18:33:55 INFO    passo 2650 | perda 1.1015 | 198.1 pares/s | VRAM 1,508 MB
+18:34:27 INFO    passo 2700 | perda 1.0403 | 198.2 pares/s | VRAM 1,508 MB
+18:34:59 INFO    passo 2750 | perda 1.1032 | 198.2 pares/s | VRAM 1,508 MB
+18:35:31 INFO    passo 2800 | perda 1.0972 | 198.3 pares/s | VRAM 1,508 MB
+18:35:32 INFO      aval: recall@1 0.428 · recall@10 0.812 · MRR 0.560 · nDCG@10 0.615
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.10it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.09it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.57it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.57it/s]
+18:35:32 INFO      ★ melhor até agora (nDCG@10 0.615) → phiemb-minilm-t4-melhor
+18:36:05 INFO    passo 2850 | perda 1.0757 | 198.1 pares/s | VRAM 1,508 MB
+18:36:36 INFO    passo 2900 | perda 1.0891 | 198.2 pares/s | VRAM 1,508 MB
+18:37:08 INFO    passo 2950 | perda 1.1000 | 198.2 pares/s | VRAM 1,508 MB
+18:37:40 INFO    passo 3000 | perda 1.0488 | 198.2 pares/s | VRAM 1,508 MB
+18:37:41 INFO      aval: recall@1 0.434 · recall@10 0.823 · MRR 0.562 · nDCG@10 0.619
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.21it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.21it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.58it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.57it/s]
+18:37:42 INFO      ★ melhor até agora (nDCG@10 0.619) → phiemb-minilm-t4-melhor
+18:38:14 INFO    passo 3050 | perda 1.0498 | 198.1 pares/s | VRAM 1,508 MB
+18:38:46 INFO    passo 3100 | perda 1.0767 | 198.1 pares/s | VRAM 1,508 MB
+18:39:18 INFO    passo 3150 | perda 1.0867 | 198.1 pares/s | VRAM 1,508 MB
+18:39:49 INFO    passo 3200 | perda 1.0449 | 198.2 pares/s | VRAM 1,508 MB
+18:39:51 INFO      aval: recall@1 0.425 · recall@10 0.807 · MRR 0.557 · nDCG@10 0.611
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.12it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.11it/s]
+18:40:23 INFO    passo 3250 | perda 1.0787 | 198.1 pares/s | VRAM 1,508 MB
+18:40:54 INFO    passo 3300 | perda 1.0568 | 198.2 pares/s | VRAM 1,508 MB
+18:41:27 INFO    passo 3350 | perda 1.0908 | 198.2 pares/s | VRAM 1,508 MB
+18:41:58 INFO    passo 3400 | perda 1.0677 | 198.2 pares/s | VRAM 1,508 MB
+18:42:00 INFO      aval: recall@1 0.431 · recall@10 0.807 · MRR 0.563 · nDCG@10 0.616
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+18:42:32 INFO    passo 3450 | perda 1.0406 | 198.1 pares/s | VRAM 1,508 MB
+18:43:04 INFO    passo 3500 | perda 1.0770 | 198.2 pares/s | VRAM 1,508 MB
+18:43:36 INFO    passo 3550 | perda 1.0590 | 198.2 pares/s | VRAM 1,508 MB
+18:44:07 INFO    passo 3600 | perda 1.0779 | 198.2 pares/s | VRAM 1,508 MB
+18:44:09 INFO      aval: recall@1 0.436 · recall@10 0.810 · MRR 0.568 · nDCG@10 0.620
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.10it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.09it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.46it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.45it/s]
+18:44:09 INFO      ★ melhor até agora (nDCG@10 0.620) → phiemb-minilm-t4-melhor
+18:44:42 INFO    passo 3650 | perda 1.0727 | 198.1 pares/s | VRAM 1,508 MB
+18:45:13 INFO    passo 3700 | perda 1.0408 | 198.1 pares/s | VRAM 1,508 MB
+18:45:45 INFO    passo 3750 | perda 1.0457 | 198.2 pares/s | VRAM 1,508 MB
+18:46:17 INFO    passo 3800 | perda 1.0308 | 198.2 pares/s | VRAM 1,508 MB
+18:46:18 INFO      aval: recall@1 0.438 · recall@10 0.819 · MRR 0.568 · nDCG@10 0.623
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.55it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.54it/s]
+18:46:19 INFO      ★ melhor até agora (nDCG@10 0.623) → phiemb-minilm-t4-melhor
+18:46:51 INFO    passo 3850 | perda 1.0505 | 198.1 pares/s | VRAM 1,508 MB
+18:47:22 INFO    passo 3900 | perda 1.0638 | 198.1 pares/s | VRAM 1,508 MB
+18:47:55 INFO    passo 3950 | perda 1.0284 | 198.1 pares/s | VRAM 1,508 MB
+18:48:26 INFO    passo 4000 | perda 1.0641 | 198.2 pares/s | VRAM 1,508 MB
+18:48:28 INFO      aval: recall@1 0.446 · recall@10 0.819 · MRR 0.573 · nDCG@10 0.627
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.96it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.96it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
+18:48:28 INFO      ★ melhor até agora (nDCG@10 0.627) → phiemb-minilm-t4-melhor
+18:49:00 INFO    passo 4050 | perda 1.0143 | 198.0 pares/s | VRAM 1,508 MB
+18:49:32 INFO    passo 4100 | perda 1.0178 | 198.1 pares/s | VRAM 1,508 MB
+18:50:04 INFO    passo 4150 | perda 1.0353 | 198.1 pares/s | VRAM 1,508 MB
+18:50:36 INFO    passo 4200 | perda 1.0535 | 198.2 pares/s | VRAM 1,508 MB
+18:50:37 INFO      aval: recall@1 0.443 · recall@10 0.813 · MRR 0.571 · nDCG@10 0.623
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.87it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.86it/s]
+18:51:10 INFO    passo 4250 | perda 1.0423 | 198.0 pares/s | VRAM 1,508 MB
+18:51:41 INFO    passo 4300 | perda 1.0118 | 198.1 pares/s | VRAM 1,508 MB
+18:52:13 INFO    passo 4350 | perda 1.0258 | 198.1 pares/s | VRAM 1,508 MB
+18:52:45 INFO    passo 4400 | perda 1.0269 | 198.2 pares/s | VRAM 1,508 MB
+18:52:46 INFO      aval: recall@1 0.435 · recall@10 0.811 · MRR 0.566 · nDCG@10 0.619
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+18:53:19 INFO    passo 4450 | perda 1.0243 | 198.1 pares/s | VRAM 1,508 MB
+18:53:50 INFO    passo 4500 | perda 1.0227 | 198.1 pares/s | VRAM 1,508 MB
+18:54:23 INFO    passo 4550 | perda 1.0294 | 198.1 pares/s | VRAM 1,508 MB
+18:54:54 INFO    passo 4600 | perda 1.0255 | 198.2 pares/s | VRAM 1,508 MB
+18:54:55 INFO      aval: recall@1 0.441 · recall@10 0.823 · MRR 0.571 · nDCG@10 0.626
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+18:55:28 INFO    passo 4650 | perda 1.0145 | 198.1 pares/s | VRAM 1,508 MB
+18:55:59 INFO    passo 4700 | perda 1.0257 | 198.1 pares/s | VRAM 1,508 MB
+18:56:32 INFO    passo 4750 | perda 1.0290 | 198.1 pares/s | VRAM 1,508 MB
+18:57:03 INFO    passo 4800 | perda 1.0008 | 198.2 pares/s | VRAM 1,508 MB
+18:57:04 INFO      aval: recall@1 0.453 · recall@10 0.823 · MRR 0.579 · nDCG@10 0.632
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.58it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.57it/s]
+18:57:05 INFO      ★ melhor até agora (nDCG@10 0.632) → phiemb-minilm-t4-melhor
+18:57:37 INFO    passo 4850 | perda 1.0465 | 198.1 pares/s | VRAM 1,508 MB
+18:58:09 INFO    passo 4900 | perda 1.0310 | 198.1 pares/s | VRAM 1,508 MB
+18:58:41 INFO    passo 4950 | perda 1.0303 | 198.1 pares/s | VRAM 1,508 MB
+18:59:13 INFO    passo 5000 | perda 1.0226 | 198.1 pares/s | VRAM 1,508 MB
+18:59:14 INFO      aval: recall@1 0.445 · recall@10 0.822 · MRR 0.576 · nDCG@10 0.629
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.42it/s]
+18:59:47 INFO    passo 5050 | perda 1.0280 | 198.1 pares/s | VRAM 1,508 MB
+19:00:18 INFO    passo 5100 | perda 0.9875 | 198.1 pares/s | VRAM 1,508 MB
+19:00:50 INFO    passo 5150 | perda 0.9825 | 198.1 pares/s | VRAM 1,508 MB
+19:01:22 INFO    passo 5200 | perda 1.0042 | 198.1 pares/s | VRAM 1,508 MB
+19:01:23 INFO      aval: recall@1 0.441 · recall@10 0.816 · MRR 0.571 · nDCG@10 0.624
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.20it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.19it/s]
+19:01:56 INFO    passo 5250 | perda 0.9965 | 198.1 pares/s | VRAM 1,508 MB
+19:02:27 INFO    passo 5300 | perda 1.0195 | 198.1 pares/s | VRAM 1,508 MB
+19:03:00 INFO    passo 5350 | perda 1.0025 | 198.1 pares/s | VRAM 1,508 MB
+19:03:31 INFO    passo 5400 | perda 0.9993 | 198.1 pares/s | VRAM 1,508 MB
+19:03:33 INFO      aval: recall@1 0.455 · recall@10 0.828 · MRR 0.579 · nDCG@10 0.634
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+19:03:33 INFO      ★ melhor até agora (nDCG@10 0.634) → phiemb-minilm-t4-melhor
+19:04:05 INFO    passo 5450 | perda 1.0047 | 198.0 pares/s | VRAM 1,508 MB
+19:04:37 INFO    passo 5500 | perda 1.0043 | 198.1 pares/s | VRAM 1,508 MB
+19:05:09 INFO    passo 5550 | perda 1.0285 | 198.1 pares/s | VRAM 1,508 MB
+19:05:41 INFO    passo 5600 | perda 0.9728 | 198.1 pares/s | VRAM 1,508 MB
+19:05:42 INFO      aval: recall@1 0.450 · recall@10 0.821 · MRR 0.577 · nDCG@10 0.630
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.01it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.01it/s]
+19:06:15 INFO    passo 5650 | perda 0.9613 | 198.0 pares/s | VRAM 1,508 MB
+19:06:46 INFO    passo 5700 | perda 0.9851 | 198.1 pares/s | VRAM 1,508 MB
+19:07:19 INFO    passo 5750 | perda 1.0235 | 198.1 pares/s | VRAM 1,508 MB
+19:07:50 INFO    passo 5800 | perda 1.0143 | 198.1 pares/s | VRAM 1,508 MB
+19:07:51 INFO      aval: recall@1 0.444 · recall@10 0.826 · MRR 0.574 · nDCG@10 0.629
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.13it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.13it/s]
+19:08:24 INFO    passo 5850 | perda 0.9361 | 198.0 pares/s | VRAM 1,508 MB
+19:08:55 INFO    passo 5900 | perda 1.0208 | 198.1 pares/s | VRAM 1,508 MB
+19:09:28 INFO    passo 5950 | perda 0.9934 | 198.1 pares/s | VRAM 1,508 MB
+19:09:59 INFO    passo 6000 | perda 0.9929 | 198.1 pares/s | VRAM 1,508 MB
+19:10:01 INFO      aval: recall@1 0.441 · recall@10 0.827 · MRR 0.574 · nDCG@10 0.630
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.18it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.17it/s]
+19:10:33 INFO    passo 6050 | perda 0.9795 | 198.0 pares/s | VRAM 1,508 MB
+19:11:05 INFO    passo 6100 | perda 0.9939 | 198.1 pares/s | VRAM 1,508 MB
+19:11:37 INFO    passo 6150 | perda 0.9849 | 198.1 pares/s | VRAM 1,508 MB
+19:12:09 INFO    passo 6200 | perda 1.0088 | 198.1 pares/s | VRAM 1,508 MB
+19:12:10 INFO      aval: recall@1 0.456 · recall@10 0.820 · MRR 0.582 · nDCG@10 0.633
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.50it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+19:12:42 INFO    passo 6250 | perda 0.9535 | 198.0 pares/s | VRAM 1,508 MB
+19:13:14 INFO    passo 6300 | perda 1.0067 | 198.1 pares/s | VRAM 1,508 MB
+19:13:46 INFO    passo 6350 | perda 0.9951 | 198.1 pares/s | VRAM 1,508 MB
+19:14:18 INFO    passo 6400 | perda 1.0089 | 198.1 pares/s | VRAM 1,508 MB
+19:14:19 INFO      aval: recall@1 0.451 · recall@10 0.819 · MRR 0.580 · nDCG@10 0.632
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.08it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.08it/s]
+19:14:52 INFO    passo 6450 | perda 0.9931 | 198.0 pares/s | VRAM 1,508 MB
+19:15:23 INFO    passo 6500 | perda 0.9652 | 198.1 pares/s | VRAM 1,508 MB
+19:15:56 INFO    passo 6550 | perda 1.0247 | 198.1 pares/s | VRAM 1,508 MB
+19:16:27 INFO    passo 6600 | perda 0.9586 | 198.1 pares/s | VRAM 1,508 MB
+19:16:29 INFO      aval: recall@1 0.448 · recall@10 0.827 · MRR 0.580 · nDCG@10 0.634
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.62it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.61it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+19:16:29 INFO      ★ melhor até agora (nDCG@10 0.634) → phiemb-minilm-t4-melhor
+19:17:02 INFO    passo 6650 | perda 0.9484 | 198.0 pares/s | VRAM 1,508 MB
+19:17:33 INFO    passo 6700 | perda 0.9773 | 198.0 pares/s | VRAM 1,508 MB
+19:18:05 INFO    passo 6750 | perda 1.0001 | 198.0 pares/s | VRAM 1,508 MB
+19:18:37 INFO    passo 6800 | perda 0.9503 | 198.1 pares/s | VRAM 1,508 MB
+19:18:38 INFO      aval: recall@1 0.446 · recall@10 0.824 · MRR 0.579 · nDCG@10 0.633
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+19:19:11 INFO    passo 6850 | perda 0.9645 | 198.0 pares/s | VRAM 1,508 MB
+19:19:43 INFO    passo 6900 | perda 0.9830 | 198.0 pares/s | VRAM 1,508 MB
+19:20:15 INFO    passo 6950 | perda 0.9608 | 198.0 pares/s | VRAM 1,508 MB
+19:20:46 INFO    passo 7000 | perda 0.9736 | 198.1 pares/s | VRAM 1,508 MB
+19:20:48 INFO      aval: recall@1 0.456 · recall@10 0.829 · MRR 0.583 · nDCG@10 0.637
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
+19:20:48 INFO      ★ melhor até agora (nDCG@10 0.637) → phiemb-minilm-t4-melhor
+19:21:20 INFO    passo 7050 | perda 0.9719 | 198.0 pares/s | VRAM 1,508 MB
+19:21:52 INFO    passo 7100 | perda 0.9818 | 198.0 pares/s | VRAM 1,508 MB
+19:22:24 INFO    passo 7150 | perda 0.9788 | 198.0 pares/s | VRAM 1,508 MB
+19:22:56 INFO    passo 7200 | perda 0.9722 | 198.1 pares/s | VRAM 1,508 MB
+19:22:57 INFO      aval: recall@1 0.449 · recall@10 0.829 · MRR 0.582 · nDCG@10 0.637
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.45it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.45it/s]
+19:23:29 INFO    passo 7250 | perda 0.9738 | 198.0 pares/s | VRAM 1,508 MB
+19:24:01 INFO    passo 7300 | perda 0.9626 | 198.0 pares/s | VRAM 1,508 MB
+19:24:33 INFO    passo 7350 | perda 0.9279 | 198.1 pares/s | VRAM 1,508 MB
+19:25:04 INFO    passo 7400 | perda 0.9617 | 198.1 pares/s | VRAM 1,508 MB
+19:25:06 INFO      aval: recall@1 0.453 · recall@10 0.831 · MRR 0.583 · nDCG@10 0.638
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.59it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.58it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]
+19:25:06 INFO      ★ melhor até agora (nDCG@10 0.638) → phiemb-minilm-t4-melhor
+19:25:38 INFO    passo 7450 | perda 0.9205 | 198.0 pares/s | VRAM 1,508 MB
+19:26:10 INFO    passo 7500 | perda 0.9578 | 198.0 pares/s | VRAM 1,508 MB
+19:26:42 INFO    passo 7550 | perda 0.9993 | 198.1 pares/s | VRAM 1,508 MB
+19:27:14 INFO    passo 7600 | perda 0.9425 | 198.1 pares/s | VRAM 1,508 MB
+19:27:15 INFO      aval: recall@1 0.456 · recall@10 0.833 · MRR 0.586 · nDCG@10 0.640
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.05it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.04it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.03it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.02it/s]
+19:27:16 INFO      ★ melhor até agora (nDCG@10 0.640) → phiemb-minilm-t4-melhor
+19:27:48 INFO    passo 7650 | perda 0.9458 | 198.0 pares/s | VRAM 1,508 MB
+19:28:20 INFO    passo 7700 | perda 0.9660 | 198.0 pares/s | VRAM 1,508 MB
+19:28:52 INFO    passo 7750 | perda 0.9499 | 198.0 pares/s | VRAM 1,508 MB
+19:29:23 INFO    passo 7800 | perda 0.9624 | 198.1 pares/s | VRAM 1,508 MB
+19:29:25 INFO      aval: recall@1 0.456 · recall@10 0.835 · MRR 0.585 · nDCG@10 0.640
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.33it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.32it/s]
+19:29:57 INFO    passo 7850 | perda 0.9403 | 198.0 pares/s | VRAM 1,508 MB
+19:30:29 INFO    passo 7900 | perda 0.9759 | 198.1 pares/s | VRAM 1,508 MB
+19:31:01 INFO    passo 7950 | perda 0.9576 | 198.1 pares/s | VRAM 1,508 MB
+19:31:32 INFO    passo 8000 | perda 0.9599 | 198.1 pares/s | VRAM 1,508 MB
+19:31:34 INFO      aval: recall@1 0.466 · recall@10 0.836 · MRR 0.592 · nDCG@10 0.646
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.36it/s]
+19:31:34 INFO      ★ melhor até agora (nDCG@10 0.646) → phiemb-minilm-t4-melhor
+19:32:06 INFO    passo 8050 | perda 0.9375 | 198.0 pares/s | VRAM 1,508 MB
+19:32:38 INFO    passo 8100 | perda 0.9596 | 198.0 pares/s | VRAM 1,508 MB
+19:33:10 INFO    passo 8150 | perda 0.9605 | 198.0 pares/s | VRAM 1,508 MB
+19:33:42 INFO    passo 8200 | perda 0.9467 | 198.1 pares/s | VRAM 1,508 MB
+19:33:44 INFO      aval: recall@1 0.465 · recall@10 0.832 · MRR 0.592 · nDCG@10 0.645
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.88it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.87it/s]
+19:34:17 INFO    passo 8250 | perda 0.9773 | 198.0 pares/s | VRAM 1,508 MB
+19:34:49 INFO    passo 8300 | perda 0.9651 | 198.0 pares/s | VRAM 1,508 MB
+19:35:21 INFO    passo 8350 | perda 0.9808 | 198.0 pares/s | VRAM 1,508 MB
+19:35:53 INFO    passo 8400 | perda 0.9661 | 198.0 pares/s | VRAM 1,508 MB
+19:35:55 INFO      aval: recall@1 0.462 · recall@10 0.839 · MRR 0.589 · nDCG@10 0.644
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.77it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
+19:36:27 INFO    passo 8450 | perda 0.9256 | 197.9 pares/s | VRAM 1,508 MB
+19:36:59 INFO    passo 8500 | perda 0.9713 | 197.9 pares/s | VRAM 1,508 MB
+19:37:33 INFO    passo 8550 | perda 0.9509 | 197.9 pares/s | VRAM 1,508 MB
+19:38:04 INFO    passo 8600 | perda 0.9891 | 197.9 pares/s | VRAM 1,508 MB
+19:38:06 INFO      aval: recall@1 0.454 · recall@10 0.834 · MRR 0.584 · nDCG@10 0.639
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.84it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.83it/s]
+19:38:39 INFO    passo 8650 | perda 0.9340 | 197.9 pares/s | VRAM 1,508 MB
+19:39:11 INFO    passo 8700 | perda 0.9218 | 197.9 pares/s | VRAM 1,508 MB
+19:39:43 INFO    passo 8750 | perda 0.9291 | 197.9 pares/s | VRAM 1,508 MB
+19:40:15 INFO    passo 8800 | perda 0.9261 | 197.9 pares/s | VRAM 1,508 MB
+19:40:17 INFO      aval: recall@1 0.459 · recall@10 0.828 · MRR 0.589 · nDCG@10 0.641
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.88it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.87it/s]
+19:40:49 INFO    passo 8850 | perda 0.9498 | 197.8 pares/s | VRAM 1,508 MB
+19:41:21 INFO    passo 8900 | perda 0.9229 | 197.8 pares/s | VRAM 1,508 MB
+19:41:53 INFO    passo 8950 | perda 0.9443 | 197.8 pares/s | VRAM 1,508 MB
+19:42:25 INFO    passo 9000 | perda 0.9692 | 197.9 pares/s | VRAM 1,508 MB
+19:42:26 INFO      aval: recall@1 0.457 · recall@10 0.840 · MRR 0.585 · nDCG@10 0.641
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.31it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+19:42:59 INFO    passo 9050 | perda 0.9447 | 197.8 pares/s | VRAM 1,508 MB
+19:43:31 INFO    passo 9100 | perda 0.9450 | 197.8 pares/s | VRAM 1,508 MB
+19:44:03 INFO    passo 9150 | perda 0.9472 | 197.8 pares/s | VRAM 1,508 MB
+19:44:34 INFO    passo 9200 | perda 0.9141 | 197.9 pares/s | VRAM 1,508 MB
+19:44:36 INFO      aval: recall@1 0.461 · recall@10 0.833 · MRR 0.590 · nDCG@10 0.644
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.53it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.52it/s]
+19:45:08 INFO    passo 9250 | perda 0.9547 | 197.8 pares/s | VRAM 1,508 MB
+19:45:40 INFO    passo 9300 | perda 0.9347 | 197.8 pares/s | VRAM 1,508 MB
+19:46:12 INFO    passo 9350 | perda 0.9455 | 197.8 pares/s | VRAM 1,508 MB
+19:46:44 INFO    passo 9400 | perda 0.9239 | 197.9 pares/s | VRAM 1,508 MB
+19:46:45 INFO      aval: recall@1 0.455 · recall@10 0.844 · MRR 0.589 · nDCG@10 0.645
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.32it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.31it/s]
+19:47:18 INFO    passo 9450 | perda 0.9502 | 197.8 pares/s | VRAM 1,508 MB
+19:47:49 INFO    passo 9500 | perda 0.9039 | 197.8 pares/s | VRAM 1,508 MB
+19:48:21 INFO    passo 9550 | perda 0.9426 | 197.8 pares/s | VRAM 1,508 MB
+19:48:53 INFO    passo 9600 | perda 0.9253 | 197.9 pares/s | VRAM 1,508 MB
+19:48:54 INFO      aval: recall@1 0.469 · recall@10 0.839 · MRR 0.596 · nDCG@10 0.650
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.35it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.34it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.54it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.53it/s]
+19:48:55 INFO      ★ melhor até agora (nDCG@10 0.650) → phiemb-minilm-t4-melhor
+19:49:27 INFO    passo 9650 | perda 0.9736 | 197.8 pares/s | VRAM 1,508 MB
+19:49:59 INFO    passo 9700 | perda 0.9288 | 197.8 pares/s | VRAM 1,508 MB
+19:50:31 INFO    passo 9750 | perda 0.9033 | 197.8 pares/s | VRAM 1,508 MB
+19:51:03 INFO    passo 9800 | perda 0.9505 | 197.9 pares/s | VRAM 1,508 MB
+19:51:04 INFO      aval: recall@1 0.459 · recall@10 0.839 · MRR 0.589 · nDCG@10 0.644
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.18it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.18it/s]
+19:51:37 INFO    passo 9850 | perda 0.9283 | 197.8 pares/s | VRAM 1,508 MB
+19:52:08 INFO    passo 9900 | perda 0.9127 | 197.8 pares/s | VRAM 1,508 MB
+19:52:41 INFO    passo 9950 | perda 0.8939 | 197.8 pares/s | VRAM 1,508 MB
+19:53:12 INFO    passo 10000 | perda 0.9219 | 197.9 pares/s | VRAM 1,508 MB
+19:53:13 INFO      aval: recall@1 0.461 · recall@10 0.841 · MRR 0.590 · nDCG@10 0.645
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+19:53:46 INFO    passo 10050 | perda 0.9280 | 197.8 pares/s | VRAM 1,508 MB
+19:54:18 INFO    passo 10100 | perda 0.9351 | 197.8 pares/s | VRAM 1,508 MB
+19:54:50 INFO    passo 10150 | perda 0.9261 | 197.8 pares/s | VRAM 1,508 MB
+19:55:21 INFO    passo 10200 | perda 0.9469 | 197.9 pares/s | VRAM 1,508 MB
+19:55:23 INFO      aval: recall@1 0.462 · recall@10 0.838 · MRR 0.594 · nDCG@10 0.648
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.47it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.46it/s]
+19:55:55 INFO    passo 10250 | perda 0.9496 | 197.8 pares/s | VRAM 1,508 MB
+19:56:27 INFO    passo 10300 | perda 0.9179 | 197.8 pares/s | VRAM 1,508 MB
+19:56:59 INFO    passo 10350 | perda 0.9184 | 197.8 pares/s | VRAM 1,508 MB
+19:57:30 INFO    passo 10400 | perda 0.9085 | 197.9 pares/s | VRAM 1,508 MB
+19:57:32 INFO      aval: recall@1 0.474 · recall@10 0.840 · MRR 0.598 · nDCG@10 0.651
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.50it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+19:57:32 INFO      ★ melhor até agora (nDCG@10 0.651) → phiemb-minilm-t4-melhor
+19:58:05 INFO    passo 10450 | perda 0.9417 | 197.8 pares/s | VRAM 1,508 MB
+19:58:36 INFO    passo 10500 | perda 0.8908 | 197.8 pares/s | VRAM 1,508 MB
+19:59:08 INFO    passo 10550 | perda 0.9179 | 197.8 pares/s | VRAM 1,508 MB
+19:59:40 INFO    passo 10600 | perda 0.9216 | 197.9 pares/s | VRAM 1,508 MB
+19:59:41 INFO      aval: recall@1 0.464 · recall@10 0.835 · MRR 0.593 · nDCG@10 0.646
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.45it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.45it/s]
+20:00:14 INFO    passo 10650 | perda 0.9158 | 197.8 pares/s | VRAM 1,508 MB
+20:00:45 INFO    passo 10700 | perda 0.9201 | 197.8 pares/s | VRAM 1,508 MB
+20:01:18 INFO    passo 10750 | perda 0.9157 | 197.9 pares/s | VRAM 1,508 MB
+20:01:49 INFO    passo 10800 | perda 0.9018 | 197.9 pares/s | VRAM 1,508 MB
+20:01:50 INFO      aval: recall@1 0.462 · recall@10 0.845 · MRR 0.595 · nDCG@10 0.650
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+20:02:23 INFO    passo 10850 | perda 0.8859 | 197.8 pares/s | VRAM 1,508 MB
+20:02:55 INFO    passo 10900 | perda 0.9069 | 197.8 pares/s | VRAM 1,508 MB
+20:03:27 INFO    passo 10950 | perda 0.9182 | 197.9 pares/s | VRAM 1,508 MB
+20:03:58 INFO    passo 11000 | perda 0.9459 | 197.9 pares/s | VRAM 1,508 MB
+20:03:59 INFO      aval: recall@1 0.462 · recall@10 0.839 · MRR 0.594 · nDCG@10 0.647
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+20:04:32 INFO    passo 11050 | perda 0.9343 | 197.8 pares/s | VRAM 1,508 MB
+20:05:03 INFO    passo 11100 | perda 0.9254 | 197.9 pares/s | VRAM 1,508 MB
+20:05:36 INFO    passo 11150 | perda 0.8911 | 197.9 pares/s | VRAM 1,508 MB
+20:06:07 INFO    passo 11200 | perda 0.9029 | 197.9 pares/s | VRAM 1,508 MB
+20:06:09 INFO      aval: recall@1 0.466 · recall@10 0.847 · MRR 0.597 · nDCG@10 0.652
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.52it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.51it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
+20:06:09 INFO      ★ melhor até agora (nDCG@10 0.652) → phiemb-minilm-t4-melhor
+20:06:41 INFO    passo 11250 | perda 0.9352 | 197.8 pares/s | VRAM 1,508 MB
+20:07:13 INFO    passo 11300 | perda 0.9107 | 197.9 pares/s | VRAM 1,508 MB
+20:07:45 INFO    passo 11350 | perda 0.8994 | 197.9 pares/s | VRAM 1,508 MB
+20:08:17 INFO    passo 11400 | perda 0.9554 | 197.9 pares/s | VRAM 1,508 MB
+20:08:18 INFO      aval: recall@1 0.469 · recall@10 0.844 · MRR 0.600 · nDCG@10 0.653
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.01it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.00it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+20:08:19 INFO      ★ melhor até agora (nDCG@10 0.653) → phiemb-minilm-t4-melhor
+20:08:51 INFO    passo 11450 | perda 0.9082 | 197.8 pares/s | VRAM 1,508 MB
+20:09:22 INFO    passo 11500 | perda 0.8974 | 197.9 pares/s | VRAM 1,508 MB
+20:09:55 INFO    passo 11550 | perda 0.9102 | 197.9 pares/s | VRAM 1,508 MB
+20:10:26 INFO    passo 11600 | perda 0.9079 | 197.9 pares/s | VRAM 1,508 MB
+20:10:27 INFO      aval: recall@1 0.471 · recall@10 0.841 · MRR 0.599 · nDCG@10 0.652
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.49it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+20:11:00 INFO    passo 11650 | perda 0.9152 | 197.9 pares/s | VRAM 1,508 MB
+20:11:31 INFO    passo 11700 | perda 0.9155 | 197.9 pares/s | VRAM 1,508 MB
+20:12:04 INFO    passo 11750 | perda 0.8999 | 197.9 pares/s | VRAM 1,508 MB
+20:12:35 INFO    passo 11800 | perda 0.9263 | 197.9 pares/s | VRAM 1,508 MB
+20:12:36 INFO      aval: recall@1 0.460 · recall@10 0.851 · MRR 0.594 · nDCG@10 0.651
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.47it/s]
+20:13:09 INFO    passo 11850 | perda 0.9183 | 197.9 pares/s | VRAM 1,508 MB
+20:13:40 INFO    passo 11900 | perda 0.8677 | 197.9 pares/s | VRAM 1,508 MB
+20:14:12 INFO    passo 11950 | perda 0.8987 | 197.9 pares/s | VRAM 1,508 MB
+20:14:44 INFO    passo 12000 | perda 0.9294 | 197.9 pares/s | VRAM 1,508 MB
+20:14:45 INFO      aval: recall@1 0.472 · recall@10 0.850 · MRR 0.601 · nDCG@10 0.656
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.61it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.60it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.67it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.66it/s]
+20:14:46 INFO      ★ melhor até agora (nDCG@10 0.656) → phiemb-minilm-t4-melhor
+20:15:18 INFO    passo 12050 | perda 0.8829 | 197.9 pares/s | VRAM 1,508 MB
+20:15:50 INFO    passo 12100 | perda 0.8989 | 197.9 pares/s | VRAM 1,508 MB
+20:16:22 INFO    passo 12150 | perda 0.8973 | 197.9 pares/s | VRAM 1,508 MB
+20:16:54 INFO    passo 12200 | perda 0.8901 | 197.9 pares/s | VRAM 1,508 MB
+20:16:55 INFO      aval: recall@1 0.463 · recall@10 0.850 · MRR 0.597 · nDCG@10 0.653
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.05it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.04it/s]
+20:17:27 INFO    passo 12250 | perda 0.9365 | 197.9 pares/s | VRAM 1,508 MB
+20:17:59 INFO    passo 12300 | perda 0.8910 | 197.9 pares/s | VRAM 1,508 MB
+20:18:31 INFO    passo 12350 | perda 0.8874 | 197.9 pares/s | VRAM 1,508 MB
+20:19:03 INFO    passo 12400 | perda 0.8915 | 197.9 pares/s | VRAM 1,508 MB
+20:19:04 INFO      aval: recall@1 0.458 · recall@10 0.858 · MRR 0.593 · nDCG@10 0.652
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.34it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.33it/s]
+20:19:36 INFO    passo 12450 | perda 0.9072 | 197.9 pares/s | VRAM 1,508 MB
+20:20:08 INFO    passo 12500 | perda 0.8936 | 197.9 pares/s | VRAM 1,508 MB
+20:20:40 INFO    passo 12550 | perda 0.8999 | 197.9 pares/s | VRAM 1,508 MB
+20:21:12 INFO    passo 12600 | perda 0.8811 | 197.9 pares/s | VRAM 1,508 MB
+20:21:13 INFO      aval: recall@1 0.460 · recall@10 0.858 · MRR 0.596 · nDCG@10 0.655
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+20:21:46 INFO    passo 12650 | perda 0.8843 | 197.9 pares/s | VRAM 1,508 MB
+20:22:17 INFO    passo 12700 | perda 0.8804 | 197.9 pares/s | VRAM 1,508 MB
+20:22:49 INFO    passo 12750 | perda 0.8943 | 197.9 pares/s | VRAM 1,508 MB
+20:23:21 INFO    passo 12800 | perda 0.8812 | 197.9 pares/s | VRAM 1,508 MB
+20:23:22 INFO      aval: recall@1 0.464 · recall@10 0.856 · MRR 0.597 · nDCG@10 0.655
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+20:23:55 INFO    passo 12850 | perda 0.9135 | 197.9 pares/s | VRAM 1,508 MB
+20:24:26 INFO    passo 12900 | perda 0.9061 | 197.9 pares/s | VRAM 1,508 MB
+20:24:59 INFO    passo 12950 | perda 0.8922 | 197.9 pares/s | VRAM 1,508 MB
+20:25:31 INFO    passo 13000 | perda 0.8919 | 197.9 pares/s | VRAM 1,508 MB
+20:25:32 INFO      aval: recall@1 0.463 · recall@10 0.856 · MRR 0.597 · nDCG@10 0.655
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+20:26:05 INFO    passo 13050 | perda 0.9066 | 197.9 pares/s | VRAM 1,508 MB
+20:26:36 INFO    passo 13100 | perda 0.9036 | 197.9 pares/s | VRAM 1,508 MB
+20:27:08 INFO    passo 13150 | perda 0.8969 | 197.9 pares/s | VRAM 1,508 MB
+20:27:40 INFO    passo 13200 | perda 0.9008 | 197.9 pares/s | VRAM 1,508 MB
+20:27:41 INFO      aval: recall@1 0.469 · recall@10 0.853 · MRR 0.599 · nDCG@10 0.656
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.79it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.78it/s]
+20:28:13 INFO    passo 13250 | perda 0.8942 | 197.9 pares/s | VRAM 1,508 MB
+20:28:45 INFO    passo 13300 | perda 0.9006 | 197.9 pares/s | VRAM 1,508 MB
+20:29:17 INFO    passo 13350 | perda 0.8632 | 197.9 pares/s | VRAM 1,508 MB
+20:29:49 INFO    passo 13400 | perda 0.9059 | 197.9 pares/s | VRAM 1,508 MB
+20:29:50 INFO      aval: recall@1 0.472 · recall@10 0.858 · MRR 0.602 · nDCG@10 0.659
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.28it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.27it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.36it/s]
+20:29:50 INFO      ★ melhor até agora (nDCG@10 0.659) → phiemb-minilm-t4-melhor
+20:30:23 INFO    passo 13450 | perda 0.8741 | 197.9 pares/s | VRAM 1,508 MB
+20:30:54 INFO    passo 13500 | perda 0.9053 | 197.9 pares/s | VRAM 1,508 MB
+20:31:26 INFO    passo 13550 | perda 0.8675 | 197.9 pares/s | VRAM 1,508 MB
+20:31:58 INFO    passo 13600 | perda 0.8924 | 197.9 pares/s | VRAM 1,508 MB
+20:31:59 INFO      aval: recall@1 0.469 · recall@10 0.851 · MRR 0.600 · nDCG@10 0.656
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+20:32:32 INFO    passo 13650 | perda 0.8788 | 197.9 pares/s | VRAM 1,508 MB
+20:33:03 INFO    passo 13700 | perda 0.8969 | 197.9 pares/s | VRAM 1,508 MB
+20:33:35 INFO    passo 13750 | perda 0.8865 | 197.9 pares/s | VRAM 1,508 MB
+20:34:07 INFO    passo 13800 | perda 0.8943 | 197.9 pares/s | VRAM 1,508 MB
+20:34:08 INFO      aval: recall@1 0.480 · recall@10 0.864 · MRR 0.607 · nDCG@10 0.664
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.42it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.62it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.61it/s]
+20:34:09 INFO      ★ melhor até agora (nDCG@10 0.664) → phiemb-minilm-t4-melhor
+20:34:41 INFO    passo 13850 | perda 0.8763 | 197.9 pares/s | VRAM 1,508 MB
+20:35:13 INFO    passo 13900 | perda 0.8651 | 197.9 pares/s | VRAM 1,508 MB
+20:35:45 INFO    passo 13950 | perda 0.8921 | 197.9 pares/s | VRAM 1,508 MB
+20:36:16 INFO    passo 14000 | perda 0.8998 | 197.9 pares/s | VRAM 1,508 MB
+20:36:18 INFO      aval: recall@1 0.468 · recall@10 0.854 · MRR 0.600 · nDCG@10 0.656
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.03it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.03it/s]
+20:36:50 INFO    passo 14050 | perda 0.8598 | 197.9 pares/s | VRAM 1,508 MB
+20:37:22 INFO    passo 14100 | perda 0.8845 | 197.9 pares/s | VRAM 1,508 MB
+20:37:54 INFO    passo 14150 | perda 0.8925 | 197.9 pares/s | VRAM 1,508 MB
+20:38:25 INFO    passo 14200 | perda 0.8894 | 197.9 pares/s | VRAM 1,508 MB
+20:38:27 INFO      aval: recall@1 0.481 · recall@10 0.856 · MRR 0.608 · nDCG@10 0.663
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+20:38:59 INFO    passo 14250 | perda 0.8561 | 197.9 pares/s | VRAM 1,508 MB
+20:39:31 INFO    passo 14300 | perda 0.8554 | 197.9 pares/s | VRAM 1,508 MB
+20:40:03 INFO    passo 14350 | perda 0.8566 | 197.9 pares/s | VRAM 1,508 MB
+20:40:35 INFO    passo 14400 | perda 0.9173 | 197.9 pares/s | VRAM 1,508 MB
+20:40:36 INFO      aval: recall@1 0.468 · recall@10 0.848 · MRR 0.601 · nDCG@10 0.655
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+20:41:08 INFO    passo 14450 | perda 0.8830 | 197.9 pares/s | VRAM 1,508 MB
+20:41:40 INFO    passo 14500 | perda 0.8941 | 197.9 pares/s | VRAM 1,508 MB
+20:42:12 INFO    passo 14550 | perda 0.8986 | 197.9 pares/s | VRAM 1,508 MB
+20:42:44 INFO    passo 14600 | perda 0.8769 | 197.9 pares/s | VRAM 1,508 MB
+20:42:45 INFO      aval: recall@1 0.479 · recall@10 0.856 · MRR 0.606 · nDCG@10 0.661
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.11it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.11it/s]
+20:43:18 INFO    passo 14650 | perda 0.9061 | 197.9 pares/s | VRAM 1,508 MB
+20:43:49 INFO    passo 14700 | perda 0.8994 | 197.9 pares/s | VRAM 1,508 MB
+20:44:22 INFO    passo 14750 | perda 0.8785 | 197.9 pares/s | VRAM 1,508 MB
+20:44:53 INFO    passo 14800 | perda 0.8688 | 197.9 pares/s | VRAM 1,508 MB
+20:44:54 INFO      aval: recall@1 0.484 · recall@10 0.855 · MRR 0.611 · nDCG@10 0.665
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.15it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.36it/s]
+20:44:55 INFO      ★ melhor até agora (nDCG@10 0.665) → phiemb-minilm-t4-melhor
+20:45:27 INFO    passo 14850 | perda 0.9139 | 197.9 pares/s | VRAM 1,508 MB
+20:45:59 INFO    passo 14900 | perda 0.8724 | 197.9 pares/s | VRAM 1,508 MB
+20:46:31 INFO    passo 14950 | perda 0.8954 | 197.9 pares/s | VRAM 1,508 MB
+20:47:03 INFO    passo 15000 | perda 0.8710 | 197.9 pares/s | VRAM 1,508 MB
+20:47:05 INFO      aval: recall@1 0.483 · recall@10 0.858 · MRR 0.609 · nDCG@10 0.665
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.28it/s]
+20:47:37 INFO    passo 15050 | perda 0.9065 | 197.9 pares/s | VRAM 1,508 MB
+20:48:09 INFO    passo 15100 | perda 0.8569 | 197.9 pares/s | VRAM 1,508 MB
+20:48:41 INFO    passo 15150 | perda 0.8627 | 197.9 pares/s | VRAM 1,508 MB
+20:49:13 INFO    passo 15200 | perda 0.8665 | 197.9 pares/s | VRAM 1,508 MB
+20:49:14 INFO      aval: recall@1 0.487 · recall@10 0.854 · MRR 0.610 · nDCG@10 0.664
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+20:49:47 INFO    passo 15250 | perda 0.8676 | 197.9 pares/s | VRAM 1,508 MB
+20:50:19 INFO    passo 15300 | perda 0.8757 | 197.9 pares/s | VRAM 1,508 MB
+20:50:51 INFO    passo 15350 | perda 0.8574 | 197.9 pares/s | VRAM 1,508 MB
+20:51:23 INFO    passo 15400 | perda 0.8756 | 197.9 pares/s | VRAM 1,508 MB
+20:51:24 INFO      aval: recall@1 0.489 · recall@10 0.857 · MRR 0.613 · nDCG@10 0.667
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.29it/s]
+20:51:25 INFO      ★ melhor até agora (nDCG@10 0.667) → phiemb-minilm-t4-melhor
+20:51:57 INFO    passo 15450 | perda 0.8761 | 197.9 pares/s | VRAM 1,508 MB
+20:52:29 INFO    passo 15500 | perda 0.8935 | 197.9 pares/s | VRAM 1,508 MB
+20:53:01 INFO    passo 15550 | perda 0.8921 | 197.9 pares/s | VRAM 1,508 MB
+20:53:33 INFO    passo 15600 | perda 0.8870 | 197.9 pares/s | VRAM 1,508 MB
+20:53:34 INFO      aval: recall@1 0.488 · recall@10 0.853 · MRR 0.614 · nDCG@10 0.666
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.25it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+20:54:07 INFO    passo 15650 | perda 0.8677 | 197.9 pares/s | VRAM 1,508 MB
+20:54:39 INFO    passo 15700 | perda 0.8750 | 197.9 pares/s | VRAM 1,508 MB
+20:55:11 INFO    passo 15750 | perda 0.8691 | 197.9 pares/s | VRAM 1,508 MB
+20:55:43 INFO    passo 15800 | perda 0.8687 | 197.9 pares/s | VRAM 1,508 MB
+20:55:44 INFO      aval: recall@1 0.475 · recall@10 0.857 · MRR 0.606 · nDCG@10 0.662
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+20:56:17 INFO    passo 15850 | perda 0.8941 | 197.9 pares/s | VRAM 1,508 MB
+20:56:49 INFO    passo 15900 | perda 0.8456 | 197.9 pares/s | VRAM 1,508 MB
+20:57:21 INFO    passo 15950 | perda 0.8658 | 197.9 pares/s | VRAM 1,508 MB
+20:57:53 INFO    passo 16000 | perda 0.8794 | 197.9 pares/s | VRAM 1,508 MB
+20:57:54 INFO      aval: recall@1 0.483 · recall@10 0.864 · MRR 0.610 · nDCG@10 0.667
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.36it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.35it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.37it/s]
+20:57:55 INFO      ★ melhor até agora (nDCG@10 0.667) → phiemb-minilm-t4-melhor
+20:58:27 INFO    passo 16050 | perda 0.8665 | 197.8 pares/s | VRAM 1,508 MB
+20:58:59 INFO    passo 16100 | perda 0.8358 | 197.8 pares/s | VRAM 1,508 MB
+20:59:31 INFO    passo 16150 | perda 0.8306 | 197.8 pares/s | VRAM 1,508 MB
+21:00:03 INFO    passo 16200 | perda 0.8679 | 197.9 pares/s | VRAM 1,508 MB
+21:00:04 INFO      aval: recall@1 0.482 · recall@10 0.859 · MRR 0.607 · nDCG@10 0.663
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.20it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.19it/s]
+21:00:37 INFO    passo 16250 | perda 0.8601 | 197.8 pares/s | VRAM 1,508 MB
+21:01:09 INFO    passo 16300 | perda 0.8907 | 197.8 pares/s | VRAM 1,508 MB
+21:01:41 INFO    passo 16350 | perda 0.8719 | 197.8 pares/s | VRAM 1,508 MB
+21:02:13 INFO    passo 16400 | perda 0.8527 | 197.8 pares/s | VRAM 1,508 MB
+21:02:14 INFO      aval: recall@1 0.487 · recall@10 0.865 · MRR 0.613 · nDCG@10 0.670
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.28it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.27it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.41it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.41it/s]
+21:02:15 INFO      ★ melhor até agora (nDCG@10 0.670) → phiemb-minilm-t4-melhor
+21:02:47 INFO    passo 16450 | perda 0.8864 | 197.8 pares/s | VRAM 1,508 MB
+21:03:19 INFO    passo 16500 | perda 0.8884 | 197.8 pares/s | VRAM 1,508 MB
+21:03:52 INFO    passo 16550 | perda 0.8722 | 197.8 pares/s | VRAM 1,508 MB
+21:04:23 INFO    passo 16600 | perda 0.8616 | 197.8 pares/s | VRAM 1,508 MB
+21:04:25 INFO      aval: recall@1 0.481 · recall@10 0.863 · MRR 0.608 · nDCG@10 0.665
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.17it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+21:04:57 INFO    passo 16650 | perda 0.8716 | 197.8 pares/s | VRAM 1,508 MB
+21:05:29 INFO    passo 16700 | perda 0.8389 | 197.8 pares/s | VRAM 1,508 MB
+21:06:02 INFO    passo 16750 | perda 0.8512 | 197.8 pares/s | VRAM 1,508 MB
+21:06:34 INFO    passo 16800 | perda 0.8727 | 197.8 pares/s | VRAM 1,508 MB
+21:06:35 INFO      aval: recall@1 0.484 · recall@10 0.860 · MRR 0.610 · nDCG@10 0.666
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.06it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.05it/s]
+21:07:07 INFO    passo 16850 | perda 0.8497 | 197.8 pares/s | VRAM 1,508 MB
+21:07:39 INFO    passo 16900 | perda 0.8915 | 197.8 pares/s | VRAM 1,508 MB
+21:08:12 INFO    passo 16950 | perda 0.8749 | 197.8 pares/s | VRAM 1,508 MB
+21:08:43 INFO    passo 17000 | perda 0.8791 | 197.8 pares/s | VRAM 1,508 MB
+21:08:45 INFO      aval: recall@1 0.486 · recall@10 0.861 · MRR 0.615 · nDCG@10 0.669
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.10it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.09it/s]
+21:09:17 INFO    passo 17050 | perda 0.8495 | 197.8 pares/s | VRAM 1,508 MB
+21:09:49 INFO    passo 17100 | perda 0.8677 | 197.8 pares/s | VRAM 1,508 MB
+21:10:21 INFO    passo 17150 | perda 0.8658 | 197.8 pares/s | VRAM 1,508 MB
+21:10:53 INFO    passo 17200 | perda 0.8844 | 197.8 pares/s | VRAM 1,508 MB
+21:10:54 INFO      aval: recall@1 0.473 · recall@10 0.867 · MRR 0.607 · nDCG@10 0.665
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.19it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.18it/s]
+21:11:27 INFO    passo 17250 | perda 0.8256 | 197.8 pares/s | VRAM 1,508 MB
+21:11:59 INFO    passo 17300 | perda 0.8321 | 197.8 pares/s | VRAM 1,508 MB
+21:12:31 INFO    passo 17350 | perda 0.8594 | 197.8 pares/s | VRAM 1,508 MB
+21:13:03 INFO    passo 17400 | perda 0.8851 | 197.8 pares/s | VRAM 1,508 MB
+21:13:04 INFO      aval: recall@1 0.489 · recall@10 0.868 · MRR 0.615 · nDCG@10 0.671
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.17it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.75it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.75it/s]
+21:13:04 INFO      ★ melhor até agora (nDCG@10 0.671) → phiemb-minilm-t4-melhor
+21:13:37 INFO    passo 17450 | perda 0.8451 | 197.8 pares/s | VRAM 1,508 MB
+21:14:09 INFO    passo 17500 | perda 0.8592 | 197.8 pares/s | VRAM 1,508 MB
+21:14:41 INFO    passo 17550 | perda 0.8486 | 197.8 pares/s | VRAM 1,508 MB
+21:15:13 INFO    passo 17600 | perda 0.8507 | 197.8 pares/s | VRAM 1,508 MB
+21:15:14 INFO      aval: recall@1 0.479 · recall@10 0.864 · MRR 0.609 · nDCG@10 0.666
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.03it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.02it/s]
+21:15:47 INFO    passo 17650 | perda 0.8492 | 197.8 pares/s | VRAM 1,508 MB
+21:16:19 INFO    passo 17700 | perda 0.8427 | 197.8 pares/s | VRAM 1,508 MB
+21:16:51 INFO    passo 17750 | perda 0.8432 | 197.8 pares/s | VRAM 1,508 MB
+21:17:23 INFO    passo 17800 | perda 0.8537 | 197.8 pares/s | VRAM 1,508 MB
+21:17:24 INFO      aval: recall@1 0.478 · recall@10 0.866 · MRR 0.609 · nDCG@10 0.667
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.90it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.89it/s]
+21:17:57 INFO    passo 17850 | perda 0.8267 | 197.7 pares/s | VRAM 1,508 MB
+21:18:29 INFO    passo 17900 | perda 0.8536 | 197.8 pares/s | VRAM 1,508 MB
+21:19:01 INFO    passo 17950 | perda 0.8602 | 197.8 pares/s | VRAM 1,508 MB
+21:19:33 INFO    passo 18000 | perda 0.8756 | 197.8 pares/s | VRAM 1,508 MB
+21:19:34 INFO      aval: recall@1 0.484 · recall@10 0.863 · MRR 0.612 · nDCG@10 0.668
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.14it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.13it/s]
+21:20:07 INFO    passo 18050 | perda 0.8662 | 197.7 pares/s | VRAM 1,508 MB
+21:20:39 INFO    passo 18100 | perda 0.8448 | 197.7 pares/s | VRAM 1,508 MB
+21:21:11 INFO    passo 18150 | perda 0.8530 | 197.7 pares/s | VRAM 1,508 MB
+21:21:43 INFO    passo 18200 | perda 0.8379 | 197.8 pares/s | VRAM 1,508 MB
+21:21:44 INFO      aval: recall@1 0.493 · recall@10 0.864 · MRR 0.618 · nDCG@10 0.673
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.25it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+21:21:45 INFO      ★ melhor até agora (nDCG@10 0.673) → phiemb-minilm-t4-melhor
+21:22:17 INFO    passo 18250 | perda 0.8598 | 197.7 pares/s | VRAM 1,508 MB
+21:22:49 INFO    passo 18300 | perda 0.8467 | 197.7 pares/s | VRAM 1,508 MB
+21:23:22 INFO    passo 18350 | perda 0.8141 | 197.7 pares/s | VRAM 1,508 MB
+21:23:53 INFO    passo 18400 | perda 0.8322 | 197.7 pares/s | VRAM 1,508 MB
+21:23:54 INFO      aval: recall@1 0.494 · recall@10 0.864 · MRR 0.619 · nDCG@10 0.674
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.52it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.51it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.91it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.90it/s]
+21:23:55 INFO      ★ melhor até agora (nDCG@10 0.674) → phiemb-minilm-t4-melhor
+21:24:27 INFO    passo 18450 | perda 0.8280 | 197.7 pares/s | VRAM 1,508 MB
+21:24:58 INFO    passo 18500 | perda 0.8808 | 197.7 pares/s | VRAM 1,508 MB
+21:25:30 INFO    passo 18550 | perda 0.8270 | 197.7 pares/s | VRAM 1,508 MB
+21:26:02 INFO    passo 18600 | perda 0.8514 | 197.8 pares/s | VRAM 1,508 MB
+21:26:03 INFO      aval: recall@1 0.483 · recall@10 0.862 · MRR 0.614 · nDCG@10 0.669
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.47it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.46it/s]
+21:26:36 INFO    passo 18650 | perda 0.8304 | 197.7 pares/s | VRAM 1,508 MB
+21:27:07 INFO    passo 18700 | perda 0.8395 | 197.7 pares/s | VRAM 1,508 MB
+21:27:39 INFO    passo 18750 | perda 0.8344 | 197.7 pares/s | VRAM 1,508 MB
+21:28:11 INFO    passo 18800 | perda 0.8402 | 197.8 pares/s | VRAM 1,508 MB
+21:28:12 INFO      aval: recall@1 0.487 · recall@10 0.862 · MRR 0.618 · nDCG@10 0.673
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+21:28:45 INFO    passo 18850 | perda 0.8567 | 197.7 pares/s | VRAM 1,508 MB
+21:29:17 INFO    passo 18900 | perda 0.8744 | 197.7 pares/s | VRAM 1,508 MB
+21:29:49 INFO    passo 18950 | perda 0.8596 | 197.7 pares/s | VRAM 1,508 MB
+21:30:20 INFO    passo 19000 | perda 0.8548 | 197.8 pares/s | VRAM 1,508 MB
+21:30:22 INFO      aval: recall@1 0.488 · recall@10 0.868 · MRR 0.618 · nDCG@10 0.674
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.38it/s]
+21:30:22 INFO      ★ melhor até agora (nDCG@10 0.674) → phiemb-minilm-t4-melhor
+21:30:54 INFO    passo 19050 | perda 0.8510 | 197.7 pares/s | VRAM 1,508 MB
+21:31:26 INFO    passo 19100 | perda 0.8500 | 197.7 pares/s | VRAM 1,508 MB
+21:31:58 INFO    passo 19150 | perda 0.8372 | 197.8 pares/s | VRAM 1,508 MB
+21:32:30 INFO    passo 19200 | perda 0.8366 | 197.8 pares/s | VRAM 1,508 MB
+21:32:31 INFO      aval: recall@1 0.488 · recall@10 0.873 · MRR 0.618 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  6.03it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  6.02it/s]
+21:32:32 INFO      ★ melhor até agora (nDCG@10 0.676) → phiemb-minilm-t4-melhor
+21:33:04 INFO    passo 19250 | perda 0.8280 | 197.7 pares/s | VRAM 1,508 MB
+21:33:36 INFO    passo 19300 | perda 0.8519 | 197.7 pares/s | VRAM 1,508 MB
+21:34:08 INFO    passo 19350 | perda 0.8218 | 197.8 pares/s | VRAM 1,508 MB
+21:34:39 INFO    passo 19400 | perda 0.8623 | 197.8 pares/s | VRAM 1,508 MB
+21:34:40 INFO      aval: recall@1 0.494 · recall@10 0.866 · MRR 0.621 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.48it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.47it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.71it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.70it/s]
+21:34:41 INFO      ★ melhor até agora (nDCG@10 0.676) → phiemb-minilm-t4-melhor
+21:35:13 INFO    passo 19450 | perda 0.8585 | 197.7 pares/s | VRAM 1,508 MB
+21:35:45 INFO    passo 19500 | perda 0.8658 | 197.8 pares/s | VRAM 1,508 MB
+21:36:17 INFO    passo 19550 | perda 0.8419 | 197.8 pares/s | VRAM 1,508 MB
+21:36:48 INFO    passo 19600 | perda 0.8654 | 197.8 pares/s | VRAM 1,508 MB
+21:36:50 INFO      aval: recall@1 0.483 · recall@10 0.870 · MRR 0.613 · nDCG@10 0.671
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.53it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.52it/s]
+21:37:22 INFO    passo 19650 | perda 0.8287 | 197.7 pares/s | VRAM 1,508 MB
+21:37:53 INFO    passo 19700 | perda 0.8573 | 197.8 pares/s | VRAM 1,508 MB
+21:38:26 INFO    passo 19750 | perda 0.8496 | 197.8 pares/s | VRAM 1,508 MB
+21:38:57 INFO    passo 19800 | perda 0.8594 | 197.8 pares/s | VRAM 1,508 MB
+21:38:59 INFO      aval: recall@1 0.491 · recall@10 0.870 · MRR 0.622 · nDCG@10 0.678
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.34it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.33it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.76it/s]
+21:38:59 INFO      ★ melhor até agora (nDCG@10 0.678) → phiemb-minilm-t4-melhor
+21:39:31 INFO    passo 19850 | perda 0.8659 | 197.8 pares/s | VRAM 1,508 MB
+21:40:03 INFO    passo 19900 | perda 0.8621 | 197.8 pares/s | VRAM 1,508 MB
+21:40:35 INFO    passo 19950 | perda 0.8448 | 197.8 pares/s | VRAM 1,508 MB
+21:41:07 INFO    passo 20000 | perda 0.8362 | 197.8 pares/s | VRAM 1,508 MB
+21:41:08 INFO      aval: recall@1 0.497 · recall@10 0.864 · MRR 0.626 · nDCG@10 0.679
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.00it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.00it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.42it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.41it/s]
+21:41:08 INFO      ★ melhor até agora (nDCG@10 0.679) → phiemb-minilm-t4-melhor
+21:41:41 INFO    passo 20050 | perda 0.8220 | 197.8 pares/s | VRAM 1,508 MB
+21:42:12 INFO    passo 20100 | perda 0.8754 | 197.8 pares/s | VRAM 1,508 MB
+21:42:44 INFO    passo 20150 | perda 0.8620 | 197.8 pares/s | VRAM 1,508 MB
+21:43:16 INFO    passo 20200 | perda 0.8356 | 197.8 pares/s | VRAM 1,508 MB
+21:43:17 INFO      aval: recall@1 0.492 · recall@10 0.868 · MRR 0.620 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+21:43:50 INFO    passo 20250 | perda 0.8169 | 197.8 pares/s | VRAM 1,508 MB
+21:44:21 INFO    passo 20300 | perda 0.8179 | 197.8 pares/s | VRAM 1,508 MB
+21:44:53 INFO    passo 20350 | perda 0.8371 | 197.8 pares/s | VRAM 1,508 MB
+21:45:25 INFO    passo 20400 | perda 0.8059 | 197.8 pares/s | VRAM 1,508 MB
+21:45:26 INFO      aval: recall@1 0.486 · recall@10 0.872 · MRR 0.619 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.14it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.13it/s]
+21:45:59 INFO    passo 20450 | perda 0.8387 | 197.8 pares/s | VRAM 1,508 MB
+21:46:30 INFO    passo 20500 | perda 0.8510 | 197.8 pares/s | VRAM 1,508 MB
+21:47:03 INFO    passo 20550 | perda 0.8306 | 197.8 pares/s | VRAM 1,508 MB
+21:47:34 INFO    passo 20600 | perda 0.8490 | 197.8 pares/s | VRAM 1,508 MB
+21:47:35 INFO      aval: recall@1 0.491 · recall@10 0.874 · MRR 0.622 · nDCG@10 0.679
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.42it/s]
+21:48:08 INFO    passo 20650 | perda 0.8265 | 197.8 pares/s | VRAM 1,508 MB
+21:48:40 INFO    passo 20700 | perda 0.8461 | 197.8 pares/s | VRAM 1,508 MB
+21:49:12 INFO    passo 20750 | perda 0.8220 | 197.8 pares/s | VRAM 1,508 MB
+21:49:43 INFO    passo 20800 | perda 0.8176 | 197.8 pares/s | VRAM 1,508 MB
+21:49:45 INFO      aval: recall@1 0.490 · recall@10 0.870 · MRR 0.620 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.44it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+21:50:17 INFO    passo 20850 | perda 0.8212 | 197.8 pares/s | VRAM 1,508 MB
+21:50:49 INFO    passo 20900 | perda 0.8303 | 197.8 pares/s | VRAM 1,508 MB
+21:51:21 INFO    passo 20950 | perda 0.8188 | 197.8 pares/s | VRAM 1,508 MB
+21:51:53 INFO    passo 21000 | perda 0.8397 | 197.8 pares/s | VRAM 1,508 MB
+21:51:54 INFO      aval: recall@1 0.488 · recall@10 0.872 · MRR 0.620 · nDCG@10 0.677
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+21:52:27 INFO    passo 21050 | perda 0.8523 | 197.8 pares/s | VRAM 1,508 MB
+21:52:58 INFO    passo 21100 | perda 0.8548 | 197.8 pares/s | VRAM 1,508 MB
+21:53:30 INFO    passo 21150 | perda 0.8441 | 197.8 pares/s | VRAM 1,508 MB
+21:54:02 INFO    passo 21200 | perda 0.8268 | 197.8 pares/s | VRAM 1,508 MB
+21:54:03 INFO      aval: recall@1 0.488 · recall@10 0.872 · MRR 0.617 · nDCG@10 0.675
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.36it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.35it/s]
+21:54:36 INFO    passo 21250 | perda 0.8073 | 197.8 pares/s | VRAM 1,508 MB
+21:55:07 INFO    passo 21300 | perda 0.8209 | 197.8 pares/s | VRAM 1,508 MB
+21:55:40 INFO    passo 21350 | perda 0.8420 | 197.8 pares/s | VRAM 1,508 MB
+21:56:11 INFO    passo 21400 | perda 0.8437 | 197.8 pares/s | VRAM 1,508 MB
+21:56:12 INFO      aval: recall@1 0.486 · recall@10 0.870 · MRR 0.618 · nDCG@10 0.675
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.62it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.62it/s]
+21:56:45 INFO    passo 21450 | perda 0.8159 | 197.8 pares/s | VRAM 1,508 MB
+21:57:16 INFO    passo 21500 | perda 0.8224 | 197.8 pares/s | VRAM 1,508 MB
+21:57:49 INFO    passo 21550 | perda 0.8429 | 197.8 pares/s | VRAM 1,508 MB
+21:58:20 INFO    passo 21600 | perda 0.8348 | 197.8 pares/s | VRAM 1,508 MB
+21:58:22 INFO      aval: recall@1 0.493 · recall@10 0.873 · MRR 0.619 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.30it/s]
+21:58:54 INFO    passo 21650 | perda 0.8223 | 197.8 pares/s | VRAM 1,508 MB
+21:59:25 INFO    passo 21700 | perda 0.8180 | 197.8 pares/s | VRAM 1,508 MB
+21:59:58 INFO    passo 21750 | perda 0.8072 | 197.8 pares/s | VRAM 1,508 MB
+22:00:29 INFO    passo 21800 | perda 0.8365 | 197.8 pares/s | VRAM 1,508 MB
+22:00:31 INFO      aval: recall@1 0.489 · recall@10 0.871 · MRR 0.619 · nDCG@10 0.675
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.03it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.03it/s]
+22:01:03 INFO    passo 21850 | perda 0.8347 | 197.8 pares/s | VRAM 1,508 MB
+22:01:35 INFO    passo 21900 | perda 0.8399 | 197.8 pares/s | VRAM 1,508 MB
+22:02:07 INFO    passo 21950 | perda 0.8240 | 197.8 pares/s | VRAM 1,508 MB
+22:02:38 INFO    passo 22000 | perda 0.8233 | 197.8 pares/s | VRAM 1,508 MB
+22:02:40 INFO      aval: recall@1 0.489 · recall@10 0.871 · MRR 0.619 · nDCG@10 0.675
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
+22:03:12 INFO    passo 22050 | perda 0.8184 | 197.8 pares/s | VRAM 1,508 MB
+22:03:44 INFO    passo 22100 | perda 0.8316 | 197.8 pares/s | VRAM 1,508 MB
+22:04:16 INFO    passo 22150 | perda 0.8283 | 197.8 pares/s | VRAM 1,508 MB
+22:04:48 INFO    passo 22200 | perda 0.8425 | 197.8 pares/s | VRAM 1,508 MB
+22:04:49 INFO      aval: recall@1 0.487 · recall@10 0.865 · MRR 0.621 · nDCG@10 0.675
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.16it/s]
+22:05:21 INFO    passo 22250 | perda 0.8101 | 197.8 pares/s | VRAM 1,508 MB
+22:05:53 INFO    passo 22300 | perda 0.8722 | 197.8 pares/s | VRAM 1,508 MB
+22:06:25 INFO    passo 22350 | perda 0.8195 | 197.8 pares/s | VRAM 1,508 MB
+22:06:57 INFO    passo 22400 | perda 0.8195 | 197.8 pares/s | VRAM 1,508 MB
+22:06:59 INFO      aval: recall@1 0.486 · recall@10 0.870 · MRR 0.616 · nDCG@10 0.673
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.40it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.39it/s]
+22:07:31 INFO    passo 22450 | perda 0.8149 | 197.8 pares/s | VRAM 1,508 MB
+22:08:03 INFO    passo 22500 | perda 0.8330 | 197.8 pares/s | VRAM 1,508 MB
+22:08:35 INFO    passo 22550 | perda 0.8267 | 197.8 pares/s | VRAM 1,508 MB
+22:09:07 INFO    passo 22600 | perda 0.8542 | 197.8 pares/s | VRAM 1,508 MB
+22:09:08 INFO      aval: recall@1 0.489 · recall@10 0.870 · MRR 0.621 · nDCG@10 0.676
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
+22:09:41 INFO    passo 22650 | perda 0.8023 | 197.8 pares/s | VRAM 1,508 MB
+22:10:12 INFO    passo 22700 | perda 0.8463 | 197.8 pares/s | VRAM 1,508 MB
+22:10:44 INFO    passo 22750 | perda 0.8482 | 197.8 pares/s | VRAM 1,508 MB
+22:11:16 INFO    passo 22800 | perda 0.8165 | 197.8 pares/s | VRAM 1,508 MB
+22:11:17 INFO      aval: recall@1 0.487 · recall@10 0.869 · MRR 0.617 · nDCG@10 0.674
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.12it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.12it/s]
+22:11:50 INFO    passo 22850 | perda 0.8159 | 197.8 pares/s | VRAM 1,508 MB
+22:12:21 INFO    passo 22900 | perda 0.8035 | 197.8 pares/s | VRAM 1,508 MB
+22:12:54 INFO    passo 22950 | perda 0.8060 | 197.8 pares/s | VRAM 1,508 MB
+22:13:25 INFO    passo 23000 | perda 0.7932 | 197.8 pares/s | VRAM 1,508 MB
+22:13:27 INFO      aval: recall@1 0.491 · recall@10 0.872 · MRR 0.623 · nDCG@10 0.679
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.43it/s]
+22:13:59 INFO    passo 23050 | perda 0.8166 | 197.8 pares/s | VRAM 1,508 MB
+22:14:31 INFO    passo 23100 | perda 0.8439 | 197.8 pares/s | VRAM 1,508 MB
+22:15:03 INFO    passo 23150 | perda 0.8304 | 197.8 pares/s | VRAM 1,508 MB
+22:15:34 INFO    passo 23200 | perda 0.8388 | 197.8 pares/s | VRAM 1,508 MB
+22:15:36 INFO      aval: recall@1 0.494 · recall@10 0.865 · MRR 0.623 · nDCG@10 0.677
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.27it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.27it/s]
+22:16:08 INFO    passo 23250 | perda 0.8123 | 197.8 pares/s | VRAM 1,508 MB
+22:16:40 INFO    passo 23300 | perda 0.7924 | 197.8 pares/s | VRAM 1,508 MB
+22:17:12 INFO    passo 23350 | perda 0.8389 | 197.8 pares/s | VRAM 1,508 MB
+22:17:44 INFO    passo 23400 | perda 0.8191 | 197.8 pares/s | VRAM 1,508 MB
+22:17:45 INFO      aval: recall@1 0.498 · recall@10 0.865 · MRR 0.627 · nDCG@10 0.680
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.24it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.23it/s]
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.74it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.74it/s]
+22:17:46 INFO      ★ melhor até agora (nDCG@10 0.680) → phiemb-minilm-t4-melhor
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.22it/s]
+
+                         recall@1   recall@10      MRR
+antes (base)                0.381       0.739    0.501
+depois (ΦEmb)               0.493       0.873    0.625
+ganho                      +0.112      +0.134   +0.124
+
+passo 23437 | CONCLUIDO | 197.8 pares/s · → /kaggle/working/phiemb-minilm-t4

@@ -11,8 +11,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
-| **ΦEmb** | 🟠 **G1.1 ✅ / G1.2 empate técnico** | nDCG@10 **0,5780** contra **0,5788** do GTE-large — **−0,0008**, a 1/14,8 dos parâmetros. Ganhamos recall@10 (**0,785** contra 0,764) e perdemos recall@1 (0,389 contra 0,414, pareado p=0,0083). O critério pede SUPERAR, então segue vermelho |
-| **T1a** · volume × diversidade | 🟢 **−0,052 → −0,0008** | três runs, uma variável cada: `head`→sorteio (+0,020) e 400 mil→1,5 M (+0,032). A curva **ainda não platôou** no passo 11.400 de 11.718 |
+| **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6026** contra 0,5788 do GTE-large — **+0,024** a 1/14,8 dos parâmetros, num protocolo de teto **1,0000**. Ganhamos nDCG@10, recall@10 e MRR; recall@1 **empata** (pareado p=0,63). Não é o +0,003 de agosto |
+| **T1a** · volume × diversidade | 🟢 **−0,052 → +0,024** | quatro runs, uma variável cada. A curva **ainda não platôou**: pico no passo 23.400 de 23.437 (99,8%) |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -29,6 +29,76 @@ Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+
+## O G1.2 passou — 3 M de pares sorteados superam o GTE-large (2026-09-07)
+
+Quatro runs, uma variável por vez, todos no protocolo de teto **1,0000** e 2.000
+candidatos:
+
+| run | documentos citados | nDCG@10 | margem vs GTE-large |
+|---|---|---|---|
+| 400 mil `head` | 17.844 | 0,5265 | −0,0523 |
+| 400 mil sorteado | 191.198 | 0,5462 | −0,0326 |
+| 1,5 M sorteado | 390.856 | 0,5780 | −0,0008 |
+| **3 M sorteado** | **518.635** | **0,6026** | **+0,0238** |
+| GTE-large (335M) | — | 0,5788 | — |
+
+### ⚠️ G1.2: PASSOU — e por que este "+0,024" não é o "+0,003" de agosto
+
+| | ΦEmb 3M (23M) | GTE-large (335M) | |
+|---|---|---|---|
+| nDCG@10 | **0,6026** | 0,5788 | **+0,024 nós** |
+| recall@10 | **0,8130** | 0,7640 | **+0,049 nós** |
+| MRR | **0,5439** | 0,5293 | **+0,015 nós** |
+| recall@1 | 0,4090 | 0,4140 | −0,005 — **empate** (pareado 170×180, p=0,63) |
+
+Em agosto o G1.2 "passou" por **+0,003** num protocolo cujo teto era **0,7562**, com
+62% dos itens carregando desempate arbitrário. Três diferenças fazem esta afirmação
+ser de outra natureza:
+
+1. o teto do protocolo é **1,0000**, medido e gravado no artefato;
+2. a margem é **oito vezes** maior, e vem acompanhada de vitória em recall@10 e MRR;
+3. o pareado em recall@1 é reportado, e diz **empate** — não uma vitória que não
+   existe.
+
+O honesto é: **um modelo de 23M supera um genérico de 335M em recuperação de
+Física, exceto em recall@1, onde empata.** A cláusula de tamanho fecha com folga
+(1/14,8 contra o 1/10 exigido).
+
+### O que custou o `head`, medido
+
+**0,076 de nDCG@10** entre o pior e o melhor run — e os dois usaram a mesma base,
+o mesmo lote, o mesmo código. Decompondo:
+
+    head -> sorteio, a 400 mil pares          +0,020
+    400 mil -> 1,5 M sorteados                +0,032
+    1,5 M -> 3 M sorteados                    +0,025
+
+O primeiro termo era **de graça**: mesmo custo de GPU. Os outros dois foram
+comprados com tempo de T4 que a cota já dava.
+
+### A curva ainda não platôou, no terceiro run seguido
+
+| run | passos | pico | fração do treino |
+|---|---|---|---|
+| 400 mil | 3.125 | 0,6147 | 89,6% |
+| 1,5 M | 11.718 | 0,6567 | 97,3% |
+| 3 M | 23.437 | **0,6804** | **99,8%** |
+
+(avaliação interna de 1.000 candidatos.) O pico do run de 3 M está no penúltimo
+ponto medido. O corpus tem **6.564.111** pares e **667.304** documentos citados:
+usamos 3 M e 518.635. Ainda há **2,2×** de pares disponíveis, e um run do corpus
+inteiro levaria ~9,3 h — no limite de uma sessão do Kaggle.
+
+Curvas versionadas em `data/processed/avaliacao/t1a_curvas_de_treino.json`.
+
+### A decisão que isto abre, e que não é minha
+
+O recuperador do sistema é o `phiemb-minilm-melhor` (**0,5246**). O run de 3 M dá
+**0,6026** — **+0,078**. Trocar melhoraria toda a cadeia híbrida, e **invalidaria a
+referência do T1b/T1c**: o nDCG 0,1666 do ΦRank foi medido com o recuperador antigo,
+e trocar os dois ao mesmo tempo mediria duas coisas. É por isso que o registro do
+T1C fixa o antigo de propósito.
 
 ## 1,5 M de pares sorteados empatam com o GTE-large (2026-09-07)
 
