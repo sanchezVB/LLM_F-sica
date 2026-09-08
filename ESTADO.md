@@ -24,10 +24,10 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
-| **ΦEnc** · avaliação | 🟡 destravada, 1 de 3 | o **exportador** existe: checkpoint → diretório do `transformers`, com round-trip conferido. O MLM por região está pronto; faltam o avaliador de recuperação e a sonda tensorial |
+| **ΦEnc** · avaliação | 🟢 **as três medidas existem** | recuperação (é o `avaliar_encoders.py`, não era código novo), MLM por região (com fatia disjunta exigida) e a sonda tensorial (especificada e calibrada). Falta o modelo para medir |
 | **§11.2** · o bake-off | 🔴 **não roda na T4 gratuita** | 44 h por variante × 6 = **263 h** ≈ 8,8 semanas de cota, pela vazão MEDIDA (9,5 TFLOP/s). O DOC-05 orça **US$ 15** numa 4090 alugada — as rodadas são decisão de dinheiro, não de fila |
 
-Suíte: **649 testes** na venv rápida (15 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **663 testes** na venv rápida (16 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
@@ -148,6 +148,71 @@ PhysBERT 0,3507** — MLM puro, média mascarada, zero contrastivo, **0,097 de
 separação** entre encoders que diferem no domínio do pré-treino. É a comparação
 análoga à do §11.2, e tem faixa de sobra. Nenhum estágio de adaptação é necessário,
 o que poupa ~6 h de T4 no bake-off.
+
+## A sonda de estrutura tensorial: especificada, e calibrada antes de servir (2026-09-08)
+
+O §11.2 nomeia "uma sonda de estrutura tensorial" e **não a especifica**. A
+especificação está em `src/phifm/eval/sonda_tensorial.py`, desenhada para testar o
+que a **§8** afirma ser "a decisão mais consequente e menos visível" do documento —
+que `^{` e `_{` precisam ser pré-tokens atômicos.
+
+Cada item é um trio, sobre o mesmo carregador de texto:
+
+| | expressão | o que muda |
+|---|---|---|
+| base | `T^{\mu
+u}` | — |
+| estrutural | `T_{\mu
+u}` | mesmos símbolos, estrutura diferente |
+| renomeado | `T^{lphaeta}` | estrutura igual, símbolos diferentes |
+
+O item passa quando `sim(base, renomeado) > sim(base, estrutural)`: **separar**
+objetos diferentes E **identificar** renomeação de índice. Medir um lado só é fácil
+de satisfazer pelo motivo errado — quem colapsa tudo passa na invariância, quem
+decora string passa na separação. 4 famílias × 6 tensores × 3 carregadores = 72 itens.
+
+### ⚠️ A superfície reprova a sonda inteira: 0 de 72
+
+`T^{\mu
+u}` → `T_{\mu
+u}` é **um caractere**; o renomeado muda dois símbolos.
+Por semelhança de string o estrutural é o mais parecido — o oposto do que o item
+pede. Semelhança de trigramas de caractere acerta **zero**, com margem negativa nas
+quatro famílias. Isso dá uma escala que a maioria das sondas não tem: 0,0 é
+superfície, **0,5 é moeda**, acima de 0,5 é estrutura — e o acaso fica *entre* os
+dois regimes, então o sinal já diz de que lado o modelo está.
+
+### E nenhum encoder existente chega a 0,5
+
+| modelo | taxa | margem |
+|---|---|---|
+| piso (só superfície) | 0,0000 | −0,0784 |
+| **ModernBERT-base** (MLM) | **0,2222** | −0,0017 |
+| SciBERT (MLM puro) | 0,2083 | −0,0068 |
+| PhysBERT (MLM, Física) | 0,0278 | −0,0271 |
+| MiniLM-L6 (**contrastivo**) | 0,0000 | −0,1794 |
+
+**A sonda discrimina** — 0,00 a 0,22 entre quatro encoders, e por família até 0,50
+de faixa. Mas **todos estão do lado da superfície**, então o que ela mede no regime
+de hoje é *quanto o modelo resiste ao empurrão da string* — que é exatamente a
+pergunta da §8.
+
+E o padrão tem mecanismo: o **único modelo treinado contrastivamente é o mais preso
+à superfície de todos**, enquanto os de MLM puro são os menos presos. Treino
+contrastivo de sentença empurra para semelhança de forma; MLM não.
+
+### ⚠️ E um critério meu que estava errado, registrado no código
+
+Duas famílias (`contracao`, `operador_contra_campo`) deram 0,0000 nos quatro
+modelos, e as outras duas variaram até 0,50. Escrevi um `familia_tem_faixa()` com
+critério estrutural para explicar isso — e ele **reprovava a `posicao_do_indice`,
+que é justamente a que discrimina melhor**.
+
+O predetor certo é a **margem de superfície da família**, computável das strings sem
+modelo, e a ordem é exata: −0,039 e −0,046 discriminam; −0,078 e −0,152 ficam presas
+no zero. Mas um limiar ajustado a quatro pontos seria escolher família pelo
+resultado com cara de critério. Então **nada é cortado**: a margem sai ao lado de
+cada taxa, e quem lê vê qual família estava presa no piso.
 
 ### O teste de ponta a ponta pegou um `TypeError` que teria custado 44 h
 
