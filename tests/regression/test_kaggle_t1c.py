@@ -515,3 +515,26 @@ def test_t1b2_streama_a_saida_para_stdout():
     celula = (RAIZ / "kaggle/t1b2_cadeia.py").read_text(encoding="utf-8")
     assert "subprocess.Popen" in celula and "for linha in proc.stdout:" in celula
     assert "bufsize=1" in celula
+
+
+def test_o_avaliador_da_cadeia_grava_o_CUSTO_e_nao_so_as_metricas():
+    """⚠️ Estimei ~50 min para dois braços e o real foi ~2h52 por braço.
+
+    Erro de 7×, e não havia como acertar: os artefatos de avaliação gravavam as
+    métricas e nunca o custo, então cada estimativa de "quanto tempo leva a
+    cadeia" tinha de ser remodelada do zero — no meu caso, extrapolando tempos de
+    CPU do G1 para a T4.
+
+    Um custo gravado transforma a próxima estimativa numa consulta.
+    """
+    from conftest import so_codigo_de
+
+    fonte = so_codigo_de(RAIZ / "scripts/avaliar_t1b.py")
+    assert "custo_segundos" in fonte, (
+        "o artefato da cadeia voltou a gravar só as métricas")
+    for chave in ("total_s", "embutir_universo_s", "reordenar_s",
+                  "bm25_indexar_s"):
+        assert chave in fonte, f"falta a parcela {chave} na decomposição do custo"
+    # O total tem de vir de um relógio da execução INTEIRA, não da soma das
+    # parcelas — somar esconderia o que não foi instrumentado.
+    assert "t_inicio = time.perf_counter()" in fonte

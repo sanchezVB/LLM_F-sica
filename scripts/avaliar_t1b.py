@@ -152,10 +152,21 @@ def main() -> int:
     log.info("universo: %s documentos · %s consultas", f"{len(ids_pool):,}",
              f"{len(consultas):,}")
 
+    # ⚠️ O relógio da execução inteira, para o CUSTO entrar no artefato.
+    #
+    # Medido em 2026-09-08: eu estimei ~50 min para dois braços e o real foi
+    # ~2h52 por braço — erro de 7×. E não havia como acertar: os artefatos de
+    # avaliação gravam as MÉTRICAS e nunca o custo, então cada estimativa de
+    # "quanto tempo leva a cadeia" tinha de ser remodelada do zero. Gravar o
+    # tempo transforma a próxima estimativa numa consulta.
+    t_inicio = time.perf_counter()
+    custo: dict[str, float] = {}
+
     # ── BM25 ────────────────────────────────────────────────────────────────
     t0 = time.perf_counter()
     bm = BM25().indexar(textos_pool)
-    log.info("BM25 indexado em %.0f s", time.perf_counter() - t0)
+    custo["bm25_indexar_s"] = round(time.perf_counter() - t0, 1)
+    log.info("BM25 indexado em %.0f s", custo["bm25_indexar_s"])
 
     # ── ΦEmb ────────────────────────────────────────────────────────────────
     dev = escolher_dispositivo(a.dispositivo)
@@ -164,8 +175,9 @@ def main() -> int:
     t0 = time.perf_counter()
     V_pool = _codificar(mod_e, tok_e, textos_pool, dev, a.max_tokens, a.lote)
     V_cons = _codificar(mod_e, tok_e, consultas, dev, a.max_tokens, a.lote)
+    custo["embutir_universo_s"] = round(time.perf_counter() - t0, 1)
     log.info("ΦEmb codificou %s documentos em %.0f s",
-             f"{len(ids_pool):,}", time.perf_counter() - t0)
+             f"{len(ids_pool):,}", custo["embutir_universo_s"])
     Vt = np.ascontiguousarray(V_pool.T)
 
     # ── ΦRank ───────────────────────────────────────────────────────────────
@@ -252,8 +264,18 @@ def main() -> int:
                                        "ΦEmb+BM25 (RRF)", nome))
 
     teto = recall_em(pos_rrf, a.profundidade)
+    custo["total_s"] = round(time.perf_counter() - t_inicio, 1)
+    custo["reordenar_s"] = round(
+        custo["total_s"] - custo.get("embutir_universo_s", 0.0)
+        - custo.get("bm25_indexar_s", 0.0), 1)
     resultado = {
         "n_consultas": len(consultas), "universo": len(ids_pool),
+        "custo_segundos": custo,
+        "nota_custo": (f"Medido nesta execução, em {a.dispositivo}. O reordenar "
+                       "domina: são n_consultas × profundidade passagens de um "
+                       "cross-encoder. Gravado porque os artefatos anteriores "
+                       "guardavam as métricas e nunca o custo, e por isso uma "
+                       "estimativa de 2026-09-08 errou por 7×."),
         "profundidade": a.profundidade,
         "modelos": {"emb": str(a.emb), "rank": str(a.rank) if tem_rank else None},
         "teto_do_reranker": round(teto, 4),
