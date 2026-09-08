@@ -483,31 +483,56 @@ def test_t1b2_mede_os_DOIS_recuperadores_na_mesma_sessao():
     exp = obter("t1b2")
     assert "models/phiemb-do-sistema" in exp.modelos
     assert "models/phiemb-minilm-melhor" in exp.modelos, (
-        "o recuperador ANTIGO saiu do bundle; sem ele a comparação vira "
-        "medição nova contra número histórico, que não é atribuível")
+        "o recuperador ANTIGO saiu do BUNDLE; sem os pesos lá, refazer a "
+        "comparação de sessão deixa de ser uma linha de código")
     assert "models/phirank-physbert-melhor" in exp.modelos
 
     celula = (RAIZ / "kaggle/t1b2_cadeia.py").read_text(encoding="utf-8")
-    assert '"novo": MODELOS / "phiemb-do-sistema"' in celula
-    assert '"antigo": MODELOS / "phiemb-minilm-melhor"' in celula
+    # ⚠️ A asserção é sobre a LIÇÃO e sobre o mecanismo, não sobre quantos braços
+    # a rodada atual usa. Em 2026-09-08 os dois rodaram e o desenho pagou; a
+    # rodada seguinte pergunta outra coisa (se a fusão ainda soma), que se
+    # responde dentro de um braço. Exigir dois braços para sempre obrigaria a
+    # pagar 2h30 de T4 por um braço que não responde à pergunta.
+    assert "SETE VEZES o efeito real" in celula, (
+        "a lição de por que não comparar contra número histórico saiu da célula")
+    assert "na mesma sessão" in celula
+    # O mecanismo: um dicionário de braços e UM laço, para o protocolo não poder
+    # divergir entre eles.
+    assert "BRACOS = {" in celula
     assert "for nome, emb in BRACOS.items():" in celula, (
-        "os dois braços têm de rodar no mesmo laço, na mesma sessão")
+        "os braços têm de rodar no mesmo laço; caminhos separados divergem")
 
 
-def test_t1b2_declara_que_encolher_o_ganho_do_phirank_nao_e_regressao():
-    """O `recall@100` do recuperador é o TETO do reranker.
+def test_t1b2_declara_hipotese_E_criterio_antes_de_qualquer_numero():
+    """⚠️ A regra que sobrevive à pergunta de cada rodada.
 
-    Um recuperador melhor sobe o teto e deixa menos para reordenar, então o ganho
-    marginal do ΦRank deve encolher. Sem isso escrito ANTES do número, uma queda
-    no ganho seria lida como regressão do reranqueador — e a decisão seguinte
-    seria desinstalar o vencedor do T1c.
+    A célula é reapontada quando a pergunta muda — em 2026-09-08 ela mediu quanto
+    a troca do recuperador rendeu; na rodada seguinte, se a fusão com o BM25 ainda
+    soma. O que NÃO pode mudar é a disciplina: hipótese e critério escritos antes
+    do número, **incluindo o desfecho que decidiria CONTRA** a coisa em teste.
+
+    Sem o critério de decisão, a ressalva desculpa qualquer resultado: o teto do
+    reranker "explica" um ganho que encolheu, e explicaria igualmente um que
+    desapareceu.
+
+    A primeira versão deste teste exigia as frases da hipótese ANTERIOR — e
+    reprovou quando a pergunta mudou, que é justamente quando a disciplina mais
+    importa.
     """
     celula = (RAIZ / "kaggle/t1b2_cadeia.py").read_text(encoding="utf-8")
-    assert "NÃO é regressão" in celula or "NAO e regressao" in celula
-    assert "teto do reranker" in celula
-    assert "ABAIXO da fusão" in celula, (
-        "falta o critério que DECIDIRIA contra o ΦRank; sem ele a ressalva "
-        "desculpa qualquer resultado")
+    assert "hipótese:" in celula, "a célula não declara hipótese"
+    assert "decisão:" in celula, (
+        "falta o critério de decisão; sem ele a hipótese desculpa qualquer "
+        "resultado")
+    # O critério tem de nomear um desfecho CONTRÁRIO, e não só o favorável.
+    contrarios = ("sai da", "sai também", "ABAIXO", "não paga")
+    assert any(c in celula for c in contrarios), (
+        f"o critério não nomeia nenhum desfecho contrário ({contrarios}); um "
+        "critério que só descreve o sucesso não decide nada")
+    # E a declaração vem ANTES de rodar: o print do protocolo precede o laço.
+    assert celula.index("decisão:") < celula.index("for nome, emb in BRACOS"), (
+        "o critério aparece depois da medição, então já pode ter sido escrito "
+        "olhando o número")
 
 
 def test_t1b2_streama_a_saida_para_stdout():

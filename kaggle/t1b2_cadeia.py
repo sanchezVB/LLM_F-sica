@@ -146,9 +146,19 @@ RANK = MODELOS / "phirank-physbert-melhor"
 # número de agosto pareceria mais barato e seria inválido: entre agosto e hoje
 # mudaram o protocolo do G1, o pool de candidatos e quatro versões do código, e a
 # diferença não seria atribuível à troca do recuperador.
+# ⚠️ Na rodada de 2026-09-08 os DOIS entraram, e valeu: o antigo medido na mesma
+# sessão deu 0,1685 contra o 0,1666 histórico, e comparar contra o histórico teria
+# reportado SETE VEZES o efeito real da troca. A lição fica: quando a pergunta é
+# "quanto mudou", o braço de referência tem de ser medido na mesma sessão, nunca
+# lido de um número antigo.
+#
+# Nesta rodada, só o NOVO — porque a pergunta é outra. Não é mais "quanto a troca
+# do recuperador rendeu" (respondido: +0,0003), e sim "a fusão com o BM25 ainda
+# soma". Essa se responde DENTRO de um braço, comparando `ΦEmb+ΦRank` com
+# `ΦEmb+BM25+ΦRank` sobre as mesmas consultas. O braço antigo não acrescenta nada
+# a ela e custaria 2h30. Os pesos dele seguem no bundle: voltar é uma linha.
 BRACOS = {
     "novo": MODELOS / "phiemb-do-sistema",
-    "antigo": MODELOS / "phiemb-minilm-melhor",
 }
 for nome, d in BRACOS.items():
     assert (d / "model.safetensors").exists(), f"o braço {nome} não tem pesos em {d}"
@@ -158,15 +168,20 @@ print(f"""
 {'=' * 74}
 T1b2 — a cadeia remedida depois da troca do recuperador
 
-  hipótese: a cadeia com o recuperador NOVO entrega nDCG@10 maior que com o
-            antigo, e o ganho MARGINAL do ΦRank sobre a fusão ENCOLHE, porque o
-            recall@100 do recuperador é o teto do reranker.
+  hipótese: TIRAR o BM25 da fusão sobe o nDCG@10 da cadeia, porque a fusão
+            derruba o teto. Medido em 2026-09-08: recall@100 de 0,6065 com a
+            fusão contra 0,6325 do ΦEmb sozinho, e 39% das consultas nunca
+            recebem o alvo no top-100.
 
-  ⚠️ Encolher o ganho do ΦRank NÃO é regressão. O que decidiria contra ele seria
-     a cadeia completa ficar ABAIXO da fusão sem reranker.
+  decisão: se `ΦEmb+ΦRank` VENCER `ΦEmb+BM25+ΦRank` no pareado, o BM25 sai da
+           composição. Se EMPATAR, ele sai também — não paga o próprio custo nem
+           os 0,026 de teto que cobra. Só fica se vencer.
+
+  ⚠️ A rodada anterior mediu os dois recuperadores e respondeu quanto a troca
+     rendeu: +0,0003. Esta pergunta é outra, e se responde DENTRO de um braço.
 
   protocolo: {N_CONSULTAS} consultas · profundidade {PROFUNDIDADE} · universo 88.807
-             mesma semente, mesmo commit, mesma sessão nos dois braços
+             as duas cadeias reordenadas na MESMA passagem, pareamento exato
 {'=' * 74}
 """, flush=True)
 
