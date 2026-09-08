@@ -160,11 +160,9 @@ Cada item é um trio, sobre o mesmo carregador de texto:
 
 | | expressão | o que muda |
 |---|---|---|
-| base | `T^{\mu
-u}` | — |
-| estrutural | `T_{\mu
-u}` | mesmos símbolos, estrutura diferente |
-| renomeado | `T^{lphaeta}` | estrutura igual, símbolos diferentes |
+| base | `T^{\mu\nu}` | — |
+| estrutural | `T_{\mu\nu}` | mesmos símbolos, estrutura diferente |
+| renomeado | `T^{\alpha\beta}` | estrutura igual, símbolos diferentes |
 
 O item passa quando `sim(base, renomeado) > sim(base, estrutural)`: **separar**
 objetos diferentes E **identificar** renomeação de índice. Medir um lado só é fácil
@@ -173,9 +171,7 @@ decora string passa na separação. 4 famílias × 6 tensores × 3 carregadores 
 
 ### ⚠️ A superfície reprova a sonda inteira: 0 de 72
 
-`T^{\mu
-u}` → `T_{\mu
-u}` é **um caractere**; o renomeado muda dois símbolos.
+`T^{\mu\nu}` → `T_{\mu\nu}` é **um caractere**; o renomeado muda dois símbolos.
 Por semelhança de string o estrutural é o mais parecido — o oposto do que o item
 pede. Semelhança de trigramas de caractere acerta **zero**, com margem negativa nas
 quatro famílias. Isso dá uma escala que a maioria das sondas não tem: 0,0 é
