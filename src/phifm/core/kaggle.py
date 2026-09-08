@@ -237,6 +237,33 @@ T1A6M = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# Remedicao da CADEIA depois da troca do recuperador em 2026-09-08.
+#
+# O nDCG 0,1666 do PhiRank (p=0,0062) foi medido sobre a fusao RRF do recuperador
+# ANTIGO, e esta obsoleto. Os DOIS recuperadores vao no bundle porque a celula
+# mede os dois na MESMA sessao: comparar contra o numero de agosto seria invalido
+# -- entre agosto e hoje mudaram o protocolo do G1, o pool de candidatos e quatro
+# versoes do codigo, e a diferenca nao seria atribuivel a troca.
+T1B2 = Experimento(
+    nome="t1b2",
+    titulo_dados="PhiFM T1b2 — cadeia remedida",
+    # ⚠️ Slug DIFERENTE do notebook. Na Kaggle os dois vivem em namespaces
+    # separados (`/datasets/<dono>/<slug>` e `/code/<dono>/<slug>`), então
+    # compartilhar pareceria inofensivo — mas a suite recusa, e com razao: com o
+    # mesmo slug nos dois, qualquer erro de digitacao num comando aponta para o
+    # objeto errado sem avisar, e a mensagem de erro da CLI nao distingue.
+    slug_dados="phifm-t1b2-pares-e-modelos",
+    titulo_notebook="PhiFM T1b2 Cadeia",
+    slug_notebook="phifm-t1b2-cadeia",
+    pacote="data/processed/kaggle_t1b2",
+    fonte_celula="kaggle/t1b2_cadeia.py",
+    arquivos=("pares_validacao.parquet", "modelos.zip.bin"),
+    scripts=("avaliar_t1b.py",),
+    modelos=("models/phiemb-do-sistema", "models/phiemb-minilm-melhor",
+             "models/phirank-physbert-melhor"),
+    repo="sanchezVB/LLM_F-sica",
+)
+
 T1C = Experimento(
     nome="t1c",
     titulo_dados="PhiFM T1c — ΦRank de base diferente",
@@ -266,7 +293,7 @@ T1C = Experimento(
 VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1C)}
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C)}
 
 
 def obter(nome: str) -> Experimento:

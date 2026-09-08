@@ -163,6 +163,19 @@ def _montar_t1a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
             "codigo_de": exp.repo or "dataset"}
 
 
+def _montar_t1b2(exp: Experimento, raiz: Path, out: Path, a) -> dict:
+    """Só a validação e os modelos: este experimento MEDE, não treina."""
+    shutil.copy2(a.pares / "pares_validacao.parquet", out / "pares_validacao.parquet")
+    n_mod = _zipar_modelos(raiz, out / f"modelos{SUFIXO_ZIP}", exp.modelos)
+    return {"arquivos_de_modelo": n_mod, "modelos": list(exp.modelos),
+            "codigo_de": exp.repo or "dataset",
+            "nota_do_protocolo": (
+                "Os dois recuperadores vao juntos porque a celula mede os dois na "
+                "MESMA sessao. Comparar contra o numero de agosto seria invalido: "
+                "mudaram o protocolo do G1, o pool de candidatos e quatro versoes "
+                "do codigo.")}
+
+
 def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
     origem = a.negativos
     if not origem.exists():
@@ -189,7 +202,7 @@ def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
 # do `max_pares` do experimento.
 MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
               "t1a3m": _montar_t1a, "t1a6m": _montar_t1a,
-              "t1c": _montar_t1c}
+              "t1b2": _montar_t1b2, "t1c": _montar_t1c}
 
 
 def main() -> int:

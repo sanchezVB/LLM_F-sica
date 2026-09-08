@@ -462,3 +462,56 @@ def test_o_publicador_barra_sha_sujo_ou_nao_empurrado():
     assert '"__SHA__" in celula' in fonte or 'marcador in celula' in fonte, (
         "publicar com o marcador não substituído daria um notebook que baixa a "
         "string literal `__SHA__`")
+
+
+# ─── T1b2: a remedição da cadeia ─────────────────────────────────────────────
+
+
+def test_t1b2_mede_os_DOIS_recuperadores_na_mesma_sessao():
+    """⚠️ A asserção central do T1b2.
+
+    Comparar a cadeia nova contra o nDCG 0,1666 de agosto pareceria mais barato e
+    seria inválido: entre agosto e 2026-09-08 mudaram o protocolo do G1, o pool de
+    candidatos e quatro versões do código, e a diferença medida não seria
+    atribuível à troca do recuperador.
+
+    Duas execuções na mesma sessão, mesmo commit, mesmas 2.000 consultas com a
+    mesma semente e o mesmo universo isolam UMA variável.
+    """
+    from phifm.core.kaggle import obter
+
+    exp = obter("t1b2")
+    assert "models/phiemb-do-sistema" in exp.modelos
+    assert "models/phiemb-minilm-melhor" in exp.modelos, (
+        "o recuperador ANTIGO saiu do bundle; sem ele a comparação vira "
+        "medição nova contra número histórico, que não é atribuível")
+    assert "models/phirank-physbert-melhor" in exp.modelos
+
+    celula = (RAIZ / "kaggle/t1b2_cadeia.py").read_text(encoding="utf-8")
+    assert '"novo": MODELOS / "phiemb-do-sistema"' in celula
+    assert '"antigo": MODELOS / "phiemb-minilm-melhor"' in celula
+    assert "for nome, emb in BRACOS.items():" in celula, (
+        "os dois braços têm de rodar no mesmo laço, na mesma sessão")
+
+
+def test_t1b2_declara_que_encolher_o_ganho_do_phirank_nao_e_regressao():
+    """O `recall@100` do recuperador é o TETO do reranker.
+
+    Um recuperador melhor sobe o teto e deixa menos para reordenar, então o ganho
+    marginal do ΦRank deve encolher. Sem isso escrito ANTES do número, uma queda
+    no ganho seria lida como regressão do reranqueador — e a decisão seguinte
+    seria desinstalar o vencedor do T1c.
+    """
+    celula = (RAIZ / "kaggle/t1b2_cadeia.py").read_text(encoding="utf-8")
+    assert "NÃO é regressão" in celula or "NAO e regressao" in celula
+    assert "teto do reranker" in celula
+    assert "ABAIXO da fusão" in celula, (
+        "falta o critério que DECIDIRIA contra o ΦRank; sem ele a ressalva "
+        "desculpa qualquer resultado")
+
+
+def test_t1b2_streama_a_saida_para_stdout():
+    """Mandar só para o arquivo custou 33 h de cegueira em 2026-09-07."""
+    celula = (RAIZ / "kaggle/t1b2_cadeia.py").read_text(encoding="utf-8")
+    assert "subprocess.Popen" in celula and "for linha in proc.stdout:" in celula
+    assert "bufsize=1" in celula
