@@ -232,3 +232,41 @@ def test_a_base_e_a_que_o_T1c_elegeu():
     Trocar a base junto com os negativos mediria duas coisas."""
     assert 'BASE = "thellert/physbert_cased"' in CELULA
     assert "gte" not in CODIGO.lower(), "outra base entrou na rodada"
+
+
+def test_o_arquivo_de_negativos_pertence_a_IDENTIDADE_do_experimento():
+    """⚠️ A guarda contra o mispackage invisível.
+
+    O `--negativos` do empacotador tinha default fixo apontando para os negativos
+    da FUSÃO. Montar o `t1d` sem a bandeira empacotaria os antigos sob o nome do
+    experimento novo, e o manifesto atestaria o arquivo errado com a cara certa.
+
+    No T1d isso seria fatal e invisível: a hipótese sob teste É a distribuição
+    dos negativos. O pacote diria "densos" e conteria os da fusão, o resultado
+    sairia igual ao do T1c, e a leitura seria "a distribuição não importa".
+    """
+    t1c, t1d = obter("t1c"), obter("t1d")
+    assert t1c.negativos and t1d.negativos, "algum dos dois não declara negativos"
+    assert t1c.negativos != t1d.negativos, (
+        "os dois experimentos apontam para o MESMO arquivo de negativos; o t1d "
+        "existe justamente para testar outros")
+    assert "denso" in t1d.negativos
+    assert "denso" not in t1c.negativos
+    # E o arquivo declarado é o que a lista de `arquivos` promete.
+    assert Path(t1d.negativos).name in t1d.arquivos
+    assert Path(t1c.negativos).name in t1c.arquivos
+
+
+def test_o_empacotador_nao_tem_default_fixo_de_negativos():
+    """Um default fixo é o que fazia o t1d empacotar o arquivo do t1c. A
+    verificação é sobre a INTERFACE: o valor tem de vir do experimento."""
+    import subprocess
+
+    ajuda = subprocess.run(
+        [sys.executable, str(RAIZ / "scripts" / "empacotar_kaggle.py"), "--help"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=str(RAIZ)).stdout
+    assert "--negativos" in ajuda
+    assert "pares_do_recuperador_limpos.parquet" not in ajuda, (
+        "a ajuda ainda anuncia um arquivo de negativos como default")
+    assert "declarado pelo experimento" in ajuda

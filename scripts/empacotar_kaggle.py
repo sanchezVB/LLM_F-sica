@@ -181,7 +181,14 @@ def _montar_t1b2(exp: Experimento, raiz: Path, out: Path, a) -> dict:
                 "do codigo.")}
 
 
-def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
+def _montar_rerank(exp: Experimento, raiz: Path, out: Path, a) -> dict:
+    """T1c e T1d: negativos + validação + modelos. A diferença é QUAIS negativos,
+    e eles vêm da identidade do experimento — ver `Experimento.negativos`."""
+    if a.negativos is None:
+        raise SystemExit(
+            f"{exp.nome} não declara `negativos` e --negativos não foi dado. "
+            "Adivinhar aqui empacotaria um arquivo qualquer sob o nome deste "
+            "experimento.")
     origem = a.negativos
     if not origem.exists():
         raise SystemExit(
@@ -205,9 +212,12 @@ def _montar_t1c(exp: Experimento, raiz: Path, out: Path, a) -> dict:
 
 # O t1a15 usa o MESMO montador: o volume é a única diferença, e ele vem
 # do `max_pares` do experimento.
+# O t1d usa o MESMO montador do t1c: a diferença é o arquivo de negativos, e
+# ele vem da identidade do experimento — não de uma bandeira que se esquece.
 MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
               "t1a3m": _montar_t1a, "t1a6m": _montar_t1a,
-              "t1b2": _montar_t1b2, "t1c": _montar_t1c}
+              "t1b2": _montar_t1b2, "t1c": _montar_rerank,
+              "t1d": _montar_rerank}
 
 
 def main() -> int:
@@ -226,10 +236,13 @@ def main() -> int:
                    help="sobrepõe o volume declarado pelo experimento. O do t1a é "
                         "o volume do campeão do G1.1; o do t1a15 testa se mais "
                         "documentos fecham os 0,033 que faltam para o G1.2")
-    p.add_argument("--negativos", type=Path,
-                   default=Path("data/processed/negativos_dificeis/"
-                                "pares_do_recuperador_limpos.parquet"),
-                   help="T1c: negativos do recuperador de verdade, já sem co-citados")
+    # ⚠️ Sem `default`: o arquivo vem do EXPERIMENTO. Ver `negativos` em
+    # `phifm.core.kaggle` — com um default fixo aqui, montar o `t1d` sem a
+    # bandeira empacotaria os negativos da FUSÃO sob o nome do experimento que
+    # existe justamente para testar os do DENSO.
+    p.add_argument("--negativos", type=Path, default=None,
+                   help="sobrepõe o arquivo declarado pelo experimento; já tem de "
+                        "estar sem co-citados")
     a = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s",
                         stream=sys.stdout)
@@ -237,6 +250,8 @@ def main() -> int:
     exp = obter(a.experimento)
     if a.max_pares is None:
         a.max_pares = exp.max_pares
+    if a.negativos is None and exp.negativos:
+        a.negativos = Path(exp.negativos)
     # ⚠️ O volume só é informação para quem SORTEIA pares. O `t1b2` não amostra
     # nada — ele mede a cadeia com modelos prontos —, e imprimir "400.000 pares"
     # ali anunciava um número que não descreve o pacote.

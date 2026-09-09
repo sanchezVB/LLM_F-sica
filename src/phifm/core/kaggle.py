@@ -103,6 +103,18 @@ class Experimento:
     # t1a15` sem a bandeira montaria 400 mil pares sob o nome do de 1,5 M, e o
     # manifesto atestaria o número errado com a cara certa.
     max_pares: int = 400_000
+    # ⚠️ O arquivo de NEGATIVOS pertence à identidade, pelo mesmo motivo do
+    # `max_pares` acima.
+    #
+    # O `--negativos` do empacotador tinha default fixo apontando para os
+    # negativos da FUSÃO. Montar o `t1d` sem a bandeira empacotaria os antigos
+    # sob o nome do experimento novo, e o manifesto atestaria o arquivo errado
+    # com a cara certa.
+    #
+    # No T1d isso seria fatal e invisível: a hipótese sob teste É a distribuição
+    # dos negativos. O pacote diria "densos" e conteria os da fusão, o resultado
+    # sairia igual ao do T1c, e a leitura seria "a distribuição não importa".
+    negativos: str | None = None
     # `owner/repo` do GitHub. Quando preenchido, o código NÃO viaja no dataset: o
     # notebook baixa o tarball do commit exato.
     #
@@ -285,6 +297,8 @@ T1C = Experimento(
     # (p=0,118), e ele precisa ser reavaliado no MESMO número de consultas que os
     # novos, senão a comparação de poder estatístico fica torta.
     modelos=("models/phiemb-minilm-melhor", "models/phirank-rrf-melhor"),
+    negativos=("data/processed/negativos_dificeis/"
+               "pares_do_recuperador_limpos.parquet"),
 )
 
 T1D = Experimento(
@@ -312,6 +326,8 @@ T1D = Experimento(
     # descobriu que o número histórico (0,1666) era 0,1685 no protocolo de hoje:
     # comparar contra o histórico teria reportado SETE VEZES o efeito real.
     modelos=("models/phiemb-do-sistema", "models/phirank-physbert-melhor"),
+    negativos=("data/processed/negativos_dificeis/"
+               "pares_do_recuperador_denso_limpos.parquet"),
     repo="sanchezVB/LLM_F-sica",
 )
 
