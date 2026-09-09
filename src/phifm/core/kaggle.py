@@ -132,7 +132,22 @@ class Experimento:
     repo: str | None = None
 
     def conferir(self) -> None:
-        """Só o notebook. Ver a ressalva na docstring do módulo."""
+        """Slug do notebook e TAMANHO dos títulos. Ver a ressalva do módulo.
+
+        ⚠️ O limite de 50 caracteres é do Kaggle, e ele reprova DEPOIS de o
+        pacote estar montado. Medido em 2026-09-08: o título do T1d tinha 51
+        caracteres e a CLI respondeu "The dataset title must be between 6 and 50
+        characters" com o pacote de 782 MB já pronto — e a mensagem não diz qual
+        dos dois títulos ela reprovou.
+        """
+        for campo, valor in (("titulo_dados", self.titulo_dados),
+                             ("titulo_notebook", self.titulo_notebook)):
+            if not 6 <= len(valor) <= 50:
+                raise ValueError(
+                    f"{self.nome}: {campo} tem {len(valor)} caracteres "
+                    f"({valor!r}) e o Kaggle exige entre 6 e 50. Ele recusa "
+                    "depois de o pacote estar montado, e a mensagem dele não "
+                    "diz qual dos dois títulos foi reprovado.")
         obtido = slug_derivado(self.titulo_notebook)
         if obtido != self.slug_notebook:
             raise ValueError(
@@ -303,7 +318,7 @@ T1C = Experimento(
 
 T1D = Experimento(
     nome="t1d",
-    titulo_dados="PhiFM T1d — ΦRank nos negativos do recuperador novo",
+    titulo_dados="PhiFM T1d — ΦRank em negativos densos",
     slug_dados="phifm-t1d-negativos-densos",
     titulo_notebook="PhiFM T1d Rerank Denso",
     slug_notebook="phifm-t1d-rerank-denso",

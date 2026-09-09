@@ -654,3 +654,35 @@ def test_o_montador_do_t1a_serve_os_dois():
     from empacotar_kaggle import MONTADORES
 
     assert MONTADORES["t1a"] is MONTADORES["t1a15"]
+
+
+def test_o_TAMANHO_dos_titulos_e_conferido_no_registro():
+    """⚠️ O Kaggle exige entre 6 e 50 caracteres, e reprova DEPOIS do pacote.
+
+    Medido em 2026-09-08: o título do T1d tinha 51 caracteres e a CLI respondeu
+    "The dataset title must be between 6 and 50 characters" com o pacote de
+    782 MB já montado e o notebook já gerado. O `conferir()` checava o slug do
+    notebook e nada sobre os títulos.
+
+    E a mensagem da CLI não diz QUAL dos dois títulos foi reprovado, então
+    descobrir qual custaria outra tentativa.
+    """
+    import dataclasses
+
+    import pytest
+
+    from phifm.core.kaggle import EXPERIMENTOS
+
+    for nome, e in EXPERIMENTOS.items():
+        e.conferir()
+        for campo in ("titulo_dados", "titulo_notebook"):
+            n = len(getattr(e, campo))
+            assert 6 <= n <= 50, f"{nome}.{campo} tem {n} caracteres"
+
+    base = EXPERIMENTOS["t1a"]
+    longo = dataclasses.replace(base, titulo_dados="P" * 51)
+    with pytest.raises(ValueError, match="51 caracteres|entre 6 e 50"):
+        longo.conferir()
+    curto = dataclasses.replace(base, titulo_dados="PhiFM")
+    with pytest.raises(ValueError, match="entre 6 e 50"):
+        curto.conferir()
