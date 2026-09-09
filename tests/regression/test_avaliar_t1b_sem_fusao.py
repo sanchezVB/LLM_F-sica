@@ -184,3 +184,32 @@ def test_COM_fusao_nada_mudou(tmp_path):
     assert len(d["confronto_das_cadeias"]) == 2
     for x in d["pareado_contra_a_fusao"]:
         assert x["a"] == "ΦEmb+BM25 (RRF)", x
+
+
+def test_as_POSICOES_por_consulta_vao_no_artefato(tmp_path):
+    """⚠️ O que permite parear DUAS EXECUÇÕES, e o que faltou em 2026-09-08.
+
+    A regra pré-registrada do T1b2 pedia um confronto entre duas cadeias; o run
+    mediu as duas e o teste não podia mais ser calculado, porque só as métricas
+    agregadas eram gravadas. Ali a aritmética decidiu, por sorte do tamanho do
+    efeito. O retreino do ΦRank compara dois reranqueadores em invocações
+    separadas — sem isto, o confronto seria impossível de novo.
+    """
+    import sys as _sys
+
+    r, saida = _rodar(tmp_path, "--sem-fusao")
+    assert r.returncode == 0, r.stdout + r.stderr
+    d = json.loads(saida.read_text(encoding="utf-8"))
+    for s in d["sistemas"]:
+        assert "posicoes" in s, s["sistema"]
+        assert len(s["posicoes"]) == d["n_consultas"]
+        assert all(x is None or isinstance(x, int) for x in s["posicoes"])
+    # E as posições reproduzem as métricas agregadas — se divergissem, uma das
+    # duas estaria errada e não haveria como saber qual.
+    _sys.path.insert(0, str(RAIZ / "src"))
+    from phifm.eval.hibrido import recall_em
+
+    for s in d["sistemas"]:
+        assert round(recall_em(s["posicoes"], 1), 4) == s["recall_1"], s["sistema"]
+        assert round(recall_em(s["posicoes"], 10), 4) == s["recall_10"]
+    assert "mcnemar_em" in d["nota_posicoes"]

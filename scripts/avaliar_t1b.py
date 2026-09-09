@@ -128,21 +128,21 @@ def main() -> int:
     p.add_argument("--dispositivo", default="auto",
                    choices=["auto", "cuda", "dml", "cpu"])
     p.add_argument("--semente", type=int, default=17)
-    # ⚠️ A composicao decidida no T1b2, e o que ela poupa.
+    # ⚠️ A composição decidida no T1b2, e o que ela poupa.
     #
-    # A regra pre-registrada de 2026-09-08 tirou o BM25: a cadeia e
-    # `PhiEmb -> PhiRank`. Sem a chave, o avaliador ainda indexa o BM25, funde por
-    # RRF e reordena DUAS vezes -- e reordenar e 96% do custo, entao medir a
-    # composicao que nao existe mais dobra o preco do braco.
+    # A regra pré-registrada de 2026-09-08 tirou o BM25: a cadeia é
+    # `ΦEmb → ΦRank`. Sem a chave, o avaliador ainda indexa o BM25, funde por
+    # RRF e reordena DUAS vezes — e reordenar é 96% do custo, então medir a
+    # composição que não existe mais dobra o preço do braço.
     #
-    # Com ela, dois bracos de RERANQUEADOR cabem na mesma sessao. Isso nao e
-    # conveniencia: a pergunta do retreino e "quanto mudou", e essa exige o braco
-    # de referencia medido na MESMA sessao. Foi o que salvou a conclusao do T1b2
-    # de um erro de sete vezes.
+    # Com ela, dois braços de RERANQUEADOR cabem na mesma sessão. Isso não é
+    # conveniência: a pergunta do retreino é "quanto mudou", e essa exige o
+    # braço de referência medido na MESMA sessão. Foi o que salvou a conclusão
+    # do T1b2 de um erro de sete vezes.
     p.add_argument("--sem-fusao", action="store_true",
-                   help="mede so a composicao decidida (PhiEmb -> PhiRank): nao "
-                        "indexa BM25, nao funde, e reordena uma vez por consulta "
-                        "em vez de duas")
+                   help="mede só a composição decidida (ΦEmb → ΦRank): não "
+                        "indexa BM25, não funde, e reordena uma vez por "
+                        "consulta em vez de duas")
     p.add_argument("--depurar", type=int, default=0,
                    help="imprime a posição do alvo antes e depois do ΦRank nas N "
                         "primeiras consultas em que ele está no conjunto")
@@ -181,8 +181,8 @@ def main() -> int:
     t0 = time.perf_counter()
     if a.sem_fusao:
         bm = None
-        log.info("BM25 NAO indexado: --sem-fusao mede a composicao decidida no "
-                 "T1b2 (PhiEmb -> PhiRank)")
+        log.info("BM25 NAO indexado: --sem-fusao mede a composição decidida "
+                 "no T1b2 (ΦEmb → ΦRank)")
     else:
         bm = BM25().indexar(textos_pool)
         custo["bm25_indexar_s"] = round(time.perf_counter() - t0, 1)
@@ -258,8 +258,8 @@ def main() -> int:
                 return [candidatos[k] for k in np.argsort(-e)], e
 
             if a.sem_fusao:
-                # Uma passagem so: a fusao nao existe nesta composicao, e o
-                # `pos_rank_denso` E a cadeia.
+                # Uma passagem só: a fusão não existe nesta composição, e o
+                # `pos_rank_denso` É a cadeia.
                 ord_rank_denso, e = _reordenar(consulta, ord_emb)
                 pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
                 ord_rank = ord_rank_denso
@@ -284,6 +284,17 @@ def main() -> int:
                      (len(consultas) - i) / taxa / 60)
 
     def bloco(nome: str, pos: list) -> dict:
+        # ⚠️ As POSIÇÕES vão no bloco, e não só as métricas.
+        #
+        # Sem elas nenhum pareado entre DUAS EXECUÇÕES é possível, e foi
+        # exatamente o que faltou em 2026-09-08: a regra pré-registrada do T1b2
+        # pedia um confronto entre duas cadeias, o run mediu as duas, e o teste
+        # não podia mais ser calculado. Ali a aritmética decidiu, por sorte do
+        # tamanho do efeito.
+        #
+        # São 2.000 inteiros por sistema. Sempre gravadas, sem chave: uma opção
+        # seria esquecida justamente na rodada que importa.
+        #
         # ⚠️ A chave do recall do teto leva a PROFUNDIDADE no nome. Era
         # `recall_100` fixo, e com `--profundidade 50` o arquivo de resultado
         # afirmava recall@100 sobre um número que era recall@50 — o tipo de
@@ -292,7 +303,9 @@ def main() -> int:
                 "recall_1": round(recall_em(pos, 1), 4),
                 "recall_10": round(recall_em(pos, 10), 4),
                 f"recall_{a.profundidade}": round(recall_em(pos, a.profundidade), 4),
-                "ndcg_10": round(ndcg_em_10(pos), 4)}
+                "ndcg_10": round(ndcg_em_10(pos), 4),
+                # `null` significa "o alvo não apareceu até a profundidade".
+                "posicoes": list(pos)}
 
     if a.sem_fusao:
         sistemas = [bloco("ΦEmb", pos_emb)]
@@ -313,12 +326,14 @@ def main() -> int:
     #
     # A referência é a FUSÃO e não o melhor de todos, porque a pergunta do T1b é
     # exatamente "o reranker acrescenta algo à fusão?".
-    # ⚠️ A REFERENCIA do pareado muda com a composicao, e tem de mudar.
+    # ⚠️ A REFERÊNCIA do pareado muda com a composição, e tem de mudar.
     #
-    # Com fusao, a pergunta do T1b e "o reranker acrescenta algo a fusao?". Sem
-    # fusao, a fusao nao existe: a pergunta passa a ser "o reranker acrescenta
-    # algo ao RECUPERADOR?", e a referencia e o PhiEmb. Manter `pos_rrf` como
-    # referencia num braco `--sem-fusao` compararia contra uma lista vazia.
+    # Com fusão, a pergunta do T1b é "o reranker acrescenta algo à fusão?".
+    # Sem fusão, a fusão não existe: a pergunta passa a ser "o reranker
+    # acrescenta algo ao RECUPERADOR?", e a referência é o ΦEmb. Manter
+    # `pos_rrf` como referência num braço `--sem-fusao` compararia contra uma
+    # lista VAZIA, e cada pareado voltaria `erro` — sem veredito nenhum,
+    # depois de a GPU ter sido gasta.
     referencia, nome_ref = ((pos_emb, "ΦEmb") if a.sem_fusao
                             else (pos_rrf, "ΦEmb+BM25 (RRF)"))
     if a.sem_fusao:
@@ -344,7 +359,7 @@ def main() -> int:
     # sistema não são a comparação entre elas: em 2026-09-08 as duas cadeias
     # deram p=0,086 e p=0,149 contra a fusão, e nenhum desses números é o
     # veredito que a regra pedia.
-    # Sem fusao nao HA duas cadeias para confrontar: a regra ja decidiu.
+    # Sem fusão não HÁ duas cadeias para confrontar: a regra já decidiu.
     confronto = ([mcnemar_em(pos_rank_denso, pos_rank, k,
                              "ΦEmb+ΦRank (sem fusão)", "ΦEmb+BM25+ΦRank")
                   for k in (1, 10)]
@@ -375,6 +390,12 @@ def main() -> int:
                       "passa disto, e nenhuma melhora de reranking aparece nas "
                       "consultas em que o documento certo não chegou."),
         "sistemas": sistemas,
+        "nota_posicoes": (
+            "Cada sistema traz `posicoes`: a posição do alvo por consulta, na "
+            "ordem das consultas (null = não apareceu até a profundidade). É o "
+            "que permite parear DUAS EXECUÇÕES com `phifm.eval.hibrido."
+            "mcnemar_em` — em 2026-09-08 isso faltou e a regra pré-registrada "
+            "do T1b2 ficou sem o teste que ela nomeava."),
         "pareado_contra_a_fusao": pareados,
         # ⚠️ Separado de `pareado_contra_a_fusao` de propósito: aquela chave
         # promete que a referência é a fusão, e enfiar aqui um par sem ela
