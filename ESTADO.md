@@ -23,12 +23,13 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
+| **ΦEnc** · fatia de avaliação | 🟢 **51,7 M tokens, DISJUNTA** | `part-00022` — uma das 35 partes que o treino não usou. O manifesto declara `disjunto_do_treino` e as 9 excluídas; o avaliador de MLM **recusa** fatia que não declare |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🟢 **as três medidas existem** | recuperação (é o `avaliar_encoders.py`, não era código novo), MLM por região (com fatia disjunta exigida) e a sonda tensorial (especificada e calibrada). Falta o modelo para medir |
 | **§11.2** · o bake-off | 🔴 **não roda na T4 gratuita** | 44 h por variante × 6 = **263 h** ≈ 8,8 semanas de cota, pela vazão MEDIDA (9,5 TFLOP/s). O DOC-05 orça **US$ 15** numa 4090 alugada — as rodadas são decisão de dinheiro, não de fila |
 
-Suíte: **681 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **682 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:

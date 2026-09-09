@@ -27,7 +27,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 pytest.importorskip("torch", reason="requer a venv de treino (.venv-treino, Python 3.12)")
 
-from phifm.eval.encoders import Resultado, comparar_pareado  # noqa: E402
+from phifm.eval.encoders import (  # noqa: E402
+    Resultado,
+    comparar_pareado,
+    posicoes_base_zero,
+)
+from phifm.eval.hibrido import mcnemar_em  # noqa: E402
 
 
 def res(nome: str, posicoes: list[int], nosso: bool = False) -> Resultado:
@@ -130,3 +135,56 @@ def test_simetria():
     assert ab["ganha_a"] == ba["ganha_b"]
     assert ab["ganha_b"] == ba["ganha_a"]
     assert ab["p"] == pytest.approx(ba["p"])
+
+
+# ── a ponte entre as DUAS convenções de posição do repositório ──────────────
+
+
+def test_as_duas_convencoes_de_posicao_NAO_sao_intercambiaveis():
+    """⚠️ O defeito que a ponte existe para impedir, em 2026-09-09.
+
+    `Resultado.posicoes` é 1-based (`== 1` é o topo); o `mcnemar_em` é 0-based
+    (`p < k`). Alimentar um com o outro calcula o **top-(k−1)** sem reclamar.
+
+    Sobreviveu por sorte: o teste em k=1 devolveu "0 discordantes" para dois
+    modelos com recall@1 de 0,31 e 0,22, o que é impossível, e isso apareceu. Um
+    número um pouco errado teria passado.
+    """
+    # Dois modelos que discordam no topo: A acerta o item 0, B acerta o item 1.
+    a = Resultado("A", "a", 0.5, 1.0, 0.75, 0.8, 1.0, 1.0, posicoes=[1, 3])
+    b = Resultado("B", "b", 0.5, 1.0, 0.75, 0.8, 1.0, 1.0, posicoes=[3, 1])
+
+    # Direto, sem converter: `p < 1` é falso para tudo (não há posição 0).
+    cru = mcnemar_em(a.posicoes, b.posicoes, 1, "A", "B")
+    assert cru["discordantes"] == 0, (
+        "as duas convenções passaram a coincidir; se isso for intencional, a "
+        "ponte e este teste podem sair — mas não em silêncio")
+
+    # Convertido: os dois discordantes aparecem.
+    certo = mcnemar_em(posicoes_base_zero(a), posicoes_base_zero(b), 1, "A", "B")
+    assert certo["discordantes"] == 2
+    assert certo["ganha_a"] == 1 and certo["ganha_b"] == 1
+
+
+def test_o_comparar_pareado_usa_a_ponte_e_nao_reimplementa_a_binomial():
+    """Havia duas cópias da binomial exata, cada uma escondendo a sua convenção.
+
+    Duas cópias divergem, e a convenção escondida foi o que produziu o
+    top-(k−1). A conta agora tem um dono: `mcnemar_em`.
+    """
+    a = Resultado("A", "a", 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+                  posicoes=[1] * 30 + [5] * 10)
+    b = Resultado("B", "b", 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+                  posicoes=[5] * 30 + [1] * 10)
+    c = comparar_pareado(a, b)
+    direto = mcnemar_em(posicoes_base_zero(a), posicoes_base_zero(b), 1, "A", "B")
+    assert c["ganha_a"] == direto["ganha_a"] == 30
+    assert c["ganha_b"] == direto["ganha_b"] == 10
+    assert c["p"] == direto["p"]
+    # E o veredito continua sendo o desta função, em recall@1.
+    assert "recall@1" in c["veredito"]
+
+
+def test_a_conversao_preserva_o_tamanho_e_a_ordem():
+    r = Resultado("A", "a", 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, posicoes=[1, 2, 7, 100])
+    assert posicoes_base_zero(r) == [0, 1, 6, 99]

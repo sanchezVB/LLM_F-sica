@@ -16,7 +16,9 @@ citação de A para B é um rótulo de relevância que ninguém precisou anotar.
 construímos um sistema de recuperação de Física sobre 6,56 M de arestas de citação do
 arXiv e um encoder de 23 M de parâmetros, e medimos cinco falhas que compartilham uma
 causa: **a supervisão e a avaliação são derivadas da mesma estrutura**, e cada atalho
-na derivação abre um vazamento que se parece com um resultado.
+na derivação abre um vazamento que se parece com um resultado. A segunda delas tem
+duas consequências independentes, e a segunda dessas pegou o resultado positivo deste
+próprio artigo (§4.2).
 
 As cinco, com o número que as expõe:
 
@@ -26,10 +28,13 @@ As cinco, com o número que as expõe:
    consultas (Spearman entre posição na fusão e escore: **+0,179**). Corrigido, vai a
    **−0,466** e 0% — e então não acrescenta nada, porque concorda.
 2. **`head()` num parquet agrupado por documento mede uma fração dos documentos que
-   parece medir.** 500 linhas eram **35 documentos**; o intervalo de 95% do acerto@1
-   era **±0,159**, largo o bastante para conter tanto o resultado bonito quanto o
-   honesto. Uma conclusão publicável ("o modelo não lê a consulta") saiu de **16**
-   documentos e se inverteu com 457.
+   parece medir, e ainda derruba o teto.** 500 linhas eram **35 documentos**; o
+   intervalo de 95% do acerto@1 era **±0,159**, largo o bastante para conter tanto o
+   resultado bonito quanto o honesto. Uma conclusão publicável ("o modelo não lê a
+   consulta") saiu de **16** documentos e se inverteu com 457. E 62% dos itens tinham
+   **alvo repetido**, o que dá cosseno idêntico e desempate arbitrário: o teto de um
+   modelo perfeito era **0,7562**, não 1,0 — foi o que fabricou o "empate com o
+   GTE-large" da tabela do §1 desta versão anterior (§4.2).
 3. **Divisão treino/validação por posição não divide** quando 400 mil pares contêm
    17.844 documentos citados distintos. 49,6% das âncoras da "validação" já estavam no
    treino, e o modelo aprendeu identidade de paper em vez de relevância de par: nDCG
@@ -63,21 +68,49 @@ Anotação humana é caro; o grafo de citação é grátis. A prática é conhec
 citação — e a nossa motivação era a mesma: construir um recuperador de Física sem
 anotar nada.
 
-O ajuste fino funcionou. Um MiniLM-L6 de 23 M de parâmetros treinado em 400 mil
-arestas de citação bate o PhysBERT (110 M, pré-treinado em Física) por **+0,190 de
-nDCG@10** (pareado, p = 0,0000) e **empata estatisticamente com o GTE-large**, um
-modelo geral de 335 M:
+O ajuste fino funciona, e **menos do que a primeira versão deste rascunho
+afirmava**. Todos os números abaixo estão no protocolo de **teto 1,0000** (ver §4.2:
+a versão anterior desta tabela usava um protocolo cujo teto era 0,7562, e o "empate
+com o GTE-large" era artefato dele).
 
 | modelo | r@1 | r@10 | nDCG@10 |
 |---|---|---|---|
-| nosso, 23 M | 0,262 | 0,708 | **0,4657** |
-| GTE-large, 335 M (geral) | 0,278 | 0,677 | 0,4628 |
-| PhysBERT, 110 M (domínio) | 0,146 | 0,425 | 0,2752 |
-| SciBERT, 110 M (base) | 0,109 | 0,328 | 0,2074 |
+| SciBERT, 110 M (base do ajuste) | 0,149 | 0,383 | 0,2537 |
+| PhysBERT, 110 M (domínio) | 0,222 | 0,491 | 0,3507 |
+| **MiniLM-L6, 23 M — SEM ajuste** | 0,314 | 0,664 | **0,4761** |
+| nosso, 23 M, 400 mil arestas | 0,348 | 0,720 | **0,5246** |
+| GTE-large, 335 M (geral) | 0,414 | 0,764 | **0,5788** |
+| nosso, 23 M, 6 M de arestas | 0,432 | 0,831 | **0,6223** |
+
+Três leituras que a tabela anterior não permitia. Todos os `p` são de **McNemar
+exato pareado** sobre "o alvo chegou ao top-k", nas mesmas 2.000 consultas:
+
+1. **A linha que faltava era a mais importante.** O MiniLM-L6 **sem nenhum ajuste**
+   já bate o PhysBERT, e com folga (k=1: 368 × 185, p = 5,7e-15). Então o "+0,190
+   sobre o PhysBERT" que a versão anterior atribuía ao ajuste fino por citação era,
+   em sua maior parte, **o modelo base** — um encoder de sentença genérico contra um
+   encoder de domínio que não foi treinado para similaridade. O ajuste por citação
+   acrescenta **+0,049** de nDCG@10 sobre esse ponto de partida (0,4761 → 0,5246), e
+   isso é real: k=1 p = 3,8e-05, k=10 p = 4,1e-11. Real, e **cinco vezes menor do que
+   o anunciado**.
+2. **Com 400 mil arestas o GTE-large vence, e não é empate.** k=1: 132 × 215,
+   p = 9,8e-06; k=10 p = 0,0042.
+3. **Bater o GTE-large exige 15× mais dado, e só em parte das métricas.** 6 M de
+   arestas dão 0,6223 contra 0,5788 — no top-10 é decisivo (206 × 73, p = 7,6e-16),
+   e no **top-1 é empate** (188 × 153, p = 0,065). A vitória existe e é parcial.
+
+> ⚠️ **Estes cinco testes pareados não estavam no artefato de avaliação**, que pareia
+> tudo contra **um** sistema de referência — o melhor dos nossos. Eu havia escrito a
+> tabela acima com as diferenças de nDCG e sem os `p`, o que num artigo sobre rigor
+> de medição é o erro que ele denuncia. Os testes foram calculados depois, das
+> posições por consulta que o cache guarda; a limitação do artefato está registrada
+> na §12.6.
 
 Esse é o resultado positivo, e ele não é a contribuição deste artigo. A contribuição
-é o que aconteceu **entre** a primeira versão desse número e essa: quatro medições que
-eu reportei e depois refutei, e uma quinta que refutou uma recomendação de gasto.
+é o que aconteceu **entre** a primeira versão desse número e essa: **cinco medições
+que eu reportei e depois refutei — a desta tabela inclusive — e uma recomendação de
+gasto que se refutou junto.** São seis retratações a partir de cinco falhas, porque a
+Falha 2 produziu duas (§4.1 e §4.2).
 
 O fio comum: quando o rótulo de treino, o negativo de treino e o rótulo de avaliação
 saem todos do mesmo grafo, **cada atalho na derivação de um deles contamina os
@@ -166,12 +199,39 @@ do recuperador não tem informação nova para dar, por bem treinado que esteja.
 
 ### 3.4 O que isso acrescenta ao que já se sabia
 
-RocketQA (Qu et al., 2021) documenta falsos negativos na mineração de negativos
-difíceis e propõe filtragem por um modelo cross-encoder. O nosso achado é vizinho e
-distinto: o problema aqui não é o negativo estar errado, é o **critério de seleção do
-negativo ser correlacionado com o escore do modelo que vai ser reordenado**. O
-sintoma é uma inversão mensurável de correlação, não uma queda de precisão — e a
-inversão é diagnosticável com um Spearman que custa nada.
+O RocketQA (Qu et al., 2021) foi lido integralmente para esta seção, e a distinção se
+sustenta em três eixos.
+
+**O que o RocketQA diz.** Minerar os melhores colocados como negativos "is likely to
+bring false negatives (i.e., unlabeled positives), since the annotators can only
+annotate a few top-retrieved passages". A correção deles: *"utilize a well-trained
+cross-encoder to remove top-retrieved passages that are likely to be false
+negatives"*. No pipeline, o cross-encoder é o **filtro** e o que se treina é o
+**dual-encoder** — o recuperador.
+
+**Onde o nosso caso difere.**
+
+| | RocketQA | aqui |
+|---|---|---|
+| o que se treina | o **recuperador** (dual-encoder) | o **reranqueador** (cross-encoder), que roda *depois* do recuperador |
+| natureza do defeito | **ruído de rótulo**: o negativo é, de fato, relevante | **o critério de seleção correlaciona com o escore do modelo a ser reordenado** |
+| o que conserta | filtrar o conjunto de **negativos** | trocar a origem do **positivo**, que passa a vir do mesmo top-K |
+
+O terceiro eixo é o que mais importa: **o nosso defeito sobreviveria à correção
+deles**. Ainda que todo negativo minerado fosse genuinamente irrelevante — zero falso
+negativo, o filtro do RocketQA perfeito —, o rótulo continuaria predito pela posição,
+porque o **positivo** está ausente do top-K por construção do conjunto. Filtrar
+negativos não move essa correlação; mudar de onde vem o positivo, sim.
+
+E o sintoma é outro: uma **inversão mensurável de correlação** (Spearman +0,179, 83%
+das consultas), não uma queda de precisão. Custa um Spearman diagnosticar, e nenhuma
+curva de perda mostra.
+
+**Onde o nosso caso NÃO difere, e a §6 é deles.** O problema de falso negativo da §6
+— co-citados rotulados como negativos — é exatamente o "unlabeled positives" do
+RocketQA. Ali não há distinção a reivindicar: a contribuição da §6 é um *proxy* de
+grafo barato (co-citação) no lugar de uma passagem de cross-encoder, mais a taxa
+medida. Ver §6.
 
 ---
 
@@ -218,6 +278,38 @@ acaso — que eu li e não conectei.
 **A correção** é uma função de quatro linhas que devolve `(amostra, documentos
 distintos)` e obriga o segundo valor a atravessar a métrica até o relatório, junto do
 intervalo de confiança que ele implica.
+
+### 4.2 ⚠️ A segunda consequência, que pegou o resultado positivo deste artigo
+
+O intervalo largo é o efeito óbvio de poucos documentos distintos. Há um segundo, e
+ele não é sobre incerteza — é sobre o **teto**.
+
+O pool de candidatos do nosso portão saía de `val.head(2000)`. Num parquet agrupado
+por documento citado, isso dá **62% de itens com alvo repetido**: dois candidatos com
+o **texto idêntico**. Texto idêntico produz vetor idêntico, cosseno idêntico, e o
+desempate do `argsort` é arbitrário. Um modelo **perfeito** nesse pool tem
+nDCG@10 = **0,7562**, não 1,0.
+
+As consequências:
+
+- **toda comparação fica comprimida** contra um teto 24% mais baixo, e diferenças
+  entre modelos bons encolhem junto;
+- a primeira versão da tabela do §1 reportava **0,4657 contra 0,4628 do GTE-large** e
+  concluía "empata estatisticamente". No protocolo de teto 1,0000, os mesmos dois
+  modelos dão **0,5246 contra 0,5788**: o GTE-large **vence por 0,054**. O empate era
+  a régua, não o modelo;
+- e um portão do programa "passou" por **+0,003** nesse regime, número que depois se
+  revelou ruído de desempate.
+
+**A correção** é sortear o pool em vez de cortar, desduplicar pelo **texto** (é o
+texto idêntico que produz cosseno idêntico, não o identificador), e **imprimir o teto
+do protocolo junto de cada resultado**, recusando o relatório se o teto ficar abaixo
+de 0,999.
+
+> A lição é mais estreita e mais dura que a da §4.1: um número de avaliação sem o
+> **teto do próprio protocolo** ao lado não diz se o limite é o modelo ou a régua. E
+> um artigo sobre armadilhas de medição publicou uma tabela medida com a régua torta
+> — a dele mesmo.
 
 ---
 
@@ -267,10 +359,19 @@ recuperador melhora**, não menos. Treinar o reranqueador a rebaixá-los é ensi
 relevante, e a perda de treino desce normalmente enquanto isso acontece — porque, do
 ponto de vista da perda, o rótulo é o rótulo.
 
+**Isto é o "unlabeled positives" do RocketQA, e não reivindicamos distinção.** Qu et
+al. (2021) nomeiam o problema e o corrigem com uma passagem de cross-encoder sobre os
+candidatos. O que esta seção acrescenta é operacional: **um proxy de grafo custa uma
+junção e nenhuma GPU**, e a taxa dele é mensurável contra um controle — 9,1% nos
+negativos minerados contra **0,1%** num controle de negativos sorteados, razão de
+**212×**. Onde existe grafo de citação, o proxy dá a maior parte do efeito pelo preço
+de um `join`.
+
 **Ressalva que precisa ser dita:** co-citação aproxima relevância, não a define. Um
 paper relacionado que ninguém citou junto com o positivo continua passando como
 negativo, e **esse residual não é medido**. O filtro remove uma classe de falso
-negativo que sabemos nomear; não sabemos o tamanho do resto.
+negativo que sabemos nomear; não sabemos o tamanho do resto — e é precisamente o
+resto que o cross-encoder do RocketQA alcançaria.
 
 ---
 
@@ -397,9 +498,10 @@ p = 0,14584 sobre 229 discordantes em ambas.
 
 ### 10.1 A assimetria que não estava prevista
 
-O encoder de domínio é um **recuperador ruim** neste benchmark (nDCG 0,2752 contra
-0,4657 do nosso ajuste fino — a margem de +0,190 do §1) e a **melhor base de
-reranqueador** das três testadas. Pré-treino de domínio não produziu um bi-encoder
+O encoder de domínio é um **recuperador ruim** neste benchmark (nDCG **0,3507**
+contra 0,5246 do nosso ajuste fino de 400 mil arestas, e 0,4761 do MiniLM-L6 **sem
+ajuste algum** — números do protocolo de teto 1,0000, ver §1 e §4.2) e a **melhor
+base de reranqueador** das três testadas. Pré-treino de domínio não produziu um bi-encoder
 competitivo aqui e produziu um cross-encoder competitivo.
 
 Não temos explicação mecanística para a assimetria, e não vamos inventar uma. A
@@ -419,9 +521,12 @@ alguém medir.
    é uma proxy conhecidamente enviesada — favorece papers citáveis, campos com cultura
    de citação densa, e não captura relevância que ninguém citou. O nDCG de 0,1584 da
    fusão não é comparável a nDCG de benchmarks com anotação.
-3. **O resultado positivo do §1 é um empate, não uma vitória.** 0,4657 contra 0,4628
-   com 1/14,8 dos parâmetros é um resultado de eficiência. Ler como superioridade
-   seria exatamente o tipo de coisa que este artigo documenta.
+3. **O resultado positivo do §1 encolheu quando a régua foi consertada.** Com 400 mil
+   arestas o GTE-large **vence** (0,5788 contra 0,5246); bater ele exige 6 M de
+   arestas, e mesmo então o pareado em recall@1 dá p = 0,065. E o ajuste fino por
+   citação vale **+0,049** sobre o MiniLM-L6 sem ajuste, não os +0,190 que a versão
+   anterior atribuía a ele — a maior parte daquela margem era o modelo base. Ver
+   §4.2.
 4. **A §6 não mede o falso negativo residual**, e a §7 não mede a taxa de
    contaminação do corpus de fonte LaTeX (o julgamento humano da amostra está
    pendente, com alvo pré-comprometido de 200 documentos).
@@ -586,14 +691,32 @@ declarar que o usou.
 
 ### 12.6 O que ainda falta, e agora é específico
 
-1. **Ler o RocketQA integralmente** antes de a §3.4 afirmar distinção. É o único
-   item da lista anterior que a conferência de forma não resolve.
+1. ~~Ler o RocketQA integralmente~~ — **feito**. A §3.4 foi reescrita com o que o
+   artigo diz de fato, e a distinção se sustenta em três eixos (o que se treina, a
+   natureza do defeito, o que conserta). O terceiro é o que decide: **o nosso defeito
+   sobreviveria à correção deles**, porque filtrar negativos não move uma correlação
+   que vem da ausência do positivo. Em contrapartida, a **§6 é o problema deles** e
+   passou a dizer isso.
 2. **Reescrever a §4 e a §5** com o enquadramento do §12.2 — confirmação num
    domínio novo, não observação nova. A magnitude medida continua sendo nossa.
 3. **Procurar vazamento posicional especificamente em conjuntos derivados de grafo
    de citação.** A busca encontrou a literatura de recomendação (temporal) e não
    encontrou o caso posicional-em-grafo; ausência de resultado numa busca não é
    ausência de literatura, e esta é a lacuna que restou.
+4. ⚠️ **O avaliador de encoders pareia tudo contra UM sistema de referência.** Os
+   cinco testes pareados da tabela do §1 não estavam no artefato: ele compara cada
+   modelo com o melhor dos nossos e com mais ninguém. Foi possível calculá-los das
+   posições por consulta que o cache guarda, mas o artefato de avaliação deveria
+   trazê-los. É o mesmo defeito estrutural que o avaliador da composição tinha até
+   2026-09-08, quando uma regra pré-registrada ficou sem o teste que nomeava.
+5. ⚠️ **Há duas convenções de "posição" no repositório**, e elas se encontram numa
+   função compartilhada. O avaliador da composição usa 0-based (`lista.index`); o
+   cache do avaliador de encoders usa **1-based** (`x == 1` é o topo). O
+   `mcnemar_em` espera 0-based, então alimentá-lo com o cache calcula
+   silenciosamente o **top-(k−1)** — aconteceu na primeira tentativa de produzir os
+   `p` acima, e só apareceu porque o teste em k=1 devolveu "0 discordantes" para
+   modelos com recall@1 de 0,31 e 0,22, o que é impossível. Um número um pouco
+   errado não teria acusado.
 
 
 ---

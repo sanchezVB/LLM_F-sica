@@ -189,6 +189,19 @@ def main() -> int:
         log.info("BM25 indexado em %.0f s", custo["bm25_indexar_s"])
 
     # ── ΦEmb ────────────────────────────────────────────────────────────────
+    # ⚠️ UMA GPU, e a sessão do Kaggle costuma dar DUAS.
+    #
+    # Visto no log do T1d em 2026-09-09: `Accelerator: GPU T4 ×2`, e este script
+    # usa só o dispositivo 0 — a segunda placa fica ociosa as 3h37 inteiras.
+    #
+    # Reordenar é 96% do custo e é embaraçosamente paralelo sobre CONSULTAS: cada
+    # uma é independente das outras. Dividir as 2.000 em duas metades, uma por
+    # placa, cortaria a avaliação quase pela metade — de ~82 min por braço para
+    # ~45. Não está feito porque exige dois processos (ou `DataParallel`) e a
+    # complicação tem de ser paga por quem for esperar a próxima sessão.
+    #
+    # Registrado aqui, e não num "melhorias futuras": é neste ponto do código que
+    # a decisão seria tomada.
     dev = escolher_dispositivo(a.dispositivo)
     tok_e = AutoTokenizer.from_pretrained(a.emb)
     mod_e = AutoModel.from_pretrained(a.emb).to(dev).eval()

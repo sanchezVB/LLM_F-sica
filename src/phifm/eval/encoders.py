@@ -81,6 +81,7 @@ from transformers import AutoModel, AutoTokenizer
 # `preparar_pool` mora em `training/amostragem.py`, livre de torch, para o teste
 # da guarda rodar na suíte rápida — e ao lado do irmão deste defeito, o
 # `amostrar_por_documento`.
+from phifm.eval.hibrido import mcnemar_em
 from phifm.training.amostragem import SEMENTE_POOL, preparar_pool
 from phifm.training.embedding import media_mascarada
 
@@ -142,6 +143,20 @@ class Resultado:
     # Posição do acerto POR ITEM. Guardar isto é o que permite comparação
     # pareada — ver `comparar_pareado`, que extrai muito mais sinal dos mesmos
     # dados do que confrontar duas proporções soltas.
+    # ⚠️ 1-BASED: `posicoes[i] == 1` significa "o alvo ficou em primeiro".
+    #
+    # O avaliador da composição (`scripts/avaliar_t1b.py`) usa a convenção OPOSTA —
+    # `lista.index(alvo)`, 0-based, e `None` quando o alvo não apareceu. As duas
+    # convivem, e se encontram no `mcnemar_em`, que é compartilhado e espera
+    # 0-based.
+    #
+    # Passar `Resultado.posicoes` direto para o `mcnemar_em` calcula o
+    # **top-(k−1)** sem reclamar. Aconteceu em 2026-09-09, produzindo os `p` da
+    # tabela do artigo, e só apareceu porque o teste em k=1 devolveu "0
+    # discordantes" para dois modelos com recall@1 de 0,31 e 0,22 — impossível. Um
+    # número um pouco errado teria passado.
+    #
+    # Use `posicoes_base_zero()`. É por isso que ela existe.
     posicoes: list[int] = field(default_factory=list)
 
 
@@ -346,6 +361,16 @@ def tabela(rs: list[Resultado], n: int) -> str:
     return "\n".join(L)
 
 
+def posicoes_base_zero(r: Resultado) -> list[int]:
+    """As posições de `r` na convenção do `mcnemar_em` (0-based).
+
+    A ponte entre as duas convenções do repositório — ver o comentário em
+    `Resultado.posicoes`. Existe como função nomeada, e não como um `- 1` solto
+    em cada chamada, porque um `- 1` esquecido calcula o top-(k−1) em silêncio.
+    """
+    return [x - 1 for x in r.posicoes]
+
+
 def comparar_pareado(a: Resultado, b: Resultado) -> dict:
     """Comparação PAREADA em recall@1 — muito mais sensível que duas proporções.
 
@@ -372,19 +397,22 @@ def comparar_pareado(a: Resultado, b: Resultado) -> dict:
     if len(a.posicoes) != len(b.posicoes):
         return {"erro": f"conjuntos de tamanhos diferentes: {len(a.posicoes)} vs {len(b.posicoes)}"}
 
-    ganha_a = sum(1 for x, y in zip(a.posicoes, b.posicoes, strict=True) if x == 1 and y != 1)
-    ganha_b = sum(1 for x, y in zip(a.posicoes, b.posicoes, strict=True) if y == 1 and x != 1)
-    disc = ganha_a + ganha_b
+    # ⚠️ A binomial exata vem do `mcnemar_em`, e não é reimplementada aqui.
+    #
+    # Havia duas cópias da mesma conta neste repositório, e cada uma escondia a
+    # sua convenção de posição dentro de si. Duas cópias divergem; e a convenção
+    # escondida foi o que produziu um top-(k−1) silencioso em 2026-09-09.
+    #
+    # `posicoes_base_zero` é a ponte, e `k=1` porque esta comparação é em
+    # recall@1 — que é o que o portão G1 decide.
+    bruto = mcnemar_em(posicoes_base_zero(a), posicoes_base_zero(b), 1,
+                       a.nome, b.nome)
+    ganha_a, ganha_b = bruto["ganha_a"], bruto["ganha_b"]
+    disc, p = bruto["discordantes"], bruto["p"]
 
     if disc == 0:
         return {"a": a.nome, "b": b.nome, "ganha_a": 0, "ganha_b": 0, "discordantes": 0,
                 "p": 1.0, "veredito": "idênticos item a item — nada a decidir"}
-
-    # Binomial exata bicaudal com p=0,5 sobre os discordantes.
-    from math import comb
-    k = min(ganha_a, ganha_b)
-    cauda = sum(comb(disc, i) for i in range(k + 1)) / 2 ** disc
-    p = min(1.0, 2 * cauda)
 
     vencedor = a.nome if ganha_a > ganha_b else b.nome
     if p < 0.05:
