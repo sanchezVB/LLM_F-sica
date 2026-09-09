@@ -14,7 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Primeiro sinal de virada: o pico do 6 M está a 93,4% do treino, não a 99,8% |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
-| **T1d** · ΦRank retreinado | 🟡 **lançado** | negativos do top-50 do ΦEmb (16.391 grupos, 12,51% de co-citados removidos). Dois reranqueadores na MESMA sessão, `--sem-fusao`. A regra e os três desfechos estão escritos |
+| **T1d** · ΦRank retreinado | 🟡 **rodando** (lançado 2026-09-09 00:22 UTC) | negativos do top-50 do ΦEmb: 16.391 grupos, 12,51% de co-citados removidos, 41,96 negativos por grupo. Dois reranqueadores na MESMA sessão, `--sem-fusao`. A regra e os três desfechos estão escritos. `phifm-t1d-rerank-denso` |
 | **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu: a cadeia é `ΦEmb → ΦRank`. A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
