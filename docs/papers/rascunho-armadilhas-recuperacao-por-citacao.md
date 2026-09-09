@@ -191,6 +191,12 @@ acerto@1 de 0,364 tinha intervalo de 95% de **±0,159** — e a divisão contami
 honesta reportaram o mesmo número **porque as duas mediam as mesmas três dezenas de
 papers**.
 
+> ⚠️ **Isto é confirmação, não observação nova.** É o problema de *unidade de
+> análise* da inferência com agrupamento, e a referência de prática é Cameron &
+> Miller (2015) — ver §12.2. O que a §4 acrescenta é estreito e específico: que
+> **nomear as linhas de "grupos" no código esconde a diferença**, e que nenhum teste
+> pega isso porque nada está errado, só mal-nomeado.
+
 ### 4.1 A conclusão que isso produziu e destruiu
 
 Investigando por que o reranqueador não ganhava, medi o escore com a consulta
@@ -238,13 +244,26 @@ citados distintos, dos quais o reranqueador tinha visto 4,8%.
 qualquer documento aparecer dos dois lados. A métrica cai — o número honesto é menor
 que o inflado, e é o que serve para decidir.
 
+> ⚠️ **Também confirmação.** A comunidade de sistemas de recomendação tem literatura
+> direta sobre vazamento por estratégia de divisão — Ji et al. (2023), Meng et al.
+> (2020). O mecanismo deles é *temporal* e o nosso é *posicional num conjunto
+> derivado de grafo*: instâncias diferentes da mesma classe. Ver §12.2. O que sobra
+> de próprio aqui é a magnitude medida no caso de citação.
+
 ---
 
 ## 6. Falha 4 — co-citação como falso negativo
 
-Dois papers citados juntos por um terceiro são um sinal clássico de relevância. Na
-nossa mineração, **9,1% dos negativos** (62.646 de 688.136) eram co-citados com o
-positivo. Treinar o reranqueador a rebaixá-los é ensiná-lo a rebaixar o que é
+Dois papers citados juntos por um terceiro são um sinal clássico de relevância —
+Small (1973) introduziu a co-citação exatamente como medida de relação entre dois
+documentos. Na nossa mineração, **9,1% dos negativos** (62.646 de 688.136) eram
+co-citados com o positivo.
+
+E a taxa **subiu** quando o recuperador melhorou: com os candidatos minerados do
+recuperador de 2026-09-08, **12,51%** (98.331 de 786.063). Um recuperador melhor traz
+ao topo mais documentos topicamente próximos, e proximidade tópica é o que faz dois
+papers serem citados juntos — então **o filtro importa mais à medida que o
+recuperador melhora**, não menos. Treinar o reranqueador a rebaixá-los é ensiná-lo a rebaixar o que é
 relevante, e a perda de treino desce normalmente enquanto isso acontece — porque, do
 ponto de vista da perda, o rótulo é o rótulo.
 
@@ -408,54 +427,174 @@ alguém medir.
    pendente, com alvo pré-comprometido de 200 documentos).
 5. **`lr` não foi re-ajustado** entre escalas de modelo no experimento da §10, o que
    é uma variável não controlada declarada antes de ver o resultado.
-6. **Veículo realista: workshop.** Um artigo de armadilhas com validade externa de um
+6. **A §4 e a §5 são confirmação, não observação nova.** A conferência de
+   referências de 2026-09-08 achou literatura anterior para as duas — inferência com
+   agrupamento (Cameron & Miller, 2015) e vazamento por estratégia de divisão em
+   sistemas de recomendação (Ji et al., 2023; Meng et al., 2020). O que resta de
+   próprio é a magnitude no caso de citação e a observação de nomenclatura da §4.
+   Ver §12.2.
+7. **Veículo realista: workshop.** Um artigo de armadilhas com validade externa de um
    domínio não é contribuição de conferência principal, e apresentá-lo como tal seria
    o mesmo erro de calibração que ele denuncia.
 
 ---
 
-## 12. ⚠️ Citações — TODAS precisam ser verificadas antes de qualquer submissão
+## 12. Referências — conferidas uma por uma em 2026-09-08
 
-Escrevi as referências abaixo de memória. **Nenhuma foi conferida contra a fonte.**
-Volume, página, ano e a própria existência do que é afirmado precisam ser verificados
-um por um; uma citação errada num artigo sobre rigor de medição é a pior forma de se
-desmentir.
+A versão anterior desta seção dizia: *"escrevi as referências abaixo de memória.
+Nenhuma foi conferida contra a fonte."* Foram conferidas agora, cada uma contra a
+fonte primária ou contra DBLP/ACL Anthology/JSTOR. **A conferência achou três coisas
+substantivas**, e nenhuma delas era um número de página.
 
-**Razoavelmente confiante no conteúdo, a conferir na forma:**
+### ⚠️ 12.1 Uma citação minha afirmava o CONTRÁRIO do que o trabalho conclui
 
-- Cormack, Clarke & Büttcher (2009) — Reciprocal Rank Fusion; a origem do k = 60.
-- Karpukhin et al. (2020) — DPR; negativos difíceis do BM25.
-- Xiong et al. (2021) — ANCE; negativos reamostrados do próprio índice.
-- Qu et al. (2021) — RocketQA; falsos negativos na mineração e filtragem por
-  cross-encoder. **É o vizinho mais próximo da §3** e merece leitura integral antes de
-  a §3.4 afirmar distinção.
-- Cohan et al. (2020) — SPECTER; representação de documento científico com sinal de
-  citação.
-- Sennrich, Haddow & Birch (2016) — BPE. Kudo (2018) — Unigram.
-- Bostrom & Durrett (2020) — Unigram contra BPE em linguagem natural.
-- Robertson & Zaragoza (2009) — BM25.
-- Wilson (1927); Brown, Cai & DasGupta (2001) — intervalos de proporção.
-- McNemar (1947).
+Eu havia escrito: *"Ali et al. (2024) — eficiência de tokenizer correlaciona com
+desempenho a jusante."*
 
-**Menos confiante, verificar antes de citar:**
+O trabalho conclui o oposto sobre essas métricas. Treinando 24 LLMs de 2,6 B
+parâmetros, ele relata que **fertilidade e paridade não são sempre preditivas do
+desempenho a jusante**, tornando-as um *proxy* questionável.
 
-- PhysBERT (2024) — o encoder de Física usado como alvo do §1. Tenho o identificador
-  do modelo (`thellert/physbert_cased`, 109 M, `BertModel`) mas **não** a referência
-  bibliográfica com segurança.
-- peS2o — o corpus de texto pleno da §7. Conheço o dataset; não tenho autor e ano com
-  segurança.
-- RedPajama-1T — a fatia arXiv da §7 (`togethercomputer/RedPajama-Data-1T`, revisão
-  `398f9257`). Mesmo caso.
-- Tao et al. (2024) — vocabulário ótimo cresce com o tamanho do modelo. Citado no
-  documento de projeto; não verificado.
-- Ali et al. (2024) — eficiência de tokenizer correlaciona com desempenho a jusante.
-  Mesmo caso.
+O erro é meu e a direção importa: a conclusão de Ali et al. **sustenta** o desenho do
+bake-off deste programa (fertilidade é proxy, o modelo treinado é que decide) em vez
+de o dispensar. Uma citação invertida num artigo sobre rigor de medição seria a pior
+forma de se desmentir, e é exatamente por isso que a seção anterior existia.
 
-**Falta procurar:** trabalho anterior sobre (a) n efetivo em avaliação de recuperação
-com dados agrupados, e (b) vazamento por divisão posicional em conjuntos derivados de
-grafo. As duas são elementares o bastante para que exista literatura, e se existir a
-§4 e a §5 deixam de ser contribuição e passam a ser confirmação — o que é uma
-informação útil e não um problema.
+### ⚠️ 12.2 A §4 e a §5 têm literatura anterior. As duas passam a ser confirmação
+
+A seção anterior previa isto e chamava de "informação útil, não problema". As duas
+existem:
+
+**Para a §4 (n efetivo em dados agrupados)** — é o problema de *unidade de análise*
+da inferência com agrupamento, e a referência de prática é Cameron & Miller (2015).
+A contribuição da §4 não é notar que linhas agrupadas não são independentes; é a
+observação estreita de que **nomear as linhas de "grupos" no código esconde a
+diferença**, e que nenhum teste pega isso porque nada está errado — só mal-nomeado.
+
+**Para a §5 (divisão por posição)** — a comunidade de sistemas de recomendação tem
+literatura direta sobre vazamento por estratégia de divisão: Ji et al. (2023) e Meng
+et al. (2020). O mecanismo deles é *temporal* e o nosso é *posicional num conjunto
+derivado de grafo*, o que os torna instâncias diferentes da mesma classe — e a §5
+tem de se posicionar assim, não como observação nova.
+
+O que sobra de próprio na §5 é a magnitude medida no caso de citação: 49,6% das
+âncoras da "validação" já vistas no treino, e o nDCG da composição caindo de 0,139
+para 0,020 sobre documentos inéditos.
+
+### ⚠️ 12.3 A §6 estava sem a referência que a funda
+
+A §6 afirma que "dois papers citados juntos por um terceiro são um sinal clássico de
+relevância" e não citava a origem. É Small (1973), que introduziu a co-citação
+exatamente como medida de relação entre dois documentos.
+
+### 12.4 Confirmado: de onde vem o k = 60 do RRF
+
+Conferido no PDF do artigo, não de memória:
+
+> *"where k = 60 was fixed during a pilot investigation and not altered during
+> subsequent validation"*
+
+e, na validação:
+
+> *"k = 60 was near-optimal, but that the choice was not critical"*
+
+Então o k = 60 é herança de um piloto, e **os próprios autores dizem que a escolha
+não é crítica**. Quem repetir este trabalho não precisa defender o 60; precisa
+declarar que o usou.
+
+### 12.5 As referências, com a forma conferida
+
+**Recuperação e negativos difíceis**
+
+- Cormack, G. V., Clarke, C. L. A., & Büttcher, S. (2009). Reciprocal rank fusion
+  outperforms condorcet and individual rank learning methods. *SIGIR '09*, 758–759.
+- Karpukhin, V., Oğuz, B., Min, S., Lewis, P., Wu, L., Edunov, S., Chen, D., &
+  Yih, W. (2020). Dense passage retrieval for open-domain question answering.
+  *EMNLP 2020*, 6769–6781.
+- Xiong, L., Xiong, C., Li, Y., Tang, K.-F., Liu, J., Bennett, P. N., Ahmed, J., &
+  Overwijk, A. (2021). Approximate nearest neighbor negative contrastive learning
+  for dense text retrieval. *ICLR 2021*. arXiv:2007.00808.
+- Qu, Y., Ding, Y., Liu, J., Liu, K., Ren, R., Zhao, W. X., Dong, D., Wu, H., &
+  Wang, H. (2021). RocketQA: An optimized training approach to dense passage
+  retrieval for open-domain question answering. *NAACL-HLT 2021*, 5835–5847.
+  **É o vizinho mais próximo da §3** — as três contribuições dele são negativos
+  entre lotes, *amostragem de negativos difíceis desruidada* e aumento de dados, e
+  a segunda usa um cross-encoder para filtrar falso negativo. Continua merecendo
+  leitura integral antes de a §3.4 afirmar distinção.
+- Robertson, S., & Zaragoza, H. (2009). The probabilistic relevance framework:
+  BM25 and beyond. *Foundations and Trends in Information Retrieval*, 3(4), 333–389.
+
+**Citação como sinal**
+
+- Small, H. (1973). Co-citation in the scientific literature: A new measure of the
+  relationship between two documents. *Journal of the American Society for
+  Information Science*, 24(4), 265–269.
+- Cohan, A., Feldman, S., Beltagy, I., Downey, D., & Weld, D. S. (2020). SPECTER:
+  Document-level representation learning using citation-informed transformers.
+  *ACL 2020*, 2270–2282.
+
+**Vazamento por estratégia de divisão** (ver §12.2)
+
+- Ji, Y., Sun, A., Zhang, J., & Li, C. (2023). A critical study on data leakage in
+  recommender system offline evaluation. *ACM Transactions on Information Systems*,
+  41(3), Article 75, 1–27.
+- Meng, Z., McCreadie, R., Macdonald, C., & Ounis, I. (2020). Exploring data
+  splitting strategies for the evaluation of recommendation models. *RecSys 2020*,
+  681–686.
+
+**Inferência com dados agrupados** (ver §12.2)
+
+- Cameron, A. C., & Miller, D. L. (2015). A practitioner's guide to cluster-robust
+  inference. *Journal of Human Resources*, 50(2), 317–372.
+- Wilson, E. B. (1927). Probable inference, the law of succession, and statistical
+  inference. *Journal of the American Statistical Association*, 22(158), 209–212.
+- Brown, L. D., Cai, T. T., & DasGupta, A. (2001). Interval estimation for a
+  binomial proportion. *Statistical Science*, 16(2), 101–133.
+- McNemar, Q. (1947). Note on the sampling error of the difference between
+  correlated proportions or percentages. *Psychometrika*, 12(2), 153–157.
+
+**Tokenização**
+
+- Sennrich, R., Haddow, B., & Birch, A. (2016). Neural machine translation of rare
+  words with subword units. *ACL 2016*, 1715–1725.
+- Kudo, T. (2018). Subword regularization: Improving neural network translation
+  models with multiple subword candidates. *ACL 2018*, 66–75.
+- Bostrom, K., & Durrett, G. (2020). Byte pair encoding is suboptimal for language
+  model pretraining. *Findings of EMNLP 2020*, 4617–4624.
+- Tao, C., Liu, Q., Dou, L., Muennighoff, N., Wan, Z., Luo, P., Lin, M., & Wong, N.
+  (2024). Scaling laws with vocabulary: Larger models deserve larger vocabularies.
+  *NeurIPS 2024*. arXiv:2407.13623.
+- Ali, M., Fromm, M., Thellmann, K., Rutmann, R., Lübbering, M., Leveling, J., et al.
+  (2024). Tokenizer choice for LLM training: Negligible or crucial? *Findings of
+  NAACL 2024*, 3907–3924. **Ver §12.1** — o achado é que fertilidade e paridade
+  **não** são sempre preditivas do desempenho a jusante.
+
+**Modelos e corpora**
+
+- Hellert, T., Montenegro, J., & Pollastro, A. (2024). PhysBERT: A text embedding
+  model for physics scientific literature. *APL Machine Learning*, 2(4), 046105.
+  arXiv:2408.09574. É a referência do `thellert/physbert_cased` usado como alvo do §1.
+- Lo, K., Wang, L. L., Neumann, M., Kinney, R., & Weld, D. S. (2020). S2ORC: The
+  Semantic Scholar Open Research Corpus. *ACL 2020*, 4969–4983.
+- Soldaini, L., & Lo, K. (2023). *peS2o (Pretraining Efficiently on S2ORC) Dataset*.
+  Allen Institute for AI. ODC-By. Derivado do S2ORC (Lo et al., 2020); é o corpus
+  de texto pleno da §7.
+- Weber, M., Fu, D. Y., Anthony, Q., Oren, Y., Adams, S., Alexandrov, A., et al.
+  (2024). RedPajama: An open dataset for training large language models. *NeurIPS
+  2024, Datasets and Benchmarks Track*. arXiv:2411.12372. É a fonte da fatia arXiv
+  da §7 (`togethercomputer/RedPajama-Data-1T`, revisão `398f9257`).
+
+### 12.6 O que ainda falta, e agora é específico
+
+1. **Ler o RocketQA integralmente** antes de a §3.4 afirmar distinção. É o único
+   item da lista anterior que a conferência de forma não resolve.
+2. **Reescrever a §4 e a §5** com o enquadramento do §12.2 — confirmação num
+   domínio novo, não observação nova. A magnitude medida continua sendo nossa.
+3. **Procurar vazamento posicional especificamente em conjuntos derivados de grafo
+   de citação.** A busca encontrou a literatura de recomendação (temporal) e não
+   encontrou o caso posicional-em-grafo; ausência de resultado numa busca não é
+   ausência de literatura, e esta é a lacuna que restou.
+
 
 ---
 

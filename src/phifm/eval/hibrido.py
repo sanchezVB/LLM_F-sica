@@ -55,6 +55,17 @@ log = logging.getLogger(__name__)
 _TOKEN = re.compile(r"\\?[A-Za-zÀ-ÿ]+(?:-[A-Za-zÀ-ÿ]+)*|\d+(?:\.\d+)?")
 
 # Amortecimento do RRF. Cormack et al. (2009). Ver a docstring do módulo.
+#
+# ⚠️ O 60 vem de um PILOTO, e os autores dizem que a escolha não é crítica.
+# Conferido no PDF do artigo em 2026-09-08, não de memória:
+#
+#   "where k = 60 was fixed during a pilot investigation and not altered during
+#    subsequent validation"
+#   "k = 60 was near-optimal, but that the choice was not critical"
+#
+# Registrado porque a alternativa é alguém tratar o 60 como valor sintonizado e
+# gastar uma sessão varrendo-o. Quem repetir isto não precisa defender o 60 —
+# precisa declarar que o usou.
 K_RRF = 60
 
 
