@@ -128,6 +128,21 @@ def main() -> int:
     p.add_argument("--dispositivo", default="auto",
                    choices=["auto", "cuda", "dml", "cpu"])
     p.add_argument("--semente", type=int, default=17)
+    # ⚠️ A composicao decidida no T1b2, e o que ela poupa.
+    #
+    # A regra pre-registrada de 2026-09-08 tirou o BM25: a cadeia e
+    # `PhiEmb -> PhiRank`. Sem a chave, o avaliador ainda indexa o BM25, funde por
+    # RRF e reordena DUAS vezes -- e reordenar e 96% do custo, entao medir a
+    # composicao que nao existe mais dobra o preco do braco.
+    #
+    # Com ela, dois bracos de RERANQUEADOR cabem na mesma sessao. Isso nao e
+    # conveniencia: a pergunta do retreino e "quanto mudou", e essa exige o braco
+    # de referencia medido na MESMA sessao. Foi o que salvou a conclusao do T1b2
+    # de um erro de sete vezes.
+    p.add_argument("--sem-fusao", action="store_true",
+                   help="mede so a composicao decidida (PhiEmb -> PhiRank): nao "
+                        "indexa BM25, nao funde, e reordena uma vez por consulta "
+                        "em vez de duas")
     p.add_argument("--depurar", type=int, default=0,
                    help="imprime a posição do alvo antes e depois do ΦRank nas N "
                         "primeiras consultas em que ele está no conjunto")
@@ -164,9 +179,14 @@ def main() -> int:
 
     # ── BM25 ────────────────────────────────────────────────────────────────
     t0 = time.perf_counter()
-    bm = BM25().indexar(textos_pool)
-    custo["bm25_indexar_s"] = round(time.perf_counter() - t0, 1)
-    log.info("BM25 indexado em %.0f s", custo["bm25_indexar_s"])
+    if a.sem_fusao:
+        bm = None
+        log.info("BM25 NAO indexado: --sem-fusao mede a composicao decidida no "
+                 "T1b2 (PhiEmb -> PhiRank)")
+    else:
+        bm = BM25().indexar(textos_pool)
+        custo["bm25_indexar_s"] = round(time.perf_counter() - t0, 1)
+        log.info("BM25 indexado em %.0f s", custo["bm25_indexar_s"])
 
     # ── ΦEmb ────────────────────────────────────────────────────────────────
     dev = escolher_dispositivo(a.dispositivo)
@@ -206,15 +226,16 @@ def main() -> int:
     depurados = [0]
     t0 = time.perf_counter()
     for i, (consulta, alvo) in enumerate(zip(consultas, alvos, strict=True)):
-        e_bm = bm.pontuar(consulta)
-        ord_bm = top_k(e_bm, a.profundidade)
         e_emb = V_cons[i] @ Vt
         ord_emb = top_k(e_emb, a.profundidade)
-        ord_rrf = fundir_rrf(ord_emb, ord_bm)[:a.profundidade]
-
-        pos_bm.append(_posicao(ord_bm, alvo))
         pos_emb.append(_posicao(ord_emb, alvo))
-        pos_rrf.append(_posicao(ord_rrf, alvo))
+        if a.sem_fusao:
+            ord_rrf = ord_emb
+        else:
+            ord_bm = top_k(bm.pontuar(consulta), a.profundidade)
+            ord_rrf = fundir_rrf(ord_emb, ord_bm)[:a.profundidade]
+            pos_bm.append(_posicao(ord_bm, alvo))
+            pos_rrf.append(_posicao(ord_rrf, alvo))
 
         if tem_rank:
             # `q` como PARAMETRO, nao capturado do laco: o ruff B023 pega
@@ -236,11 +257,18 @@ def main() -> int:
                 e = np.concatenate(escores)
                 return [candidatos[k] for k in np.argsort(-e)], e
 
-            ord_rank, e = _reordenar(consulta, ord_rrf)
-            pos_rank.append(_posicao(ord_rank, alvo))
-            # A segunda passagem: o mesmo reranqueador sobre o top-100 DENSO.
-            ord_rank_denso, _ = _reordenar(consulta, ord_emb)
-            pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
+            if a.sem_fusao:
+                # Uma passagem so: a fusao nao existe nesta composicao, e o
+                # `pos_rank_denso` E a cadeia.
+                ord_rank_denso, e = _reordenar(consulta, ord_emb)
+                pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
+                ord_rank = ord_rank_denso
+            else:
+                ord_rank, e = _reordenar(consulta, ord_rrf)
+                pos_rank.append(_posicao(ord_rank, alvo))
+                # A segunda passagem: o mesmo reranqueador sobre o top-100 DENSO.
+                ord_rank_denso, _ = _reordenar(consulta, ord_emb)
+                pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
             if a.depurar and pos_rrf[-1] is not None and depurados[0] < a.depurar:
                 depurados[0] += 1
                 k_ = ord_rrf.index(alvo)
@@ -266,11 +294,16 @@ def main() -> int:
                 f"recall_{a.profundidade}": round(recall_em(pos, a.profundidade), 4),
                 "ndcg_10": round(ndcg_em_10(pos), 4)}
 
-    sistemas = [bloco("BM25", pos_bm), bloco("ΦEmb", pos_emb),
-                bloco("ΦEmb+BM25 (RRF)", pos_rrf)]
-    if tem_rank:
-        sistemas.append(bloco("ΦEmb+BM25+ΦRank", pos_rank))
-        sistemas.append(bloco("ΦEmb+ΦRank (sem fusão)", pos_rank_denso))
+    if a.sem_fusao:
+        sistemas = [bloco("ΦEmb", pos_emb)]
+        if tem_rank:
+            sistemas.append(bloco("ΦEmb+ΦRank", pos_rank_denso))
+    else:
+        sistemas = [bloco("BM25", pos_bm), bloco("ΦEmb", pos_emb),
+                    bloco("ΦEmb+BM25 (RRF)", pos_rrf)]
+        if tem_rank:
+            sistemas.append(bloco("ΦEmb+BM25+ΦRank", pos_rank))
+            sistemas.append(bloco("ΦEmb+ΦRank (sem fusão)", pos_rank_denso))
 
     # ── comparação PAREADA contra a fusão ───────────────────────────────────
     # ⚠️ Sem isto a tabela convida a ler diferença onde há ruído: 300 consultas dão
@@ -280,14 +313,25 @@ def main() -> int:
     #
     # A referência é a FUSÃO e não o melhor de todos, porque a pergunta do T1b é
     # exatamente "o reranker acrescenta algo à fusão?".
+    # ⚠️ A REFERENCIA do pareado muda com a composicao, e tem de mudar.
+    #
+    # Com fusao, a pergunta do T1b e "o reranker acrescenta algo a fusao?". Sem
+    # fusao, a fusao nao existe: a pergunta passa a ser "o reranker acrescenta
+    # algo ao RECUPERADOR?", e a referencia e o PhiEmb. Manter `pos_rrf` como
+    # referencia num braco `--sem-fusao` compararia contra uma lista vazia.
+    referencia, nome_ref = ((pos_emb, "ΦEmb") if a.sem_fusao
+                            else (pos_rrf, "ΦEmb+BM25 (RRF)"))
+    if a.sem_fusao:
+        contra = [("ΦEmb+ΦRank", pos_rank_denso)] if tem_rank else []
+    else:
+        contra = [("BM25", pos_bm), ("ΦEmb", pos_emb),
+                  *((("ΦEmb+BM25+ΦRank", pos_rank),
+                     ("ΦEmb+ΦRank (sem fusão)", pos_rank_denso))
+                    if tem_rank else ())]
     pareados = []
-    for nome, pos in (("BM25", pos_bm), ("ΦEmb", pos_emb),
-                      *((("ΦEmb+BM25+ΦRank", pos_rank),
-                         ("ΦEmb+ΦRank (sem fusão)", pos_rank_denso))
-                        if tem_rank else ())):
+    for nome, pos in contra:
         for k in (1, 10):
-            pareados.append(mcnemar_em(pos_rrf, pos, k,
-                                       "ΦEmb+BM25 (RRF)", nome))
+            pareados.append(mcnemar_em(referencia, pos, k, nome_ref, nome))
 
     # ⚠️ O confronto DIRETO entre as duas cadeias — o teste que a regra
     # pré-registrada do T1b2 nomeia, e que a primeira versão desta função não
@@ -300,11 +344,13 @@ def main() -> int:
     # sistema não são a comparação entre elas: em 2026-09-08 as duas cadeias
     # deram p=0,086 e p=0,149 contra a fusão, e nenhum desses números é o
     # veredito que a regra pedia.
-    confronto = [mcnemar_em(pos_rank_denso, pos_rank, k,
-                            "ΦEmb+ΦRank (sem fusão)", "ΦEmb+BM25+ΦRank")
-                 for k in (1, 10)] if tem_rank else []
+    # Sem fusao nao HA duas cadeias para confrontar: a regra ja decidiu.
+    confronto = ([mcnemar_em(pos_rank_denso, pos_rank, k,
+                             "ΦEmb+ΦRank (sem fusão)", "ΦEmb+BM25+ΦRank")
+                  for k in (1, 10)]
+                 if tem_rank and not a.sem_fusao else [])
 
-    teto = recall_em(pos_rrf, a.profundidade)
+    teto = recall_em(pos_emb if a.sem_fusao else pos_rrf, a.profundidade)
     # ⚠️ DOIS tetos, porque agora há duas cadeias. O da fusão limita o
     # `ΦEmb+BM25+ΦRank`; o do denso limita o `ΦEmb+ΦRank`. Reportar um só faria
     # uma das duas cadeias parecer limitada pelo teto da outra.
@@ -339,9 +385,14 @@ def main() -> int:
                            "que o BM25 só fica se a cadeia com ele VENCER — "
                            "empate já o tira, porque ele não paga o próprio "
                            "custo nem o teto que cobra."),
-        "nota_pareado": ("McNemar exato sobre 'o alvo chegou ao top-k'. A referência "
-                         "é a fusão porque a pergunta do T1b é se o reranker "
-                         "acrescenta algo a ela."),
+        "sem_fusao": bool(a.sem_fusao),
+        "nota_pareado": (
+            f"McNemar exato sobre 'o alvo chegou ao top-k'. A referência é "
+            f"{nome_ref}: "
+            + ("sem a fusão, a pergunta é se o reranker acrescenta algo ao "
+               "RECUPERADOR — a composição decidida no T1b2 é ΦEmb → ΦRank."
+               if a.sem_fusao else
+               "a pergunta do T1b é se o reranker acrescenta algo à fusão.")),
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(resultado, indent=2, ensure_ascii=False),
@@ -369,14 +420,17 @@ def main() -> int:
                   f"{c['veredito']}")
         print("    a regra: o BM25 só fica se a cadeia COM ele vencer.")
     print("=" * 74)
-    print(f"  TETO do reranker (recall@{a.profundidade} da fusão): {teto:.4f}")
+    print(f"  TETO do reranker (recall@{a.profundidade} "
+          f"{'do ΦEmb' if a.sem_fusao else 'da fusão'}): {teto:.4f}")
     # ⚠️ Os DOIS tetos impressos, não só o da fusão: se a cadeia escolhida for a
     # sem fusão, imprimir só o da fusão mostraria o limite do braço descartado.
-    if tem_rank:
+    # Com `--sem-fusao` os dois são o MESMO número, e imprimir duas vezes o mesmo
+    # valor com dois rótulos convida a ler dois tetos onde há um.
+    if tem_rank and not a.sem_fusao:
         print(f"  TETO sem a fusão (recall@{a.profundidade} do ΦEmb):    "
               f"{teto_denso:.4f}")
     print()
-    print("  PAREADO contra a fusão (McNemar exato, mesmas consultas):")
+    print(f"  PAREADO contra {nome_ref} (McNemar exato, mesmas consultas):")
     for r in pareados:
         if "erro" in r:
             print(f"    {r['erro']}")
