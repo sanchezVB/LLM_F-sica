@@ -287,13 +287,41 @@ T1C = Experimento(
     modelos=("models/phiemb-minilm-melhor", "models/phirank-rrf-melhor"),
 )
 
+T1D = Experimento(
+    nome="t1d",
+    titulo_dados="PhiFM T1d — ΦRank nos negativos do recuperador novo",
+    slug_dados="phifm-t1d-negativos-densos",
+    titulo_notebook="PhiFM T1d Rerank Denso",
+    slug_notebook="phifm-t1d-rerank-denso",
+    pacote="data/processed/kaggle_t1d",
+    fonte_celula="kaggle/t1d_phirank_denso.py",
+    # ⚠️ Os negativos DENSOS e limpos: minerados do top-50 do ΦEmb, que é a
+    # composição decidida no T1b2, e passados pelo filtro de co-citação.
+    #
+    # O ΦRank instalado foi treinado com negativos minerados pela FUSÃO RRF, que
+    # deixou de ser a composição — a distribuição de treino dele não é mais a
+    # distribuição que ele vê. É a causa mecânica provável de o ganho marginal
+    # dele ter encolhido de p=0,0081 para p=0,086.
+    arquivos=("pares_do_recuperador_denso_limpos.parquet",
+              "pares_validacao.parquet", "modelos.zip.bin"),
+    scripts=("train_rerank.py", "avaliar_t1b.py"),
+    # ⚠️ O ΦRank ANTIGO vai junto, e é o ponto do experimento.
+    #
+    # A pergunta é "quanto mudou", e essa exige o braço de referência medido na
+    # MESMA sessão. Em 2026-09-08 o T1b2 mediu o recuperador antigo junto e
+    # descobriu que o número histórico (0,1666) era 0,1685 no protocolo de hoje:
+    # comparar contra o histórico teria reportado SETE VEZES o efeito real.
+    modelos=("models/phiemb-do-sistema", "models/phirank-physbert-melhor"),
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
 VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C)}
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D)}
 
 
 def obter(nome: str) -> Experimento:
