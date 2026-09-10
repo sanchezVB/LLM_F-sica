@@ -14,7 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Primeiro sinal de virada: o pico do 6 M está a 93,4% do treino, não a 99,8% |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
-| **T1d** · ΦRank retreinado | 🟡 **rodando** (lançado 2026-09-09 00:22 UTC) | negativos do top-50 do ΦEmb: 16.391 grupos, 12,51% de co-citados removidos, 41,96 negativos por grupo. Dois reranqueadores na MESMA sessão, `--sem-fusao`. A regra e os três desfechos estão escritos. `phifm-t1d-rerank-denso` |
+| **T1d** · ΦRank retreinado | 🔴 **fechado: dois negativos** | a hipótese da distribuição **não se sustentou** (empate, p=0,50) e o novo NÃO substitui. E a leitura independente: **nenhuma das duas cadeias vence o ΦEmb sozinho** (p=0,14 e p=0,38) — pelo critério pré-registrado, o estágio de reordenação não paga o próprio custo com este recuperador |
 | **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu: a cadeia é `ΦEmb → ΦRank`. A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
@@ -36,6 +36,56 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## O T1d fechou com DOIS negativos, e o segundo é maior (2026-09-10)
+
+Treino de 50 min e duas avaliações de 85 min cada — **3h40**, contra as ~3h37 que a
+projeção dava. Os dois reranqueadores na mesma sessão, `--sem-fusao`, mesmas 2.000
+consultas, universo de 88.807, teto de 0,6325.
+
+### 1. A regra pré-registrada: EMPATE, e por regra o novo NÃO substitui
+
+| | antigo × novo | p |
+|---|---|---|
+| top-1 | 48 × 41 | **0,525** |
+| top-10 | 92 × 82 | **0,495** |
+
+Nem sombra na direção da hipótese: o **antigo** está nominalmente à frente nos dois
+k, e no nDCG@10 (**0,1676** contra 0,1632). A hipótese de que treinar o ΦRank na
+distribuição que ele vê recuperaria o ganho perdido **não se sustenta**.
+
+E o diagnóstico interno é coerente: no próprio grupo de treino o novo é
+*ligeiramente melhor* — acerto@1 **0,508** contra 0,498, ambos ±0,045. Ele aprendeu
+o que devia aprender e isso não chegou à cadeia. É o teto de novo.
+
+### 2. ⚠️ A leitura independente, que vale mais: a reordenação não paga o custo
+
+O critério estava escrito antes: *"se NENHUMA das duas cadeias vencer o ΦEmb sozinho
+em k=10, o estágio de reordenação não paga o próprio custo com este recuperador"*.
+
+| braço | ΦEmb × ΦEmb+ΦRank (k=10) | p |
+|---|---|---|
+| novo | 157 × 174 | 0,379 |
+| antigo | 141 × 168 | **0,139** |
+
+**Nenhuma vence.** Pelo critério pré-registrado, o estágio de reordenação — que
+custa 85 min de T4 por avaliação e 109 M de parâmetros em serviço — **não está
+estabelecido** contra simplesmente entregar o top-10 do recuperador.
+
+### O que isso NÃO diz, e a conta que resolve
+
+Não diz que o efeito é zero. O nDCG@10 sobe **+0,0091** (0,1585 → 0,1676) e o
+pareado é nominalmente favorável (168 contra 141). O que se pode afirmar é
+**"não estabelecido com 2.000 consultas"**, não "não existe".
+
+E dá para dizer quanto custaria estabelecer. Com 309 discordantes em 2.000 consultas
+e 54,4% deles a favor da cadeia, 80% de poder a α=0,05 exige **1.026 discordantes**
+— cerca de **6.640 consultas**, ou **4,7 h de T4 por braço**.
+
+Essa é a decisão que sobra: 4,7 h para estabelecer (ou refutar) um ganho de 0,0091
+num estágio que custa 109 M de parâmetros em serviço. **A conta não fecha a favor de
+medir**; fecha a favor de gastar as mesmas horas no recuperador, onde 37% das
+consultas ainda não recebem o alvo no top-100.
 
 ## O BM25 saiu da composição pela regra pré-registrada (2026-09-08)
 
