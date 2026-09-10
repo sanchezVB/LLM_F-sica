@@ -51,12 +51,22 @@ Nenhuma das cinco aparece na perda de treino. Todas produzem um número que pare
 comparável. Quatro delas produziram, no nosso caso, um resultado que eu acreditei
 antes de medir de novo.
 
-O diagnóstico da falha 1 fez uma predição, e nós a testamos (§10): um cross-encoder
-de base diferente do recuperador deve acrescentar algo. **Acrescenta — mas só se a
-base for de domínio.** Um modelo de recuperação forte do mesmo tamanho empata
-(p = 0,637); o encoder de Física vence (p = 0,0062). E o encoder de Física é, ele
-mesmo, um recuperador ruim neste benchmark, o que torna a assimetria o achado mais
-interessante do conjunto.
+O diagnóstico da falha 1 fez uma predição, e nós a testamos duas vezes.
+
+**Na primeira (§10) ela se confirmou:** um cross-encoder de base diferente acrescenta
+algo — mas só se a base for de domínio. Um modelo de recuperação forte do mesmo
+tamanho empata (p = 0,637); o encoder de Física vence (p = 0,0062). E o encoder de
+Física é, ele mesmo, um recuperador ruim neste benchmark.
+
+**Na segunda (§10.2) ela se confirmou de um jeito que apagou o resultado da
+primeira.** Melhorado o recuperador em 0,098, o mesmo reranqueador deixou de
+acrescentar qualquer coisa — cinco medições pareadas, três profundidades, nenhuma o
+separa do recuperador sozinho. Dobrar o conjunto de candidatos deu-lhe 195 alvos
+novos e ele promoveu **um**. O estágio saiu do sistema pela regra registrada antes.
+
+A lição que sobra é sobre transferência: **um resultado de reranking medido contra um
+recuperador fraco não transfere para um recuperador melhor**, e o intervalo entre as
+duas medições foi de quatro meses e uma linha de código.
 
 ---
 
@@ -194,8 +204,13 @@ do recuperador não tem informação nova para dar, por bem treinado que esteja.
 
 > **A lição não é "não minere do recuperador".** É que o grupo de treino tem de ter a
 > distribuição do grupo de inferência, e que **um reranqueador cuja base é a do
-> recuperador é redundante por construção** — o que é uma predição testável, e o
-> teste está em andamento.
+> recuperador é redundante por construção** — o que é uma predição testável.
+>
+> ⚠️ **Ela foi testada duas vezes, e a formulação acima está errada por um termo.**
+> A §10 confirma a primeira metade: um cross-encoder de base diferente bate a fusão.
+> A §10.2 mostra que a segunda estava mal enunciada — não é a **base** que decide,
+> é **o quanto o recuperador já é bom**. Quando ele melhorou 0,098, o mesmo
+> reranqueador de base diferente parou de acrescentar qualquer coisa.
 
 ### 3.4 O que isso acrescenta ao que já se sabia
 
@@ -465,10 +480,21 @@ conferir**.
    Um Spearman. Ele expõe a Falha 1 antes de qualquer avaliação de ponta a ponta.
 3. **Fazer a divisão levantar exceção**, não avisar. Um `logging.warning` de
    vazamento é lido depois de o resultado já ter sido reportado.
+4. ⚠️ **Escolher o teste que casa com o que a peça faz.** Nós pré-registramos
+   McNemar sobre "o alvo chegou ao top-k" para julgar um reranqueador — e esse teste
+   mede **pertencimento**, sendo cego para ordenação *dentro* do top-k, que é metade
+   do trabalho de um reranqueador. Um modelo que ordenasse o top-10 perfeitamente
+   mudaria muito o nDCG e nada o recall@10.
+
+   Registrar a regra antes é necessário e não basta: **a regra pode estar
+   pré-registrada e mesmo assim ser o instrumento errado.** A correção é barata —
+   calcular também um pareado sobre a métrica contínua (bootstrap sobre o nDCG por
+   consulta) — e no nosso caso os dois concordaram (§10.2), o que é sorte, não
+   método.
 
 ---
 
-## 10. A predição da §3.3, testada: é domínio, não diversidade
+## 10. A predição da §3.3, testada duas vezes — e o que a segunda apagou
 
 A explicação da §3.3 — redundância informacional entre reranqueador e recuperador —
 faz uma predição falsificável: um cross-encoder de base **diferente** deve bater a
@@ -509,6 +535,64 @@ hipótese barata de testar é que o cross-encoder pode usar interação termo a 
 entre consulta e documento, onde vocabulário de domínio rende, enquanto o bi-encoder
 precisa comprimir o documento num vetor antes de ver a consulta. É especulação até
 alguém medir.
+
+---
+
+### 10.2 A mesma predição, testada de novo — e o estágio saiu do sistema
+
+O resultado do §10 foi medido contra o recuperador de então. Depois dele, o
+recuperador melhorou: 6 M de arestas em vez de 400 mil, **+0,098 de nDCG@10** no
+protocolo do portão. E a explicação da §3.3 faz uma segunda predição, que a primeira
+formulação não separava: se o valor do reranqueador vem do que o recuperador deixa
+para trás, **um recuperador melhor deve encolher esse valor**.
+
+Encolheu até desaparecer. Cinco medições pareadas, com regra registrada antes de
+cada uma:
+
+| medição | reranqueador | profundidade | vence o recuperador sozinho? |
+|---|---|---|---|
+| 2026-09-08 | PhysBERT (o do §10) | 100 | não, p=0,139 |
+| 2026-09-09 | PhysBERT retreinado nos negativos novos | 100 | não, p=0,379 |
+| 2026-09-10 | PhysBERT (o do §10) | 50 | não, p=0,166 |
+| 2026-09-10 | " | 100 | não, p=0,139 |
+| 2026-09-10 | " | 200 | não, p=0,138 |
+
+#### O mecanismo, e ele é mais forte que os cinco empates
+
+Dobrar o conjunto de candidatos de 100 para 200 deu ao reranqueador **195 alvos
+novos** — consultas cujo documento certo passou a estar no conjunto. Ele trouxe
+**+1** para o top-10.
+
+Não é "traz menos". É ~nenhum, de 195 oportunidades. **O reranqueador não consegue
+promover um documento que o recuperador colocou entre a posição 100 e a 200**, o que
+é a redundância da §3.3 medida diretamente: consertados os negativos, o Spearman
+entre escore do reranqueador e posição do recuperador é **−0,466**, e um modelo que
+concorda com o recuperador não tem por que discordar dele em lugar nenhum.
+
+E há um segundo achado, que o critério pré-registrado não teria pego. Das **421**
+consultas com o alvo no top-10 nos dois sistemas, o reranqueador **desce** o alvo em
+167 e **sobe** em 141. Ele não ordena melhor dentro do top-10 — ordena um pouco
+pior. Todo o ganho aparente de nDCG (+0,0091) vem de pertencimento, +27 líquido, e
+**nada** de ordenação.
+
+#### O que isto corrige na §3.3
+
+A frase era "um reranqueador cuja **base** é a do recuperador é redundante por
+construção". O §10 refutou metade: base diferente **venceu**, com p=0,0062.
+
+A formulação certa é sobre **regime**, não sobre base: *o valor de um reranqueador é
+limitado pelo que o recuperador deixa para trás, e some quando o recuperador melhora
+o bastante*. O reranqueador do §10 não piorou — o recuperador subiu por baixo dele.
+
+**A consequência prática é desconfortável e generalizável: um estágio de reordenação
+tem de ser re-medido a cada mudança do recuperador, e um resultado de reranking
+publicado contra um recuperador fraco não transfere.** O nosso ganho de p=0,0062
+tinha quatro meses e continuou verdadeiro sobre aquele recuperador; sobre o
+seguinte, não.
+
+O estágio saiu da composição pela regra registrada antes. O sistema passou a ser
+`recuperador → top-10`, e o cross-encoder de 109 M de parâmetros deixou de existir
+em serviço.
 
 ---
 
@@ -737,6 +821,8 @@ commit. Os scripts que produzem cada tabela:
 | §7 | `scripts/medir_equacoes_mutiladas.py` |
 | §8 (tokenizador) | `scripts/bakeoff_tokenizer.py` |
 | §10 | `kaggle/t1c_phirank.py` |
+| §10.2 | `kaggle/t1d_phirank_denso.py`, `kaggle/t1e_profundidade.py` |
+| §10.2 (o mecanismo) | `scripts/diagnosticar_teto.py` |
 
 O que **não** é redistribuível: o corpus. Os resumos do arXiv seguem a licença de
 cada submissão, e a licença padrão do arXiv concede ao arXiv o direito de distribuir,
