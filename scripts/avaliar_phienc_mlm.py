@@ -55,7 +55,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
 import torch  # noqa: E402
-from transformers import AutoModelForMaskedLM  # noqa: E402
+from transformers import AutoModelForMaskedLM, AutoTokenizer  # noqa: E402
 
 from phifm.eval.mlm_regiao import (  # noqa: E402
     FRACAO_MASCARA,
@@ -63,7 +63,6 @@ from phifm.eval.mlm_regiao import (  # noqa: E402
     fracao_de_equacao,
     posicoes_mascaradas,
 )
-from phifm.models.encoder.config import ESPECIAIS  # noqa: E402
 from phifm.training.embedding import escolher_dispositivo  # noqa: E402
 from phifm.training.pretrain.dados import (  # noqa: E402
     BIT_MATH,
@@ -74,9 +73,28 @@ from phifm.training.pretrain.dados import (  # noqa: E402
 
 log = logging.getLogger("phienc-mlm")
 
-ID_MASK = ESPECIAIS["mask"]
-# Todo id abaixo disto é especial (`pad`, `unk`, `cls`, `sep`, `mask`).
-N_ESPECIAIS = max(ESPECIAIS.values()) + 1
+
+def especiais_do_modelo(caminho) -> tuple[int, set[int]]:
+    """`(id_de_mascara, ids_especiais)` — do tokenizer DO MODELO medido.
+
+    ## ⚠️ Por que não de uma constante do projeto
+
+    Isto era `ID_MASK = 4` e `posição proibida se id < 5`, que é a convenção das
+    nossas variantes (`phifm.models.encoder.config.ESPECIAIS`). Num modelo de
+    prateleira o `[MASK]` está noutro id e os especiais dele noutro conjunto:
+    mascarar com o token errado e desproteger os especiais certos produziria um
+    número com a cara certa.
+
+    Quem define o que é máscara é o modelo que vai receber a entrada, então a
+    fonte é o tokenizer dele.
+    """
+    tok = AutoTokenizer.from_pretrained(caminho)
+    if tok.mask_token_id is None:
+        raise SystemExit(
+            f"o tokenizer de {caminho} não declara `mask_token`. Sem ele não há "
+            "como fazer uma avaliação de MLM: a entrada mascarada seria um token "
+            "qualquer.")
+    return int(tok.mask_token_id), {int(x) for x in tok.all_special_ids}
 
 
 def exigir_disjunto(dados: Path) -> dict:
@@ -98,9 +116,11 @@ def exigir_disjunto(dados: Path) -> dict:
 
 
 def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
-            fracao: float) -> tuple[Contagem, dict]:
+            fracao: float, id_mask: int,
+            ids_especiais: set[int]) -> tuple[Contagem, dict]:
     """Uma passagem por `n_seq` sequências. Devolve a contagem e o diagnóstico."""
     c = Contagem()
+    lista_especiais = sorted(ids_especiais)
     eq_vistas, t0 = [], time.perf_counter()
     for indice in range(n_seq):
         ids = np.asarray(fluxo.tokens[indice * fluxo.cfg.contexto:
@@ -114,14 +134,15 @@ def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
             break
         eq_vistas.append(fracao_de_equacao(marcas, BIT_MATH))
 
-        proibidas = np.flatnonzero(ids < N_ESPECIAIS).astype(np.int64)
+        proibidas = np.flatnonzero(
+            np.isin(ids, lista_especiais)).astype(np.int64)
         pos = posicoes_mascaradas(ids.size, semente=semente, indice=indice,
                                   fracao=fracao, proibidas=proibidas)
         if pos.size == 0:
             continue
 
         entrada = ids.copy()
-        entrada[pos] = ID_MASK
+        entrada[pos] = id_mask
         t = torch.from_numpy(entrada).unsqueeze(0).to(dev)
         att = torch.ones_like(t)
         with torch.no_grad():
@@ -151,8 +172,16 @@ def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--modelo", type=Path, required=True,
-                   help="diretório exportado por `exportar_phienc.py`")
+    # ⚠️ `str` e não `Path`: aceita id do Hub além de caminho local.
+    #
+    # `Path("answerdotai/ModernBERT-base")` vira `WindowsPath` e o `str()` dele sai
+    # com barra invertida, que o `from_pretrained` não reconhece. É a SEGUNDA vez
+    # que este defeito aparece no projeto — a primeira foi no
+    # `diagnosticar_teto.py`, no mesmo dia. Onde um script aceita "modelo", o tipo
+    # certo é `str`.
+    p.add_argument("--modelo", required=True,
+                   help="diretório exportado por `exportar_phienc.py`, ou id do "
+                        "HuggingFace para medir uma base de fora")
     p.add_argument("--dados", type=Path, required=True,
                    help="fatia de avaliação, DISJUNTA do treino")
     p.add_argument("--out", type=Path, required=True)
@@ -176,17 +205,37 @@ def main() -> int:
     fluxo = Fluxo(ConfigDados(raiz=a.dados, contexto=a.contexto,
                               semente=a.semente))
 
+    id_mask, ids_especiais = especiais_do_modelo(a.modelo)
+    # ⚠️ A fatia tem de concordar com o modelo sobre o que é especial.
+    #
+    # O manifesto grava `id_cls`/`id_sep` usados para envolver cada documento. Se
+    # eles não estiverem entre os especiais do modelo, a fatia foi preparada para
+    # OUTRO tokenizer — e os ids do meio também significam outra coisa.
+    for chave in ("id_cls", "id_sep"):
+        ident = man_dados.get(chave)
+        if ident is not None and int(ident) not in ids_especiais:
+            raise SystemExit(
+                f"a fatia envolve os documentos com {chave}={ident}, que NÃO é "
+                f"especial para o tokenizer de {a.modelo} (especiais: "
+                f"{sorted(ids_especiais)}). A fatia foi tokenizada para outro "
+                "modelo, e os ids do meio também significam outra coisa.")
+    log.info("especiais do modelo: máscara=%d · %d ids especiais",
+             id_mask, len(ids_especiais))
+
     dev = escolher_dispositivo(a.dispositivo)
     modelo = AutoModelForMaskedLM.from_pretrained(
         a.modelo, attn_implementation="eager").to(dev).eval()
     log.info("modelo %s · vocab %s · contexto de avaliação %d · %s",
-             a.modelo.name, f"{modelo.config.vocab_size:,}", a.contexto, dev)
+             a.modelo, f"{modelo.config.vocab_size:,}", a.contexto, dev)
 
     # ⚠️ O vocabulário do modelo tem de casar com o do binário. A fatia de
     # avaliação é tokenizada pela variante, e medir a variante A sobre tokens da
     # C daria ids que significam outra coisa — sem levantar, se a C for menor.
     if man_dados.get("tokenizer_sha"):
-        prov = a.modelo / "phienc_exportado.json"
+        # ⚠️ Só um caminho local tem proveniência; um id do Hub não tem, e
+        # nesse caso a conferência de tokenizer não se aplica — a guarda que
+        # vale ali é a dos ids especiais, feita acima.
+        prov = Path(a.modelo) / "phienc_exportado.json"
         if prov.exists():
             esperado = json.loads(prov.read_text(encoding="utf-8")).get(
                 "tokenizer_sha")
@@ -198,7 +247,8 @@ def main() -> int:
                     "cara de uma medição. Prepare a fatia com o tokenizer da "
                     "variante.")
 
-    c, diag = avaliar(modelo, fluxo, a.n_sequencias, a.semente, dev, a.fracao)
+    c, diag = avaliar(modelo, fluxo, a.n_sequencias, a.semente, dev, a.fracao,
+                      id_mask, ids_especiais)
     d = c.como_dict()
 
     if not d["tokens_equacao"]:
@@ -218,7 +268,9 @@ def main() -> int:
         # comparador precisa poder RECUSAR em vez de subtrair.
         "protocolo": {"contexto": a.contexto, "fracao_mascara": a.fracao,
                       "semente": a.semente,
-                      "n_sequencias_pedidas": a.n_sequencias},
+                      "n_sequencias_pedidas": a.n_sequencias,
+                      "id_mascara": id_mask,
+                      "n_ids_especiais": len(ids_especiais)},
         "diagnostico": diag,
         **d,
         # Os vetores por token, para o McNemar pareado entre braços. Sem eles a
@@ -232,7 +284,7 @@ def main() -> int:
 
     print()
     print("=" * 74)
-    print(f"  MLM por região · {a.modelo.name} · contexto {a.contexto} · "
+    print(f"  MLM por região · {a.modelo} · contexto {a.contexto} · "
           f"{diag['sequencias_avaliadas']} sequências")
     print("=" * 74)
     print(f"  equação  {d['acuracia_equacao']:.4f}  "

@@ -30,7 +30,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · fatia de avaliação | 🟢 **51,7 M tokens, DISJUNTA** | `part-00022` — uma das 35 partes que o treino não usou. O manifesto declara `disjunto_do_treino` e as 9 excluídas; o avaliador de MLM **recusa** fatia que não declare |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
-| **ΦEnc** · avaliação | 🟢 **as três medidas existem** | recuperação (é o `avaliar_encoders.py`, não era código novo), MLM por região (com fatia disjunta exigida) e a sonda tensorial (especificada e calibrada). Falta o modelo para medir |
+| **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off | 🔴 **não roda na T4 gratuita** | 44 h por variante × 6 = **263 h** ≈ 8,8 semanas de cota, pela vazão MEDIDA (9,5 TFLOP/s). O DOC-05 orça **US$ 15** numa 4090 alugada — as rodadas são decisão de dinheiro, não de fila |
 
 Suíte: **682 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
@@ -40,6 +40,49 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## O MLM por região rodou num modelo real, e a leitura dele muda (2026-09-10)
+
+A medida nunca tinha visto um logit. Para rodá-la num modelo de prateleira faltavam
+duas peças, agora feitas: o `preparar_dados_phienc.py` ganhou
+`--especiais-do-tokenizer` (o default, que produziu os 2,00 B tokens, **não muda**) e
+o avaliador passou a ler máscara e especiais **do tokenizer do modelo medido**, em
+vez das constantes do projeto.
+
+**ModernBERT-base**, 2.000 sequências da fatia disjunta, 39,4% de token de equação,
+**192 s**:
+
+| | |
+|---|---|
+| acurácia em **equação** | **0,8765** (60.781 tokens) |
+| acurácia em **prosa** | 0,7480 (93.155 tokens) |
+| **vantagem em equação** | **+0,1286** |
+
+### ⚠️ E é isto que muda a leitura da medida
+
+O ModernBERT-base **nunca viu mascaramento consciente de equação**. Mesmo assim
+prevê token de equação muito melhor que prosa — LaTeX é redundante: fechado um
+`rac{`, o `}{` e o `}` vêm quase de graça.
+
+**Logo, uma `vantagem_em_equacao` positiva no braço tratado NÃO é evidência da
+hipótese do DOC-07 §2.3.** Ela já é +0,13 sem tratamento nenhum. O que testa a
+hipótese é a **diferença entre braços** dessa vantagem — uma diferença de diferenças.
+
+Sem essa linha de base ao lado, o número sairia com a cara de sucesso do
+mascaramento por span quando é propriedade do formato. A `Contagem.como_dict()`
+passou a emitir `linha_de_base_sem_tratamento: 0.1286` junto de cada resultado, e um
+teste fixa isso.
+
+### E dois defeitos do mesmo tipo, no mesmo dia
+
+`--emb` e `--modelo` eram `Path`, e no Windows `Path("answerdotai/ModernBERT-base")`
+sai com barra invertida do `str()` — o `from_pretrained` não reconhece. Apareceu no
+`diagnosticar_teto.py` de manhã e no `avaliar_phienc_mlm.py` à noite. **Onde um
+script aceita "modelo", o tipo certo é `str`.**
+
+O segundo custou 3 min de execução: o `.name` num `str` estourou **depois** do laço,
+na hora de imprimir. O artefato já estava gravado — a ordem "gravar, depois
+imprimir" é o que salvou, e é a mesma lição do `reconfigure(encoding)`.
 
 ## O GTE-base zero-shot EMPATA com o nosso ajustado no top-10 (2026-09-10)
 

@@ -92,7 +92,42 @@ SAIDA = Path("data/processed/phienc_dados")
 NOME_PROGRESSO = "_progresso.json"
 
 # Ids do tokenizer treinado. Ver `phifm.models.encoder.config.ESPECIAIS`.
+#
+# ⚠️ Estes são os das NOSSAS variantes, e o default continua sendo eles. O
+# `--especiais-do-tokenizer` deriva-os do tokenizer em uso, o que só faz sentido
+# para preparar uma fatia destinada a um modelo de fora — ver a função abaixo.
 ID_CLS, ID_SEP = 2, 3
+
+# Nomes que os tokenizers costumam usar para o mesmo papel, em ordem de
+# preferência. Um tokenizer estilo RoBERTa/ModernBERT chama de `<s>`/`</s>`; um
+# estilo BERT, de `[CLS]`/`[SEP]`.
+NOMES_INICIO = ("[CLS]", "<s>", "<|endoftext|>")
+NOMES_FIM = ("[SEP]", "</s>", "<|endoftext|>")
+
+
+def especiais_de(tok, derivar: bool) -> tuple[int, int]:
+    """`(id_inicio, id_fim)` — os nossos, ou os do tokenizer.
+
+    ⚠️ Com `derivar=False` (o padrão) devolve exatamente `ID_CLS, ID_SEP`. Esse é
+    o caminho que produziu os 2,00 B tokens de treino, e ele não muda.
+
+    Com `derivar=True`, procura os papéis no vocabulário do tokenizer. Falha alto
+    se não achar: envolver o documento com o id errado poria um token qualquer nas
+    bordas de cada sequência, o que a avaliação de MLM leria como texto.
+    """
+    if not derivar:
+        return ID_CLS, ID_SEP
+    achados = []
+    for nomes, papel in ((NOMES_INICIO, "início"), (NOMES_FIM, "fim")):
+        ident = next((tok.token_to_id(n) for n in nomes
+                      if tok.token_to_id(n) is not None), None)
+        if ident is None:
+            raise SystemExit(
+                f"--especiais-do-tokenizer: não achei o marcador de {papel} no "
+                f"tokenizer (tentei {list(nomes)}). Envolver o documento com o id "
+                "errado poria um token qualquer nas bordas de cada sequência.")
+        achados.append(ident)
+    return achados[0], achados[1]
 
 
 def _hash(p: Path) -> str:
@@ -132,6 +167,11 @@ def main() -> int:
     p.add_argument("--excluir-de", type=Path, default=None, metavar="DIR",
                    help="pula as partes que o run de treino em DIR ja usou; a "
                         "lista sai do MANIFESTO_DADOS.json dele")
+    # ⚠️ Só para preparar fatia destinada a um modelo DE FORA. Ver `especiais_de`.
+    p.add_argument("--especiais-do-tokenizer", action="store_true",
+                   help="deriva os ids de início/fim do tokenizer em uso, em vez "
+                        "dos do projeto. Necessário para medir um modelo de "
+                        "prateleira; NÃO usar para as variantes do §11.2")
     p.add_argument("--em-ordem", action="store_true",
                    help="lê as partes na ordem do disco em vez de sortear. Só para "
                         "reproduzir uma preparação antiga; enviesa")
@@ -207,6 +247,11 @@ def main() -> int:
         log.info("retomando: %d de %d partes já feitas", len(feitas), len(partes))
 
     tok = Tokenizer.from_file(str(a.tokenizer))
+    id_inicio, id_fim = especiais_de(tok, a.especiais_do_tokenizer)
+    if a.especiais_do_tokenizer:
+        log.info("especiais DO TOKENIZER: início=%d (%s) · fim=%d (%s)",
+                 id_inicio, tok.id_to_token(id_inicio),
+                 id_fim, tok.id_to_token(id_fim))
     n_tokens = int((a.out / NOME_TOKENS).stat().st_size // 2
                    if (a.out / NOME_TOKENS).exists() else 0)
     n_docs = 0
@@ -224,7 +269,7 @@ def main() -> int:
             for i in range(0, len(textos), a.por_lote):
                 bloco = textos[i:i + a.por_lote]
                 for texto, enc in zip(bloco, tok.encode_batch(bloco), strict=True):
-                    ids = np.array([ID_CLS, *enc.ids, ID_SEP], dtype=np.uint16)
+                    ids = np.array([id_inicio, *enc.ids, id_fim], dtype=np.uint16)
                     ide, disp = marcar_equacoes(enc.offsets, texto)
                     # Os especiais que envolvem o documento não são matemática.
                     marcas = np.concatenate([
@@ -270,7 +315,17 @@ def main() -> int:
         "partes_excluidas": sorted(excluidas),
         "disjunto_do_treino": bool(excluidas),
         "max_tokens": a.max_tokens,
-        "id_cls": ID_CLS, "id_sep": ID_SEP,
+        "id_cls": id_inicio, "id_sep": id_fim,
+        # ⚠️ TODOS os ids especiais do tokenizer, para o avaliador de MLM saber
+        # quais posições não pode mascarar. Ele assumia `id < 5`, que é a
+        # convenção das nossas variantes e falsa para qualquer outro tokenizer.
+        "ids_especiais": sorted({tok.token_to_id(t)
+                                 for t in tok.get_vocab()
+                                 if tok.token_to_id(t) is not None
+                                 and t in set(NOMES_INICIO) | set(NOMES_FIM)
+                                 | {"[PAD]", "[UNK]", "[MASK]", "<pad>", "<unk>",
+                                    "<mask>"}}),
+        "especiais_do_tokenizer": bool(a.especiais_do_tokenizer),
         "nota": ("Corpus do RedPajama-arXiv, construído do fonte LaTeX (ADR-0002). "
                  "NÃO peS2o: 0,0% de ambiente de equação contra 84,9% desta fatia. "
                  "As partes são SORTEADAS: medido que as 8 primeiras têm 32,4% de "

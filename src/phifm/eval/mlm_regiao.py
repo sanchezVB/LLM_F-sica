@@ -28,6 +28,30 @@ mascaramento por span ensina algo, ele tem de aparecer mesmo quando a prova é
 feita com máscara pontual. Se aparecer só com máscara por span, é memorização de
 formato, não capacidade — e essa distinção é a razão de a medida existir.
 
+## ⚠️ A LINHA DE BASE: token de equação já é MUITO mais fácil, sem tratamento
+
+Medido em 2026-09-10, primeira execução da medida num modelo real. O
+**ModernBERT-base** — que nunca viu mascaramento consciente de equação — sobre 2.000
+sequências da fatia disjunta (39,4% de token de equação):
+
+    acurácia em equação   0,8765
+    acurácia em prosa     0,7480
+    vantagem em equação   +0,1286
+
+LaTeX é redundante: fechado um `rac{`, o `}{` e o `}` vêm quase de graça, e os
+nomes de símbolo repetem dentro da mesma expressão. **Token de equação é
+intrinsecamente mais previsível que prosa**, e por larga margem.
+
+A consequência para o DOC-07 §2.3 é direta e fácil de errar: **uma
+`vantagem_em_equacao` positiva no braço tratado NÃO é evidência da hipótese** — ela
+já é positiva sem tratamento nenhum. A quantidade que testa a hipótese é a
+**diferença entre braços** dessa vantagem, uma diferença de diferenças:
+
+    (vantagem do tratado) − (vantagem do controle)
+
+Reportar só o número de dentro de um braço convidaria a ler +0,13 como sucesso do
+mascaramento por span quando é propriedade do LaTeX.
+
 ## ⚠️ As MESMAS posições para os dois braços
 
 `posicoes_mascaradas` é determinística em `(semente, sequência)`. Dois modelos
@@ -124,7 +148,15 @@ class Contagem:
                 round(self.acertos_equacao / self.total_equacao
                       - self.acertos_prosa / self.total_prosa, 4)
                 if self.total_equacao and self.total_prosa else None),
+            # ⚠️ A linha de base é +0,1286 SEM tratamento (ModernBERT-base,
+            # 2026-09-10). Sem isto ao lado, um leitor toma a vantagem de dentro
+            # de um braço por evidência da hipótese.
+            "linha_de_base_sem_tratamento": 0.1286,
             "nota": (
+                "⚠️ A `vantagem_em_equacao` já é +0,1286 num modelo SEM "
+                "tratamento (ModernBERT-base): token de LaTeX é intrinsecamente "
+                "mais previsível que prosa. O que testa a hipótese do DOC-07 §2.3 "
+                "é a DIFERENÇA ENTRE BRAÇOS desta vantagem, não o valor dela. "
                 "Máscara UNIFORME, ignorando as marcas — as marcas só dizem onde "
                 "cada acerto caiu. Avaliar com a política de máscara do braço "
                 "tratado o testaria na distribuição do próprio treino e o "

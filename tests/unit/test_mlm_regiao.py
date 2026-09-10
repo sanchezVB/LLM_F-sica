@@ -139,3 +139,25 @@ def test_fracao_de_equacao_avisa_quando_nao_ha_equacao():
     marcas[:37] = 1
     assert fracao_de_equacao(marcas, bit_math=1) == pytest.approx(0.37)
     assert fracao_de_equacao(np.empty(0, dtype=np.uint8), bit_math=1) == 0.0
+
+
+def test_a_LINHA_DE_BASE_sem_tratamento_acompanha_o_resultado():
+    """⚠️ A vantagem em equação já é grande SEM tratamento nenhum.
+
+    Medido em 2026-09-10, primeira execução da medida num modelo real: o
+    ModernBERT-base, que nunca viu mascaramento consciente de equação, dá
+    acurácia 0,8765 em equação contra 0,7480 em prosa — **+0,1286**.
+
+    LaTeX é redundante: fechado um `\frac{`, o `}{` e o `}` vêm quase de graça.
+    Então uma `vantagem_em_equacao` positiva no braço tratado **não é evidência**
+    da hipótese do DOC-07 §2.3 — o que a testa é a diferença ENTRE braços.
+
+    Sem este número ao lado, alguém lê +0,13 como sucesso do mascaramento por
+    span quando é propriedade do formato.
+    """
+    c = Contagem()
+    c.somar(certo=np.array([1, 1, 0, 1]), em_equacao=np.array([1, 1, 0, 0]))
+    d = c.como_dict()
+    assert d["linha_de_base_sem_tratamento"] == pytest.approx(0.1286)
+    assert "DIFERENÇA ENTRE BRAÇOS" in d["nota"]
+    assert "0,1286" in d["nota"]
