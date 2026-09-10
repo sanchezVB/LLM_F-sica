@@ -14,6 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Sinal de platô no 6 M: **15 avaliações consecutivas abaixo do pico** e queda de 1%, contra ≤1 ponto e ~0 nos outros três |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
+| **Truncagem 192** | 🔴 **não custa nada** | 63,8% das âncoras truncadas e 28,2% dos tokens descartados, e ler 256 ou 384 **não muda o recall** (pareado p=0,08–0,84) e custa 2,9× para embutir. Era a minha melhor aposta |
 | **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
 | **T1d** · ΦRank retreinado | 🔴 **fechado: dois negativos** | a hipótese da distribuição **não se sustentou** (empate, p=0,50) e o novo NÃO substitui. E a leitura independente: **nenhuma das duas cadeias vence o ΦEmb sozinho** (p=0,14 e p=0,38) — pelo critério pré-registrado, o estágio de reordenação não paga o próprio custo com este recuperador |
 | **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu: a cadeia é `ΦEmb → ΦRank`. A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
@@ -37,6 +38,50 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## A truncagem a 192 tokens não custa nada, e era a minha melhor aposta (2026-09-10)
+
+Todos os cinco runs da T1a usaram `max_tokens=192`, e nunca foi variado. Medido: a
+**mediana** de uma âncora é **228 tokens**, então **63,8% são truncadas** e **28,2%
+de todo o texto** nunca chega ao modelo. Parecia o lever mais barato do recuperador.
+
+A versão gratuita da pergunta — o ΦEmb **já treinado** lendo mais texto, no universo
+real de 88.807 e nas mesmas 2.000 consultas, três execuções locais de 40 min:
+
+| max_tokens | r@1 | r@10 | r@50 | r@100 | r@200 | r@1000 | custo |
+|---|---|---|---|---|---|---|---|
+| **192** | 0,0655 | 0,2810 | 0,5210 | 0,6325 | 0,7300 | 0,9045 | 217 s |
+| 256 | 0,0680 | 0,2765 | 0,5125 | 0,6410 | 0,7280 | 0,9105 | 498 s |
+| 384 | 0,0665 | 0,2795 | 0,5045 | 0,6290 | 0,7255 | 0,9090 | 625 s |
+
+**Nada.** Os deltas ficam em ±0,005, trocam de sinal entre profundidades, e o pareado
+não separa nenhum par:
+
+| | k=10 | k=100 | k=200 |
+|---|---|---|---|
+| 256 contra 192 | p=0,349 | p=0,082 | p=0,728 |
+| 384 contra 192 | p=0,839 | p=0,592 | p=0,431 |
+
+E custa **2,9× mais** para embutir o mesmo universo (217 s → 625 s) — que é custo de
+serviço, não só de avaliação.
+
+O controle a 192 **reproduziu byte a byte** o `teto_do_recuperador.json` da manhã, o
+que é o que autoriza ler a tabela.
+
+### ⚠️ O que isto NÃO prova, e por que mesmo assim decide
+
+Não prova que **treinar** a 384 não ajudaria. O modelo foi ajustado a 192: ele pode
+ter aprendido a comprimir os primeiros 192 tokens e simplesmente não usar o resto, e
+um treino a 384 poderia aprender a usá-lo. A evidência é contra a expectativa, não
+contra a hipótese.
+
+Mas ela **remove a razão de esperar** o ganho, e era essa expectativa que justificava
+gastar cota. A previsão registrada antes de medir era: *"resumo científico é
+carregado na frente — título e primeiras frases dão o tópico, e a cauda costuma ser
+método e resultado"*. É o que o número diz.
+
+**Decisão: a truncagem sai da frente da fila.** De lever mais promissor do
+recuperador passou a ser o mais fraco dos não testados.
 
 ## Onde estão os 37%: é lacuna de modelo, não teto da tarefa (2026-09-10)
 
