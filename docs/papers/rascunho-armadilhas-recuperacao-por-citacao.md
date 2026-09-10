@@ -136,8 +136,14 @@ citação vem do OpenAlex e dá **6,56 M de arestas**; a validação usa **88.80
 documentos citados distintos**.
 
 **Modelos.** Recuperador denso: `all-MiniLM-L6-v2` ajustado com InfoNCE. Léxico: BM25.
-Fusão: Reciprocal Rank Fusion (Cormack et al., 2009), k = 60. Reranqueador:
+Fusão: Reciprocal Rank Fusion (Cormack et al., 2009), k = 60 — valor herdado de um
+piloto, e os autores registram que *"a escolha não é crítica"* (§12.4). Reranqueador:
 cross-encoder par a par, inicializado da mesma base do recuperador.
+
+⚠️ **Esta é a composição ESTUDADA, e nenhum dos dois estágios sobreviveu.** O BM25
+saiu em 2026-09-08 e o reranqueador em 2026-09-10, os dois por regra registrada antes
+de medir. O sistema final é `recuperador → top-10`. As duas remoções são resultado,
+não simplificação: ver §10.2.
 
 **Métrica e teste.** nDCG@10 e recall@k. As comparações entre sistemas são **McNemar
 exato** sobre pares discordantes de "o alvo chegou ao top-k". Isto importa mais do que
@@ -189,7 +195,13 @@ lá. "Estar no topo" deixa de predizer o rótulo.
 
 O reranqueador consertado é forte dentro do grupo — acerto@1 de **0,498 ± 0,045**
 contra 0,125 do acaso e 0,20–0,25 do próprio RRF nos mesmos grupos — e **não acrescenta
-nada ao sistema**:
+nada ao sistema**.
+
+> ⚠️ **Os números abaixo são de 2026-08, com o recuperador daquela época.** Ele
+> melhorou 0,098 desde então, e a composição mudou duas vezes: o BM25 saiu por regra
+> pré-registrada e o reranqueador saiu depois. Os valores atuais estão na §10.2. A
+> tabela fica porque é a medição que motivou a investigação, não porque descreve o
+> sistema de hoje.
 
 | sistema | r@1 | r@10 | nDCG@10 | McNemar vs fusão (k=10) |
 |---|---|---|---|---|
@@ -326,6 +338,16 @@ de 0,999.
 > um artigo sobre armadilhas de medição publicou uma tabela medida com a régua torta
 > — a dele mesmo.
 
+⚠️ **E o teto comprimido não erra só para um lado.** No §1 ele transformou uma
+derrota em empate. Na §8 ele **fabricou dois resultados nulos** — inclusive o do
+volume de dados, que remedido é a alavanca mais bem estabelecida do projeto
+(+0,0196 por dobra, quatro pontos, resíduo máximo 0,0039).
+
+Das duas direções, a do nulo é pior. Um positivo errado convida alguém a tentar
+reproduzir; **um nulo é escrito como "tentamos, não funciona" e fecha a linha**. Se
+este rascunho tivesse sido submetido com a §8 original, a recomendação publicada
+seria *não gastar computação em mais dados*.
+
 ---
 
 ## 5. Falha 3 — divisão por posição não divide
@@ -430,21 +452,54 @@ construído do fonte LaTeX estava no disco havia dezessete dias.
 
 ---
 
-## 8. Duas alavancas que não moveram nada
+## 8. ⚠️ Duas alavancas que eu declarei nulas, e as duas moveram
 
-Não é falha, é resultado nulo, e vale registrar porque as duas são o que se faria por
-reflexo:
+Esta seção se chamava *"duas alavancas que não moveram nada"* e trazia esta tabela:
 
 | variação | nDCG@10 | vs campeão | McNemar |
 |---|---|---|---|
-| **campeão: 400 mil pares, 127 negativos** | **0,4579** | — | — |
+| campeão: 400 mil pares, 127 negativos | 0,4579 | — | — |
 | 400 mil pares, **511 negativos** (GradCache) | 0,4486 | −0,0093 | p = 0,636 |
 | **1,5 M pares**, 127 negativos | 0,4520 | −0,0059 | p = 0,950 |
 
-Quadruplicar os negativos in-batch e multiplicar os dados por 3,75 nominalmente
-**pioram**, e os testes pareados dizem empate nos dois casos. O enunciado honesto não
-é "piorou": é que **nenhuma das duas compra nada mensurável nesta escala**, e o
-orçamento de computação delas foi gasto sem retorno.
+Conclusão publicada: *"nenhuma das duas compra nada mensurável nesta escala, e o
+orçamento de computação delas foi gasto sem retorno"*.
+
+**Está errada, e o motivo é a §4.2.** Os três números vêm do protocolo cujo teto era
+0,7562 em vez de 1,0. Remedidos no protocolo corrigido, com os **mesmos dois modelos
+que a tabela acima compara**:
+
+| variação | nDCG@10 | Δ | pareado k=1 | pareado k=10 |
+|---|---|---|---|---|
+| 400 mil pares, 127 negativos | 0,5246 | — | — | — |
+| 400 mil pares, **511 negativos** | 0,5272 | +0,0025 | **vence, p=0,009** | empate, p=0,382 |
+| **1,5 M pares**, 127 negativos | 0,5442 | **+0,0195** | vence, p=0,0065 | **vence, p=0,0002** |
+
+E com o sorteio consertado (§5), o eixo de volume fica ainda mais claro:
+
+| | nDCG@10 | Δ | pareado k=10 |
+|---|---|---|---|
+| 400 mil, sorteado | 0,5462 | — | — |
+| **1,5 M, sorteado** | **0,5780** | **+0,0318** | vence, **p = 1,7e-12** |
+
+**O volume de dados não era uma alavanca nula: é a mais bem estabelecida do projeto.**
+Estendida a curva, quatro pontos entre 400 mil e 6 M dão
+`nDCG = 0,179 + 0,0196·log₂(pares)` com resíduo máximo de 0,0039 — **+0,0196 por
+dobra**, quase perfeitamente log-linear.
+
+Os negativos in-batch continuam sendo o caso fraco — +0,0025, e só o top-1 separa —,
+mas nem esse é o "nominalmente pior" que a versão anterior reportava.
+
+### ⚠️ O que este erro tem de pior que o do §1
+
+O §4.2 mostra o teto quebrado transformando uma derrota em empate. **Aqui ele
+fabricou dois nulos**, e essa direção é mais insidiosa: um resultado positivo errado
+alguém tenta reproduzir, mas **um nulo é escrito como "tentamos, não funciona" e
+fecha a linha de investigação**. Se este rascunho tivesse sido submetido com a §8
+original, a recomendação publicada teria sido *não gastar computação em mais dados* —
+exatamente o contrário do que a curva mostra.
+
+Foi preciso consertar a régua por outro motivo (o §1) para que estes dois voltassem.
 
 Um resultado adjacente do mesmo tipo, em tokenização: BPE contra Unigram em 200 mil
 resumos de Física, mesmo vocabulário e mesmas regras de pré-tokenização. Bostrom &
