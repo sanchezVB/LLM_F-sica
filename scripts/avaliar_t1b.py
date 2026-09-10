@@ -143,6 +143,20 @@ def main() -> int:
                    help="mede só a composição decidida (ΦEmb → ΦRank): não "
                         "indexa BM25, não funde, e reordena uma vez por "
                         "consulta em vez de duas")
+    # ⚠️ As sub-profundidades saem DE GRAÇA da mesma passagem.
+    #
+    # O escore do cross-encoder é do par (consulta, documento) e não depende de
+    # quem mais está no conjunto. Pontuados os `--profundidade` candidatos, a
+    # cadeia a uma profundidade MENOR é só reordenar os N primeiros da ordem
+    # densa pelos mesmos escores — zero passagens adicionais.
+    #
+    # Medir @100 num segundo run custaria 85 min e cairia na armadilha do T1b2:
+    # comparar sessões diferentes. Assim as profundidades saem pareadas
+    # exatamente, com o mesmo modelo em memória e as mesmas consultas.
+    p.add_argument("--sub-profundidades", default="",
+                   help="lista separada por vírgula, ex. 50,100. A cadeia é "
+                        "avaliada também restrita aos N primeiros da ordem densa, "
+                        "reusando os escores já calculados")
     p.add_argument("--depurar", type=int, default=0,
                    help="imprime a posição do alvo antes e depois do ΦRank nas N "
                         "primeiras consultas em que ele está no conjunto")
@@ -236,6 +250,16 @@ def main() -> int:
     # universo é compartilhado, então duas passagens custam o mesmo que dois runs
     # — e o pareamento fica exato, com as mesmas consultas na mesma ordem.
     pos_rank_denso: list = []
+    # ⚠️ Ver `--sub-profundidades`: cada N ganha a sua lista de posições, e todas
+    # saem da MESMA passagem de reordenação.
+    subs = [int(x) for x in a.sub_profundidades.split(",") if x.strip()]
+    for n in subs:
+        if n > a.profundidade:
+            raise SystemExit(
+                f"--sub-profundidades {n} é maior que --profundidade "
+                f"{a.profundidade}; não há escores para candidatos que a "
+                "execução nunca pontuou")
+    pos_sub: dict[int, list] = {n: [] for n in subs}
     depurados = [0]
     t0 = time.perf_counter()
     for i, (consulta, alvo) in enumerate(zip(consultas, alvos, strict=True)):
@@ -276,6 +300,13 @@ def main() -> int:
                 ord_rank_denso, e = _reordenar(consulta, ord_emb)
                 pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
                 ord_rank = ord_rank_denso
+                # As sub-profundidades, dos MESMOS escores. `e` está na ordem de
+                # `ord_emb`, então os N primeiros escores são os dos N primeiros
+                # candidatos densos — nenhuma passagem adicional pelo modelo.
+                for n in subs:
+                    recorte = ord_emb[:n]
+                    ordem = [recorte[k] for k in np.argsort(-e[:n])]
+                    pos_sub[n].append(_posicao(ordem, alvo))
             else:
                 ord_rank, e = _reordenar(consulta, ord_rrf)
                 pos_rank.append(_posicao(ord_rank, alvo))
@@ -324,6 +355,8 @@ def main() -> int:
         sistemas = [bloco("ΦEmb", pos_emb)]
         if tem_rank:
             sistemas.append(bloco("ΦEmb+ΦRank", pos_rank_denso))
+            for n in subs:
+                sistemas.append(bloco(f"ΦEmb+ΦRank @{n}", pos_sub[n]))
     else:
         sistemas = [bloco("BM25", pos_bm), bloco("ΦEmb", pos_emb),
                     bloco("ΦEmb+BM25 (RRF)", pos_rrf)]
@@ -350,7 +383,9 @@ def main() -> int:
     referencia, nome_ref = ((pos_emb, "ΦEmb") if a.sem_fusao
                             else (pos_rrf, "ΦEmb+BM25 (RRF)"))
     if a.sem_fusao:
-        contra = [("ΦEmb+ΦRank", pos_rank_denso)] if tem_rank else []
+        contra = ([("ΦEmb+ΦRank", pos_rank_denso),
+                   *((f"ΦEmb+ΦRank @{n}", pos_sub[n]) for n in subs)]
+                  if tem_rank else [])
     else:
         contra = [("BM25", pos_bm), ("ΦEmb", pos_emb),
                   *((("ΦEmb+BM25+ΦRank", pos_rank),
@@ -377,6 +412,14 @@ def main() -> int:
                              "ΦEmb+ΦRank (sem fusão)", "ΦEmb+BM25+ΦRank")
                   for k in (1, 10)]
                  if tem_rank and not a.sem_fusao else [])
+    # ⚠️ E o confronto entre PROFUNDIDADES, que é a pergunta de 2026-09-10: o
+    # reranqueador ganha com mais candidatos, ou eles só trazem distratores?
+    # Pareado exato, porque os dois recortes saem da mesma passagem.
+    if tem_rank and a.sem_fusao:
+        confronto += [
+            mcnemar_em(pos_sub[n], pos_rank_denso, k,
+                       f"ΦEmb+ΦRank @{n}", f"ΦEmb+ΦRank @{a.profundidade}")
+            for n in subs for k in (1, 10)]
 
     teto = recall_em(pos_emb if a.sem_fusao else pos_rrf, a.profundidade)
     # ⚠️ DOIS tetos, porque agora há duas cadeias. O da fusão limita o

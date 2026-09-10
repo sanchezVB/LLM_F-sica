@@ -213,3 +213,65 @@ def test_as_POSICOES_por_consulta_vao_no_artefato(tmp_path):
         assert round(recall_em(s["posicoes"], 1), 4) == s["recall_1"], s["sistema"]
         assert round(recall_em(s["posicoes"], 10), 4) == s["recall_10"]
     assert "mcnemar_em" in d["nota_posicoes"]
+
+
+# ── sub-profundidades: a curva de profundidade DE GRAÇA ─────────────────────
+
+
+def test_as_sub_profundidades_saem_da_MESMA_passagem(tmp_path):
+    """⚠️ O escore do cross-encoder é do par (consulta, documento) e não depende
+    de quem mais está no conjunto.
+
+    Pontuados os `--profundidade` candidatos, a cadeia a uma profundidade MENOR é
+    só reordenar os N primeiros da ordem densa pelos mesmos escores. Medir @2 num
+    segundo run custaria outra passagem inteira e cairia na armadilha do T1b2:
+    comparar sessões diferentes.
+    """
+    r, saida = _rodar(tmp_path, "--sem-fusao", "--sub-profundidades", "2,3")
+    assert r.returncode == 0, r.stdout + r.stderr
+    d = json.loads(saida.read_text(encoding="utf-8"))
+    nomes = [s["sistema"] for s in d["sistemas"]]
+    assert nomes == ["ΦEmb", "ΦEmb+ΦRank", "ΦEmb+ΦRank @2", "ΦEmb+ΦRank @3"], nomes
+    # Cada sub-profundidade tem as suas posições, do mesmo tamanho.
+    for s in d["sistemas"]:
+        assert len(s["posicoes"]) == d["n_consultas"], s["sistema"]
+
+
+def test_a_sub_profundidade_NAO_pode_exceder_a_profundidade(tmp_path):
+    """Não há escore para candidato que a execução nunca pontuou; deixar passar
+    daria uma linha silenciosamente idêntica à profundidade cheia."""
+    r, _ = _rodar(tmp_path, "--sem-fusao", "--sub-profundidades", "999")
+    assert r.returncode != 0
+    assert "maior que --profundidade" in (r.stdout + r.stderr)
+
+
+def test_o_confronto_entre_PROFUNDIDADES_e_calculado(tmp_path):
+    """A pergunta de 2026-09-10: o reranqueador ganha com mais candidatos, ou
+    eles só trazem distratores? Pareado exato, porque os recortes saem da mesma
+    passagem."""
+    r, saida = _rodar(tmp_path, "--sem-fusao", "--sub-profundidades", "2")
+    assert r.returncode == 0, r.stdout + r.stderr
+    d = json.loads(saida.read_text(encoding="utf-8"))
+    c = d["confronto_das_cadeias"]
+    assert len(c) == 2, c
+    for x in c:
+        assert x["a"] == "ΦEmb+ΦRank @2", x
+        assert x["b"] == "ΦEmb+ΦRank @5", x
+    assert {x["k"] for x in c} == {1, 10}
+
+
+def test_a_sub_profundidade_igual_a_profundidade_reproduz_a_cadeia(tmp_path):
+    """A conferência de sanidade do recorte: restringir aos `profundidade`
+    primeiros é não restringir, e tem de dar exatamente a mesma coisa.
+
+    Se der diferente, o recorte está desalinhado com os escores — e um
+    desalinhamento produziria uma curva de profundidade inteira errada, com a
+    cara certa.
+    """
+    r, saida = _rodar(tmp_path, "--sem-fusao", "--sub-profundidades", "5")
+    assert r.returncode == 0, r.stdout + r.stderr
+    d = json.loads(saida.read_text(encoding="utf-8"))
+    cheia = next(s for s in d["sistemas"] if s["sistema"] == "ΦEmb+ΦRank")
+    recorte = next(s for s in d["sistemas"] if s["sistema"] == "ΦEmb+ΦRank @5")
+    assert recorte["posicoes"] == cheia["posicoes"]
+    assert recorte["ndcg_10"] == cheia["ndcg_10"]
