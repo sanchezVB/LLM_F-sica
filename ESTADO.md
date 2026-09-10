@@ -12,8 +12,9 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
-| **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Primeiro sinal de virada: o pico do 6 M está a 93,4% do treino, não a 99,8% |
+| **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Sinal de platô no 6 M: **15 avaliações consecutivas abaixo do pico** e queda de 1%, contra ≤1 ponto e ~0 nos outros três |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
+| **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
 | **T1d** · ΦRank retreinado | 🔴 **fechado: dois negativos** | a hipótese da distribuição **não se sustentou** (empate, p=0,50) e o novo NÃO substitui. E a leitura independente: **nenhuma das duas cadeias vence o ΦEmb sozinho** (p=0,14 e p=0,38) — pelo critério pré-registrado, o estágio de reordenação não paga o próprio custo com este recuperador |
 | **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu: a cadeia é `ΦEmb → ΦRank`. A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
@@ -36,6 +37,76 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Onde estão os 37%: é lacuna de modelo, não teto da tarefa (2026-09-10)
+
+O T1d fechou dizendo que o trabalho seguinte é no recuperador. Antes de gastar T4,
+a medição que decide *qual* trabalho: o posto verdadeiro do alvo entre os **88.807**
+documentos, nas mesmas 2.000 consultas, com o BM25 como controle. Sete minutos na
+RX 7600.
+
+| faixa do posto | ΦEmb | BM25 |
+|---|---|---|
+| 1 | 131 (6,6%) | 120 (6,0%) |
+| 2–10 | 431 (21,6%) | 337 (16,9%) |
+| 11–100 | 703 (35,1%) | 451 (22,6%) |
+| **101–1.000** | **544 (27,2%)** | 451 (22,6%) |
+| 1.001–10.000 | 175 (8,8%) | 418 (20,9%) |
+| **> 10.000** | **16 (0,8%)** | 223 (11,2%) |
+| **mediana** | **43** | 161 |
+
+### A resposta: o prêmio está perto, e é grande
+
+Das **735 consultas** perdidas no top-100, a **mediana do posto é 396** — percentil
+99,55 de 88.807. O modelo já as coloca quase no topo; elas só não passam do corte.
+
+E o teto da tarefa é minúsculo: **10 consultas** (0,5% do total) têm o alvo além de
+10.000 para os **dois** métodos. Dois recuperadores de viés oposto falhando juntos é
+a evidência mais forte disponível sem julgamento humano — e ela diz que quase nada
+aqui é irrecuperável.
+
+**Os 37% são lacuna de modelo, não limite da tarefa.**
+
+### ⚠️ A profundidade é o lever mais barato, e por uma margem absurda
+
+| profundidade | recall |
+|---|---|
+| @10 | 0,2810 |
+| @100 (o atual) | 0,6325 |
+| **@200** | **0,7300** |
+| @500 | 0,8460 |
+| @1.000 | 0,9045 |
+
+Ir de 100 para 200 candidatos sobe o teto em **+0,098**. Pela curva de volume
+(+0,0196 por dobra), o mesmo ganho exigiria **cinco dobras de dado** — 32× os pares,
+~294 h de T4. A profundidade custa **2× o tempo de reordenação e zero de treino**.
+
+⚠️ Com a ressalva que o T1d impõe: profundidade só vale se houver reranqueador para
+explorá-la, e o T1d disse que ele não está estabelecido em @100. As duas coisas se
+combinam numa pergunta só — **o reranqueador ganha quando tem 200 candidatos em vez
+de 100?** — e essa ainda não foi feita.
+
+### E o BM25 sai de novo, por uma porta independente da regra do T1b2
+
+A comparação de **orçamento igual**, que é a única honesta: "denso@100 + bm25@100"
+custa até 200 candidatos, então o controle é `denso@200`.
+
+| composição | candidatos | recall |
+|---|---|---|
+| denso@100 | 100 | 0,6325 |
+| união(denso@100, bm25@100) | ≤200 | 0,6835 |
+| **denso@200** | 200 | **0,7300** |
+
+O denso sozinho vence por **+0,047** no mesmo orçamento, e o padrão se repete em toda
+profundidade: o que o BM25 acrescenta é sempre **cerca de metade** do que os mesmos
+candidatos extras do denso dariam (+0,051 contra +0,098; +0,026 contra +0,051; +0,010
+contra +0,020).
+
+Isto **não** era o que a regra do T1b2 testou — ela comparou a fusão RRF truncada em
+100 contra o denso em 100. Cheguei a supor que o defeito da fusão fosse a truncagem,
+e não a informação do BM25; a conta acima **refuta essa suposição**. O BM25 não tem
+o que acrescentar em orçamento igual, e a decisão de tirá-lo se confirma por dois
+caminhos independentes.
 
 ## O T1d fechou com DOIS negativos, e o segundo é maior (2026-09-10)
 
@@ -396,17 +467,29 @@ vence com p=0,0012.
 
 ### Primeiro sinal de virada da curva
 
-| run | passos | pico | fração do treino |
-|---|---|---|---|
-| 400 mil | 3.125 | 0,6147 | 89,6% |
-| 1,5 M | 11.718 | 0,6567 | 97,3% |
-| 3 M | 23.437 | 0,6804 | 99,8% |
-| **6 M** | 46.875 | **0,7022** | **93,4%** |
+⚠️ **A estatística que estava aqui era a errada, e a conclusão sobreviveu à
+troca.** A versão anterior comparava a *fração do treino* em que o pico caiu — 93,4%
+no run de 6 M contra 99,8% no de 3 M — e concluía "é a primeira vez que a curva não
+termina subindo". **É falso:** o run de 400 mil teve o pico a **89,6%**, ainda mais
+cedo. A fração não mede saturação; mede onde a grade de avaliação (a cada 200 passos)
+calha de pegar o máximo.
 
-Nos três primeiros o pico estava no fim — sinal de que mais passos ainda
-ajudariam. No de 6 M ele está a 93,4%, e os dois pontos seguintes caem (0,6919 e
-0,6335 de MRR). **É a primeira vez que a curva não termina subindo.** Não é platô
-de dado provado, mas é o primeiro indício de que o volume começou a saturar.
+A estatística certa é **quanto a curva caiu depois do pico, e por quantos pontos**:
+
+| run | passos | pico | pontos APÓS o pico | queda até o fim |
+|---|---|---|---|---|
+| 400 mil | 3.125 | 0,6147 | 1 | 0,0002 (0,03%) |
+| 1,5 M | 11.718 | 0,6567 | 1 | 0,0010 (0,15%) |
+| 3 M | 23.437 | 0,6804 | 0 | 0,0000 |
+| **6 M** | 46.875 | **0,7022** | **15** | **0,0071 (1,01%)** |
+
+Nesse recorte o sinal é muito mais forte do que a fração sugeria: o run de 6 M passou
+**~3.000 passos e 15 avaliações consecutivas sem bater o próprio pico**, com queda de
+1%. Os outros três nunca passaram de **um** ponto de avaliação abaixo do máximo, com
+queda indistinguível de ruído.
+
+Continua não sendo platô de dado provado — é o comportamento de **um** run. Mas agora
+a evidência é a que a afirmação precisa, e não uma coincidência de grade.
 
 Ganhos por dobra, no protocolo do portão: **+0,020 / +0,032 / +0,025 / +0,020**.
 Ainda não decrescem monotonicamente, e o dado restante é pouco: 6 M de 6.564.111
