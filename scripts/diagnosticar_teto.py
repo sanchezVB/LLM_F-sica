@@ -114,7 +114,14 @@ def histograma(postos: list[int]) -> list[dict]:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
-    p.add_argument("--emb", type=Path, default=Path(RECUPERADOR))
+    # ⚠️ `str` e não `Path`: aceita id do Hub além de caminho local.
+    #
+    # `Path("thenlper/gte-base")` vira `WindowsPath('thenlper/gte-base')` e o
+    # `str()` dele sai com barra invertida — o `from_pretrained` não reconhece e
+    # tenta abrir um diretório que não existe. Medir uma base de fora contra a
+    # nossa é justamente o que este diagnóstico serve para fazer.
+    p.add_argument("--emb", default=RECUPERADOR,
+                   help="caminho local ou id do HuggingFace")
     p.add_argument("--n-consultas", type=int, default=2000)
     p.add_argument("--max-tokens", type=int, default=192)
     p.add_argument("--lote", type=int, default=64)
@@ -180,6 +187,7 @@ def main() -> int:
 
     resultado = {
         "recuperador": str(a.emb).replace("\\", "/"),
+        "max_tokens": a.max_tokens,
         "universo": len(ids_pool),
         "n_consultas": len(consultas),
         "semente": a.semente,

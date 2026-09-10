@@ -115,3 +115,6 @@ Thumbs.db
 # e ele é regenerado junto — versionar o parquet seria guardar duas vezes o que a
 # espinha já tem.
 /data/processed/kaggle_t1a/
+
+# Cache do HuggingFace no HD. ⚠️ Nada de modelo vai para o C:.
+/.hf_cache/

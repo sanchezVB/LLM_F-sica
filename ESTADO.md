@@ -14,6 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Sinal de platô no 6 M: **15 avaliações consecutivas abaixo do pico** e queda de 1%, contra ≤1 ponto e ~0 nos outros três |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
+| **Base do recuperador** | 🟡 **o GTE-base zero-shot EMPATA** | 0,2755 contra 0,2810 de r@10 (p=0,545) **sem uma linha do nosso dado** — mas perde fundo (r@200 0,645 contra 0,730) e custa **4,4×** para embutir. A sonda que decide é GTE-base@400k, 2h39 |
 | **T1e** · profundidade | 🔴 **o ΦRank SAI do sistema** | dobrar o candidato move **1,95%** das consultas (19×20, p=1,0). O teto subiu 0,098 e o recall@10 subiu **+1 consulta** de 195 oportunidades. A cadeia é `ΦEmb → top-10` |
 | **Truncagem 192** | 🔴 **não custa nada** | 63,8% das âncoras truncadas e 28,2% dos tokens descartados, e ler 256 ou 384 **não muda o recall** (pareado p=0,08–0,84) e custa 2,9× para embutir. Era a minha melhor aposta |
 | **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
@@ -39,6 +40,71 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## O GTE-base zero-shot EMPATA com o nosso ajustado no top-10 (2026-09-10)
+
+Medido local, sem cota: os dois candidatos a base contra o recuperador do sistema,
+no universo real de 88.807 e nas mesmas 2.000 consultas.
+
+| modelo | r@1 | r@10 | r@100 | r@200 | mediana | custo |
+|---|---|---|---|---|---|---|
+| **ΦEmb do sistema** (23 M, 6 M pares) | 0,0655 | **0,2810** | **0,6325** | **0,7300** | 43 | 217 s |
+| **GTE-base zero-shot** (109 M) | 0,0625 | 0,2755 | 0,5615 | 0,6450 | 64 | 954 s |
+| MiniLM-L6 zero-shot (23 M) | 0,0520 | 0,2130 | 0,4555 | 0,5335 | 152 | 222 s |
+
+| pareado contra o ΦEmb | k=10 | k=100 | k=200 |
+|---|---|---|---|
+| GTE-base zero-shot | **empate**, p=0,545 | ΦEmb vence, p=5,7e-15 | ΦEmb vence, p=2,2e-20 |
+| MiniLM-L6 zero-shot | ΦEmb vence, p=2,7e-15 | ΦEmb vence, p=1,1e-70 | ΦEmb vence, p=3,5e-80 |
+
+**Um modelo de prateleira, sem uma linha do nosso dado, empata com o nosso ajustado
+em 6 M de pares — na métrica que o sistema serve.** Depois de o ΦRank sair, o
+sistema entrega o top-10 do recuperador, e é ali que o empate acontece.
+
+Ele perde fundo (recall@200 0,6450 contra 0,7300), mas o sistema não usa mais
+profundidade.
+
+### O que o ajuste por citação vale, agora medido no universo real
+
+O MiniLM-L6 é a **nossa base**. De zero-shot para o ΦEmb de 6 M:
+
+    recall@10    0,2130 -> 0,2810   (+0,068, p=2,7e-15)
+    recall@100   0,4555 -> 0,6325   (+0,177)
+
+O ajuste funciona, e funciona bem. O problema é que ele parte de um lugar baixo.
+
+### ⚠️ E o padrão que isto fecha: o ganho do ajuste é INVERSO ao ponto de partida
+
+| base | zero-shot (G1) | ajustado 400 mil | ganho |
+|---|---|---|---|
+| SciBERT, 110 M | 0,2537 | 0,4746 | **+0,221** |
+| MiniLM-L6, 23 M | 0,4761 | 0,5246 | +0,049 |
+
+Quem começa pior ganha mais e **ainda termina abaixo**. A leitura mecânica é que o
+ajuste ensina sobretudo *"seja um encoder de recuperação"* — coisa que o GTE já
+sabe. Se for isso, o ganho dele com os nossos pares pode ser **pequeno**, e o empate
+de hoje não se converteria em vitória.
+
+É especulação com mecanismo, não medição. E é exatamente o que o experimento
+seguinte resolve.
+
+### O experimento que decide, e por que ele é 400 mil e não 6 M
+
+**GTE-base ajustado em 400 mil pares contra o nosso MiniLM ajustado em 400 mil.**
+Uma variável — a base —, e o ponto de comparação já existe.
+
+⚠️ Comparar GTE-base@400k contra o ΦEmb@6M seria mudar base *e* volume. E um
+GTE-base@6M custa **~39 h de T4** (4,7× o custo por par, 15× os pares), o que é
+inviável na cota gratuita. Então o run de 400 mil é uma **sonda** para decidir se as
+39 h valem, não a resposta final.
+
+**Custo: 2h39.** Não cabe nas ~1h30 que sobraram desta semana.
+
+### E o custo de serviço, que entra na decisão
+
+O GTE-base levou **954 s** para embutir o mesmo universo contra **217 s** do nosso —
+**4,4×**. Hoje isso compra um empate no top-10. Mesmo que o ajuste o coloque à
+frente, a margem tem de pagar 4,4× de inferência em serviço, para sempre.
 
 ## O ΦRank SAI do sistema, pela regra pré-registrada (2026-09-10)
 
