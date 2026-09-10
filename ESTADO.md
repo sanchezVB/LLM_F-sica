@@ -14,10 +14,11 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Sinal de platô no 6 M: **15 avaliações consecutivas abaixo do pico** e queda de 1%, contra ≤1 ponto e ~0 nos outros três |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
+| **T1e** · profundidade | 🔴 **o ΦRank SAI do sistema** | dobrar o candidato move **1,95%** das consultas (19×20, p=1,0). O teto subiu 0,098 e o recall@10 subiu **+1 consulta** de 195 oportunidades. A cadeia é `ΦEmb → top-10` |
 | **Truncagem 192** | 🔴 **não custa nada** | 63,8% das âncoras truncadas e 28,2% dos tokens descartados, e ler 256 ou 384 **não muda o recall** (pareado p=0,08–0,84) e custa 2,9× para embutir. Era a minha melhor aposta |
 | **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
 | **T1d** · ΦRank retreinado | 🔴 **fechado: dois negativos** | a hipótese da distribuição **não se sustentou** (empate, p=0,50) e o novo NÃO substitui. E a leitura independente: **nenhuma das duas cadeias vence o ΦEmb sozinho** (p=0,14 e p=0,38) — pelo critério pré-registrado, o estágio de reordenação não paga o próprio custo com este recuperador |
-| **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu: a cadeia é `ΦEmb → ΦRank`. A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
+| **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu; e em 2026-09-10 o ΦRank saiu também (T1e). A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
@@ -38,6 +39,88 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## O ΦRank SAI do sistema, pela regra pré-registrada (2026-09-10)
+
+O T1e mediu a curva de profundidade em uma passagem: 2.000 consultas, 200
+candidatos, com @50 e @100 saindo **de graça** dos mesmos escores. 3h08.
+
+| sistema | r@1 | r@10 | teto | nDCG@10 |
+|---|---|---|---|---|
+| ΦEmb | 0,0655 | 0,2810 | — | 0,1585 |
+| ΦEmb+ΦRank @50 | 0,0670 | 0,2930 | 0,5210 | 0,1664 |
+| ΦEmb+ΦRank @100 | 0,0675 | 0,2945 | 0,6325 | 0,1676 |
+| ΦEmb+ΦRank @200 | 0,0670 | 0,2950 | **0,7300** | 0,1673 |
+
+### 1. A regra: EMPATE, e empate tira o estágio
+
+| confronto (k=10) | placar | discordantes | p |
+|---|---|---|---|
+| @100 contra @200 | 19 × 20 | **39** | **1,000** |
+| @50 contra @200 | 51 × 55 | 106 | 0,771 |
+
+⚠️ **O número que importa é o 39.** Dobrar o conjunto de candidatos mudou o
+desfecho de **1,95% das consultas**, e as dividiu 19/20 — cara ou coroa.
+
+### 2. E o mecanismo é mais forte que o empate
+
+O teto subiu de 0,6325 para 0,7300: **195 consultas a mais** passaram a ter o alvo
+entre os candidatos. O recall@10 foi de 0,2945 para 0,2950 — **+1 consulta**.
+
+**O reranqueador não consegue trazer para o top-10 um alvo que está entre a posição
+100 e a 200 do recuperador.** Não é "traz menos": é ~nenhum, de 195 oportunidades.
+
+É a predição da §3.3 do rascunho, confirmada em escala: consertados os negativos, o
+ΦRank passou a **concordar** com o recuperador (Spearman −0,466), e *um reranqueador
+que re-deriva a ordem do recuperador não tem informação nova para dar*.
+
+### 3. A segunda leitura, independente: nenhuma profundidade vence o ΦEmb
+
+| cadeia | k=1 | k=10 |
+|---|---|---|
+| @50 | p=0,857 | p=0,166 |
+| @100 | p=0,791 | p=0,139 |
+| @200 | p=0,859 | p=0,138 |
+
+### ⚠️ 4. E o teste que eu pré-registrei era o INSTRUMENTO ERRADO
+
+McNemar sobre "o alvo chegou ao top-k" mede **pertencimento**. Um reranqueador que
+ordenasse o top-10 perfeitamente mudaria muito o nDCG e **nada** o recall@10 — então
+o critério que escrevi é cego para metade do trabalho de um reranqueador.
+
+Calculei o teste que casa com a pergunta, bootstrap pareado sobre o nDCG@10 por
+consulta (20.000 reamostras):
+
+| cadeia | Δ nDCG | IC 95% | p |
+|---|---|---|---|
+| @50 | +0,0079 | [−0,0017, +0,0177] | 0,112 |
+| @100 | +0,0091 | [−0,0010, +0,0191] | **0,080** |
+| @200 | +0,0088 | [−0,0016, +0,0192] | 0,098 |
+
+**Também não estabelece.** O intervalo inclui zero nas três.
+
+E a decomposição mata o argumento de vez. Das **421** consultas com o alvo no top-10
+nos dois sistemas, o ΦRank **desce** o alvo em 167 e **sobe** em 141 (p=0,154) — a
+direção é *contra* ele. Todo o +0,0091 vem de pertencimento (+27 líquido: traz 168,
+tira 141), e **nada** de ordenar melhor, que é o que um reranqueador deveria fazer.
+
+### O veredito, e o que ele custa
+
+A regra dizia: empate → a profundidade fica em 100, e como o T1d já mostrou que o
+ΦRank não está estabelecido em @100, **o estágio SAI**. Sai.
+
+São **cinco medições pareadas** (T1d antigo, T1d novo, T1e @50/@100/@200), duas
+delas com reranqueadores diferentes, e em nenhuma o estágio vence o recuperador
+sozinho. Mais o bootstrap, que também não. Mais a direção negativa dentro do top-10.
+
+**A composição do sistema passa a ser `ΦEmb → top-10`.** O `phirank-physbert-melhor`
+fica em `models/` como ponto da curva do T1c — é a evidência de que pré-treino em
+Física é a base certa para um cross-encoder —, mas não está na cadeia.
+
+⚠️ **Nota de reprodutibilidade:** o @100 do T1e deu **141 × 168** em k=10, idêntico
+ao braço antigo do T1d medido no dia anterior, noutra sessão. A lição do T1b2 —
+medir os braços na mesma sessão — é sobre **deriva de código e protocolo**, não sobre
+ruído de execução: com o mesmo código e o mesmo protocolo, o número é o mesmo.
 
 ## A truncagem a 192 tokens não custa nada, e era a minha melhor aposta (2026-09-10)
 
