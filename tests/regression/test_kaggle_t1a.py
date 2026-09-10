@@ -244,9 +244,22 @@ def test_o_slug_do_dataset_sai_de_um_lugar_so():
         "a constante voltou para o script — é assim que os dois metadados divergem")
     # Nenhum par de experimentos pode compartilhar slug: o segundo sobrescreveria o
     # dataset do primeiro sem avisar.
-    slugs = [s for e in EXPERIMENTOS.values()
-             for s in (e.slug_dados, e.slug_notebook)]
+    # ⚠️ O invariante é sobre SOBRESCREVER, então quem REUSA o dataset de
+    # outro fica de fora da conta do `slug_dados`: ele não publica dataset
+    # nenhum, e compartilhar o slug é justamente o que faz o
+    # `dataset_sources` do notebook apontar para o lugar certo.
+    donos = [e for e in EXPERIMENTOS.values() if not e.reusa_dados_de]
+    slugs = ([e.slug_dados for e in donos]
+             + [e.slug_notebook for e in EXPERIMENTOS.values()])
     assert len(slugs) == len(set(slugs)), f"slugs repetidos entre experimentos: {slugs}"
+    # E quem reusa tem de apontar para um dono de verdade, com o MESMO slug.
+    for e in EXPERIMENTOS.values():
+        if not e.reusa_dados_de:
+            continue
+        dono = EXPERIMENTOS[e.reusa_dados_de]
+        assert e.slug_dados == dono.slug_dados, (e.nome, dono.nome)
+        assert e.pacote == dono.pacote, (e.nome, dono.nome)
+        e.conferir()
 
 
 def test_a_celula_extraida_e_python_valido():

@@ -115,6 +115,18 @@ class Experimento:
     # dos negativos. O pacote diria "densos" e conteria os da fusão, o resultado
     # sairia igual ao do T1c, e a leitura seria "a distribuição não importa".
     negativos: str | None = None
+    # ⚠️ Nome de OUTRO experimento cujo dataset este reusa, sem republicar.
+    #
+    # O invariante que o teste de slugs protege é que um experimento não
+    # SOBRESCREVA o dataset de outro. Quem reusa não publica dataset nenhum, então
+    # não pode sobrescrever — e republicar seria pior que inútil: uma versão nova
+    # do dataset quebraria a `assinatura_do_manifesto` que a célula do dono
+    # confere, e o notebook dele passaria a recusar o próprio dado.
+    #
+    # Quem reusa compartilha `slug_dados` e `pacote` com o dono, e isso é
+    # conferido: sem os dois iguais, o `dataset_sources` do notebook apontaria
+    # para um lugar e a assinatura sairia de outro.
+    reusa_dados_de: str | None = None
     # `owner/repo` do GitHub. Quando preenchido, o código NÃO viaja no dataset: o
     # notebook baixa o tarball do commit exato.
     #
@@ -148,6 +160,19 @@ class Experimento:
                     f"({valor!r}) e o Kaggle exige entre 6 e 50. Ele recusa "
                     "depois de o pacote estar montado, e a mensagem dele não "
                     "diz qual dos dois títulos foi reprovado.")
+        if self.reusa_dados_de:
+            dono = EXPERIMENTOS.get(self.reusa_dados_de)
+            if dono is None:
+                raise ValueError(
+                    f"{self.nome}: reusa_dados_de={self.reusa_dados_de!r}, que não "
+                    "está no registro")
+            if (self.slug_dados, self.pacote) != (dono.slug_dados, dono.pacote):
+                raise ValueError(
+                    f"{self.nome} reusa o dataset de {dono.nome} mas declara "
+                    f"slug/pacote diferentes: ({self.slug_dados}, {self.pacote}) "
+                    f"contra ({dono.slug_dados}, {dono.pacote}). O "
+                    "`dataset_sources` do notebook apontaria para um lugar e a "
+                    "assinatura sairia de outro.")
         obtido = slug_derivado(self.titulo_notebook)
         if obtido != self.slug_notebook:
             raise ValueError(
@@ -346,13 +371,32 @@ T1D = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+T1E = Experimento(
+    nome="t1e",
+    # ⚠️ REUSA o dataset do T1d: mesmos `pares_validacao` e mesmos dois modelos.
+    # Republicar custaria 782 MB e uma versão nova quebraria a assinatura que a
+    # célula do T1d confere.
+    reusa_dados_de="t1d",
+    titulo_dados="PhiFM T1d — ΦRank em negativos densos",
+    slug_dados="phifm-t1d-negativos-densos",
+    titulo_notebook="PhiFM T1e Profundidade",
+    slug_notebook="phifm-t1e-profundidade",
+    pacote="data/processed/kaggle_t1d",
+    fonte_celula="kaggle/t1e_profundidade.py",
+    arquivos=("pares_do_recuperador_denso_limpos.parquet",
+              "pares_validacao.parquet", "modelos.zip.bin"),
+    scripts=("avaliar_t1b.py",),
+    modelos=("models/phiemb-do-sistema", "models/phirank-physbert-melhor"),
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
 VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D)}
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E)}
 
 
 def obter(nome: str) -> Experimento:

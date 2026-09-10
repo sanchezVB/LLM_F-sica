@@ -328,6 +328,15 @@ def main() -> int:
             fluxo.reconfigure(encoding="utf-8")
 
     exp = obter(a.experimento)
+    # ⚠️ Quem REUSA o dataset de outro não o publica. Publicar criaria uma versão
+    # nova e quebraria a `assinatura_do_manifesto` que a célula do dono confere —
+    # o notebook do dono passaria a recusar o próprio dado.
+    if exp.reusa_dados_de and not a.so_notebook:
+        raise SystemExit(
+            f"{exp.nome} reusa o dataset de {exp.reusa_dados_de} "
+            f"({exp.slug_dados}). Publicá-lo criaria uma versão nova e quebraria a "
+            f"assinatura que a célula do {exp.reusa_dados_de} confere. Use "
+            "--so-notebook.")
     PACOTE = RAIZ / exp.pacote
     SAIDA_NB = RAIZ / "data/processed/kaggle_notebook" / exp.nome
     FONTE_CELULA = RAIZ / exp.fonte_celula
