@@ -315,3 +315,44 @@ def test_o_veredito_sobrevive_a_falta_das_posicoes_por_item():
     assert "G1.1: PASSOU" in v and "G1.2: NÃO PASSOU" in v
     assert "faltam posições" in v, (
         "a ausência do pareado tem de aparecer, não ser omitida em silêncio")
+
+
+def test_o_6ND_ignora_a_ATENCAO_e_o_orcamento_sabe_disso():
+    """⚠️ Todo orçamento deste projeto usou `6ND`, e ele deixa a atenção de fora.
+
+    O `flops_de_treino` tem um parágrafo sobre a projeção de saída amarrada e
+    lista como desprezível "a consulta de entrada, os vieses e as normas" —
+    atenção não está na lista, e não é desprezível: o ModernBERT alterna janela
+    local com atenção GLOBAL a cada 3 camadas, e a global é quadrática.
+
+    Medido em 2026-09-10 no `proxy-bakeoff` (48 M, 4 camadas globais): a 8.192 de
+    contexto a atenção é **70% a mais** que o `6ND`. A 1.024 cai para 11%.
+
+    A consequência é sobre dinheiro e sobre sessão: o §11.2 a 5 B tokens sai de
+    1,5e18 para ~2,5e18 FLOPs por variante no contexto do ΦEnc.
+    """
+    import dataclasses
+
+    from phifm.models.encoder.config import (
+        PROXY_BAKEOFF,
+        flops_de_atencao,
+        flops_de_treino,
+        flops_totais,
+    )
+
+    curto = dataclasses.replace(PROXY_BAKEOFF, contexto=1024)
+    longo = dataclasses.replace(PROXY_BAKEOFF, contexto=8192)
+
+    # A atenção CRESCE com o contexto; o 6ND não vê contexto nenhum.
+    assert flops_de_treino(curto, 1) == flops_de_treino(longo, 1)
+    assert flops_de_atencao(longo, 1) > 5 * flops_de_atencao(curto, 1)
+
+    # E a razão nos dois regimes, que é o que decide se um run cabe na sessão.
+    razao_curto = flops_totais(curto, 1) / flops_de_treino(curto, 1)
+    razao_longo = flops_totais(longo, 1) / flops_de_treino(longo, 1)
+    assert 1.08 < razao_curto < 1.15, razao_curto
+    assert 1.65 < razao_longo < 1.80, razao_longo
+
+    # `flops_totais` é a soma, sem dupla contagem.
+    assert flops_totais(longo, 7) == (flops_de_treino(longo, 7)
+                                      + flops_de_atencao(longo, 7))

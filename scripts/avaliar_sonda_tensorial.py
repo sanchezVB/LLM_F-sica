@@ -50,6 +50,7 @@ import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 from transformers import AutoModel, AutoTokenizer  # noqa: E402
 
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.eval.sonda_tensorial import (  # noqa: E402
     Resultado,
     itens,
@@ -59,6 +60,10 @@ from phifm.training.embedding import (  # noqa: E402
     escolher_dispositivo,
     media_mascarada,
 )
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
 
 log = logging.getLogger("sonda-tensorial")
 

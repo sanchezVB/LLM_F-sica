@@ -58,6 +58,7 @@ from transformers import (  # noqa: E402
     AutoTokenizer,
 )
 
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.modelos import RECUPERADOR, RERANQUEADOR  # noqa: E402
 from phifm.eval.hibrido import (  # noqa: E402
     BM25,
@@ -68,6 +69,11 @@ from phifm.eval.hibrido import (  # noqa: E402
     top_k,
 )
 from phifm.training.embedding import escolher_dispositivo, media_mascarada  # noqa: E402
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
+
 
 log = logging.getLogger("t1b")
 

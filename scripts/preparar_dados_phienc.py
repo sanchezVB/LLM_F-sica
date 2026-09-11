@@ -75,6 +75,7 @@ import polars as pl
 from tokenizers import Tokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.schema.reprodutibilidade import git_sha_curto  # noqa: E402
 from phifm.training.pretrain.dados import (  # noqa: E402
     NOME_MANIFESTO,
@@ -83,6 +84,11 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     marcas_de,
 )
 from phifm.training.pretrain.mascaramento import marcar_equacoes  # noqa: E402
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
+
 
 log = logging.getLogger("preparar")
 

@@ -42,6 +42,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import torch  # noqa: E402
 
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.models.encoder.config import CONFIGS, obter  # noqa: E402
 from phifm.training.pretrain.dados import ConfigDados, Fluxo  # noqa: E402
@@ -51,6 +52,11 @@ from phifm.training.pretrain.laco import (  # noqa: E402
 )
 from phifm.training.pretrain.mascaramento import ConfigMascara  # noqa: E402
 from phifm.training.pretrain.spike import ConfigSpike  # noqa: E402
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
+
 
 
 def main() -> int:

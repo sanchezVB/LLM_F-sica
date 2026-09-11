@@ -14,12 +14,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.training.amostragem import (  # noqa: E402
     amostrar_do_plano,
     amostrar_por_documento,
 )
 from phifm.training.embedding import BASE_PADRAO, Config, TreinadorEmb  # noqa: E402
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
+
 
 
 def _com_negativos_dificeis(a) -> tuple:

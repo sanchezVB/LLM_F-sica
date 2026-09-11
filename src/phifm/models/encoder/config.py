@@ -233,8 +233,59 @@ def flops_de_treino(cfg: ConfigEnc, tokens: int) -> float:
     dentro de 5%. **O documento estava certo.**
 
     O que NÃO entra: a consulta de entrada, os vieses e as normas — desprezíveis.
+
+    ⚠️ **E a ATENÇÃO também não entra, e ela NÃO é desprezível.** Ver
+    `flops_de_atencao`: a 8.192 de contexto ela é 70% a mais no proxy de 50 M.
+    Esta função continua sendo `6ND` porque é assim que o DOC-07 §2.4 orça e é com
+    ela que os números do documento se comparam; para custo de verdade, use
+    `flops_totais`.
     """
     p = cfg.parametros()
     # corpo + cabeça densa + a projeção de saída amarrada (V × d), sem o bias.
     n_efetivo = p["camadas"] + (p["cabeca"] - cfg.vocab) + cfg.vocab * cfg.d_model
     return 6.0 * n_efetivo * tokens
+
+
+def flops_de_atencao(cfg: ConfigEnc, tokens: int) -> float:
+    """O que o `6ND` deixa de fora, e a 8.192 de contexto é 70% a mais.
+
+    ## ⚠️ Por que isto faltava, e o que custou
+
+    O `flops_de_treino` tem um parágrafo sobre a projeção de saída amarrada e
+    nenhuma palavra sobre atenção — a nota lista "consulta de entrada, vieses e
+    normas" como o desprezível, e atenção não está lá. **Não é desprezível.**
+
+    O ModernBERT alterna **janela local** (`janela_local`) com atenção **global** a
+    cada `global_a_cada` camadas, e a global é quadrática no contexto. Por token:
+
+        global:  12 · contexto · d_model · (camadas / global_a_cada)
+        local:   12 · janela_local · d_model · (o resto das camadas)
+
+    O 12 é `4·L²·d` de ida (QKᵀ e depois ·V) vezes 3 para ida e volta, dividido
+    por L para virar por token.
+
+    Medido no `proxy-bakeoff` (48 M, 12 camadas, 4 globais) a 8.192 de contexto:
+    **2,01e8 por token contra 2,88e8 do `6ND`** — 70% a mais. A 1.024 cai para 11%.
+
+    ⚠️ **Todo orçamento de computação deste projeto que usou `6ND` está
+    subestimado**, e a margem depende do contexto. O §11.2 a 5 B tokens sai de
+    1,5e18 para ~2,5e18 FLOPs por variante — de ~7 h numa 4090 para ~11,5 h.
+
+    Nada disto vale para modelos com FlashAttention e *unpadding*, que é o que o
+    DOC-07 §2.1 pede e o que nem a T4 nem a RX 7600 têm — ver
+    `phifm.models.encoder.modelo`.
+    """
+    globais = cfg.camadas // cfg.global_a_cada
+    locais = cfg.camadas - globais
+    por_token = 12.0 * cfg.d_model * (cfg.contexto * globais
+                                      + cfg.janela_local * locais)
+    return por_token * tokens
+
+
+def flops_totais(cfg: ConfigEnc, tokens: int) -> float:
+    """`6ND` + atenção — o número para estimar TEMPO e DINHEIRO.
+
+    O `flops_de_treino` sozinho é o que o DOC-07 §2.4 orça e serve para comparar
+    com o documento. Este é o que serve para decidir se um run cabe numa sessão.
+    """
+    return flops_de_treino(cfg, tokens) + flops_de_atencao(cfg, tokens)

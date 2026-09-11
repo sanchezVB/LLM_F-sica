@@ -81,6 +81,7 @@ from transformers import AutoModelForMaskedLM, PreTrainedTokenizerFast
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     Entrada,
     gravar_manifesto_etapa,
@@ -89,6 +90,11 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
 from phifm.models.encoder.config import ESPECIAIS, ConfigEnc  # noqa: E402
 from phifm.models.encoder.modelo import construir  # noqa: E402
 from phifm.training.pretrain.laco import NOME_ESTADO, NOME_METRICAS  # noqa: E402
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
+
 
 log = logging.getLogger("exportar_phienc")
 

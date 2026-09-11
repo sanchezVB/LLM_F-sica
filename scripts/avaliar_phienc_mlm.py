@@ -57,6 +57,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 import torch  # noqa: E402
 from transformers import AutoModelForMaskedLM, AutoTokenizer  # noqa: E402
 
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.eval.mlm_regiao import (  # noqa: E402
     FRACAO_MASCARA,
     Contagem,
@@ -70,6 +71,10 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     ConfigDados,
     Fluxo,
 )
+
+# ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
+# de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
+console_utf8()
 
 log = logging.getLogger("phienc-mlm")
 

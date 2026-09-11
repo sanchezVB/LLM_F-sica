@@ -699,3 +699,58 @@ def test_o_TAMANHO_dos_titulos_e_conferido_no_registro():
     curto = dataclasses.replace(base, titulo_dados="PhiFM")
     with pytest.raises(ValueError, match="entre 6 e 50"):
         curto.conferir()
+
+
+def test_o_proxy_do_bakeoff_fixa_o_CORPO_e_nao_o_total():
+    """⚠️ O DOC-05 §11.2 diz "~50 M parâmetros por variante", e o orçamento de
+    computação do bake-off é linear em N.
+
+    Um `ffn` ou um vocabulário mexido sem querer moveria o total sem nada
+    reclamar, e as seis variantes passariam a custar outra coisa. O
+    `conferir_declarado` é quem reclama; este teste garante que ele está armado.
+    """
+    from phifm.models.encoder.config import PROXY_BAKEOFF
+
+    # ⚠️ O `PROXY_BAKEOFF` NÃO declara `declarado_M`, e isso é deliberado: o
+    # módulo fixa o CORPO e deixa o total variar com V, porque a 50 M a embedding
+    # domina e comparar totais iguais mediria embedding em vez de tokenizer.
+    assert PROXY_BAKEOFF.declarado_M is None
+    total = PROXY_BAKEOFF.parametros()["total"]
+    assert 45e6 <= total <= 55e6, f"{total:,}"
+    # O corpo é que tem de ficar parado entre variantes.
+    assert (PROXY_BAKEOFF.camadas, PROXY_BAKEOFF.d_model,
+            PROXY_BAKEOFF.cabecas, PROXY_BAKEOFF.ffn) == (12, 512, 8, 768)
+
+
+def test_A_e_E_compartilham_o_VOCABULARIO_e_so_por_isso_sao_limpas():
+    """⚠️ A razão de A contra E ser o primeiro par do bake-off.
+
+    As variantes do §11.2 diferem em tamanho de vocabulário (C=32.768,
+    A/B/E=40.960, D=65.536) — e num modelo de 48 M a tabela de embedding é 43,7%
+    dos parâmetros. Então C e D têm CONTAGENS DE PARÂMETRO diferentes, e a
+    comparação delas contra A carrega um confundidor de capacidade.
+
+    A contra E não: mesmo vocabulário, mesma arquitetura, mesma contagem. A única
+    diferença é o regex de pré-tokenização da §8. É o único par perfeitamente
+    limpo do conjunto, e é por isso que ele vai primeiro.
+    """
+    import json
+
+    from phifm.models.encoder.config import PROXY_BAKEOFF
+
+    b = json.loads((RAIZ / "data/processed/tokenizer/bakeoff.json")
+                   .read_text(encoding="utf-8")) if (
+        RAIZ / "data/processed/tokenizer/bakeoff.json").exists() else None
+    if b is None:
+        import pytest
+        pytest.skip("bakeoff.json é artefato de execução, não versionado")
+    por = {r["variante"]: r for r in b["resultados"]}
+    assert por["A"]["vocab_real"] == por["E"]["vocab_real"] == PROXY_BAKEOFF.vocab
+    # E o que de fato difere: a atomicidade do LaTeX.
+    #
+    # ⚠️ `chr(92)` e não uma literal escapada: esta barra invertida já foi comida
+    # duas vezes por heredoc e script de patch, e `"\frac"` vira avanço de página
+    # seguido de "rac" sem que nada reclame até o `KeyError`.
+    frac = chr(92) + "frac"
+    assert b["atomicidade_latex"]["A"][frac] is True
+    assert b["atomicidade_latex"]["E"][frac] is False
