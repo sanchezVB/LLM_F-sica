@@ -476,3 +476,22 @@ def test_o_empacotador_exige_que_as_partes_sejam_PREFIXO(tmp_path):
     _fatia(tmp_path, "E", partes_usadas=["p14", "p35", "p02"])
     with pytest.raises(SystemExit, match="prefixo"):
         _montar(tmp_path, tmp_path / "pacote2")
+
+
+def test_a_espera_pelo_dataset_ESCALA_com_o_tamanho():
+    """⚠️ Os 900 s fixos foram calibrados em pacotes de 200 a 780 MB; o T2a sobe
+    5,4 GB.
+
+    Errar por baixo não é só esperar de novo: a mensagem de timeout convida a
+    republicar, e republicar cria uma versão NOVA do dataset — que quebraria a
+    `assinatura_do_manifesto` publicada no notebook, e o notebook passaria a
+    recusar o próprio dado.
+    """
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    from publicar_kaggle import _limite_de_espera
+    assert _limite_de_espera(int(0.78e9)) >= 900, "não pode encolher o que já valia"
+    grande = _limite_de_espera(int(5.4e9))
+    assert grande > 1500, (
+        f"{grande} s para 5,4 GB; o T2a bateria no teto e o timeout convidaria a "
+        "republicar")
+    assert grande < 3600, f"{grande} s é espera demais para um erro de verdade"

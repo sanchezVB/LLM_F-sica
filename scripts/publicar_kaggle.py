@@ -238,6 +238,22 @@ def _dataset_existe(id_dados: str) -> bool:
     return id_dados in r.stdout
 
 
+def _limite_de_espera(bytes_totais: int) -> int:
+    """Quanto esperar pelo processamento, em função do TAMANHO do pacote.
+
+    ⚠️ Os 900 s fixos foram calibrados em pacotes de 200 a 780 MB. O T2a sobe 5,4
+    GB — as duas fatias de 0,9 B tokens —, e um teto de 15 min ali erra por baixo.
+
+    Errar por baixo tem consequência, e não é só esperar de novo: a mensagem de
+    timeout convida a republicar, e republicar cria uma VERSÃO NOVA do dataset. A
+    `assinatura_do_manifesto` que a célula confere é do bundle inteiro, então a
+    versão nova quebraria a assinatura publicada no notebook — e o notebook
+    passaria a recusar o próprio dado. O caminho certo depois de um timeout é
+    `--so-notebook`, que a mensagem diz; um teto generoso é o que evita chegar lá.
+    """
+    return 900 + int(120 * bytes_totais / 1e9)
+
+
 def _esperar_dataset(id_dados: str, limite_s: int = 900) -> bool:
     """Espera o Kaggle terminar de PROCESSAR o dataset. Devolve se ficou pronto.
 
@@ -537,7 +553,10 @@ Eu não faço nenhum dos três: exige entrar na sua conta.""")
         # ⚠️ Entre criar o dataset e empurrar o notebook, esperar o processamento.
         # A ordem de `cmds` garante que o dataset venha primeiro; o que faltava era
         # alguém esperar por ele.
-        if "kernels" in c and not a.so_notebook and not _esperar_dataset(id_dados):
+        espera = _limite_de_espera(
+            sum(v["bytes"] for v in man["arquivos"].values()))
+        if ("kernels" in c and not a.so_notebook
+                and not _esperar_dataset(id_dados, espera)):
             raise SystemExit(
                 "não vou empurrar o notebook antes de o dataset resolver: o push "
                 "criaria um kernel sem fonte de dados e ainda diria que deu certo.")
