@@ -335,10 +335,31 @@ Round-trip 100% e `1.5` consistente nas seis. 35 subáreas medidas, pior razão
 
 **Quatro leituras, duas delas contra este documento:**
 
-1. **A §8 está vindicada, pelo teste que o §11.2 estipulou.** A e E diferem *só* nas
-   regras de pré-tokenização, e A dá 27% menos tokens em prosa e 23% menos em
-   equações. E é a **única variante que falha a meta de fertilidade** (0,929 contra o
-   teto de 0,80). O §11.2 dizia "se E empatar com A, a §8 está errada"; não empatou.
+1. ~~**A §8 está vindicada, pelo teste que o §11.2 estipulou.**~~ ⚠️ **Corrigido em
+   2026-09-11: o §11.2 não estipulou este teste.** A e E diferem *só* nas regras de
+   pré-tokenização, e A dá 27% menos tokens em prosa e 23% menos em equações. E é a
+   **única variante que falha a meta de fertilidade** (0,929 contra o teto de 0,80).
+   Isso é forte, e é tudo o que é.
+
+   Mas o §11.2 estipula **treinar um encoder por variante** e comparar os modelos; a
+   frase dele que esta leitura cita — *"se E empatar com A, a §8 está errada"* —
+   fala do bake-off, não da fertilidade. O que rodou aqui foi a §11.1, que a própria
+   §11.2 chama de proxy três parágrafos adiante: *"métricas intrínsecas são
+   proxies"*. Declarar o §11.2 respondido pelo resultado do §11.1 é dar por medido o
+   que não foi — a mesma classe de erro que esta seção denuncia nas outras três
+   leituras.
+
+   **E a fertilidade superestima.** Medido em 2026-09-11 nas fatias de treino de
+   verdade, a 0,9 B tokens do RedPajama-arXiv em fonte LaTeX: E gasta **13,6%** mais
+   tokens por documento que A, não os 37,7% que a razão de fertilidade prometia. A
+   §11.1 foi medida em **resumos**, onde a matemática é *inline* e curta; o corpus de
+   treino é fonte plena. O proxy erra por **3×** no sentido de exagerar a vantagem.
+
+   O teste do §11.2 para o par A×E está montado — `kaggle/t2a_tokenizer.py`, dois
+   braços de 0,8 B tokens com o mesmo orçamento — e **ainda não rodou**. ⚠️ E ele
+   também não é o §11.2 como escrito: 0,8 B contra os 5 B pedidos aqui, porque 5 B
+   numa T4 seriam ~47 h por braço contra 30 h de cota semanal. Um empate lá não
+   refuta a §8; registra que a 0,8 B não dá para ver.
 
 2. **BPE bate Unigram em LaTeX** — a evidência que a §3.3 dizia não existir, com
    mecanismo observável. Ver a nota da §3.3.
@@ -381,6 +402,26 @@ A variante E é a mais importante: isola o efeito do regex de pré-tokenização
 > **O que a §11.1-medido já resolveu, e o que ela não pode resolver.** As métricas intrínsecas já rodaram nas seis variantes: E ficou 27% pior que A, então a §8 sobrevive ao seu próprio teste, e B (Unigram) ficou atrás de A nas duas fertilidades. Isso **não** dispensa o §11.2 para nenhuma das duas — fertilidade é proxy, e a hipótese de que menos tokens produz melhor modelo é exatamente o que falta medir.
 >
 > Duas consequências para o desenho: **(i) a variante D não pode ser cortada** por economia. Ela ganhou nas três métricas intrínsecas, e é a única forma de descobrir se os ~8 pontos percentuais extras de embedding (§7.2) compram ou custam desempenho. **(ii)** Se o orçamento apertar, o corte menos danoso é B, porque o Unigram já perdeu por margem grande *e* com mecanismo explicado — e esse é o único corte que a §11.1-medido justifica.
+>
+> ⚠️ **E quanto o proxy erra, medido.** Nas fatias de treino de verdade (0,9 B tokens de fonte LaTeX do RedPajama-arXiv, 2026-09-11), E gasta **13,6%** mais tokens por documento que A — não os 37,7% da razão de fertilidade. A §11.1 mediu resumos, onde a matemática é *inline* e curta, e o corpus de treino é fonte plena: o proxy **exagera a vantagem por 3×**. É este 13,6% que a expectativa do bake-off deve usar, e é ele que diz quanto o experimento tem de poder para encontrar.
+
+### 11.2-montado O par A×E, pronto e ainda não rodado (2026-09-11)
+
+O par que esta seção chama de mais importante está montado em `kaggle/t2a_tokenizer.py`,
+com os dois braços registrados em `phifm.core.kaggle` e o dado empacotado (5,4 GB, as
+duas fatias num dataset só, para uma assinatura só).
+
+⚠️ **Três desvios do protocolo desta seção, todos por cota e todos registrados:**
+
+| esta seção pede | o que vai rodar | por quê |
+|---|---|---|
+| 5 B tokens por variante | **0,8 B** | 5 B numa T4 são ~47 h por braço; a cota semanal é 30 h |
+| as seis variantes | **só A e E** | C e D têm contagem de parâmetros diferente de A — a 48 M a embedding é 43,7% —, então A×C e A×D carregam confundidor de capacidade. A e E compartilham vocabulário e arquitetura, e são o único par limpo |
+| "recuperação, MLM, sonda" | **bits por byte**, sonda, recuperação | acurácia de MLM não compara vocabulários: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta contra a hipótese. Ver `phifm.eval.bits_por_byte` |
+
+A regra de leitura está pré-registrada na célula, e a parte dela que importa é a
+assimetria: **empate a 0,8 B não refuta a §8**, porque o desfecho mais provável de um
+run subdimensionado por 6× é justamente o empate. Ele se registra como *não decidido*.
 
 > **Não há evidência publicada comparando algoritmos de tokenização em texto de Física e LaTeX.** Por US$ 15 e alguns dias, produzimos essa evidência. É a primeira contribuição científica original do programa, e ela cabe inteira no degrau T0 do DOC-17A §8.2.
 

@@ -83,7 +83,7 @@ from transformers import AutoModel, AutoTokenizer
 # `amostrar_por_documento`.
 from phifm.eval.hibrido import mcnemar_em
 from phifm.training.amostragem import SEMENTE_POOL, preparar_pool
-from phifm.training.embedding import media_mascarada
+from phifm.training.embedding import escolher_dispositivo, media_mascarada
 
 log = logging.getLogger(__name__)
 
@@ -176,7 +176,16 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
                max_tokens: int = 192, lote: int = 16, dispositivo: str = "cpu",
                semente: int = SEMENTE_POOL) -> Resultado:
     t0 = time.perf_counter()
-    dev = torch.device(dispositivo)
+    # ⚠️ `escolher_dispositivo` e não `torch.device(dispositivo)`.
+    #
+    # A CLI oferece `--dispositivo dml` e `torch.device("dml")` LEVANTA: "dml" não é
+    # um tipo de device do torch, é um backend que vem de `torch_directml.device()`.
+    # Medido em 2026-09-11 num ensaio: `avaliar_encoders.py --dispositivo dml` morria
+    # no primeiro modelo, depois de carregar a validação e sortear o pool.
+    #
+    # A máquina do dono do projeto é uma RX 7600, então `dml` é o caminho rápido
+    # dela — a bandeira que quebrava era a única que valia a pena usar aqui.
+    dev = escolher_dispositivo(dispositivo)
     try:
         tok = AutoTokenizer.from_pretrained(caminho)
         mod = AutoModel.from_pretrained(caminho, attn_implementation="eager").to(dev).eval()
