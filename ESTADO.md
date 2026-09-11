@@ -37,13 +37,113 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **§11.2** · o bake-off | 🟡 **A×E montado, empacotado** | as seis variantes a 5 B são 263 h ≈ 8,8 semanas de cota. O que cabe é o **par limpo** A×E a 0,8 B: `kaggle/t2a_tokenizer.py`, dois braços de 7,5 h, 5,4 GB empacotados. C e D têm contagem de parâmetros diferente de A (a 48 M a embedding é 43,7%), então carregam confundidor de capacidade. ⚠️ **Empate a 0,8 B NÃO refuta a §8** — registra-se como não decidido |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
-Suíte: **771 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+| **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
+| **Ensaio do T2a** | 🟢 **a cadeia inteira em miniatura, 7 min** | treinar 30 passos com A e com E, exportar, e rodar as três medidas — antes de gastar 15 h de T4. Pegou um bug real: `avaliar_encoders.py --dispositivo dml` morria no primeiro modelo, depois de carregar 133 mil pares e sortear o pool, porque `torch.device("dml")` levanta. Exportação com ida e volta de logits **0,0** |
+| **Termos** | 🟢 **"reranqueador" era neologismo meu** | 115 ocorrências → "reordenador"; "espinha" (tradução literal de *spine*) → "tabela mestra", 62. ⚠️ "espinha dorsal" fica (é *backbone*, outra metáfora) e os IDENTIFICADORES também — renomear `spine.parquet` invalidaria o que o hash raiz atesta. Nomes de datasets ficam como os donos publicam: `peS2o` é "Pretraining Efficiently on S2ORC" |
+Suíte: **785 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Três instrumentos estavam errados, e nenhum dava erro (2026-09-11)
+
+O dia foi montar o T2a e o T1f. O que apareceu no caminho foi mais caro que os dois.
+
+### 1. Eu escolhi a medida primária pelo PODER, não pela validade
+
+Pré-registrei o **MLM por região** como primária do T2a porque ela tem ~154 mil
+tokens pareados. Só depois perguntei se ela mede a coisa certa.
+
+**Acurácia de MLM não compara tokenizers.** A e E partem o mesmo texto de jeitos
+diferentes: um token de E é mais curto (5,14 bytes contra 7,07), então prevê-lo a
+partir da vizinhança é mais fácil — sobra mais redundância local depois de
+mascarar. Mascarar `\fr`, `ac` e `{` separadamente é mais fácil que mascarar
+`\frac` de uma vez.
+
+**E marcaria acurácia maior sem ser modelo melhor**, e o viés aponta CONTRA a
+hipótese sob teste — que é o que torna o erro difícil de ver: "E empata com A"
+pareceria uma refutação honesta da §8 quando é o instrumento.
+
+É a mesma falha do T1b2 numa forma nova. Lá a regra pré-registrada nomeava McNemar
+sobre pertinência ao top-k para julgar um reordenador, que reordena DENTRO do
+top-k. **Pré-registrar não salva de escolher o instrumento errado.**
+
+A primária passou a ser **bits por byte** — numerador é informação, denominador é
+TEXTO, e a conta não pergunta em quantos pedaços o texto foi cortado. A acurácia
+fica como diagnóstico, com o viés nomeado.
+
+⚠️ E o viés RESIDUAL não some: mascarando 15% dos tokens de cada um, A esconde
+pedaços maiores por máscara. O teste é conservador para A — **vitória de A é
+robusta; empate e derrota são ambíguos** e pedem a pseudo-verossimilhança canônica
+(um passe por token) antes de virar conclusão.
+
+Não é teoria: o ensaio mediu E com acurácia MAIOR (0,0237 contra 0,0195) e bits por
+byte PIOR (2,890 contra 2,761), em modelos de 30 passos. A discordância prevista,
+observada.
+
+### 2. O laço sabia projetar o custo e não fazia nada com a projeção
+
+`horas_estimadas` estava definida em `pretrain/laco.py` e **não era chamada em
+lugar nenhum**.
+
+Isso importa porque dimensionar um run por FLOPs é supor a MFU, e a 48 M de
+parâmetros a suposição é frouxa — a banda de memória manda mais que o tensor core.
+15% contra 25% de MFU é **8,9 h contra 5,9 h** num run de 0,8 B: os dois lados de
+uma sessão de 9 h. O Kaggle desliga no relógio e este laço não retoma entre
+sessões, então um run que não cabe não entrega 90% do treino — entrega nada.
+
+`--limite-horas` aborta na SEGUNDA janela de log (a primeira carrega autotune do
+cuDNN e mede devagar por construção). Custa ~2 min em vez de 9 h. Verificado: a 257
+tok/s de CPU disparou no passo 5, gravou o estado e saiu com código 1.
+
+### 3. Um ensaio geral de 7 minutos pagou por si
+
+Antes de gastar 15 h de T4, rodei a cadeia inteira em miniatura: treinar 30 passos
+com A e com E, exportar, e rodar as três medidas do §11.2. Achou um bug real —
+`avaliar_encoders.py --dispositivo dml` morria no primeiro modelo, depois de
+carregar 133 mil pares de validação e sortear o pool, porque `torch.device("dml")`
+LEVANTA: "dml" não é tipo de device do torch, vem de `torch_directml.device()`.
+
+E `dml` é a única bandeira que vale a pena usar numa RX 7600. **Uma escolha que a
+CLI oferece e o código recusa é pior que uma que não existe**: ela falha depois de
+o trabalho caro já estar feito.
+
+### O fio que liga os três
+
+Nenhum dos três dava erro. O MLM por região rodava e devolvia um número; o laço
+rodava até o fim ou até a sessão morrer; o `--dispositivo dml` estava na lista de
+escolhas da CLI. **Um instrumento errado que não falha é mais caro que um que
+falha**, porque o resultado dele entra no documento.
+
+E o quarto, no fim do dia, fecha o padrão: `manifesto_corpus.py --verificar`
+levantava `UnicodeEncodeError` ao imprimir ✅ em cp1252 — a verificação PROFUNDA
+relia os 40 GB e morria na última linha. **Um verificador que não consegue dizer o
+que encontrou não verificou nada**, do ponto de vista de quem espera a resposta.
+
+### O que mais mudou no dia, em uma linha cada
+
+* **T2a empacotado**: 5.412,8 MB, as duas fatias num dataset só — uma assinatura só.
+  As fatias bateram com o pré-registro (A: 900.776.840 tokens de 64.864 documentos;
+  E: 901.445.268 de 57.152), e as partes de E são PREFIXO das de A, então os dois
+  braços leem o mesmo fluxo de documentos e E só para antes.
+* **O empacotador recusa** tokenizer que não bate com a variante, `tokenizer_sha`
+  igual, orçamentos com >1% de diferença, e divergência em corpus/semente/contexto.
+  São guardas contra **um nulo fabricado**: dois braços na mesma fatia dariam empate
+  perfeito, e "a §8 não vale nada" é como isso se leria.
+* **`Experimento.variante`** põe o braço na identidade e não numa bandeira — com uma
+  bandeira esquecida, o segundo kernel treinaria o primeiro de novo, 7,5 h para
+  produzir o mesmo modelo duas vezes.
+* **A espera do publicador** era fixa em 900 s, calibrada em pacotes de 200–780 MB.
+  O T2a sobe 5,4 GB. Agora 900 s + 120 s/GB — e errar por baixo tem consequência: a
+  mensagem de timeout convida a republicar, e uma versão nova do dataset quebraria a
+  assinatura que a célula confere.
+* **`avaliar_bits_por_byte.py`**: janela de texto COMUM (tokeniza em todos os braços
+  com offsets e corta no menor ponto que cabe em todos), pareamento por DOCUMENTO —
+  entre tokenizers não existe "a mesma posição" —, e IC por bootstrap reamostrando
+  documentos. Fumaça com o mesmo modelo contra si mesmo: **Δ 0,00000**.
 
 ## O MLM por região rodou num modelo real, e a leitura dele muda (2026-09-10)
 
@@ -146,6 +246,33 @@ inviável na cota gratuita. Então o run de 400 mil é uma **sonda** para decidi
 39 h valem, não a resposta final.
 
 **Custo: 2h39.** Não cabe nas ~1h30 que sobraram desta semana.
+
+### Montado em 2026-09-11, esperando a janela (T1f)
+
+`kaggle/t1f_base_gte.py`, registrado como `t1f` com `reusa_dados_de="t1a"`: **zero
+upload**. E o reúso aqui é a PREMISSA e não economia de banda — o braço de
+referência treinou nesses bytes exatos. Conferido: o publicador calculou a
+assinatura `e7be008b295aab2f`, que é **a mesma do notebook do T1a publicado**.
+
+A referência **não é retreinada**. `phiemb-minilm-t4-sorteado-melhor` já existe:
+mesma T4, mesmo sorteio, mesmos 400 mil pares. A lição do T1d — "comparar contra o
+número histórico teria reportado SETE VEZES o efeito real" — era sobre o PROTOCOLO
+DE AVALIAÇÃO mudar entre medições, não sobre os pesos; aqui os dois checkpoints são
+avaliados local, na mesma sessão, pelo mesmo `avaliar_encoders.py`. Retreinar
+custaria 36 min de cota para reproduzir o que está no disco.
+
+⚠️ **A métrica primária é nDCG@10, e ela MUDOU de significado na semana passada.**
+O GTE-base perde fundo (r@200 0,645 contra 0,730), e até o T1e isso seria decisivo
+— a cadeia era ΦEmb → RRF → ΦRank sobre um pool profundo, e quem perde fundo
+entrega menos candidatos ao reordenador. O T1e tirou o ΦRank: a cadeia é ΦEmb →
+top-10 e **nada lê o fundo hoje**. O r@200 vira diagnóstico, e só volta a decidir se
+um reordenador voltar ao sistema. Declarar isso depois do resultado seria escolher
+a métrica que dá a resposta desejada.
+
+Plano B de memória pré-registrado (109 M contra 23 M do MiniLM): `--sub-lote 64
+--sem-amp`, que preserva o lote LÓGICO e portanto os 127 negativos — muda fp16 para
+fp32, que é numérico. Reduzir o `--lote` mudaria a dificuldade da tarefa junto com
+a base.
 
 ### E o custo de serviço, que entra na decisão
 
