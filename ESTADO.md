@@ -8,7 +8,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 
 | Sprint | Estado | Observação |
 |---|---|---|
-| **S1** · espinha de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
+| **S1** · tabela mestra de metadados | 🟢 completo | 1,59 M arXiv + 4,61 M obras; junção de **99,1%** |
 | **S2** · classificador de Física | 🟢 completo | subárea + `is_physics`; acurácia **0,954** com os 4 domínios, FP 2,4–3,7% em cada |
 | **S3** · fatias do HuggingFace | 🟢 **27,75 B tokens** | RedPajama 10,54 B + OpenWebMath 2,62 B + **peS2o 14,60 B**, custo zero. S3b: o RedPajama **degrada 16,6%** |
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
@@ -23,7 +23,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
-| **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reranqueador **entrou no sistema** em 2026-09-03 |
+| **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reordenador **entrou no sistema** em 2026-09-03 |
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
@@ -177,11 +177,11 @@ desfecho de **1,95% das consultas**, e as dividiu 19/20 — cara ou coroa.
 O teto subiu de 0,6325 para 0,7300: **195 consultas a mais** passaram a ter o alvo
 entre os candidatos. O recall@10 foi de 0,2945 para 0,2950 — **+1 consulta**.
 
-**O reranqueador não consegue trazer para o top-10 um alvo que está entre a posição
+**O reordenador não consegue trazer para o top-10 um alvo que está entre a posição
 100 e a 200 do recuperador.** Não é "traz menos": é ~nenhum, de 195 oportunidades.
 
 É a predição da §3.3 do rascunho, confirmada em escala: consertados os negativos, o
-ΦRank passou a **concordar** com o recuperador (Spearman −0,466), e *um reranqueador
+ΦRank passou a **concordar** com o recuperador (Spearman −0,466), e *um reordenador
 que re-deriva a ordem do recuperador não tem informação nova para dar*.
 
 ### 3. A segunda leitura, independente: nenhuma profundidade vence o ΦEmb
@@ -194,9 +194,9 @@ que re-deriva a ordem do recuperador não tem informação nova para dar*.
 
 ### ⚠️ 4. E o teste que eu pré-registrei era o INSTRUMENTO ERRADO
 
-McNemar sobre "o alvo chegou ao top-k" mede **pertencimento**. Um reranqueador que
+McNemar sobre "o alvo chegou ao top-k" mede **pertencimento**. Um reordenador que
 ordenasse o top-10 perfeitamente mudaria muito o nDCG e **nada** o recall@10 — então
-o critério que escrevi é cego para metade do trabalho de um reranqueador.
+o critério que escrevi é cego para metade do trabalho de um reordenador.
 
 Calculei o teste que casa com a pergunta, bootstrap pareado sobre o nDCG@10 por
 consulta (20.000 reamostras):
@@ -212,7 +212,7 @@ consulta (20.000 reamostras):
 E a decomposição mata o argumento de vez. Das **421** consultas com o alvo no top-10
 nos dois sistemas, o ΦRank **desce** o alvo em 167 e **sobe** em 141 (p=0,154) — a
 direção é *contra* ele. Todo o +0,0091 vem de pertencimento (+27 líquido: traz 168,
-tira 141), e **nada** de ordenar melhor, que é o que um reranqueador deveria fazer.
+tira 141), e **nada** de ordenar melhor, que é o que um reordenador deveria fazer.
 
 ### O veredito, e o que ele custa
 
@@ -220,7 +220,7 @@ A regra dizia: empate → a profundidade fica em 100, e como o T1d já mostrou q
 ΦRank não está estabelecido em @100, **o estágio SAI**. Sai.
 
 São **cinco medições pareadas** (T1d antigo, T1d novo, T1e @50/@100/@200), duas
-delas com reranqueadores diferentes, e em nenhuma o estágio vence o recuperador
+delas com reordenadores diferentes, e em nenhuma o estágio vence o recuperador
 sozinho. Mais o bootstrap, que também não. Mais a direção negativa dentro do top-10.
 
 **A composição do sistema passa a ser `ΦEmb → top-10`.** O `phirank-physbert-melhor`
@@ -319,9 +319,9 @@ Ir de 100 para 200 candidatos sobe o teto em **+0,098**. Pela curva de volume
 (+0,0196 por dobra), o mesmo ganho exigiria **cinco dobras de dado** — 32× os pares,
 ~294 h de T4. A profundidade custa **2× o tempo de reordenação e zero de treino**.
 
-⚠️ Com a ressalva que o T1d impõe: profundidade só vale se houver reranqueador para
+⚠️ Com a ressalva que o T1d impõe: profundidade só vale se houver reordenador para
 explorá-la, e o T1d disse que ele não está estabelecido em @100. As duas coisas se
-combinam numa pergunta só — **o reranqueador ganha quando tem 200 candidatos em vez
+combinam numa pergunta só — **o reordenador ganha quando tem 200 candidatos em vez
 de 100?** — e essa ainda não foi feita.
 
 ### E o BM25 sai de novo, por uma porta independente da regra do T1b2
@@ -349,7 +349,7 @@ caminhos independentes.
 ## O T1d fechou com DOIS negativos, e o segundo é maior (2026-09-10)
 
 Treino de 50 min e duas avaliações de 85 min cada — **3h40**, contra as ~3h37 que a
-projeção dava. Os dois reranqueadores na mesma sessão, `--sem-fusao`, mesmas 2.000
+projeção dava. Os dois reordenadores na mesma sessão, `--sem-fusao`, mesmas 2.000
 consultas, universo de 88.807, teto de 0,6325.
 
 ### 1. A regra pré-registrada: EMPATE, e por regra o novo NÃO substitui
@@ -398,14 +398,14 @@ consultas ainda não recebem o alvo no top-100.
 
 ## O BM25 saiu da composição pela regra pré-registrada (2026-09-08)
 
-A pergunta do run, escrita na célula **antes** de rodar: o reranqueador vai melhor
+A pergunta do run, escrita na célula **antes** de rodar: o reordenador vai melhor
 sobre o top-100 da fusão RRF ou sobre o top-100 do ΦEmb sozinho? E a regra:
 
 > se `ΦEmb+ΦRank` VENCER `ΦEmb+BM25+ΦRank` no pareado, o BM25 sai da composição.
 > Se EMPATAR, ele sai também — não paga o próprio custo nem os 0,026 de teto que
 > cobra. Só fica se vencer.
 
-As duas cadeias na MESMA execução, mesmas 2.000 consultas, mesmo reranqueador em
+As duas cadeias na MESMA execução, mesmas 2.000 consultas, mesmo reordenador em
 memória, universo de 88.807:
 
 | sistema | r@1 | r@10 | r@100 | nDCG@10 |
@@ -1264,7 +1264,7 @@ correção de método (o regex de operador órfão satura em texto LaTeX íntegr
 cotação de verdade do S3 (US$ 400+ para fora da AWS, dezenas de dólares filtrando
 dentro).
 
-### 2. T1c — o reranqueador de base diferente, rodando na cota gratuita
+### 2. T1c — o reordenador de base diferente, rodando na cota gratuita
 
 A predição da §3.3 do rascunho: se a redundância informacional anula o ΦRank, um
 cross-encoder de base diferente do ΦEmb deve bater a fusão. Duas variantes de 109 M
@@ -1338,7 +1338,7 @@ recuperador, outro benchmark ou outro domínio não foi medido.
 
 `tests/regression/test_phirank_do_sistema.py` tranca as duas linhas de configuração.
 São uma linha cada, e uma linha se reverte sem nada quebrar: o sistema voltaria a
-compor com um reranqueador que a medição diz ser no-op, e a métrica cairia 0,009 sem
+compor com um reordenador que a medição diz ser no-op, e a métrica cairia 0,009 sem
 nenhum teste vermelho. Os testes leem o FONTE em vez de importar `rerank.py`, que
 arrasta torch — um `importorskip` faria o guarda pular justamente no CI.
 
@@ -1365,7 +1365,7 @@ proibido. A correção errada, nas quatro, seria apagar o comentário.
 devolve o código sem nenhum `#`. Resolve a classe inteira, e a tabela das quatro
 ocorrências está na docstring dele.
 
-## T1c — o que o reranqueador precisa é DOMÍNIO, não diversidade (2026-09-03)
+## T1c — o que o reordenador precisa é DOMÍNIO, não diversidade (2026-09-03)
 
     variante   base                       params  acc@1  +ΦRank       Δ  disc  p(k=10)
     controle   MiniLM-L6 (= a do ΦEmb)       23M  0,498  0,1483  -0,0093   229   0,1458
@@ -1393,7 +1393,7 @@ com `phys`; sem essa verificação a comparação seria entre protocolos, não e
 
 O PhysBERT é um recuperador **ruim** neste benchmark: nDCG 0,2752 contra 0,4657 do
 ΦEmb — perde por 0,190, e foi exatamente essa a medição do G1.1. E é a **melhor base
-de reranqueador** das três.
+de reordenador** das três.
 
 Pré-treino de domínio não fez um bi-encoder bom aqui, e fez um cross-encoder bom. A
 assimetria não era o que eu esperava, e é ela que dá uma receita: **para reordenar,
@@ -1414,7 +1414,7 @@ deve bater a fusão. Bateu, com **p = 0,00625**, abaixo do limiar de Bonferroni 
 | recall@50 | 0,4495 | 0,4495 |
 | **nDCG@10** | 0,1576 | **0,1666** |
 
-No pareado k=10: a fusão ganha 97, o reranqueador ganha **140**, 237 discordantes. Em
+No pareado k=10: a fusão ganha 97, o reordenador ganha **140**, 237 discordantes. Em
 k=1 é empate (p=0,930) — o ganho é na cauda do top-10, não no primeiro lugar, o que é
 o que se espera de reordenação.
 
@@ -1940,7 +1940,7 @@ removida pela dedup exata.
 
 A previsão de tamanho do DOC-02 §3.1 se confirmou: **422 bytes/registro** em
 parquet zstd, contra os 516–686 previstos, e 674 MB contra "~700 MB no total".
-A espinha cabe folgado em disco comum, como o documento afirmava — e o número
+A tabela mestra cabe folgado em disco comum, como o documento afirmava — e o número
 de registros ficou em 1,59 M, entre o 1,2 M estimado para o set `physics` e o
 2,7 M do acervo inteiro.
 
@@ -2410,7 +2410,7 @@ registrado abaixo.
 |---|---|---|
 | Endpoint OAI do arXiv mudou | `export.arxiv.org` dá 301 | DOC-02 §3.1 |
 | Set `physics` filtra no servidor | 1,2 M em vez de 2,7 M | DOC-02 §3.1 |
-| Espinha ocupa ~700 MB, não 150 GB | Cabe em disco comum | DOC-02 §3.1 |
+| Tabela mestra ocupa ~700 MB, não 150 GB | Cabe em disco comum | DOC-02 §3.1 |
 | `primary_location` exclui publicados | Perderia 1,44 M revisados por pares | DOC-02 |
 | Chave de junção não está em `ids.arxiv` | 1,5% vs 98,5% de cobertura | `openalex.py` |
 | IDs antigos truncados por regex | 41,5% do acervo | teste de regressão |
@@ -2475,7 +2475,7 @@ representar tensor com índices no schema — decisão de dados, não de parser.
 
 ## Onde está cada coisa
 
-## Espinha construída — 2026-08-07
+## Tabela mestra construída — 2026-08-07
 
 ```bash
 PYTHONPATH=src .venv/Scripts/python.exe scripts/build_spine.py \
@@ -2502,7 +2502,7 @@ contra 516–686 previstos.
 | Código, docs, testes | ✅ | ✅ | ✅ desde 2026-08-07 — `src/phifm/corpus/` estava fora, ver achados |
 | Manifestos | ✅ | ✅ | ✅ |
 | Coletas brutas (285 MB) | ✅ | ✅ | ❌ por decisão |
-| Espinha consolidada (150 MB) | ✅ | ✅ | ❌ |
+| Tabela mestra consolidada (150 MB) | ✅ | ✅ | ❌ |
 | Classificador (59 MB) | ✅ | ✅ | ❌ |
 | `.env` | ✅ | ❌ | ❌ recriar |
 

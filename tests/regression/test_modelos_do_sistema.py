@@ -1,7 +1,7 @@
 """Qual checkpoint é "o do sistema" mora num lugar só.
 
 Até 2026-09-08 o recuperador era a string `models/phiemb-minilm-melhor` copiada
-como default em três scripts, e o reranqueador era outra copiada em dois. Trocar o
+como default em três scripts, e o reordenador era outra copiada em dois. Trocar o
 recuperador significava editar todos e acertar todos.
 
 E há uma armadilha específica: **um quarto lugar NÃO deve mudar.** O
@@ -27,7 +27,7 @@ RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
 
 from conftest import so_codigo_de  # noqa: E402
-from phifm.core.modelos import RECUPERADOR, RERANQUEADOR  # noqa: E402
+from phifm.core.modelos import RECUPERADOR, REORDENADOR  # noqa: E402
 
 # Os scripts que consomem "o modelo do sistema" e devem importar a constante.
 CONSUMIDORES = (
@@ -52,10 +52,10 @@ def test_os_consumidores_importam_a_constante_e_nao_o_caminho():
             "vir de `phifm.core.modelos`")
 
 
-def test_o_reranqueador_do_sistema_tambem_vem_da_constante():
+def test_o_reordenador_do_sistema_tambem_vem_da_constante():
     fonte = so_codigo_de(RAIZ / "scripts/avaliar_t1b.py")
-    assert "RERANQUEADOR" in fonte
-    assert RERANQUEADOR not in fonte
+    assert "REORDENADOR" in fonte
+    assert REORDENADOR not in fonte
 
 
 def test_a_comparacao_do_G1_mantem_o_caminho_LITERAL():

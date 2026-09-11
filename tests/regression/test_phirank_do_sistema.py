@@ -1,6 +1,6 @@
 """O ΦRank do sistema é o que a medição elegeu, e o motivo tem de estar no código.
 
-O T1b deixou o reranqueador FORA do sistema por um ano de trabalho: ele empatava com
+O T1b deixou o reordenador FORA do sistema por um ano de trabalho: ele empatava com
 a fusão (p=0,118) porque partia da mesma base do recuperador. O T1c mediu três bases
 com a mesma receita e uma venceu:
 
@@ -12,7 +12,7 @@ com a mesma receita e uma venceu:
 Estes testes existem porque as duas configurações que sustentam esse resultado — a
 base padrão de treino e o modelo padrão de avaliação — são uma linha cada, e uma
 linha se reverte sem que nada quebre. O sistema voltaria a compor com um
-reranqueador que a medição diz ser um no-op, e a métrica cairia 0,009 sem nenhum
+reordenador que a medição diz ser um no-op, e a métrica cairia 0,009 sem nenhum
 teste vermelho.
 
 ⚠️ Nada aqui lê `models/`, que é gitignored. Um teste que exigisse os pesos passaria
@@ -33,7 +33,7 @@ VENCEDOR = "thellert/physbert_cased"
 PERDEDORAS = ("sentence-transformers/all-MiniLM-L6-v2", "thenlper/gte-base")
 
 
-def test_a_base_padrao_do_reranqueador_e_a_que_venceu():
+def test_a_base_padrao_do_reordenador_e_a_que_venceu():
     """A asserção central, e ela roda na suíte RÁPIDA de propósito.
 
     ⚠️ Ler o fonte em vez de importar `phifm.training.rerank`, que arrasta torch. Um
@@ -82,28 +82,28 @@ def test_o_motivo_esta_no_codigo_com_os_numeros():
 def test_o_default_do_avaliador_aponta_para_o_modelo_instalado():
     """A composição do T1b tem de compor com o vencedor, não com o no-op.
 
-    ⚠️ Desde 2026-09-08 o caminho vem de `phifm.core.modelos.RERANQUEADOR`, e não
+    ⚠️ Desde 2026-09-08 o caminho vem de `phifm.core.modelos.REORDENADOR`, e não
     de uma string no script — a versão anterior deste teste exigia
     `default=Path("models/phirank-physbert-melhor")` literal e reprovou a
     centralização. O que ele guarda é o VALOR que o default resolve, não onde a
     string está escrita.
     """
-    from phifm.core.modelos import RERANQUEADOR
+    from phifm.core.modelos import REORDENADOR
 
-    assert RERANQUEADOR == "models/phirank-physbert-melhor", (
-        "o reranqueador do sistema mudou; se foi de propósito, a referência do "
+    assert REORDENADOR == "models/phirank-physbert-melhor", (
+        "o reordenador do sistema mudou; se foi de propósito, a referência do "
         "T1b precisa ser remedida junto")
     fonte = (RAIZ / "scripts/avaliar_t1b.py").read_text(encoding="utf-8")
-    assert "default=Path(RERANQUEADOR)" in fonte, (
+    assert "default=Path(REORDENADOR)" in fonte, (
         "o avaliador voltou a compor com outro ΦRank")
     assert "phirank-minilm-melhor" not in fonte, (
-        "o caminho do reranqueador que empata com a fusão voltou como default")
+        "o caminho do reordenador que empata com a fusão voltou como default")
 
 
 def test_o_aviso_de_nao_usar_esta_base_no_recuperador():
     """A assimetria medida, e ela é contraintuitiva o suficiente para ser dita.
 
-    O PhysBERT é o MELHOR reranqueador e um recuperador RUIM: nDCG 0,2752 contra
+    O PhysBERT é o MELHOR reordenador e um recuperador RUIM: nDCG 0,2752 contra
     0,4657 do ΦEmb, que é a margem de +0,190 do G1.1. Alguém que leia "a base de
     domínio venceu" e aplique isso ao `train_embedding.py` perderia 0,19 de nDCG.
     """
@@ -114,10 +114,10 @@ def test_o_aviso_de_nao_usar_esta_base_no_recuperador():
         "falta o aviso explícito de não levar este default para o recuperador")
 
     # E o recuperador tem de continuar com a base DELE. Fonte, não import: ver
-    # `test_a_base_padrao_do_reranqueador_e_a_que_venceu`.
+    # `test_a_base_padrao_do_reordenador_e_a_que_venceu`.
     codigo_emb = so_codigo_de(RAIZ / "src/phifm/training/embedding.py")
     assert f"BASE_PADRAO = {VENCEDOR!r}" not in codigo_emb, (
-        "a base do recuperador virou a do reranqueador — são medições diferentes, "
+        "a base do recuperador virou a do reordenador — são medições diferentes, "
         "e no recuperador esta base perde por 0,190")
 
 

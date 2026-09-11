@@ -16,7 +16,7 @@ inalcançáveis pelos dois métodos. Não é teto da tarefa; é o corte.
 Pela curva de volume (+0,0196 por dobra), +0,098 exigiria **cinco dobras de dado**,
 ~294 h de T4. A profundidade custa o dobro da reordenação e zero de treino.
 
-Sobra uma pergunta: **o reranqueador GANHA com os candidatos a mais, ou eles só
+Sobra uma pergunta: **o reordenador GANHA com os candidatos a mais, ou eles só
 trazem distratores?**
 
 ## ⚠️ As três profundidades saem da MESMA passagem
@@ -31,7 +31,7 @@ com o mesmo modelo em memória e as mesmas consultas.
 
 ## A faixa esperada, dos números que já temos
 
-Hoje o reranqueador converte "o alvo está no conjunto" em "o alvo está no top-10" a
+Hoje o reordenador converte "o alvo está no conjunto" em "o alvo está no top-10" a
 **46,6%** (0,2945 ÷ 0,6325). Se a taxa se mantivesse em @200, o recall@10 iria a
 0,3399 — **+0,045**, o maior ganho isolado do sistema até hoje. Ela pode cair até
 **13,4%** antes de @200 empatar com @100.
@@ -165,7 +165,7 @@ assert (RANK / "model.safetensors").exists(), f"o ΦRank não tem pesos em {RANK
 
 print(f"""
 {'=' * 74}
-T1e — o reranqueador ganha com mais candidatos, ou só com mais distratores?
+T1e — o reordenador ganha com mais candidatos, ou só com mais distratores?
 
   o que motiva: o diagnóstico de 2026-09-10 mediu o posto verdadeiro do alvo
                 entre 88.807 documentos. Das 735 consultas perdidas no top-100,
@@ -178,7 +178,7 @@ T1e — o reranqueador ganha com mais candidatos, ou só com mais distratores?
                 Pela curva de volume (+0,0196 por dobra), +0,098 exigiria CINCO
                 DOBRAS de dado, ~294 h de T4.
 
-  faixa esperada: hoje o reranqueador converte "alvo no conjunto" em "alvo no
+  faixa esperada: hoje o reordenador converte "alvo no conjunto" em "alvo no
                 top-10" a 46,6%. Mantida a taxa, @200 daria recall@10 0,3399
                 (+0,045). Ela pode cair até 13,4% antes de @200 empatar.
 
@@ -272,7 +272,7 @@ print(json.dumps(enxuto, indent=2, ensure_ascii=False)[:3000])
     "n_consultas": N_CONSULTAS, "profundidade": PROFUNDIDADE,
     "sub_profundidades": SUB,
     "git_sha_dados": man["git_sha"], "git_sha_codigo": SHA,
-    "recuperador": EMB.name, "reranqueador": RANK.name,
+    "recuperador": EMB.name, "reordenador": RANK.name,
     "custo_segundos": {"total_s": custo},
     "resultado": r,
     "regra": ("Pareado k=10 entre @200 e @100, mesma passagem. @200 VENCE -> a "

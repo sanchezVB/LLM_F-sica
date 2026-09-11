@@ -47,11 +47,11 @@ def corpus(tmp_path: Path) -> Path:
     (tmp_path / "fatia").mkdir()
     (tmp_path / "fatia" / "part-00000.parquet").write_bytes(b"conteudo A" * 100)
     (tmp_path / "fatia" / "part-00001.parquet").write_bytes(b"conteudo B" * 100)
-    (tmp_path / "espinha.parquet").write_bytes(b"espinha" * 500)
+    (tmp_path / "spine.parquet").write_bytes(b"spine" * 500)
 
     refs = []
     for etapa, raiz in (("fatia", tmp_path / "fatia"),
-                        ("espinha", tmp_path / "espinha.parquet")):
+                        ("tabela mestra", tmp_path / "spine.parquet")):
         idx = (indexar(raiz) if raiz.is_dir()
                else {raiz.name: hash_arquivo(raiz)})
         me = ManifestoEtapa(
@@ -224,15 +224,15 @@ def test_construir_duas_vezes_da_o_mesmo_hash(tmp_path, monkeypatch):
 def test_etapa_declarada_e_ausente_e_erro_nao_silencio(tmp_path, monkeypatch):
     """Um manifesto de corpus INCOMPLETO que confere é o pior resultado possível.
 
-    Se a espinha faltar e o construtor apenas a omitir, o hash raiz é válido, a
-    verificação passa, e o corpus não tem espinha. A declaração explícita em
+    Se a tabela mestra faltar e o construtor apenas a omitir, o hash raiz é válido, a
+    verificação passa, e o corpus não tem tabela mestra. A declaração explícita em
     `ETAPAS` existe para que ausência seja erro.
     """
     import scripts.manifesto_corpus as mc
 
     (tmp_path / "data" / "raw").mkdir(parents=True)
     monkeypatch.setattr(mc, "ETAPAS", [{
-        "etapa": "espinha_que_nao_existe", "descricao": "—",
+        "etapa": "tabela mestra_que_nao_existe", "descricao": "—",
         "raiz": "data/processed/nao_existe.parquet", "entradas": [], "parametros": {},
     }])
     with pytest.raises(SystemExit, match="ausentes no disco"):
@@ -377,3 +377,95 @@ def test_regravar_o_manifesto_da_propria_etapa_continua_livre(tmp_path):
                                base=tmp_path, registros=2)
     assert a.etapa == b.etapa == "mesma"
     assert b.registros == 2
+
+
+# ── a lacuna de 18 GB, e a guarda contra a próxima ──────────────────────────
+
+def test_TODA_fonte_do_filtrar_hf_tem_etapa_no_manifesto():
+    """⚠️ O peS2o ficou 16 dias fora do manifesto raiz, e nada acusou.
+
+    Ele foi filtrado em 2026-08-26 e dobrou o corpus — 14,60 B tokens dos 27,75 B,
+    18 GB em disco. Ninguém o acrescentou a `ETAPAS`, e o manifesto raiz seguiu
+    atestando **21,79 GB** de um corpus de ~40 GB. O ESTADO.md dizia "o corpus por
+    um hash"; era 55% do corpus por um hash.
+
+    Nada acusava porque o construtor só percorre `ETAPAS`: uma etapa que não está
+    lá não existe para ele, e o relatório sai ✅ sobre o que ele conhece. **Um
+    verificador que passa não prova que o que ficou de fora está íntegro — prova
+    que ele não olhou.**
+
+    Esta guarda é código contra código: as duas tabelas são constantes de módulo,
+    então ela roda sem `data/processed/` existir e pega a lacuna no CI, não meses
+    depois numa contagem de bytes feita à mão.
+    """
+    import scripts.filtrar_hf as fh
+    import scripts.manifesto_corpus as mc
+
+    etapas = {e["etapa"] for e in mc.ETAPAS}
+    faltando = {f"{fonte}_fisica" for fonte in fh.FONTES
+                if f"{fonte}_fisica" not in etapas}
+    assert not faltando, (
+        f"{sorted(faltando)} saem de `filtrar_hf.FONTES` e não têm entrada em "
+        "`manifesto_corpus.ETAPAS`. O manifesto raiz atestaria um corpus menor "
+        "que o do disco, e o relatório de verificação diria ✅ assim mesmo.")
+
+
+def test_as_etapas_do_filtrar_hf_declaram_a_FONTE_que_as_produz():
+    """O `--fonte` é o que liga a entrada de `ETAPAS` ao comando que a gerou.
+
+    Sem ele, duas etapas produzidas pelo mesmo script ficam indistinguíveis nos
+    parâmetros reconstruídos — e foi por elas parecerem a mesma coisa que a
+    segunda passou despercebida.
+    """
+    import scripts.filtrar_hf as fh
+    import scripts.manifesto_corpus as mc
+
+    porp = {e["etapa"]: e["parametros"] for e in mc.ETAPAS}
+    for fonte in fh.FONTES:
+        params = porp.get(f"{fonte}_fisica")
+        assert params is not None, fonte
+        assert params.get("script") == "scripts/filtrar_hf.py", params
+        assert params.get("fonte") == fonte, (
+            f"{fonte}_fisica não diz de que `--fonte` veio: {params}")
+
+
+def test_o_prefixo_do_pes2o_esta_nos_PARAMETROS():
+    """⚠️ `data/v2/` é a diferença entre 14,6 B tokens e um corpus com metade
+    duplicada: o repositório publica v1 e v2 da MESMA coleção, e o S3b mediu que
+    duplicação em pré-treino degrada 16,6%.
+
+    Um parâmetro que decide isso não pode existir só dentro do script.
+    """
+    import scripts.filtrar_hf as fh
+    import scripts.manifesto_corpus as mc
+
+    _, _, prefixo = fh.FONTES["pes2o"]
+    assert prefixo == "data/v2/"
+    etapa = next(e for e in mc.ETAPAS if e["etapa"] == "pes2o_fisica")
+    assert etapa["parametros"].get("prefixo") == prefixo, (
+        "o prefixo do código e o do manifesto divergiram")
+
+
+def test_o_filtrar_hf_GRAVA_o_proprio_manifesto_ao_terminar():
+    """É isto que derruba `parametros_reconstruidos` para as duas fatias de HF.
+
+    Por AST: importar o script executaria o `sys.path.insert` e os imports
+    pesados, e o que interessa é se a chamada existe no fim do `main`.
+    """
+    import ast
+
+    raiz = Path(__file__).resolve().parents[2]
+    fonte = (raiz / "scripts/filtrar_hf.py").read_text(encoding="utf-8")
+    main = next(n for n in ast.walk(ast.parse(fonte))
+                if isinstance(n, ast.FunctionDef) and n.name == "main")
+    chamadas = {ast.unparse(n.func) for n in ast.walk(main)
+                if isinstance(n, ast.Call)}
+    assert "gravar_manifesto_etapa" in chamadas, (
+        "sem esta chamada os parâmetros voltam a ser reconstruídos do código")
+    # E os parâmetros que mais importam vão para lá: o limiar e o prefixo.
+    chamada = next(n for n in ast.walk(main) if isinstance(n, ast.Call)
+                   and ast.unparse(n.func) == "gravar_manifesto_etapa")
+    params = next(k.value for k in chamada.keywords if k.arg == "parametros")
+    chaves = {ast.literal_eval(c) for c in params.keys if c is not None}
+    for exigida in ("limiar", "prefixo", "revisao", "fonte", "dataset"):
+        assert exigida in chaves, f"{exigida} não é capturado: {sorted(chaves)}"

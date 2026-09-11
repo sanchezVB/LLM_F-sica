@@ -84,7 +84,7 @@ class ConfigRank:
     base: str = BASE_PADRAO
     # 384 e não 192: o cross-encoder recebe consulta E documento no mesmo fluxo.
     # Com 192 o par seria truncado ao meio e o modelo veria menos do documento do
-    # que o ΦEmb vê — o reranqueador julgaria com menos informação que o
+    # que o ΦEmb vê — o reordenador julgaria com menos informação que o
     # recuperador, o que inverte o propósito.
     max_tokens: int = 384
     # Grupos por passo. Cada grupo é 1 positivo + `n_negativos` negativos, então o

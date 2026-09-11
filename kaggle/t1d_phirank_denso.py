@@ -24,7 +24,7 @@ rodada, e o ganho não seria atribuível.
 
 Este projeto já perdeu um experimento por mudar duas coisas de uma vez.
 
-## ⚠️ Os DOIS reranqueadores, na MESMA sessão
+## ⚠️ Os DOIS reordenadores, na MESMA sessão
 
 A pergunta é "quanto mudou", e essa exige o braço de referência medido na mesma
 sessão. Em 2026-09-08 o T1b2 mediu o recuperador antigo junto e descobriu que o

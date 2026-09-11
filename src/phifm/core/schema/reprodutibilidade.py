@@ -9,7 +9,7 @@ A **aquisição** já era auditável: `AcquisitionManifest` (DOC-02 §8.1) grava
 `manifest_id`, `checksum_index` por arquivo, `pipeline_git_sha`,
 `license_resolution` e `failures`. Cinco coletas têm o seu.
 
-O que **não** existia era manifesto dos **derivados** — a espinha, os pares de
+O que **não** existia era manifesto dos **derivados** — a tabela mestra, os pares de
 citação, o classificador, as fatias filtradas do HuggingFace. São 19,7 GB de
 artefatos que o corpus final é, e nenhum deles declarava de que entradas saiu,
 com que parâmetros, nem que bytes tem. Sem isso, "um único hash" não existe: há

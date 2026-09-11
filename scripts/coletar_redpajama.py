@@ -62,7 +62,7 @@ def main() -> int:
     me = gravar_manifesto_etapa(
         etapa="redpajama_fisica",
         descricao=("Fatia de Física do RedPajama-arXiv, filtrada por casamento "
-                   "exato com a espinha"),
+                   "exato com a tabela mestra"),
         raiz=a.out,
         entradas=[Entrada(caminho=str(a.spine))],
         parametros={"script": "scripts/coletar_redpajama.py",

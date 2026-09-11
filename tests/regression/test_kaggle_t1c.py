@@ -1,6 +1,6 @@
 """O T1c é um experimento de UMA variável, e estes testes é que garantem isso.
 
-O T1c pergunta se o reranqueador precisa de uma base com pré-treino diferente do
+O T1c pergunta se o reordenador precisa de uma base com pré-treino diferente do
 recuperador. A resposta só significa algo se **nada mais** mudar junto: este
 repositório já perdeu um experimento inteiro por trocar base e lote na mesma corrida
 e não saber qual dos dois explicava o resultado.
@@ -255,7 +255,7 @@ def test_o_registro_declara_o_t1c_coerente_com_a_celula():
 
 
 def test_o_t1c_carrega_o_emb_do_t1b_e_nao_o_do_t4():
-    """Trocar o recuperador junto com o reranqueador mediria duas coisas.
+    """Trocar o recuperador junto com o reordenador mediria duas coisas.
 
     O nDCG 0,1584 de referência foi medido com `phiemb-minilm-melhor`.
     """
@@ -585,7 +585,7 @@ def test_o_avaliador_mede_o_reranker_SEM_a_fusao_tambem():
 
     fonte = so_codigo_de(RAIZ / "scripts/avaliar_t1b.py")
     assert "pos_rank_denso" in fonte, (
-        "o avaliador voltou a medir o reranqueador só sobre a fusão")
+        "o avaliador voltou a medir o reordenador só sobre a fusão")
     assert "sem fusão" in fonte
     # Dois tetos, porque agora há duas cadeias com limites diferentes.
     assert "teto_do_reranker_sem_fusao" in fonte, (

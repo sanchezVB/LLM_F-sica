@@ -10,9 +10,9 @@ distintivo, e eram 100% invisíveis ao classificador de subárea.
 
 ## Por que o conserto é no consumidor
 
-Reconstruir a espinha cascatearia: ela é entrada dos pares de citação (6,5 M
+Reconstruir a tabela mestra cascatearia: ela é entrada dos pares de citação (6,5 M
 linhas), do próprio classificador e da fatia do RedPajama — o que exigiria rebaixar
-81 GB e re-derivar 22 GB de corpus. Para 0,25% da espinha, não se paga.
+81 GB e re-derivar 22 GB de corpus. Para 0,25% da tabela mestra, não se paga.
 
 ## O que este conserto NÃO faz, e é o mais importante
 
@@ -54,7 +54,7 @@ def test_legado_de_fisica_sai_de_outro():
 def test_nao_fisica_em_outro_permanece_em_outro():
     """⚠️ 93,8% do balde "Outro" é rótulo CERTO, não lacuna.
 
-    Papers de `math.AP`, `cs.LG` e `q-bio.PE` estão na espinha por cross-list de
+    Papers de `math.AP`, `cs.LG` e `q-bio.PE` estão na tabela mestra por cross-list de
     Física. Dar-lhes subárea de Física seria inventar rótulo — e o classificador
     treinaria a dizer que análise de EDPs é Matéria Condensada.
     """

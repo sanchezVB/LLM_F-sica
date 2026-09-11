@@ -14,7 +14,7 @@
 |---|---|
 | Corpus escolhido | `data/processed/redpajama_fisica/` — 835.379 documentos, 42,15 G caracteres, 10,54 B tokens, 12 GB |
 | Origem | `togethercomputer/RedPajama-Data-1T`, fatia arXiv, construída do **fonte LaTeX** |
-| Filtro | casamento exato com a espinha de Física (`scripts/coletar_redpajama.py`) |
+| Filtro | casamento exato com a tabela mestra de Física (`scripts/coletar_redpajama.py`) |
 | Custo | **US$ 0** — baixado em 2026-08-14 |
 | Alternativa rejeitada | arXiv S3 `requester pays`, agora, como pré-requisito |
 
@@ -67,7 +67,7 @@ O discriminante correto é a **presença de ambiente de equação**: 84,9% contr
 
 **O que destrava.** A hipótese central do ΦEnc é testável hoje, sem gastar. Volume medido: **42,15 G caracteres**, 50.451 por documento, **10,54 B tokens** a ~4 ch/token — acima dos 5 B por variante que o bake-off do DOC-05 §11.2 pede, e acima do que um encoder de 150 M consome com folga.
 
-**O que continua valendo do arXiv pago.** Cobertura e frescor. O RedPajama-1T é um instantâneo de 2023, não tem o que saiu depois, e é a fatia arXiv **de todo o arXiv** filtrada pela nossa espinha — o que o filtro não pegou não está lá. Para o ΦEnc-150M isso não morde; para um Tier 2, mordia.
+**O que continua valendo do arXiv pago.** Cobertura e frescor. O RedPajama-1T é um instantâneo de 2023, não tem o que saiu depois, e é a fatia arXiv **de todo o arXiv** filtrada pela nossa tabela mestra — o que o filtro não pegou não está lá. Para o ΦEnc-150M isso não morde; para um Tier 2, mordia.
 
 **A cotação que eu dei estava errada, nos dois sentidos.** O conjunto de fonte é ~2,9 TB (março de 2023) e os dois conjuntos somam ~9,2 TB (abril de 2025); o bucket é `requester pays` e o arXiv não publica preço, remetendo à tabela da AWS. A US$ 0,09/GB de egresso, o fonte inteiro para fora da AWS passa de **US$ 400**, não US$ 100–180. Mas filtrar dentro da AWS (`us-east-1`, egresso zero para EC2) e baixar só o `.tex` custaria **dezenas de dólares** — os tars são por mês, não por área, então não há como pedir só Física na origem.
 

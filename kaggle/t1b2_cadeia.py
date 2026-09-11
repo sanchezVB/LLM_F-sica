@@ -238,7 +238,7 @@ for nome, r in resultados.items():
 (TRABALHO / "t1b2_resultado.json").write_text(json.dumps({
     "n_consultas": N_CONSULTAS, "profundidade": PROFUNDIDADE,
     "git_sha_dados": man["git_sha"], "git_sha_codigo": SHA,
-    "reranqueador": RANK.name,
+    "reordenador": RANK.name,
     "bracos": {k: str(v.name) for k, v in BRACOS.items()},
     "resultados": resultados,
     "nota": ("Os dois braços na MESMA sessão, mesmo commit, mesmas consultas. "

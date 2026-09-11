@@ -117,7 +117,7 @@ Mapa detalhado e as fronteiras de import impostas em CI: [`src/README.md`](src/R
 
 | Degrau | Entrega | **Custo** | Portão | Estado |
 |---|---|---|---|---|
-| **T0 — Corpus** | `PhysCorpus-Open` + tokenizer de Física — publicável sem nenhum modelo | **US$ 0** | Corpus reconstruível a partir de um único hash de manifesto | ⚠️ espinha pronta; tokenizer ⬜ |
+| **T0 — Corpus** | `PhysCorpus-Open` + tokenizer de Física — publicável sem nenhum modelo | **US$ 0** | Corpus reconstruível a partir de um único hash de manifesto | ⚠️ tabela mestra pronta; tokenizer ⬜ |
 | **T1 — Representação** | ΦEnc / ΦEmb / ΦRank | **US$ 35–120** | Superar o PhysBERT em ≥5 nDCG@10 **e** superar o melhor embedder geral com 1/10 dos parâmetros | ⚠️ **metade** — ver abaixo |
 | **T2 — Raciocínio** | ΦGen-1,5B via CPT + SFT + RLVR, ΦRAG | **US$ 300–600** acum. | ≥ +10 pontos sobre o **próprio modelo base**, zero regressão geral, ≥0,95 de precisão de citação |
 | **T2c — Escala** | ΦGen-8B | **US$ 1.100–2.260** acum. | Competitivo com abertos de porte médio |
@@ -129,14 +129,14 @@ Detalhamento em [DOC-17A §8](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md
 
 ## O que já foi medido
 
-### Sprint S1 — a espinha de metadados ✅
+### Sprint S1 — a tabela mestra de metadados ✅
 
 | | Medido | O plano dizia |
 |---|---|---|
 | Registros do arXiv (set `physics`) | **1.595.422** · 0 falhas | 1,2 M |
 | Tamanho em disco | 674 MB · **422 bytes/registro** | 516–686 bytes |
 | Obras do OpenAlex (snapshot) | **4.613.751** · 137 GB lidos · 0 falhas | — |
-| Casamento com a espinha | **99,1%** (1.581.098) | 98,5% pela chave `locations` |
+| Casamento com a tabela mestra | **99,1%** (1.581.098) | 98,5% pela chave `locations` |
 | Arestas de citação | **22,7 M+** | "dezenas de milhões" |
 | **Fração redistribuível** | **14,8%** | 25–35% ❌ corrigido no ADR-0001 |
 

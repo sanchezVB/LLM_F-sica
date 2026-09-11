@@ -9,7 +9,7 @@ O que estes testes fixam:
   1. **`--max-grupos` é o do T1c.** Os negativos novos têm 16.391 grupos e o T1c
      usou 12.500 — subir o limite mudaria distribuição *E* volume na mesma rodada,
      e o ganho não seria atribuível. Este é o eixo em que o T1d escorregaria;
-  2. **os dois reranqueadores na MESMA sessão.** A pergunta é "quanto mudou", e em
+  2. **os dois reordenadores na MESMA sessão.** A pergunta é "quanto mudou", e em
      2026-09-08 comparar contra o número histórico teria reportado SETE VEZES o
      efeito real da troca do recuperador;
   3. **o pareado que a regra nomeia é calculado pela célula.** No T1b2 a regra
@@ -78,7 +78,7 @@ def test_os_2102_grupos_de_fora_estao_DECLARADOS():
         assert "volume" in texto
 
 
-def test_os_DOIS_reranqueadores_na_mesma_sessao():
+def test_os_DOIS_reordenadores_na_mesma_sessao():
     """A pergunta é "quanto mudou", e em 2026-09-08 comparar contra o número
     histórico teria reportado SETE VEZES o efeito real da troca do recuperador."""
     # Por AST: `so_codigo` normaliza aspas no `ast.unparse`, entao uma

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instala um ΦRank treinado no Kaggle como o reranqueador do sistema.
+"""Instala um ΦRank treinado no Kaggle como o reordenador do sistema.
 
     .venv\\Scripts\\python.exe scripts\\instalar_phirank.py --de <dir> \\
         --para models/phirank-physbert-melhor --nota "T1c, p=0,0062"

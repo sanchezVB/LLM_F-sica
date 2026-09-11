@@ -119,7 +119,7 @@ Heurísticas pegam lixo evidente. Não distinguem um paper medíocre de um excel
 
 ### 4.1 Sinais gratuitos vindos de metadados
 
-Antes de treinar qualquer classificador, a espinha de metadados do DOC-02 §3.1 já fornece sinais de qualidade **de graça**:
+Antes de treinar qualquer classificador, a tabela mestra de metadados do DOC-02 §3.1 já fornece sinais de qualidade **de graça**:
 
 | Sinal | Fonte | O que indica |
 |---|---|---|

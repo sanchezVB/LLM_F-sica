@@ -73,7 +73,7 @@ def carregar_grafo(dir_snapshot: Path) -> pl.LazyFrame:
     )
 
 
-def montar_pares(grafo: pl.LazyFrame, espinha: pl.LazyFrame, semente: int = 17) -> pl.DataFrame:
+def montar_pares(grafo: pl.LazyFrame, spine: pl.LazyFrame, semente: int = 17) -> pl.DataFrame:
     """Constrói os pares e anexa os textos das duas pontas."""
     # openalex_id → arxiv_id, para traduzir `referenced_works`.
     mapa = grafo.select("openalex_id", pl.col("arxiv_id").alias("arxiv_citado"))
@@ -102,7 +102,7 @@ def montar_pares(grafo: pl.LazyFrame, espinha: pl.LazyFrame, semente: int = 17) 
     )
 
     textos = (
-        espinha.select("arxiv_id", "title", "abstract")
+        spine.select("arxiv_id", "title", "abstract")
         .with_columns(
             (pl.col("title").fill_null("") + ". " + pl.col("abstract").fill_null(""))
             .str.replace_all(r"\s+", " ")
@@ -150,11 +150,11 @@ def dividir(pares: pl.DataFrame, semente: int = 17) -> tuple[pl.DataFrame, pl.Da
     return tr, val
 
 
-def construir(dir_snapshot: Path, espinha: Path, saida: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
+def construir(dir_snapshot: Path, spine: Path, saida: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
     grafo = carregar_grafo(dir_snapshot)
     # Preguiçoso também aqui: são 1,59 M de resumos, e o `join` só precisa das
     # linhas que casam com alguma aresta.
-    esp = pl.scan_parquet(espinha).select("arxiv_id", "title", "abstract")
+    esp = pl.scan_parquet(spine).select("arxiv_id", "title", "abstract")
     tr, val = dividir(montar_pares(grafo, esp))
 
     saida.mkdir(parents=True, exist_ok=True)

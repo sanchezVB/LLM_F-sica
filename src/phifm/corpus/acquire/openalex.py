@@ -1,7 +1,7 @@
 """Coletor do OpenAlex — grafo de citações e identificadores cruzados.
 
 Segunda etapa do Sprint S1 (DOC-02 §9). O que o OpenAlex acrescenta sobre a
-espinha do arXiv: **`referenced_works`**, ou seja, a lista de referências
+tabela mestra do arXiv: **`referenced_works`**, ou seja, a lista de referências
 resolvidas de cada trabalho. É a supervisão gratuita que o DOC-07 §3.1
 identificou para treinar o ΦEmb — dezenas de milhões de pares positivos
 (paper → paper citado) sem nenhuma anotação.
@@ -26,7 +26,7 @@ arruinar o recorte em silêncio:
 
 **Consequência de projeto, e é o princípio A1 se pagando:** não filtramos por
 campo aqui. Coletamos tudo com origem no arXiv e o recorte de Física vem da
-**categoria atribuída pelo autor** na espinha do arXiv (`arxiv.py`), que é
+**categoria atribuída pelo autor** na tabela mestra do arXiv (`arxiv.py`), que é
 autoritativa. O OpenAlex entra apenas como enriquecimento.
 """
 
@@ -55,7 +55,7 @@ ARXIV_SOURCE_ID = "S4306400194"  # arXiv (Cornell University), verificado 2026-0
 # `select` reduz o payload de ~30 KB para ~9,5 KB por obra.
 #
 # `locations` é caro (1,7× do payload) e mesmo assim é obrigatório: sem ele a
-# chave de junção com a espinha do arXiv cai de 98,5% para 1,5%. Medido em
+# chave de junção com a tabela mestra do arXiv cai de 98,5% para 1,5%. Medido em
 # 2026-08-03 sobre 200 obras — ver §"chave de junção" no parser abaixo.
 SELECT = ",".join(
     [
@@ -113,7 +113,7 @@ def extract_arxiv_id(w: dict) -> str | None:
     """Extrai o arXiv ID, normalizando o sufixo de versão (`1412.6980v5` → `1412.6980`).
 
     Sem a normalização, `2405.12345` e `2405.12345v2` seriam chaves distintas e
-    a junção com a espinha do arXiv falharia silenciosamente numa fração dos
+    a junção com a tabela mestra do arXiv falharia silenciosamente numa fração dos
     registros — o pior tipo de defeito, porque a contagem parece plausível.
     """
     doi = w.get("doi") or ""

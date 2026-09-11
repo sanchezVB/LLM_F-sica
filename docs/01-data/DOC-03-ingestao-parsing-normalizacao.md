@@ -101,7 +101,7 @@ De cada documento, para o `PhysicsDocumentRecord` (DOC-01 §6):
 | **Figuras** | Legenda + referência ao arquivo de imagem + menções no texto | Insumo do ΦVis (DOC-07) |
 | **Tabelas** | Estrutura de células, não texto achatado | Tabelas de Física carregam dados experimentais |
 | **Citações inline** | Mapeamento span → índice de referência | Base da atribuição de citação do ΦRAG (DOC-13) |
-| **Referências** | Lista com DOIs resolvidos via junção com a espinha de metadados (DOC-02 §3.1) | Grafo de citações |
+| **Referências** | Lista com DOIs resolvidos via junção com a tabela mestra de metadados (DOC-02 §3.1) | Grafo de citações |
 | **Macros do autor** | Dicionário preservado em `provenance` | Permite reprocessar sem reparsear |
 
 ### 2.5 Equação sem contexto é ruído

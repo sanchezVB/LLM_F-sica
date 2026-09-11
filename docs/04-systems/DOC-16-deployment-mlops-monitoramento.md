@@ -28,7 +28,7 @@ O que **não** é construído no Tier 1–2: malha de serviços, feature store, 
 
 ## 2. Versionamento — quatro eixos independentes
 
-O pipeline 15 do briefing. O DOC-01 §8 estabeleceu a espinha; aqui ela é operacionalizada.
+O pipeline 15 do briefing. O DOC-01 §8 estabeleceu a tabela mestra; aqui ela é operacionalizada.
 
 | Eixo | Mecanismo | Identidade |
 |---|---|---|

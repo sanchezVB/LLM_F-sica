@@ -22,9 +22,9 @@ próprio artigo (§4.2).
 
 As cinco, com o número que as expõe:
 
-1. **Negativos difíceis minerados do próprio recuperador invertem o reranqueador.**
+1. **Negativos difíceis minerados do próprio recuperador invertem o reordenador.**
    Minerar "top-K recuperado menos o positivo" ensina *escore alto do recuperador ⇒
-   negativo*. O reranqueador resultante anticorrelaciona com o recuperador em 83% das
+   negativo*. O reordenador resultante anticorrelaciona com o recuperador em 83% das
    consultas (Spearman entre posição na fusão e escore: **+0,179**). Corrigido, vai a
    **−0,466** e 0% — e então não acrescenta nada, porque concorda.
 2. **`head()` num parquet agrupado por documento mede uma fração dos documentos que
@@ -40,7 +40,7 @@ As cinco, com o número que as expõe:
    treino, e o modelo aprendeu identidade de paper em vez de relevância de par: nDCG
    da composição de **0,139 para 0,020** sobre documentos inéditos.
 4. **9,1% dos negativos minerados são co-citados com o positivo**, e treinar um
-   reranqueador a rebaixá-los é ensiná-lo a rebaixar o que é relevante — com a perda
+   reordenador a rebaixá-los é ensiná-lo a rebaixar o que é relevante — com a perda
    descendo normalmente durante o treino.
 5. **Corpora de texto pleno extraídos de PDF têm as equações removidas**, e o
    diagnóstico intuitivo para isso satura no corpus bom. Presença de ambiente de
@@ -59,7 +59,7 @@ tamanho empata (p = 0,637); o encoder de Física vence (p = 0,0062). E o encoder
 Física é, ele mesmo, um recuperador ruim neste benchmark.
 
 **Na segunda (§10.2) ela se confirmou de um jeito que apagou o resultado da
-primeira.** Melhorado o recuperador em 0,098, o mesmo reranqueador deixou de
+primeira.** Melhorado o recuperador em 0,098, o mesmo reordenador deixou de
 acrescentar qualquer coisa — cinco medições pareadas, três profundidades, nenhuma o
 separa do recuperador sozinho. Dobrar o conjunto de candidatos deu-lhe 195 alvos
 novos e ele promoveu **um**. O estágio saiu do sistema pela regra registrada antes.
@@ -137,11 +137,11 @@ documentos citados distintos**.
 
 **Modelos.** Recuperador denso: `all-MiniLM-L6-v2` ajustado com InfoNCE. Léxico: BM25.
 Fusão: Reciprocal Rank Fusion (Cormack et al., 2009), k = 60 — valor herdado de um
-piloto, e os autores registram que *"a escolha não é crítica"* (§12.4). Reranqueador:
+piloto, e os autores registram que *"a escolha não é crítica"* (§12.4). Reordenador:
 cross-encoder par a par, inicializado da mesma base do recuperador.
 
 ⚠️ **Esta é a composição ESTUDADA, e nenhum dos dois estágios sobreviveu.** O BM25
-saiu em 2026-09-08 e o reranqueador em 2026-09-10, os dois por regra registrada antes
+saiu em 2026-09-08 e o reordenador em 2026-09-10, os dois por regra registrada antes
 de medir. O sistema final é `recuperador → top-10`. As duas remoções são resultado,
 não simplificação: ver §10.2.
 
@@ -161,7 +161,7 @@ uma medição anterior, o que é a razão de as falhas terem sido encontradas.
 
 ---
 
-## 3. Falha 1 — negativos do recuperador invertem o reranqueador
+## 3. Falha 1 — negativos do recuperador invertem o reordenador
 
 ### 3.1 O que foi feito
 
@@ -185,7 +185,7 @@ Medido, sobre 1.000 consultas:
 | consultas com rho > 0 | **83%** | **0%** |
 
 Com posição menor = melhor, o sinal desejado é negativo. A primeira coluna é um
-reranqueador que **prefere a cauda do recuperador**.
+reordenador que **prefere a cauda do recuperador**.
 
 ### 3.3 A correção, e por que ela não bastou
 
@@ -193,13 +193,13 @@ A correção é montar o grupo de treino com a **distribuição exata da avalia�
 50 candidatos que a fusão RRF de fato produz, incluindo o positivo quando ele está
 lá. "Estar no topo" deixa de predizer o rótulo.
 
-O reranqueador consertado é forte dentro do grupo — acerto@1 de **0,498 ± 0,045**
+O reordenador consertado é forte dentro do grupo — acerto@1 de **0,498 ± 0,045**
 contra 0,125 do acaso e 0,20–0,25 do próprio RRF nos mesmos grupos — e **não acrescenta
 nada ao sistema**.
 
 > ⚠️ **Os números abaixo são de 2026-08, com o recuperador daquela época.** Ele
 > melhorou 0,098 desde então, e a composição mudou duas vezes: o BM25 saiu por regra
-> pré-registrada e o reranqueador saiu depois. Os valores atuais estão na §10.2. A
+> pré-registrada e o reordenador saiu depois. Os valores atuais estão na §10.2. A
 > tabela fica porque é a medição que motivou a investigação, não porque descreve o
 > sistema de hoje.
 
@@ -208,21 +208,21 @@ nada ao sistema**.
 | BM25 | 0,067 | 0,236 | 0,1399 | p = 0,00073 (fusão vence) |
 | denso | 0,055 | 0,233 | 0,1327 | p = 0,00018 (fusão vence) |
 | **fusão RRF** | 0,068 | 0,271 | **0,1584** | — |
-| fusão + reranqueador | 0,064 | 0,254 | 0,1493 | p = 0,118 (empate) |
+| fusão + reordenador | 0,064 | 0,254 | 0,1493 | p = 0,118 (empate) |
 
-A explicação é a própria correção: o reranqueador parte da **mesma base** do
-recuperador, e agora concorda com ele (−0,466). Um reranqueador que re-deriva a ordem
+A explicação é a própria correção: o reordenador parte da **mesma base** do
+recuperador, e agora concorda com ele (−0,466). Um reordenador que re-deriva a ordem
 do recuperador não tem informação nova para dar, por bem treinado que esteja.
 
 > **A lição não é "não minere do recuperador".** É que o grupo de treino tem de ter a
-> distribuição do grupo de inferência, e que **um reranqueador cuja base é a do
+> distribuição do grupo de inferência, e que **um reordenador cuja base é a do
 > recuperador é redundante por construção** — o que é uma predição testável.
 >
 > ⚠️ **Ela foi testada duas vezes, e a formulação acima está errada por um termo.**
 > A §10 confirma a primeira metade: um cross-encoder de base diferente bate a fusão.
 > A §10.2 mostra que a segunda estava mal enunciada — não é a **base** que decide,
 > é **o quanto o recuperador já é bom**. Quando ele melhorou 0,098, o mesmo
-> reranqueador de base diferente parou de acrescentar qualquer coisa.
+> reordenador de base diferente parou de acrescentar qualquer coisa.
 
 ### 3.4 O que isso acrescenta ao que já se sabia
 
@@ -240,7 +240,7 @@ negatives"*. No pipeline, o cross-encoder é o **filtro** e o que se treina é o
 
 | | RocketQA | aqui |
 |---|---|---|
-| o que se treina | o **recuperador** (dual-encoder) | o **reranqueador** (cross-encoder), que roda *depois* do recuperador |
+| o que se treina | o **recuperador** (dual-encoder) | o **reordenador** (cross-encoder), que roda *depois* do recuperador |
 | natureza do defeito | **ruído de rótulo**: o negativo é, de fato, relevante | **o critério de seleção correlaciona com o escore do modelo a ser reordenado** |
 | o que conserta | filtrar o conjunto de **negativos** | trocar a origem do **positivo**, que passa a vir do mesmo top-K |
 
@@ -286,7 +286,7 @@ papers**.
 
 ### 4.1 A conclusão que isso produziu e destruiu
 
-Investigando por que o reranqueador não ganhava, medi o escore com a consulta
+Investigando por que o reordenador não ganhava, medi o escore com a consulta
 substituída por string vazia. Resultado: 0,355 com consulta vazia contra 0,390 com a
 real. Conclusão registrada: *"o modelo não lê a consulta"*.
 
@@ -367,7 +367,7 @@ conjunto assim não separa nada — os mesmos papers caem dos dois lados.
 O modelo aprendeu "este paper específico é positivo" em vez de "este par é
 relevante". Reportou acerto@1 de 0,370 e, sobre documentos inéditos, derrubou o nDCG
 da composição de **0,139 para 0,020**. O conjunto de validação real tem 88.807
-citados distintos, dos quais o reranqueador tinha visto 4,8%.
+citados distintos, dos quais o reordenador tinha visto 4,8%.
 
 **A correção** é dividir por documento citado, com uma verificação que **levanta** se
 qualquer documento aparecer dos dois lados. A métrica cai — o número honesto é menor
@@ -392,7 +392,7 @@ E a taxa **subiu** quando o recuperador melhorou: com os candidatos minerados do
 recuperador de 2026-09-08, **12,51%** (98.331 de 786.063). Um recuperador melhor traz
 ao topo mais documentos topicamente próximos, e proximidade tópica é o que faz dois
 papers serem citados juntos — então **o filtro importa mais à medida que o
-recuperador melhora**, não menos. Treinar o reranqueador a rebaixá-los é ensiná-lo a rebaixar o que é
+recuperador melhora**, não menos. Treinar o reordenador a rebaixá-los é ensiná-lo a rebaixar o que é
 relevante, e a perda de treino desce normalmente enquanto isso acontece — porque, do
 ponto de vista da perda, o rótulo é o rótulo.
 
@@ -531,14 +531,14 @@ conferir**.
 
 1. **Reportar sempre o n efetivo** ao lado da métrica, e o intervalo que ele implica.
    Onde a métrica agrega por grupo, o n é o número de grupos distintos.
-2. **Medir a correlação entre o escore do reranqueador e a posição do recuperador.**
+2. **Medir a correlação entre o escore do reordenador e a posição do recuperador.**
    Um Spearman. Ele expõe a Falha 1 antes de qualquer avaliação de ponta a ponta.
 3. **Fazer a divisão levantar exceção**, não avisar. Um `logging.warning` de
    vazamento é lido depois de o resultado já ter sido reportado.
 4. ⚠️ **Escolher o teste que casa com o que a peça faz.** Nós pré-registramos
-   McNemar sobre "o alvo chegou ao top-k" para julgar um reranqueador — e esse teste
+   McNemar sobre "o alvo chegou ao top-k" para julgar um reordenador — e esse teste
    mede **pertencimento**, sendo cego para ordenação *dentro* do top-k, que é metade
-   do trabalho de um reranqueador. Um modelo que ordenasse o top-10 perfeitamente
+   do trabalho de um reordenador. Um modelo que ordenasse o top-10 perfeitamente
    mudaria muito o nDCG e nada o recall@10.
 
    Registrar a regra antes é necessário e não basta: **a regra pode estar
@@ -551,7 +551,7 @@ conferir**.
 
 ## 10. A predição da §3.3, testada duas vezes — e o que a segunda apagou
 
-A explicação da §3.3 — redundância informacional entre reranqueador e recuperador —
+A explicação da §3.3 — redundância informacional entre reordenador e recuperador —
 faz uma predição falsificável: um cross-encoder de base **diferente** deve bater a
 fusão. Nós a testamos com regra de decisão registrada antes de medir (McNemar em
 k = 10 contra a fusão da mesma execução, limiar de Bonferroni 0,025 por serem duas
@@ -582,7 +582,7 @@ p = 0,14584 sobre 229 discordantes em ambas.
 O encoder de domínio é um **recuperador ruim** neste benchmark (nDCG **0,3507**
 contra 0,5246 do nosso ajuste fino de 400 mil arestas, e 0,4761 do MiniLM-L6 **sem
 ajuste algum** — números do protocolo de teto 1,0000, ver §1 e §4.2) e a **melhor
-base de reranqueador** das três testadas. Pré-treino de domínio não produziu um bi-encoder
+base de reordenador** das três testadas. Pré-treino de domínio não produziu um bi-encoder
 competitivo aqui e produziu um cross-encoder competitivo.
 
 Não temos explicação mecanística para a assimetria, e não vamos inventar uma. A
@@ -598,13 +598,13 @@ alguém medir.
 O resultado do §10 foi medido contra o recuperador de então. Depois dele, o
 recuperador melhorou: 6 M de arestas em vez de 400 mil, **+0,098 de nDCG@10** no
 protocolo do portão. E a explicação da §3.3 faz uma segunda predição, que a primeira
-formulação não separava: se o valor do reranqueador vem do que o recuperador deixa
+formulação não separava: se o valor do reordenador vem do que o recuperador deixa
 para trás, **um recuperador melhor deve encolher esse valor**.
 
 Encolheu até desaparecer. Cinco medições pareadas, com regra registrada antes de
 cada uma:
 
-| medição | reranqueador | profundidade | vence o recuperador sozinho? |
+| medição | reordenador | profundidade | vence o recuperador sozinho? |
 |---|---|---|---|
 | 2026-09-08 | PhysBERT (o do §10) | 100 | não, p=0,139 |
 | 2026-09-09 | PhysBERT retreinado nos negativos novos | 100 | não, p=0,379 |
@@ -614,30 +614,30 @@ cada uma:
 
 #### O mecanismo, e ele é mais forte que os cinco empates
 
-Dobrar o conjunto de candidatos de 100 para 200 deu ao reranqueador **195 alvos
+Dobrar o conjunto de candidatos de 100 para 200 deu ao reordenador **195 alvos
 novos** — consultas cujo documento certo passou a estar no conjunto. Ele trouxe
 **+1** para o top-10.
 
-Não é "traz menos". É ~nenhum, de 195 oportunidades. **O reranqueador não consegue
+Não é "traz menos". É ~nenhum, de 195 oportunidades. **O reordenador não consegue
 promover um documento que o recuperador colocou entre a posição 100 e a 200**, o que
 é a redundância da §3.3 medida diretamente: consertados os negativos, o Spearman
-entre escore do reranqueador e posição do recuperador é **−0,466**, e um modelo que
+entre escore do reordenador e posição do recuperador é **−0,466**, e um modelo que
 concorda com o recuperador não tem por que discordar dele em lugar nenhum.
 
 E há um segundo achado, que o critério pré-registrado não teria pego. Das **421**
-consultas com o alvo no top-10 nos dois sistemas, o reranqueador **desce** o alvo em
+consultas com o alvo no top-10 nos dois sistemas, o reordenador **desce** o alvo em
 167 e **sobe** em 141. Ele não ordena melhor dentro do top-10 — ordena um pouco
 pior. Todo o ganho aparente de nDCG (+0,0091) vem de pertencimento, +27 líquido, e
 **nada** de ordenação.
 
 #### O que isto corrige na §3.3
 
-A frase era "um reranqueador cuja **base** é a do recuperador é redundante por
+A frase era "um reordenador cuja **base** é a do recuperador é redundante por
 construção". O §10 refutou metade: base diferente **venceu**, com p=0,0062.
 
-A formulação certa é sobre **regime**, não sobre base: *o valor de um reranqueador é
+A formulação certa é sobre **regime**, não sobre base: *o valor de um reordenador é
 limitado pelo que o recuperador deixa para trás, e some quando o recuperador melhora
-o bastante*. O reranqueador do §10 não piorou — o recuperador subiu por baixo dele.
+o bastante*. O reordenador do §10 não piorou — o recuperador subiu por baixo dele.
 
 **A consequência prática é desconfortável e generalizável: um estágio de reordenação
 tem de ser re-medido a cada mudança do recuperador, e um resultado de reranking

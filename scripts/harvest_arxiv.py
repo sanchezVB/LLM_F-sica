@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sprint S1 · etapa 1 — espinha de metadados do arXiv (DOC-02 §9)."""
+"""Sprint S1 · etapa 1 — tabela mestra de metadados do arXiv (DOC-02 §9)."""
 import argparse
 import logging
 import sys

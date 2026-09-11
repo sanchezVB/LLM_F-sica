@@ -152,7 +152,7 @@ def test_sem_fusao_o_teto_e_o_do_RECUPERADOR_e_nao_sai_duplicado(tmp_path):
 
 
 def test_sem_fusao_reordena_UMA_vez_por_consulta(tmp_path):
-    """A economia que faz dois braços de reranqueador caberem na mesma sessão.
+    """A economia que faz dois braços de reordenador caberem na mesma sessão.
 
     Reordenar é 96% do custo. Duas passagens por consulta dobrariam o preço de
     medir uma composição que a regra já descartou.
@@ -192,7 +192,7 @@ def test_as_POSICOES_por_consulta_vao_no_artefato(tmp_path):
     A regra pré-registrada do T1b2 pedia um confronto entre duas cadeias; o run
     mediu as duas e o teste não podia mais ser calculado, porque só as métricas
     agregadas eram gravadas. Ali a aritmética decidiu, por sorte do tamanho do
-    efeito. O retreino do ΦRank compara dois reranqueadores em invocações
+    efeito. O retreino do ΦRank compara dois reordenadores em invocações
     separadas — sem isto, o confronto seria impossível de novo.
     """
     import sys as _sys
@@ -246,7 +246,7 @@ def test_a_sub_profundidade_NAO_pode_exceder_a_profundidade(tmp_path):
 
 
 def test_o_confronto_entre_PROFUNDIDADES_e_calculado(tmp_path):
-    """A pergunta de 2026-09-10: o reranqueador ganha com mais candidatos, ou
+    """A pergunta de 2026-09-10: o reordenador ganha com mais candidatos, ou
     eles só trazem distratores? Pareado exato, porque os recortes saem da mesma
     passagem."""
     r, saida = _rodar(tmp_path, "--sem-fusao", "--sub-profundidades", "2")

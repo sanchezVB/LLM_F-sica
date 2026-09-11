@@ -132,7 +132,7 @@ for d in pathlib.Path('data/raw').glob('*/_manifest.json'):
     m=json.load(open(d))
     print(f\"{d.parent.name:20} {m['actual_count']:>9,} registros · falhas {len(m['failures'])}\")"
 
-# reconstruir a espinha consolidada
+# reconstruir a tabela mestra consolidada
 PYTHONPATH=src .venv/bin/python scripts/build_spine.py
 
 # treinar o classificador de subárea

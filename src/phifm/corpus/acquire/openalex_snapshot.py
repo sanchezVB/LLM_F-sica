@@ -24,7 +24,7 @@ O layout **mudou** e o número também:
 O snapshot dobrou de tamanho, mas o parquet mais que compensa: sendo colunar,
 lemos **só as treze colunas de que precisamos**, por faixa de bytes HTTP. O
 `abstract_inverted_index` sozinho é 43% dos bytes e é justamente o que não
-serve — o resumo vem da espinha do arXiv, que é autoritativa.
+serve — o resumo vem da tabela mestra do arXiv, que é autoritativa.
 
 Medido sobre partições reais: **21% dos bytes**, ou seja **155 GB** em vez de
 725 GB. O bucket devolve `Accept-Ranges: bytes`, então isso é transferência
@@ -60,7 +60,7 @@ obras).
 Não filtramos por campo do OpenAlex, e o motivo está na docstring de
 `openalex.py`: a obra `2203.00339` do arXiv é classificada pelo OpenAlex como
 "Computer Science". O recorte de Física vem da categoria atribuída pelo autor
-na espinha do arXiv. Aqui o critério é só **ter origem no arXiv**, resolvido
+na tabela mestra do arXiv. Aqui o critério é só **ter origem no arXiv**, resolvido
 por `extract_arxiv_id`.
 """
 

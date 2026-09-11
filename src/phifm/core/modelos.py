@@ -5,7 +5,7 @@
 Até 2026-09-08 o recuperador do sistema era a string
 `models/phiemb-minilm-melhor` **copiada como default em quatro scripts**
 (`avaliar_t1b.py`, `minerar_do_recuperador.py`, `minerar_negativos.py`) e o
-reranqueador era `models/phirank-physbert-melhor` copiado em outros dois. Trocar o
+reordenador era `models/phirank-physbert-melhor` copiado em outros dois. Trocar o
 recuperador significava editar quatro lugares e acertar todos.
 
 E a armadilha específica: **há um quinto lugar que NÃO deve mudar.** O
@@ -41,7 +41,7 @@ from __future__ import annotations
 # sobrescrevê-lo apagaria a evidência de que 400 mil pares sobre MiniLM dão 0,5246.
 #
 # A cadeia foi remedida em 2026-09-08 (T1b2) e o BM25 saiu; em 2026-09-10 (T1e) o
-# reranqueador saiu também. **A composição do sistema é o ΦEmb servindo o top-10.**
+# reordenador saiu também. **A composição do sistema é o ΦEmb servindo o top-10.**
 RECUPERADOR = "models/phiemb-do-sistema"
 
 # ⚠️ O ΦRank NÃO está mais na composição. Isto é o checkpoint do T1c.
@@ -51,7 +51,7 @@ RECUPERADOR = "models/phiemb-do-sistema"
 # (p=0,637) — o mecanismo é pré-treino em Física, e esse resultado continua de pé.
 #
 # O que caiu foi o estágio, não a base. Depois de o recuperador melhorar 0,098
-# (T1a 6 M), o reranqueador deixou de acrescentar à cadeia, e cinco medições
+# (T1a 6 M), o reordenador deixou de acrescentar à cadeia, e cinco medições
 # pareadas concordam:
 #
 #     T1d  ΦRank antigo   @100   p=0,139   empate contra o ΦEmb sozinho
@@ -65,10 +65,10 @@ RECUPERADOR = "models/phiemb-do-sistema"
 # +0,0091 com IC 95% de [−0,0010, +0,0191]: também não estabelece.
 #
 # O mecanismo, medido no T1e: dobrar o conjunto de candidatos de 100 para 200 deu
-# ao reranqueador 195 alvos novos e ele trouxe **+1** para o top-10. E das 421
+# ao reordenador 195 alvos novos e ele trouxe **+1** para o top-10. E das 421
 # consultas com o alvo no top-10 dos dois, ele o **desce** em 167 e sobe em 141.
 #
 # A constante fica porque `avaliar_t1b.py` precisa de um default para remedir a
 # cadeia histórica. Ela nomeia um ponto da curva, não uma peça do sistema — a
 # mesma distinção que o `phiemb-minilm-melhor` tem em `avaliar_encoders.py`.
-RERANQUEADOR = "models/phirank-physbert-melhor"
+REORDENADOR = "models/phirank-physbert-melhor"

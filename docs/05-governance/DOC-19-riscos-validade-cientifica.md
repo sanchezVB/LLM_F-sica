@@ -152,7 +152,7 @@ próprio, um dado de validade.
 |---|---|---|---|---|
 | Papers de Física no arXiv | DOC-00 §4.1 | ~1,2 M | **1.595.065** | **+33%** |
 | Tokens do arXiv (texto completo) | DOC-00 §4.1 | 15–25 B | 12–20 B | −20% |
-| Tamanho da espinha em disco | DOC-02 §3.1 | 516–686 B/registro | 422 B/registro | −25% |
+| Tamanho da tabela mestra em disco | DOC-02 §3.1 | 516–686 B/registro | 422 B/registro | −25% |
 | `cond-mat` | DOC-02 §2 | ~350 k | 556.487 | **+59%** |
 | `quant-ph` | DOC-02 §2 | ~250 k | 184.046 | **−26%** |
 | Fração redistribuível | ADR-0001 §4 | 25–35% | **14,8%** | **−53%** |
@@ -233,7 +233,7 @@ Legenda: ✅ verificado · ❌ falsificado e corrigido · ⚠️ parcial · ⬜ 
 | Preservação de equações ≥ 0,95 · **RedPajama** | DOC-03 §10 | ❌ | **74,3%** por forma canônica em 298 papers de Física; 83,4% contando só ausência. Decide o S3b: o bulk pago se justifica |
 | Preservação de equações ≥ 0,95 · **nosso pipeline** | DOC-03 §10 | ⬜ | O §10 pede DUAS colunas e só a do RedPajama foi medida. Depende do LaTeXML (linha acima) |
 | Filtros web rejeitam 5/5 a Lagrangiana da QED | DOC-04 §3.2 | ⚠️ | Argumentado com precisão; não executado |
-| Funil de dedup: 20% + 28% | DOC-04 §7 | ⬜ | Medido ~0% na espinha, mas ela já é única por ID. **Só testável com múltiplas fontes (S3)** |
+| Funil de dedup: 20% + 28% | DOC-04 §7 | ⬜ | Medido ~0% na tabela mestra, mas ela já é única por ID. **Só testável com múltiplas fontes (S3)** |
 | Limiar de Jaccard 0,85 | DOC-04 §5.2 | ⚠️ | Implementado; o valor em si não foi calibrado |
 | Canonicalização une variantes | DOC-03 §3 | ✅ | 555 pares em 34.507 equações reais |
 | **Tokenizer: tudo** | DOC-05 | ⬜ | **Nada executado.** O bake-off do §11 é o teste |

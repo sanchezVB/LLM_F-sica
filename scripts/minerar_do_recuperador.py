@@ -39,7 +39,7 @@ ser `ΦEmb → ΦRank` — e o **default deste script mudou junto**: o grupo vem
 top-K do ΦEmb.
 
 Não é uma reversão do conserto acima; é o mesmo princípio aplicado à composição
-nova. Continuar minerando da fusão seria treinar o reranqueador numa distribuição
+nova. Continuar minerando da fusão seria treinar o reordenador numa distribuição
 que ele não vê mais — o defeito de 2026-08-24 com outra roupa. `--com-fusao`
 reproduz os negativos antigos e existe só para isso.
 
@@ -164,7 +164,7 @@ def main() -> int:
     # Todo o argumento deste script é "treinar na distribuição do teste". Em
     # 2026-08-24 essa distribuição era a fusão RRF. No T1b2 a regra
     # pré-registrada tirou o BM25 da composição — a cadeia passou a ser
-    # ΦEmb → ΦRank — e minerar da fusão voltaria a treinar o reranqueador numa
+    # ΦEmb → ΦRank — e minerar da fusão voltaria a treinar o reordenador numa
     # distribuição que ele não vai ver. Seria o mesmo defeito de 2026-08-24 com
     # outra roupa, e é a causa mecânica provável de o ganho do ΦRank ter
     # encolhido de p=0,0081 para p=0,086.

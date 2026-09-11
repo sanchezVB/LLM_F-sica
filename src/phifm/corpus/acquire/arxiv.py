@@ -1,6 +1,6 @@
 """Coletor de metadados do arXiv via OAI-PMH.
 
-Primeira etapa do Sprint S1 (DOC-02 §9): a espinha de metadados. É a chave de
+Primeira etapa do Sprint S1 (DOC-02 §9): a tabela mestra de metadados. É a chave de
 junção que resolve categoria, licença, DOI e data de todas as outras fontes —
 princípio A1, "metadado antes de conteúdo".
 

@@ -1,4 +1,4 @@
-"""Consolidação da espinha de metadados — o entregável do Sprint S1.
+"""Consolidação da tabela mestra de metadados — o entregável do Sprint S1.
 
 Transforma os shards brutos dos coletores em uma tabela única com:
   - deduplicação por `arxiv_id` (mantendo o registro mais recente)
@@ -156,7 +156,7 @@ def attach_citations(df: pl.DataFrame, oa_dir: Path) -> pl.DataFrame:
     # filtro para que a coluna nunca seja lida do disco.
     #
     # Ela era produzida aqui e consumida em lugar nenhum: quem precisa do grafo
-    # é `training/pairs.py`, que lê os shards do snapshot direto. Na espinha ela
+    # é `training/pairs.py`, que lê os shards do snapshot direto. Na tabela mestra ela
     # só custava — 4,6 M de obras × ~45 identificadores é ~207 M de strings.
     #
     # Medido em 2026-08-07: com ela, `build_spine` sobre 692 shards consumiu a
@@ -171,7 +171,7 @@ def attach_citations(df: pl.DataFrame, oa_dir: Path) -> pl.DataFrame:
     )
     out = df.join(oa, on="arxiv_id", how="left")
     matched = out["n_references"].is_not_null().sum()
-    log.info("OpenAlex: %s obras, %s casadas com a espinha (%.1f%%)",
+    log.info("OpenAlex: %s obras, %s casadas com a tabela mestra (%.1f%%)",
              f"{oa.height:,}", f"{matched:,}", 100 * matched / df.height if df.height else 0)
     return out
 

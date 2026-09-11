@@ -27,10 +27,10 @@ valem a pena, não qual recuperador o sistema usa.
 O GTE-base zero-shot empata no top-10 e **perde fundo**: r@200 de 0,645 contra
 0,730. Até a semana passada isso seria decisivo — a cadeia era `ΦEmb → RRF → ΦRank`
 sobre um pool profundo, e quem perde fundo entrega menos candidatos ao
-reranqueador.
+reordenador.
 
 O T1e tirou o ΦRank do sistema: a cadeia é `ΦEmb → top-10`. **Nada lê o fundo
-hoje.** Então o r@200 vira diagnóstico, e volta a decidir só se um reranqueador
+hoje.** Então o r@200 vira diagnóstico, e volta a decidir só se um reordenador
 voltar ao sistema. Registrar isto antes é o que impede de mudar a métrica primária
 depois de ver o resultado.
 
@@ -169,7 +169,7 @@ REGRA = r"""
      top-10 e perde fundo (r@200 0,645 contra 0,730). Até o T1e isso seria
      decisivo — a cadeia era ΦEmb -> RRF -> ΦRank sobre um pool profundo. O T1e
      tirou o ΦRank do sistema e a cadeia virou ΦEmb -> top-10: NADA lê o fundo
-     hoje. O r@200 fica como diagnóstico e só volta a decidir se um reranqueador
+     hoje. O r@200 fica como diagnóstico e só volta a decidir se um reordenador
      voltar ao sistema.
 
   Os desfechos:
@@ -296,7 +296,7 @@ m = json.loads((melhor / "melhor.json").read_text(encoding="utf-8"))
         "por_que": ("O T1e tirou o ΦRank do sistema e a cadeia virou ΦEmb -> "
                     "top-10. NADA lê o fundo hoje, então o r@200 — em que o GTE "
                     "zero-shot perde por 0,085 — é diagnóstico, e só volta a "
-                    "decidir se um reranqueador voltar ao sistema."),
+                    "decidir se um reordenador voltar ao sistema."),
     },
 }, indent=2, ensure_ascii=False), encoding="utf-8")
 

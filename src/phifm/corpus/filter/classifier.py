@@ -435,11 +435,11 @@ def recuperar_legado(df: pl.DataFrame, label_col: str = "subfield") -> pl.DataFr
 
     ⚠️ Isto conserta um artefato velho, não um defeito de código.
     `normalize/spine.py` já aplica `_LEGADO` desde 2026-08-13; a `spine.parquet` no
-    disco foi construída antes disso. São **4.042 papers** (0,25% da espinha) com
+    disco foi construída antes disso. São **4.042 papers** (0,25% da tabela mestra) com
     primária pré-1998 — `chao-dyn`, `solv-int`, `patt-sol`, `mtrl-th`, `supr-con` —
     que `train()` descartaria, porque ela descarta "Outro".
 
-    Por que aqui e não reconstruindo a espinha: ela é entrada dos pares de citação
+    Por que aqui e não reconstruindo a tabela mestra: ela é entrada dos pares de citação
     (6,5 M linhas), do próprio classificador e da fatia do RedPajama — refazê-la
     exigiria rebaixar 81 GB e re-derivar 22 GB de corpus, para 0,25%. Consertar no
     CONSUMIDOR não cascateia nada.
@@ -450,7 +450,7 @@ def recuperar_legado(df: pl.DataFrame, label_col: str = "subfield") -> pl.DataFr
     Medido: dos 72.872 em "Outro", só 6,2% são legado; os outros 68.328 são papers
     de outra área com cross-list de Física.
 
-    Quando a espinha for reconstruída por outro motivo (o bulk pago do arXiv, por
+    Quando a tabela mestra for reconstruída por outro motivo (o bulk pago do arXiv, por
     exemplo), esta função para de encontrar o que consertar — e o teste que a cobre
     passa a valer como verificação de que a reconstrução funcionou.
     """

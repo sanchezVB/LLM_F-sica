@@ -140,7 +140,7 @@ A escolha Matryoshka é a de melhor relação custo/benefício da família intei
 
 Cross-encoder inicializado do ΦEnc. Concatena consulta e documento e pontua conjuntamente — muito mais preciso que similaridade de vetores, e muito mais caro, portanto só reordena o top-100 do ΦEmb.
 
-Treinado com negativos difíceis minerados pelo próprio ΦEmb (o clássico laço recuperador→reranqueador). **Custo: US$ 5–10.**
+Treinado com negativos difíceis minerados pelo próprio ΦEmb (o clássico laço recuperador→reordenador). **Custo: US$ 5–10.**
 
 ---
 

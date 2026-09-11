@@ -18,7 +18,7 @@ hipótese sob teste, que é o que torna o erro difícil de perceber: um resultad
 Eu escolhi acurácia como medida primária deste experimento pelo PODER — 154 mil
 tokens pareados — antes de perguntar se ela media a coisa certa. É a mesma falha
 do T1b2, onde a regra pré-registrada nomeava McNemar sobre pertinência ao top-k
-para julgar um reranqueador, que reordena DENTRO do top-k. Pré-registrar não
+para julgar um reordenador, que reordena DENTRO do top-k. Pré-registrar não
 salva de escolher o instrumento errado.
 
 ## A quantidade que vale

@@ -13,7 +13,7 @@ importante — para o que este hash **não** prova.
 ## As etapas derivadas são declaradas aqui, não descobertas
 
 Um construtor que varre o disco e manifesta o que encontra atesta o que *está*
-lá, não o que *deveria*. Se a espinha faltar, ele produz um manifesto válido de
+lá, não o que *deveria*. Se a tabela mestra faltar, ele produz um manifesto válido de
 um corpus incompleto, e o hash confere. Por isso `ETAPAS` é uma lista explícita:
 uma etapa declarada e ausente é **erro**, não é silêncio.
 
@@ -78,12 +78,12 @@ IMUTAVEIS = [
 # `entradas` aponta para os diretórios que cada script recebe por padrão. Foram
 # conferidos um a um em `scripts/build_spine.py`, `build_pairs.py`,
 # `train_classifier.py`, `coletar_redpajama.py` e `filtrar_hf.py` — não inferidos
-# pelo nome. A espinha sai de `openalex_works` (a API), não do snapshot; os pares
+# pelo nome. A tabela mestra sai de `openalex_works` (a API), não do snapshot; os pares
 # saem do snapshot. Trocar os dois seria proveniência errada com aparência certa.
 ETAPAS: list[dict] = [
     {
         "etapa": "spine",
-        "descricao": "Espinha de metadados: arXiv juntado ao OpenAlex por DOI e título",
+        "descricao": "Tabela mestra de metadados: arXiv juntado ao OpenAlex por DOI e título",
         "raiz": "data/processed/spine.parquet",
         "entradas": ["data/raw/arxiv_metadata", "data/raw/openalex_works"],
         "parametros": {"script": "scripts/build_spine.py"},
@@ -105,7 +105,7 @@ ETAPAS: list[dict] = [
     },
     {
         "etapa": "redpajama_fisica",
-        "descricao": "Fatia de Física do RedPajama-arXiv, filtrada por casamento exato com a espinha",
+        "descricao": "Fatia de Física do RedPajama-arXiv, filtrada por casamento exato com a tabela mestra",
         "raiz": "data/processed/redpajama_fisica",
         "entradas": ["data/processed/spine.parquet"],
         "externas": [("togethercomputer/RedPajama-Data-1T", "hf_dataset")],
@@ -117,7 +117,35 @@ ETAPAS: list[dict] = [
         "raiz": "data/processed/openwebmath_fisica",
         "entradas": ["models/isphysics-clf"],
         "externas": [("open-web-math/open-web-math", "hf_dataset")],
-        "parametros": {"script": "scripts/filtrar_hf.py", "limiar": 0.9},
+        "parametros": {"script": "scripts/filtrar_hf.py", "fonte": "openwebmath",
+                       "limiar": 0.9},
+    },
+    # ⚠️ Acrescentada em 2026-09-11, e a AUSÊNCIA dela é o achado.
+    #
+    # O peS2o foi filtrado em 2026-08-26 e dobrou o corpus — 14,60 B tokens dos
+    # 27,75 B, 18 GB em disco. Ninguém o acrescentou aqui, e o manifesto raiz
+    # seguiu atestando **21,79 GB** de um corpus de ~40 GB. O ESTADO.md dizia
+    # "o corpus por um hash"; era 55% do corpus por um hash.
+    #
+    # Nada acusava porque o construtor só percorre esta lista: uma etapa que não
+    # está aqui simplesmente não existe para ele, e o relatório de verificação
+    # sai ✅ sobre o que ele conhece. Um verificador que passa não prova que o
+    # que ficou de fora está íntegro — prova que ele não olhou.
+    #
+    # A guarda contra a próxima está em `test_manifesto_g1_5.py`: toda fonte de
+    # `filtrar_hf.FONTES` tem de ter entrada aqui, conferido por código contra
+    # código, sem depender de `data/processed/` existir.
+    {
+        "etapa": "pes2o_fisica",
+        "descricao": "Fatia de Física do peS2o v2, filtrada pelo classificador",
+        "raiz": "data/processed/pes2o_fisica",
+        "entradas": ["models/isphysics-clf"],
+        "externas": [("allenai/peS2o", "hf_dataset")],
+        # ⚠️ O `prefixo` entra nos parâmetros porque ele é uma DECISÃO, e sem ele
+        # o corpus teria metade duplicada: o repositório publica v1 e v2 da mesma
+        # coleção, e o S3b mediu que duplicação em pré-treino degrada 16,6%.
+        "parametros": {"script": "scripts/filtrar_hf.py", "fonte": "pes2o",
+                       "limiar": 0.9, "prefixo": "data/v2/"},
     },
 ]
 

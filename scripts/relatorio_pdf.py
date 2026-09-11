@@ -278,11 +278,11 @@ def _conta_parquet(pasta: Path) -> tuple[int, float]:
     return n, sum(os.path.getsize(f) for f in lidos) / 1e9
 
 
-def sec_espinha(st: dict) -> list:
-    """S1 — a espinha de metadados, que é a base de todo o resto."""
+def sec_tabela_mestra(st: dict) -> list:
+    """S1 — a tabela mestra de metadados, que é a base de todo o resto."""
     import polars as pl
 
-    out = [Paragraph("4 · Sprint S1 — a espinha de metadados", st["h1"])]
+    out = [Paragraph("4 · Sprint S1 — a tabela mestra de metadados", st["h1"])]
     p = Path("data/processed/spine.parquet")
     if not p.exists():
         out.append(Paragraph("<b>Não construída.</b>", st["p"]))
@@ -315,7 +315,7 @@ def sec_espinha(st: dict) -> list:
             Paragraph("⚠️ 4.042 papers de arquivos LEGADOS do arXiv (`chao-dyn`, "
                       "`mtrl-th`, `atom-ph`…) ainda aparecem como «Outro» neste "
                       "arquivo. A correção existe no código mas exige reconstruir a "
-                      "espinha; até então eles ficam fora do treino de subárea.",
+                      "tabela mestra; até então eles ficam fora do treino de subárea.",
                       st["nota"])]
     return out
 
@@ -509,7 +509,7 @@ def montar(saida: Path, log_treino: Path) -> Path:
     hist += sec_s3b(st)
     hist.append(PageBreak())
     hist += sec_classificador(st)
-    hist += sec_espinha(st)
+    hist += sec_tabela_mestra(st)
     hist.append(PageBreak())
     hist += sec_corpus(st)
     hist.append(PageBreak())

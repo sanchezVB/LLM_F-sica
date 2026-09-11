@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sprint S1 · consolidação — espinha de metadados pronta para uso."""
+"""Sprint S1 · consolidação — tabela mestra de metadados pronta para uso."""
 import argparse
 import logging
 import sys

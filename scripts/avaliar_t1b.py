@@ -59,7 +59,7 @@ from transformers import (  # noqa: E402
 )
 
 from phifm.core.console import utf8 as console_utf8  # noqa: E402
-from phifm.core.modelos import RECUPERADOR, RERANQUEADOR  # noqa: E402
+from phifm.core.modelos import RECUPERADOR, REORDENADOR  # noqa: E402
 from phifm.eval.hibrido import (  # noqa: E402
     BM25,
     fundir_rrf,
@@ -106,7 +106,7 @@ def main() -> int:
     # O ΦRank do sistema é o de PhysBERT desde o T1c (2026-09-03): é a única das
     # três bases medidas que bate a fusão (p=0,0062). Ver `phifm.training.rerank`.
     p.add_argument("--rank", type=Path,
-                   default=Path(RERANQUEADOR))
+                   default=Path(REORDENADOR))
     p.add_argument("--n-consultas", type=int, default=2000,
                    help="âncoras avaliadas; 2.000 é o protocolo do veredito do G1")
     p.add_argument("--profundidade", type=int, default=100,
@@ -141,7 +141,7 @@ def main() -> int:
     # RRF e reordena DUAS vezes — e reordenar é 96% do custo, então medir a
     # composição que não existe mais dobra o preço do braço.
     #
-    # Com ela, dois braços de RERANQUEADOR cabem na mesma sessão. Isso não é
+    # Com ela, dois braços de REORDENADOR cabem na mesma sessão. Isso não é
     # conveniência: a pergunta do retreino é "quanto mudou", e essa exige o
     # braço de referência medido na MESMA sessão. Foi o que salvou a conclusão
     # do T1b2 de um erro de sete vezes.
@@ -244,7 +244,7 @@ def main() -> int:
                     "assim, e são o teto do que o reranker poderia melhorar", a.rank)
 
     pos_bm, pos_emb, pos_rrf, pos_rank = [], [], [], []
-    # ⚠️ O reranqueador sobre o DENSO SOZINHO, além de sobre a fusão.
+    # ⚠️ O reordenador sobre o DENSO SOZINHO, além de sobre a fusão.
     #
     # Medido no T1b2: com o recuperador novo, o recall@100 da fusão (0,6065) é
     # MENOR que o do ΦEmb sozinho (0,6325) — misturar o BM25 (0,4540) desloca
@@ -316,7 +316,7 @@ def main() -> int:
             else:
                 ord_rank, e = _reordenar(consulta, ord_rrf)
                 pos_rank.append(_posicao(ord_rank, alvo))
-                # A segunda passagem: o mesmo reranqueador sobre o top-100 DENSO.
+                # A segunda passagem: o mesmo reordenador sobre o top-100 DENSO.
                 ord_rank_denso, _ = _reordenar(consulta, ord_emb)
                 pos_rank_denso.append(_posicao(ord_rank_denso, alvo))
             if a.depurar and pos_rrf[-1] is not None and depurados[0] < a.depurar:
@@ -419,7 +419,7 @@ def main() -> int:
                   for k in (1, 10)]
                  if tem_rank and not a.sem_fusao else [])
     # ⚠️ E o confronto entre PROFUNDIDADES, que é a pergunta de 2026-09-10: o
-    # reranqueador ganha com mais candidatos, ou eles só trazem distratores?
+    # reordenador ganha com mais candidatos, ou eles só trazem distratores?
     # Pareado exato, porque os dois recortes saem da mesma passagem.
     if tem_rank and a.sem_fusao:
         confronto += [

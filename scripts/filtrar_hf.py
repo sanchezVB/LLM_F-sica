@@ -16,6 +16,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.core.env import contato_obrigatorio  # noqa: E402
+from phifm.core.schema.reprodutibilidade import (  # noqa: E402
+    Entrada,
+    gravar_manifesto_etapa,
+)
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.corpus.slices.hf_filtrado import LIMIAR, filtrar  # noqa: E402
 from phifm.corpus.slices.retomada import feitas  # noqa: E402
@@ -111,6 +115,44 @@ def main() -> int:
     (out / "_amostra_para_revisao.json").write_text(
         json.dumps(f.amostra, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\namostra de {len(f.amostra)} documentos → {out/'_amostra_para_revisao.json'}")
+
+    # ── o manifesto de etapa, com os parâmetros DESTA execução ──────────────
+    #
+    # ⚠️ É isto que fecha a metade aberta do G1.5. Sem esta chamada, o
+    # `manifesto_corpus.py` reconstrói os parâmetros lendo o CÓDIGO e marca
+    # `parametros_reconstruidos=True` — e um parâmetro reconstruído pode estar
+    # errado sem que nada acuse, porque não há com o que confrontá-lo.
+    #
+    # Aqui `limiar`, `prefixo` e a revisão do dataset são os que a execução usou
+    # de verdade. O `prefixo` é o que mais importa: `data/v2/` é a diferença
+    # entre 14,6 B tokens e um corpus com metade duplicada, e o S3b mediu que
+    # duplicação em pré-treino degrada 16,6%.
+    #
+    # ⚠️ Custa uma passada de BLAKE3 sobre a saída — no peS2o, 18 GB. Numa coleta
+    # retomável isso se repete a cada execução. É o preço de a proveniência ser
+    # capturada em vez de adivinhada, e ele é pago uma vez por lançamento, não
+    # por arquivo.
+    print(f"\nhasheando {out} para o manifesto de etapa "
+          "(BLAKE3 sobre a saída inteira; pode levar minutos)", flush=True)
+    me = gravar_manifesto_etapa(
+        etapa=f"{a.fonte}_fisica",
+        descricao=f"Fatia de Física do {ds}, filtrada pelo classificador",
+        raiz=out,
+        entradas=[Entrada(caminho=str(a.modelo).replace("\\", "/"),
+                          nota="classificador is_physics"),
+                  Entrada(caminho=f"hf://{ds}",
+                          nota=f"dataset do HuggingFace, revisão {f.revisao}")],
+        parametros={"script": "scripts/filtrar_hf.py", "fonte": a.fonte,
+                    "dataset": ds, "revisao": f.revisao, "limiar": a.limiar,
+                    "prefixo": prefixo, "extensoes": list(ext),
+                    "max_arquivos": a.max_arquivos,
+                    "modelo": str(a.modelo).replace("\\", "/"),
+                    "escopo": ("os parâmetros são desta execução; uma coleta "
+                               "retomável roda várias vezes e a última grava")},
+        registros=f.aceitos,
+    )
+    print(f"manifesto de etapa: {me.etapa} · {me.manifesto_id[:16]} · "
+          f"{len(me.checksum_index)} arquivos · {me.bytes_saida/1e9:.2f} GB")
     return 0
 
 

@@ -6,15 +6,15 @@ porquê de não ser um `.ipynb`.
 
 ## A pergunta, e de onde ela vem
 
-O T1b mediu a composição inteira e o veredito do reranqueador foi **empate com a
+O T1b mediu a composição inteira e o veredito do reordenador foi **empate com a
 fusão**: nDCG@10 0,1493 contra 0,1584, McNemar p=0,118 sobre 105 discordantes. Ele
 ficou fora do sistema.
 
-O diagnóstico não foi "o reranqueador é ruim" — ele acerta 49,8% no grupo, muito
+O diagnóstico não foi "o reordenador é ruim" — ele acerta 49,8% no grupo, muito
 acima do 12,5% do acaso. Foi **redundância informacional**: o ΦRank parte do
 `all-MiniLM-L6-v2`, a mesma base do ΦEmb, e o Spearman entre o escore dele e a
 posição da fusão é −0,466 (concordância, no sinal em que posição menor é melhor).
-Ele reordena reproduzindo a ordem que a fusão já tinha. Um reranqueador que
+Ele reordena reproduzindo a ordem que a fusão já tinha. Um reordenador que
 concorda com o recuperador não tem como acrescentar nada.
 
 E há espaço para acrescentar: o recall@50 da fusão é 0,446 contra um nDCG@10 de
@@ -98,12 +98,12 @@ p=0,14584 sobre 229 discordantes. É isso que licencia comparar `gte` com `phys`
 
 O PhysBERT é um recuperador **ruim** neste benchmark: nDCG 0,2752 contra 0,4657 do
 ΦEmb — perde por 0,190, e foi essa a medição do G1.1. E é a **melhor base de
-reranqueador** das três. Pré-treino de domínio não fez um bi-encoder bom aqui e fez
+reordenador** das três. Pré-treino de domínio não fez um bi-encoder bom aqui e fez
 um cross-encoder bom. Não é o que eu esperaria, e a assimetria é o achado.
 
 ## Os dois erros meus na execução de 2026-08-31, e um terceiro em 2026-09-03
 
-**A predição do T1b se confirmou.** O reranqueador de base diferente bate a fusão com
+**A predição do T1b se confirmou.** O reordenador de base diferente bate a fusão com
 p = 0,00625, abaixo do limiar de Bonferroni de 0,025. É a primeira vez que a
 composição inteira funciona: recall@10 de 0,2890 contra 0,2675 da fusão. E o controle
 replicou o empate do T1b com o dobro das consultas (p = 0,146 contra 0,118 antes),
@@ -295,7 +295,7 @@ PROFUNDIDADE = 50
 ALFA_BONFERRONI = 0.025   # 0,05 / 2 variantes
 print(f"""
 {'=' * 74}
-T1c — o reranqueador precisa de uma base DIFERENTE do recuperador?
+T1c — o reordenador precisa de uma base DIFERENTE do recuperador?
 
 hipótese : se a redundância informacional anula o ΦRank, um cross-encoder de base
            com pré-treino diferente do ΦEmb deve BATER a fusão
@@ -410,7 +410,7 @@ for nome, res in resultados.items():
     r10 = _linha(res, "ΦEmb+BM25+ΦRank").get("ndcg_10")
     c = _p_contra_fusao(res)
     p, disc = c.get("p"), c.get("discordantes")
-    # `ganha_a` é a fusão; o reranqueador só vence quando `ganha_b` > `ganha_a`.
+    # `ganha_a` é a fusão; o reordenador só vence quando `ganha_b` > `ganha_a`.
     melhor_b = c.get("ganha_b", 0) > c.get("ganha_a", 0)
     if p is None:
         vd = "sem par"

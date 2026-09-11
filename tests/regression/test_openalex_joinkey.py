@@ -1,6 +1,6 @@
 """Regressão: extração da chave de junção do OpenAlex.
 
-Sem `arxiv_id`, o grafo de citações não casa com a espinha do arXiv e todo o
+Sem `arxiv_id`, o grafo de citações não casa com a tabela mestra do arXiv e todo o
 valor do OpenAlex se perde. Dois defeitos reais encontrados em 2026-08-03:
 
   1. `ids.arxiv` NÃO EXISTE no OpenAlex. Confiar nele deu 0% de cobertura.

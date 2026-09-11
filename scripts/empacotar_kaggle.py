@@ -29,7 +29,7 @@ O experimento é de uma variável — a base —, então tudo o mais fica byte a
 
 ⚠️ E os modelos vão porque não são públicos: o `phiemb-minilm-melhor` é o campeão do
 G1.1 treinado aqui, e o resultado de referência do T1b (nDCG 0,1584) saiu dele. Usar
-o `-t4-melhor` no lugar trocaria o recuperador junto com o reranqueador.
+o `-t4-melhor` no lugar trocaria o recuperador junto com o reordenador.
 
 ## O que sempre vai, e por que cada coisa
 
@@ -200,7 +200,7 @@ def _montar_rerank(exp: Experimento, raiz: Path, out: Path, a) -> dict:
         raise SystemExit(
             f"{origem} não existe. Rode scripts/minerar_do_recuperador.py e depois "
             "scripts/filtrar_cocitacao.py — treinar sobre os negativos NÃO filtrados "
-            "ensina o reranqueador a rebaixar co-citados, que são relevantes.")
+            "ensina o reordenador a rebaixar co-citados, que são relevantes.")
     shutil.copy2(origem, out / origem.name)
     shutil.copy2(a.pares / "pares_validacao.parquet", out / "pares_validacao.parquet")
     n_mod = _zipar_modelos(raiz, out / f"modelos{SUFIXO_ZIP}", exp.modelos)

@@ -225,7 +225,7 @@ def main() -> int:
             "dois métodos de viés oposto falharam juntos."),
         # ⚠️ A comparação de ORÇAMENTO IGUAL, que é a única honesta.
         #
-        # "denso@100 + bm25@100" custa ao reranqueador até 200 candidatos. Comparar
+        # "denso@100 + bm25@100" custa ao reordenador até 200 candidatos. Comparar
         # isso com "denso@100" faz a fusão parecer de graça. O controle é
         # `denso@200`: o mesmo orçamento, só com o denso.
         #

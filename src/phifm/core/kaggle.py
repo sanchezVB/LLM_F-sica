@@ -341,9 +341,9 @@ T1C = Experimento(
     repo="sanchezVB/LLM_F-sica",
     # ⚠️ O ΦEmb vai junto e é o `phiemb-minilm-melhor`, NÃO o `-t4-melhor`.
     # O resultado de referência do T1b (nDCG 0,1584) foi medido com este, e trocar
-    # o recuperador ao mesmo tempo que o reranqueador mediria duas coisas.
+    # o recuperador ao mesmo tempo que o reordenador mediria duas coisas.
     #
-    # O `phirank-rrf-melhor` é o CONTROLE: é o reranqueador que empatou com a fusão
+    # O `phirank-rrf-melhor` é o CONTROLE: é o reordenador que empatou com a fusão
     # (p=0,118), e ele precisa ser reavaliado no MESMO número de consultas que os
     # novos, senão a comparação de poder estatístico fica torta.
     modelos=("models/phiemb-minilm-melhor", "models/phirank-rrf-melhor"),

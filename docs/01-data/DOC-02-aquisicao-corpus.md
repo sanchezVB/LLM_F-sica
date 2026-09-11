@@ -16,7 +16,7 @@ Cinco princípios de aquisição, derivados de DOC-01 §1 e ADR-0001 §9:
 
 | # | Princípio | Consequência operacional |
 |---|---|---|
-| **A1** | **Metadado antes de conteúdo** | A espinha de metadados (arXiv, OpenAlex, INSPIRE, ADS) é coletada **primeiro**. Ela é a chave de junção que resolve categoria, licença, DOI e grafo de citações de todas as outras fontes. Sem ela, não há como filtrar para Física nem como aplicar o ADR-0001. |
+| **A1** | **Metadado antes de conteúdo** | A tabela mestra de metadados (arXiv, OpenAlex, INSPIRE, ADS) é coletada **primeiro**. Ela é a chave de junção que resolve categoria, licença, DOI e grafo de citações de todas as outras fontes. Sem ela, não há como filtrar para Física nem como aplicar o ADR-0001. |
 | **A2** | **Gratuito e pré-processado antes de bruto e pago** | Fatias de corpus já limpas e livres existem. Usá-las primeiro dá 60–70% do corpus na primeira quinzena, a custo zero. |
 | **A3** | **Licença resolvida em SPDX antes da coleta em massa** | Nenhuma fonte entra em coleta grande sem `license.spdx_id` determinado e `train_ok` decidido. |
 | **A4** | **Coleta idempotente, retomável, endereçada por conteúdo** | Toda coleta pode ser interrompida e retomada sem duplicar nem perder trabalho. Obrigatório quando o processamento leva semanas numa máquina doméstica. |
@@ -97,7 +97,7 @@ A lista de áreas do briefing precisa virar um seletor executável. O mapeamento
 
 Prioridade máxima. Tudo aqui é obtível em semanas, sem custo e sem ambiguidade jurídica relevante.
 
-### 3.1 Espinha de metadados (A1 — coletar primeiro)
+### 3.1 Tabela mestra de metadados (A1 — coletar primeiro)
 
 | Fonte | Acesso | Volume | Licença | Por que primeiro |
 |---|---|---|---|---|
@@ -116,7 +116,7 @@ Prioridade máxima. Tudo aqui é obtível em semanas, sem custo e sem ambiguidad
 > 1. **Endpoint.** `export.arxiv.org/oai2` responde **301** e está obsoleto. O correto é **`https://oaipmh.arxiv.org/oai`**. O `Identify` declara explicitamente: *"Metadata harvesting permitted through OAI interface"*.
 > 2. **Filtragem no servidor.** O arXiv expõe o *set* **`physics`** (e subsets `physics:hep-th`, `physics:gr-qc`…). Não é preciso coletar 2,7 M registros e filtrar depois — coletamos **~1,2 M direto**. Menos tráfego para eles, menos tempo para nós.
 > 3. **Formato.** `metadataPrefix=arXiv` (não `oai_dc`) traz categorias, **licença por registro**, DOI e journal-ref — exatamente os campos que o princípio A3 exige.
-> 4. **Tamanho.** A espinha de metadados do arXiv ocupa **~516–686 bytes/registro** em parquet zstd, ou **~700 MB no total** — não os ~150 GB estimados. Aquele número pressupunha baixar o snapshot completo do OpenAlex (330 GB), o que é **desnecessário**: a API do OpenAlex permite filtrar a fatia de Física, e uma passagem já traz também as `referenced_works` (o grafo de citações do DOC-07 §3.1). **Consequência: o Sprint S1 cabe folgado em disco comum.**
+> 4. **Tamanho.** A tabela mestra de metadados do arXiv ocupa **~516–686 bytes/registro** em parquet zstd, ou **~700 MB no total** — não os ~150 GB estimados. Aquele número pressupunha baixar o snapshot completo do OpenAlex (330 GB), o que é **desnecessário**: a API do OpenAlex permite filtrar a fatia de Física, e uma passagem já traz também as `referenced_works` (o grafo de citações do DOC-07 §3.1). **Consequência: o Sprint S1 cabe folgado em disco comum.**
 > 5. **Semântica de `from`/`until`.** Filtram por **datestamp** (última modificação), não por data de criação. Uma fatia de um mês retorna também papers antigos com metadados atualizados. Irrelevante para a coleta completa; relevante para fatias.
 >
 > Também observado: este servidor retorna `completeListSize=0`, então **não há barra de progresso percentual** — o progresso é reportado em contagem absoluta.
@@ -366,7 +366,7 @@ Sequenciado por dependência e por relação valor/esforço. Tudo executável em
 
 | Sprint | Semanas | Entrega | Disco | Custo |
 |---|---|---|---|---|
-| **S1 — Espinha de metadados** | 1 | arXiv, OpenAlex, INSPIRE, ADS, Unpaywall coletados e unidos | ~150 GB | $0 |
+| **S1 — Tabela mestra de metadados** | 1 | arXiv, OpenAlex, INSPIRE, ADS, Unpaywall coletados e unidos | ~150 GB | $0 |
 | **S2 — Classificador de Física** | 1 (paralelo) | fastText treinado e calibrado a 0,95 de precisão (§6) | < 1 GB | $0 |
 | **S3 — Bulk pré-processado** | 2–3 | RedPajama-arXiv, peS2o, OpenWebMath, proof-pile-2 baixados e filtrados | ~600 GB | $0 |
 | **S3b — Auditoria de LaTeX** | 3 | Medição de preservação de equações vs. fonte original (§3.2) — **decide se o bulk pago se justifica** | — | $0 |
@@ -399,7 +399,7 @@ Sequenciado por dependência e por relação valor/esforço. Tudo executável em
 ## 11. Critérios de aceite do Stage-Gate 1
 
 - [ ] **B1** — Toda fonte da Camada A possui `license.spdx_id` resolvido e `train_ok` decidido **antes** da coleta em massa
-- [ ] **B2** — Espinha de metadados coletada; ≥ 99% dos papers de Física do arXiv com categoria e licença resolvidas
+- [ ] **B2** — Tabela mestra de metadados coletada; ≥ 99% dos papers de Física do arXiv com categoria e licença resolvidas
 - [ ] **B3** — Classificador de Física atinge precisão ≥ 0,95 no conjunto de validação anotado
 - [ ] **B4** — Auditoria S3b concluída, com decisão registrada sobre o bulk pago do arXiv
 - [ ] **B5** — `PhysCorpus-Raw v0.1` reconstruível ponta a ponta a partir dos manifestos de aquisição (satisfaz G1.5)
