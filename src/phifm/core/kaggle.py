@@ -400,6 +400,33 @@ T1E = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+T1F = Experimento(
+    nome="t1f",
+    # ⚠️ REUSA o dataset do T1a, e aqui o reúso é a PREMISSA do experimento, não
+    # economia de banda.
+    #
+    # A pergunta é se a base importa mais que o ajuste, e o braço de referência —
+    # `phiemb-minilm-t4-sorteado-melhor` — treinou nestes bytes exatos. Um dataset
+    # novo, mesmo montado com a mesma semente e o mesmo volume, mudaria base E
+    # dado na mesma rodada, e o resultado deixaria de ter dono. A célula confere
+    # `MANIFESTO["experimento"] == "t1a"` antes de treinar.
+    reusa_dados_de="t1a",
+    titulo_dados="PhiFM T1a — pares de citação arXiv sorteados",
+    slug_dados="phifm-t1a-pares-sorteados",
+    titulo_notebook="PhiFM T1f Base Gte",
+    slug_notebook="phifm-t1f-base-gte",
+    pacote="data/processed/kaggle_t1a",
+    fonte_celula="kaggle/t1f_base_gte.py",
+    arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
+    scripts=("train_embedding.py",),
+    # ⚠️ Nenhum modelo sobe. O `gte-base` é público e o Kaggle o baixa do
+    # HuggingFace; e o braço de REFERÊNCIA não vai porque não é retreinado lá —
+    # ele já está no disco de casa, e a comparação acontece em casa.
+    modelos=(),
+    max_pares=400_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ T2a — os DOIS braços do mesmo experimento, um dataset só.
 #
 # A pergunta é se o regex de pré-tokenização da §8 do DOC-05 — o que torna
@@ -467,7 +494,7 @@ VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 BRACOS_DO_T2A = ("t2a_a", "t2a_e")
 
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E,
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
                         T2A_A, T2A_E)}
 
 
