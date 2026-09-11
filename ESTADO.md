@@ -20,7 +20,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
 | **T1d** · ΦRank retreinado | 🔴 **fechado: dois negativos** | a hipótese da distribuição **não se sustentou** (empate, p=0,50) e o novo NÃO substitui. E a leitura independente: **nenhuma das duas cadeias vence o ΦEmb sozinho** (p=0,14 e p=0,38) — pelo critério pré-registrado, o estágio de reordenação não paga o próprio custo com este recuperador |
 | **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu; e em 2026-09-10 o ΦRank saiu também (T1e). A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
-| **G1.5** · corpus por um hash | 🟡 metade fechada | 21,79 GB verificáveis byte a byte por **um** hash; refazer do zero depende de uma fonte mutável, nomeada |
+| **G1.5** · corpus por um hash | 🟡 **o hash cobria 55% do corpus** | ⚠️ o peS2o (18,34 GB, 14,60 B tokens) estava FORA da tabela `ETAPAS` desde 2026-08-26, e o raiz atestava 21,79 GB de um corpus de ~40 GB. Nada acusava: o construtor só percorre a lista, e o relatório sai ✅ sobre o que ele conhece. Agora **40,13 GB · 34 etapas · 1.258 arquivos**, raiz `927ae486…`. Guarda nova: toda fonte de `filtrar_hf.FONTES` tem de ter entrada em `ETAPAS`, código contra código |
+| **G1.5** · parâmetros capturados | 🟡 **os 5 scripts capturam; os artefatos são de antes** | `build_spine`, `build_pairs`, `train_classifier`, `coletar_redpajama` e `filtrar_hf` gravam o próprio manifesto ao terminar, com os argumentos da execução. ⚠️ E o `coletar_redpajama` tinha um elo SOLTO: capturava desde o começo e montava `Entrada(caminho=…)` **sem `manifesto_id`** — parecia bem atestado e a proveniência terminava na primeira aresta. `entrada_de()` centraliza a busca do id nas três formas do repositório |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
 | **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reordenador **entrou no sistema** em 2026-09-03 |
@@ -1850,8 +1851,36 @@ medidas planas.
 
 ## G1.5 — o corpus por um hash, e o que ele prova
 
-    hash raiz  bbd73a7a26ac8e8b03b7bb9c142bbb47d459d7a32d643fec63b477cf25cf5fb7
-    33 etapas · 976 arquivos · 21,79 GB · verificação profunda ✅
+    hash raiz  927ae48695f6c9c66f7499e634a9b9c5c4d0e5e699ac63c5196cd94fd0c53469
+    34 etapas · 1258 arquivos · 40,13 GB
+
+### ⚠️ O hash anterior cobria 55% do corpus (achado em 2026-09-11)
+
+O raiz de 2026-09-08 era `bbd73a7a…` sobre **33 etapas · 976 arquivos · 21,79 GB**,
+e o ESTADO.md dizia "o corpus por um hash". O peS2o — filtrado em 2026-08-26,
+**18,34 GB e 14,60 B tokens dos 27,75 B** — nunca foi acrescentado à tabela
+`ETAPAS`, então o construtor não sabia que ele existia.
+
+Nada acusou, e o motivo é o que importa: **o construtor só percorre a lista
+declarada**. Uma etapa que não está lá não existe para ele, e o relatório de
+verificação sai ✅ sobre o que ele conhece. Um verificador que passa não prova que
+o que ficou de fora está íntegro — prova que ele não olhou.
+
+A lista explícita é a decisão certa (um construtor que varre o disco atestaria o
+que *está* lá, não o que *deveria*), e o preço dela é este: acrescentar uma fonte
+sem acrescentar a etapa é silencioso. A guarda nova fecha esse flanco sem abrir
+mão da lista — `test_manifesto_g1_5.py` exige que toda fonte de
+`filtrar_hf.FONTES` tenha entrada em `ETAPAS`, **código contra código**, sem
+depender de `data/processed/` existir. Teria pego isto em 2026-08-26.
+
+| etapa | GB | arquivos | registros |
+|---|---|---|---|
+| spine | 0,76 | 1 | 1.595.422 |
+| isphysics_clf | 0,02 | 2 | — |
+| pares_citacao | 2,68 | 2 | 6.697.651 |
+| redpajama_fisica | 12,56 | 46 | 835.379 |
+| openwebmath_fisica | 3,57 | 47 | 860.521 |
+| **pes2o_fisica** | **18,34** | **282** | **5.526.331** |
 
 ```bash
 PYTHONPATH=src .venv/Scripts/python.exe scripts/manifesto_corpus.py --verificar --profundo

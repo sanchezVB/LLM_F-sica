@@ -584,3 +584,88 @@ def test_entrada_de_nao_LEVANTA_com_json_corrompido(tmp_path):
     (d / "_manifest.json").write_text("{isso nao e json")
     e = entrada_de(d)
     assert e.manifesto_id is None
+
+
+# ── a reexecução que quase destruiu o grafo de citações ─────────────────────
+
+def test_build_spine_RECUSA_trocar_citacoes_por_nulos(tmp_path):
+    """⚠️ O achado de 2026-09-11, e o mais caro desta série.
+
+    `data/raw/openalex_works` não existe mais. `attach_citations` trata "sem
+    shards" como caso normal e devolve `n_references` nulo — o que é CERTO na
+    primeira construção e é destruição numa reexecução. O script juntou com
+    vazio, gravou nulo por cima de 14.052.319 referências, imprimiu o relatório
+    inteiro e saiu com código 0.
+
+    É esse grafo que sustenta os 6.697.651 pares de treino do ΦEmb. Só não se
+    perdeu porque havia backup.
+    """
+    import polars as pl
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    from build_spine import recusar_regressao
+
+    oa_vazio = tmp_path / "openalex_works"      # não existe, como no disco real
+    out = tmp_path / "spine.parquet"
+    pl.DataFrame({"arxiv_id": ["a", "b"], "n_references": [3, 7]}).write_parquet(out)
+
+    with pytest.raises(SystemExit, match="grafo de citações"):
+        recusar_regressao(oa_vazio, out)
+
+
+def test_build_spine_PERMITE_a_primeira_construcao_sem_citacoes(tmp_path):
+    """A junção adiada continua legítima quando não há nada a perder — a regra é
+    sobre a REGRESSÃO, não sobre a entrada faltar. Proibir construir sem OpenAlex
+    quebraria o caminho que montou a tabela mestra original."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    from build_spine import recusar_regressao
+
+    recusar_regressao(tmp_path / "openalex_works", tmp_path / "nao_existe.parquet")
+
+
+def test_build_spine_PERMITE_quando_a_que_esta_la_tambem_nao_tem(tmp_path):
+    """Sobrescrever nulo com nulo não é regressão."""
+    import polars as pl
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    from build_spine import recusar_regressao
+
+    out = tmp_path / "spine.parquet"
+    pl.DataFrame({"arxiv_id": ["a"],
+                  "n_references": [None]}).write_parquet(out)
+    recusar_regressao(tmp_path / "openalex_works", out)
+
+
+def test_a_guarda_roda_ANTES_de_build(tmp_path):
+    """⚠️ `build()` grava dentro. Uma guarda depois da escrita não é guarda: ela
+    relata um estrago já feito."""
+    import ast
+
+    raiz = Path(__file__).resolve().parents[2]
+    fonte = (raiz / "scripts/build_spine.py").read_text(encoding="utf-8")
+    main = next(n for n in ast.walk(ast.parse(fonte))
+                if isinstance(n, ast.FunctionDef) and n.name == "main")
+    ordem = [ast.unparse(n.func) for n in ast.walk(main)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+    assert "recusar_regressao" in ordem and "build" in ordem
+    assert ordem.index("recusar_regressao") < ordem.index("build"), ordem
+
+
+def test_entrada_de_distingue_CAMINHO_AUSENTE_de_sem_manifesto(tmp_path):
+    """⚠️ Eram duas situações diferentes com a mesma frase.
+
+    "sem manifesto a montante" se lê como "entrada externa, legítima". Uma
+    entrada DECLARADA cujo caminho sumiu é outra coisa: significa que a etapa não
+    é mais reproduzível a partir do disco, e foi exatamente o caso do
+    `data/raw/openalex_works` da tabela mestra.
+    """
+    from phifm.core.schema.reprodutibilidade import entrada_de
+
+    existe = tmp_path / "existe"
+    existe.mkdir()
+    assert "sem manifesto" in (entrada_de(existe).nota or "")
+    assert "AUSENTE" not in (entrada_de(existe).nota or "")
+
+    sumiu = entrada_de(tmp_path / "nunca_existiu")
+    assert "AUSENTE" in (sumiu.nota or "")
+    assert "não é reproduzível" in (sumiu.nota or "")

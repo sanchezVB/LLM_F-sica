@@ -269,6 +269,19 @@ def entrada_de(caminho: Path, base: Path | None = None,
             except ValueError:
                 rel = p.as_posix()
             return Entrada(caminho=rel, manifesto_id=mid, nota=nota)
+    # ⚠️ "não existe" e "existe sem manifesto" são coisas diferentes, e a
+    # diferença importa: uma entrada DECLARADA cujo caminho sumiu significa que a
+    # etapa não é mais reproduzível a partir do disco.
+    #
+    # Medido em 2026-09-11: `data/raw/openalex_works` — a entrada que traz o grafo
+    # de citações para a tabela mestra — não existe mais, e o manifesto dizia
+    # apenas "sem manifesto a montante", que se lê como "entrada externa,
+    # legítima". Eram duas situações diferentes com a mesma frase.
+    if not p.exists():
+        return Entrada(
+            caminho=p.as_posix().replace("\\", "/"),
+            nota=(f"{nota + ' — ' if nota else ''}⚠️ CAMINHO AUSENTE: esta etapa "
+                  "não é reproduzível a partir do que está no disco"))
     return Entrada(caminho=p.as_posix().replace("\\", "/"),
                    nota=nota or "sem manifesto a montante")
 
