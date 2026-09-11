@@ -408,13 +408,20 @@ def main() -> int:
         print(f"  dados: assinatura do bundle {assinatura} "
               f"({len(man['arquivos'])} arquivos)")
 
-    for marcador in ("__SHA__", "__REPO__", "__ASSINATURA_DADOS__"):
+    # ⚠️ O BRAÇO, quando o experimento é um braço. Ver `Experimento.variante`: os
+    # dois braços do T2a compartilham célula, dataset e orçamento, então a variante
+    # é a única coisa que os distingue — e ela vem do registro, não de uma bandeira.
+    if exp.variante:
+        celula = celula.replace("__VARIANTE__", exp.variante)
+        print(f"  braço: variante {exp.variante}")
+
+    for marcador in ("__SHA__", "__REPO__", "__ASSINATURA_DADOS__", "__VARIANTE__"):
         if marcador in celula:
             raise SystemExit(
                 f"o marcador {marcador} sobrou na célula de {exp.nome}. Ou o "
-                f"experimento precisa de `repo` no registro, ou a célula não devia "
-                "ter o marcador — publicar assim daria um notebook que baixa a "
-                "string literal.")
+                f"experimento precisa de `repo`/`variante` no registro, ou a célula "
+                "não devia ter o marcador — publicar assim daria um notebook que "
+                "baixa a string literal.")
     nb.write_text(json.dumps(_ipynb(celula), indent=1), encoding="utf-8")
     (SAIDA_NB / "kernel-metadata.json").write_text(json.dumps({
         "id": id_nb,

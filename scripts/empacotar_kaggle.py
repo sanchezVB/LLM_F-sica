@@ -61,6 +61,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import shutil
 import sys
 import zipfile
@@ -80,6 +81,11 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     hash_arquivo,
 )
 from phifm.training.amostragem import sortear_para_parquet  # noqa: E402
+from phifm.training.pretrain.dados import (  # noqa: E402
+    NOME_MANIFESTO,
+    NOME_MARCAS,
+    NOME_TOKENS,
+)
 
 log = logging.getLogger("empacotar")
 
@@ -210,6 +216,123 @@ def _montar_rerank(exp: Experimento, raiz: Path, out: Path, a) -> dict:
             "negativos": str(origem).replace("\\", "/")}
 
 
+def _ligar(origem: Path, destino: Path) -> None:
+    """Liga em vez de copiar quando dá. 2,7 GB por braço não precisam existir duas
+    vezes no HD só para subir — e o `unlink` da limpeza tira o link, não a fatia."""
+    if destino.exists():
+        destino.unlink()
+    try:
+        os.link(origem, destino)
+    except OSError:
+        shutil.copy2(origem, destino)
+
+
+def _montar_t2a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
+    """T2a — as DUAS fatias no mesmo dataset, achatadas por variante.
+
+    As fatias vêm de `preparar_dados_phienc.py` com nomes canônicos iguais
+    (`tokens.u16.bin`, `marcas.u8.bin`, `MANIFESTO_DADOS.json`) em diretórios
+    diferentes. O Kaggle achata a estrutura do upload, então aqui o nome passa a
+    carregar a variante e a célula refaz os links canônicos do outro lado.
+
+    ⚠️ As duas fatias no MESMO dataset, e não uma em cada, porque os dois braços
+    treinam em sessões separadas e nada mais garantiria que eles vieram do mesmo
+    preparo. Um dataset, uma assinatura: se um braço rodou sobre outro bundle, a
+    `assinatura_do_manifesto` acusa antes do treino.
+
+    ⚠️ As `marcas` sobem mesmo com `p_equacao=0,0` nos dois braços, onde elas não
+    são lidas — 1,8 GB de arquivo inútil para ESTE experimento. Vão por dois
+    motivos: o laço memmapa e confere o tamanho delas sem olhar o `p_equacao`
+    (`pretrain/dados.py`), e mexer no laço para poupar banda seria mexer no
+    treinador na véspera do treino. E a ablação do §2.3, que é o experimento
+    seguinte na fila, quer exatamente estas fatias — com as marcas aqui ela
+    `reusa_dados_de` e custa zero de upload.
+    """
+    fatias = {v: raiz / f"data/processed/t2a_{v}" for v in ("A", "E")}
+    mans = {}
+    for v, d in fatias.items():
+        if not (d / NOME_MANIFESTO).exists():
+            raise SystemExit(
+                f"{d / NOME_MANIFESTO} não existe. Rode "
+                f"scripts/preparar_dados_phienc.py --tokenizer "
+                f"data/processed/tokenizer/variante_{v}.json --out {d}")
+        mans[v] = json.loads((d / NOME_MANIFESTO).read_text(encoding="utf-8"))
+
+    # ⚠️ As guardas abaixo existem contra UM modo de falha: empacotar a mesma
+    # fatia duas vezes sob dois nomes. O experimento sairia empate perfeito, a
+    # leitura seria "a §8 não vale nada", e seria um NULO FABRICADO — a mesma
+    # família de erro que a régua quebrada do T1b2 produziu duas vezes no artigo.
+    # Um nulo convida a fechar a linha, então ele precisa de mais guarda que um
+    # positivo, não menos.
+    for v in ("A", "E"):
+        esperado = f"variante_{v}.json"
+        if not mans[v]["tokenizer"].endswith(esperado):
+            raise SystemExit(
+                f"a fatia {v} foi preparada com {mans[v]['tokenizer']}, não com "
+                f"{esperado}. Os dois braços treinariam no mesmo dado e o "
+                "experimento reportaria empate por construção.")
+    if mans["A"]["tokenizer_sha"] == mans["E"]["tokenizer_sha"]:
+        raise SystemExit(
+            f"as duas fatias declaram o mesmo tokenizer_sha "
+            f"({mans['A']['tokenizer_sha']}). A única variável do experimento não "
+            "varia.")
+    # O corpus, a semente e o `max_tokens` são o que TEM de ser igual: a variável
+    # é o tokenizer, e qualquer outra diferença entraria no resultado sem nome.
+    for campo in ("corpus", "semente_do_sorteio", "max_tokens", "em_ordem"):
+        if mans["A"].get(campo) != mans["E"].get(campo):
+            raise SystemExit(
+                f"as fatias divergem em {campo!r}: {mans['A'].get(campo)!r} contra "
+                f"{mans['E'].get(campo)!r}. O experimento é de uma variável.")
+    # Orçamento igual em TOKENS, que é o protocolo — não em texto. E é justamente
+    # porque o texto difere que o experimento tem o que medir.
+    ta, te = mans["A"]["tokens"], mans["E"]["tokens"]
+    if abs(ta - te) / max(ta, te) > 0.01:
+        raise SystemExit(
+            f"as fatias têm {ta:,} e {te:,} tokens, {abs(ta-te)/max(ta,te):.1%} de "
+            "diferença. O protocolo iguala TOKENS; com orçamentos diferentes o "
+            "resultado mede volume, não tokenizer.")
+
+    for v, d in fatias.items():
+        _ligar(d / NOME_TOKENS, out / f"tokens_{v}.u16.bin")
+        _ligar(d / NOME_MARCAS, out / f"marcas_{v}.u8.bin")
+        shutil.copy2(d / NOME_MANIFESTO, out / f"MANIFESTO_{v}.json")
+        # O tokenizer vai junto: `exportar_phienc.py` precisa dele para gravar o
+        # checkpoint no formato do `transformers`, e o caminho que o manifesto do
+        # run nomeia é um caminho DESTA máquina, que não existe no Kaggle.
+        shutil.copy2(raiz / f"data/processed/tokenizer/variante_{v}.json",
+                     out / f"variante_{v}.json")
+
+    docs = {v: mans[v]["documentos_nesta_execucao"] for v in ("A", "E")}
+    por_doc = {v: mans[v]["tokens"] / docs[v] for v in ("A", "E")}
+    return {
+        "codigo_de": exp.repo or "dataset",
+        "fatias": {v: {k: mans[v].get(k) for k in
+                       ("tokens", "documentos_nesta_execucao", "tokenizer",
+                        "tokenizer_sha", "partes_usadas", "corpus",
+                        "semente_do_sorteio", "max_tokens")}
+                   for v in ("A", "E")},
+        # O efeito sob teste, medido ANTES de qualquer GPU ser gasta. Fica no
+        # manifesto para o resultado poder ser lido contra a expectativa em vez de
+        # contra uma lembrança.
+        "efeito_disponivel": {
+            "tokens_por_doc_A": round(por_doc["A"], 1),
+            "tokens_por_doc_E": round(por_doc["E"], 1),
+            "E_gasta_a_mais_por_doc": round(por_doc["E"] / por_doc["A"] - 1, 4),
+            "A_ve_mais_texto": round(1 - por_doc["A"] / por_doc["E"], 4),
+            "nota": ("A métrica intrínseca de fertilidade dava +37,7% e o corpus de "
+                     "treino dá +12,6% — ela foi medida em resumos do arXiv e "
+                     "superestima por 3x. O número a usar como expectativa é este."),
+        },
+        "nota_do_protocolo": (
+            "As duas fatias no mesmo dataset porque os braços treinam em sessões "
+            "separadas: uma assinatura só, conferida antes do treino nos dois. "
+            "Mascaramento PADRÃO (p_equacao=0,0) em ambos — o tratamento do §2.3 "
+            "depende de o tokenizer marcar equações, e ligá-lo mediria a interação "
+            "em vez do tokenizer. A comparação roda LOCAL, com os dois checkpoints "
+            "no mesmo processo."),
+    }
+
+
 # O t1a15 usa o MESMO montador: o volume é a única diferença, e ele vem
 # do `max_pares` do experimento.
 # O t1d usa o MESMO montador do t1c: a diferença é o arquivo de negativos, e
@@ -217,7 +340,7 @@ def _montar_rerank(exp: Experimento, raiz: Path, out: Path, a) -> dict:
 MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
               "t1a3m": _montar_t1a, "t1a6m": _montar_t1a,
               "t1b2": _montar_t1b2, "t1c": _montar_rerank,
-              "t1d": _montar_rerank}
+              "t1d": _montar_rerank, "t2a_a": _montar_t2a}
 
 
 def main() -> int:

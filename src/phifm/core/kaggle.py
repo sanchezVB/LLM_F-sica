@@ -127,6 +127,16 @@ class Experimento:
     # conferido: sem os dois iguais, o `dataset_sources` do notebook apontaria
     # para um lugar e a assinatura sairia de outro.
     reusa_dados_de: str | None = None
+    # ⚠️ Qual braço este experimento é, injetado na célula como `__VARIANTE__`.
+    #
+    # Na IDENTIDADE e não numa bandeira de linha de comando, pelo mesmo motivo do
+    # `negativos` acima — e aqui o preço do esquecimento é maior. Os dois braços do
+    # T2a compartilham célula, dataset e orçamento: se a variante viesse de uma
+    # bandeira, publicar o segundo braço sem ela subiria um notebook que treina o
+    # PRIMEIRO de novo. Os dois kernels teriam nomes diferentes, rodariam 7,5 h cada
+    # e produziriam o mesmo modelo duas vezes — e a comparação daria empate
+    # perfeito, que se leria como "a §8 não vale nada".
+    variante: str | None = None
     # `owner/repo` do GitHub. Quando preenchido, o código NÃO viaja no dataset: o
     # notebook baixa o tarball do commit exato.
     #
@@ -390,13 +400,75 @@ T1E = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# ⚠️ T2a — os DOIS braços do mesmo experimento, um dataset só.
+#
+# A pergunta é se o regex de pré-tokenização da §8 do DOC-05 — o que torna
+# `\frac`, `\begin{…}` e `^{`/`_{` pré-tokens atômicos — compra alguma coisa. A
+# variante E é a A sem ele, e o §11.2 diz: "se E empatar com A, a §8 está errada".
+#
+# ⚠️ A e E são o ÚNICO par limpo das seis variantes. C tem V=32.768 e D tem
+# V=65.536, e a 48 M de parâmetros a tabela de embedding é 43,7% do modelo — ver
+# `ProxyBakeoff` em `models/encoder/config.py`. Comparar A com C mediria capacidade
+# junto com tokenizer. A e E compartilham vocabulário, arquitetura e contagem.
+#
+# ⚠️ Dois experimentos e não um porque 15 h de T4 não cabem numa sessão de 9 h. É
+# a mesma célula, o mesmo dataset e o mesmo orçamento nos dois; o que muda é a
+# `VARIANTE` injetada na publicação. A COMPARAÇÃO não acontece em nenhum dos dois:
+# ela roda local, com os dois checkpoints no mesmo processo, pelas três medidas do
+# §11.2 — é assim que a lição do T1b2 (medir os dois braços na mesma sessão) fica
+# respeitada mesmo com os treinos separados.
+_T2A_ARQUIVOS = ("tokens_A.u16.bin", "marcas_A.u8.bin", "MANIFESTO_A.json",
+                 "variante_A.json",
+                 "tokens_E.u16.bin", "marcas_E.u8.bin", "MANIFESTO_E.json",
+                 "variante_E.json")
+_T2A_SCRIPTS = ("train_phienc.py", "exportar_phienc.py")
+
+T2A_A = Experimento(
+    nome="t2a_a",
+    titulo_dados="PhiFM T2a — fatias dos tokenizers A e E",
+    slug_dados="phifm-t2a-fatias-a-e",
+    titulo_notebook="PhiFM T2a Tokenizer A",
+    slug_notebook="phifm-t2a-tokenizer-a",
+    pacote="data/processed/kaggle_t2a",
+    fonte_celula="kaggle/t2a_tokenizer.py",
+    arquivos=_T2A_ARQUIVOS,
+    scripts=_T2A_SCRIPTS,
+    variante="A",
+    repo="sanchezVB/LLM_F-sica",
+)
+
+T2A_E = Experimento(
+    nome="t2a_e",
+    # ⚠️ REUSA o dataset do braço A, e isto é mais que economia de banda: um
+    # dataset só significa uma `assinatura_do_manifesto` só. Se os dois braços
+    # tivessem datasets próprios, nada acusaria dois preparos diferentes — e o
+    # resultado sairia com uma variável a mais, sem nome, dentro dele.
+    reusa_dados_de="t2a_a",
+    titulo_dados="PhiFM T2a — fatias dos tokenizers A e E",
+    slug_dados="phifm-t2a-fatias-a-e",
+    titulo_notebook="PhiFM T2a Tokenizer E",
+    slug_notebook="phifm-t2a-tokenizer-e",
+    pacote="data/processed/kaggle_t2a",
+    fonte_celula="kaggle/t2a_tokenizer.py",
+    arquivos=_T2A_ARQUIVOS,
+    scripts=_T2A_SCRIPTS,
+    variante="E",
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
 VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 
+# ⚠️ Os dois braços do T2a, pelo mesmo motivo: duas entradas quase idênticas cujo
+# ÚNICO campo que pode divergir sem quebrar nada é o que identifica o braço. O
+# teste confere que tudo o mais é igual — orçamento, dataset, célula e código.
+BRACOS_DO_T2A = ("t2a_a", "t2a_e")
+
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E)}
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E,
+                        T2A_A, T2A_E)}
 
 
 def obter(nome: str) -> Experimento:

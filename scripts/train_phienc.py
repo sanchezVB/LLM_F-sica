@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import logging
 import sys
 from pathlib import Path
@@ -45,7 +46,11 @@ import torch  # noqa: E402
 from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.models.encoder.config import CONFIGS, obter  # noqa: E402
-from phifm.training.pretrain.dados import ConfigDados, Fluxo  # noqa: E402
+from phifm.training.pretrain.dados import (  # noqa: E402
+    NOME_MANIFESTO,
+    ConfigDados,
+    Fluxo,
+)
 from phifm.training.pretrain.laco import (  # noqa: E402
     ConfigTreino,
     Treinador,
@@ -57,6 +62,36 @@ from phifm.training.pretrain.spike import ConfigSpike  # noqa: E402
 # de qualquer código nosso, e `Φ` não existe em cp1252. Ver `phifm.core.console`.
 console_utf8()
 
+
+
+def especiais_da_fatia(dados: Path) -> tuple[int, tuple[int, ...]]:
+    """`(id_mask, ids_especiais)` do MANIFESTO da fatia, não das constantes.
+
+    ## ⚠️ Por que não do `ConfigTreino`
+
+    Ele traz `id_mask=4` e `ids_especiais=(0,1,2,3,4)`, que é a convenção das
+    nossas variantes (`models/encoder/config.ESPECIAIS`). Desde 2026-09-10 o
+    `preparar_dados_phienc.py` sabe produzir fatia com o tokenizer de um modelo de
+    fora (`--especiais-do-tokenizer`), e ali os ids são outros.
+
+    Treinar com o id de máscara errado mascararia com um token qualquer: o modelo
+    aprenderia a prever ruído numa fração dos lugares e **a perda desceria
+    normalmente**. É o tipo de defeito que só aparece na avaliação, meses depois.
+
+    Uma fatia antiga não declara `ids_especiais` — é anterior à opção — e aí valem
+    os defaults, que são os mesmos.
+    """
+    man = json.loads((dados / NOME_MANIFESTO).read_text(encoding="utf-8"))
+    padrao = ConfigTreino(total_passos=1)
+    ids = man.get("ids_especiais")
+    if not ids:
+        return padrao.id_mask, padrao.ids_especiais
+    if man.get("especiais_do_tokenizer") and "id_mascara" not in man:
+        raise SystemExit(
+            f"{dados / NOME_MANIFESTO} foi preparada com "
+            "`--especiais-do-tokenizer` e não grava `id_mascara`. Sem ele o treino "
+            "mascararia com um token qualquer e a perda desceria assim mesmo.")
+    return int(man.get("id_mascara", padrao.id_mask)), tuple(int(x) for x in ids)
 
 
 def main() -> int:
@@ -95,10 +130,12 @@ def main() -> int:
     fluxo = Fluxo(ConfigDados(
         raiz=a.dados, contexto=a.contexto or cfg_enc.contexto,
         sequencias=a.sequencias, semente=a.semente))
+    id_mask, ids_especiais = especiais_da_fatia(a.dados)
     cfg = ConfigTreino(
         total_passos=a.total_passos, acumulacao=a.acumulacao, lr_pico=a.lr_pico,
         amp=not a.sem_amp, passos_log=a.passos_log,
-        passos_estado=a.passos_estado)
+        passos_estado=a.passos_estado,
+        id_mask=id_mask, ids_especiais=ids_especiais)
     cfg_mascara = ConfigMascara(taxa=a.taxa_mascara, p_equacao=a.p_equacao,
                                 semente=a.semente)
 
