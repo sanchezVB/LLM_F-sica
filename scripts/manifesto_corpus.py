@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     Entrada,
     EtapaRef,
@@ -43,6 +44,15 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     tamanho_de,
     verificar,
 )
+
+# ⚠️ No IMPORT. O relatório de verificação imprime ✅ e ⚠️, e o console do Windows
+# entrega cp1252: sem isto o script LEVANTA na hora de imprimir o resultado, depois
+# de reler os 40 GB. Medido em 2026-09-11 — a verificação profunda rodou inteira e
+# morreu em `UnicodeEncodeError` no `print(rel.resumo())`.
+#
+# Um verificador que não consegue dizer o que encontrou não verificou nada, do
+# ponto de vista de quem espera a resposta. Ver `phifm.core.console`.
+console_utf8()
 
 log = logging.getLogger("manifesto")
 
