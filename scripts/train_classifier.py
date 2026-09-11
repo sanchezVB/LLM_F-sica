@@ -8,6 +8,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import polars as pl  # noqa: E402
 
+from phifm.core.schema.reprodutibilidade import (  # noqa: E402
+    entrada_de,
+    gravar_manifesto_etapa,
+)
 from phifm.corpus.filter.classifier import montar_binario, save, train  # noqa: E402
 
 ROTULO = {"subfield": "subfield", "is_physics": "is_physics"}
@@ -35,7 +39,8 @@ def main() -> int:
 
     clf, rep = train(df, task=a.task, label_col=ROTULO[a.task],
                      target_precision=a.precision)
-    save(clf, a.out or Path(SAIDA[a.task]))
+    destino = a.out or Path(SAIDA[a.task])
+    save(clf, destino)
     print("\n" + "=" * 72)
     print(rep)
     print("=" * 72)
@@ -64,6 +69,35 @@ def main() -> int:
         print("    E nenhum domínio do arXiv representa TEXTO DE WEB, que é o que")
         print("    o OpenWebMath é. Para lá, isto não é previsão — é o que temos.")
         print("    Medir de verdade exige `scripts/avaliar_transferencia.py`.")
+
+    # ⚠️ `max_por_classe` e `precision` são a IDENTIDADE deste classificador.
+    #
+    # O limiar de precisão 0,95 é o que define quanto entra no corpus: ele governa
+    # a taxa de falso positivo das fatias filtradas por este modelo — o
+    # OpenWebMath e o peS2o inteiros passam por ele. Reconstruir "0.95" do código
+    # daria o default de HOJE, e um classificador treinado com outro alvo
+    # produziria um corpus diferente sob o mesmo nome.
+    #
+    # E `--task` entra no nome da etapa: `subfield` e `is_physics` gravam em
+    # diretórios diferentes e são modelos diferentes.
+    me = gravar_manifesto_etapa(
+        etapa=f"{a.task.replace('_', '')}_clf",
+        descricao=("Classificador binário Física/não-Física, negativos "
+                   "estratificados" if a.task == "is_physics"
+                   else "Classificador de subárea da Física"),
+        raiz=destino,
+        entradas=[entrada_de(a.spine)] + (
+            [entrada_de(a.negativos)] if a.task == "is_physics" else []),
+        parametros={"script": "scripts/train_classifier.py", "task": a.task,
+                    "max_por_classe": a.max_por_classe,
+                    "precision": a.precision,
+                    "spine": str(a.spine).replace("\\", "/"),
+                    "negativos": (str(a.negativos).replace("\\", "/")
+                                  if a.task == "is_physics" else None),
+                    "linhas_de_treino": df.height,
+                    "cobertura_da_calibracao": round(c.coverage, 5)},
+        registros=df.height)
+    print(f"\nmanifesto da etapa: {me.etapa} · {me.manifesto_id[:16]}…")
     return 0
 
 if __name__ == "__main__":

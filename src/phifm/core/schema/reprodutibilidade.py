@@ -231,6 +231,48 @@ class ManifestoRaiz(BaseModel):
         return self
 
 
+def entrada_de(caminho: Path, base: Path | None = None,
+               nota: str | None = None) -> Entrada:
+    """Uma `Entrada` com o `manifesto_id` de quem produziu `caminho`, se houver.
+
+    ⚠️ É o `manifesto_id` que forma a CADEIA. Sem ele, `entradas` guarda um
+    caminho solto — o manifesto diz "veio daqui" e não diz *de qual versão daqui*,
+    que é a única parte que o G1.5 precisa. Uma cadeia com um elo assim não
+    permite ir da saída até a fonte: ela para no primeiro caminho sem id.
+
+    Aconteceu em `coletar_redpajama.py`, que capturava o próprio manifesto desde o
+    começo e montava `Entrada(caminho=str(a.spine))` sem id. A etapa parecia bem
+    atestada e a proveniência dela terminava na primeira aresta.
+
+    Procura nas três formas que o repositório usa, nesta ordem: `_manifest.json`
+    (coletores), `_manifesto_etapa.json` dentro do diretório, e
+    `<arquivo>_manifesto_etapa.json` ao lado — porque uma etapa cuja saída é um
+    parquet único grava o manifesto ao lado, não dentro.
+
+    Sem manifesto a montante devolve a `Entrada` com `nota` dizendo isso, e não
+    levanta: entrada externa ao pipeline é legítima, o que não pode é ser calada.
+    """
+    p = Path(caminho)
+    for cand in (p / "_manifest.json", p / NOME_MANIFESTO_ETAPA,
+                 p.parent / f"{p.name}{NOME_MANIFESTO_ETAPA}"):
+        if not cand.exists():
+            continue
+        try:
+            d = json.loads(cand.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        # Os coletores gravam `manifest_id`; as etapas, `manifesto_id`.
+        mid = d.get("manifesto_id") or d.get("manifest_id")
+        if mid:
+            try:
+                rel = p.resolve().relative_to((base or Path(".")).resolve()).as_posix()
+            except ValueError:
+                rel = p.as_posix()
+            return Entrada(caminho=rel, manifesto_id=mid, nota=nota)
+    return Entrada(caminho=p.as_posix().replace("\\", "/"),
+                   nota=nota or "sem manifesto a montante")
+
+
 def gravar_manifesto_etapa(
     *, etapa: str, descricao: str, raiz: Path, base: Path | None = None,
     entradas: list[Entrada] | None = None, parametros: dict | None = None,

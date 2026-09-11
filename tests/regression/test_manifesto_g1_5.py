@@ -469,3 +469,118 @@ def test_o_filtrar_hf_GRAVA_o_proprio_manifesto_ao_terminar():
     chaves = {ast.literal_eval(c) for c in params.keys if c is not None}
     for exigida in ("limiar", "prefixo", "revisao", "fonte", "dataset"):
         assert exigida in chaves, f"{exigida} não é capturado: {sorted(chaves)}"
+
+
+# ── a captura na execução, o que fecha a metade aberta do G1.5 ──────────────
+
+def test_TODO_script_de_etapa_grava_o_proprio_manifesto():
+    """⚠️ Sem esta chamada os parâmetros voltam a ser reconstruídos do código.
+
+    E reconstruir não é uma imprecisão formal: `precision=0.95` do classificador
+    governa o que entra no corpus, e o `prefixo` do peS2o é a diferença entre
+    14,6 B tokens e um corpus com metade duplicada. Um parâmetro reconstruído dá
+    o valor de HOJE, não o da execução que produziu o artefato — e um valor
+    errado assim não tem com o que ser confrontado.
+
+    Por AST: importar estes scripts carregaria polars e torch, e o que interessa
+    é se a chamada existe no `main`.
+    """
+    import ast
+
+    raiz = Path(__file__).resolve().parents[2]
+    scripts = ["build_spine.py", "build_pairs.py", "train_classifier.py",
+               "coletar_redpajama.py", "filtrar_hf.py"]
+    sem_captura = []
+    for nome in scripts:
+        fonte = (raiz / "scripts" / nome).read_text(encoding="utf-8")
+        main = next((n for n in ast.walk(ast.parse(fonte))
+                     if isinstance(n, ast.FunctionDef) and n.name == "main"), None)
+        assert main is not None, f"{nome} não tem main()"
+        chamadas = {ast.unparse(n.func) for n in ast.walk(main)
+                    if isinstance(n, ast.Call)}
+        if "gravar_manifesto_etapa" not in chamadas:
+            sem_captura.append(nome)
+    assert not sem_captura, (
+        f"{sem_captura} produzem etapas do corpus e não gravam o próprio "
+        "manifesto — os parâmetros delas continuam sendo adivinhados do código.")
+
+
+def test_as_entradas_usam_entrada_de_para_formar_a_CADEIA():
+    """⚠️ É o `manifesto_id` que faz a cadeia, e `Entrada(caminho=...)` cru não o
+    tem.
+
+    O `coletar_redpajama.py` capturava o próprio manifesto desde o começo e
+    montava a entrada sem id: a etapa parecia bem atestada e a proveniência dela
+    terminava na primeira aresta. Um elo assim não permite ir da saída até a
+    fonte.
+    """
+    import ast
+
+    raiz = Path(__file__).resolve().parents[2]
+    for nome in ("build_spine.py", "build_pairs.py", "train_classifier.py",
+                 "coletar_redpajama.py"):
+        fonte = (raiz / "scripts" / nome).read_text(encoding="utf-8")
+        main = next(n for n in ast.walk(ast.parse(fonte))
+                    if isinstance(n, ast.FunctionDef) and n.name == "main")
+        chamada = next(n for n in ast.walk(main) if isinstance(n, ast.Call)
+                       and ast.unparse(n.func) == "gravar_manifesto_etapa")
+        entradas = next((k.value for k in chamada.keywords
+                         if k.arg == "entradas"), None)
+        assert entradas is not None, f"{nome} não declara `entradas`"
+        texto = ast.unparse(entradas)
+        assert "entrada_de" in texto, (
+            f"{nome} monta entradas sem `entrada_de`: {texto}. Sem o "
+            "`manifesto_id` a cadeia para aqui.")
+
+
+def test_entrada_de_acha_o_id_nas_TRES_formas(tmp_path):
+    """O repositório grava manifesto de três jeitos, e a cadeia tem de encontrar
+    os três: `_manifest.json` dos coletores, `_manifesto_etapa.json` dentro de um
+    diretório, e `<arquivo>_manifesto_etapa.json` ao lado de um parquet único."""
+    from phifm.core.schema.reprodutibilidade import entrada_de
+
+    # 1. coletor: `manifest_id`, com a grafia inglesa
+    d1 = tmp_path / "bruto"
+    d1.mkdir()
+    (d1 / "_manifest.json").write_text(json.dumps({"manifest_id": "aaa111"}))
+    assert entrada_de(d1).manifesto_id == "aaa111"
+
+    # 2. etapa em diretório
+    d2 = tmp_path / "fatia"
+    d2.mkdir()
+    (d2 / "_manifesto_etapa.json").write_text(json.dumps({"manifesto_id": "bbb222"}))
+    assert entrada_de(d2).manifesto_id == "bbb222"
+
+    # 3. etapa cuja saída é UM arquivo: o manifesto fica ao lado
+    arq = tmp_path / "spine.parquet"
+    arq.write_bytes(b"x")
+    (tmp_path / "spine.parquet_manifesto_etapa.json").write_text(
+        json.dumps({"manifesto_id": "ccc333"}))
+    assert entrada_de(arq).manifesto_id == "ccc333"
+
+
+def test_entrada_de_sem_manifesto_DIZ_que_nao_tem(tmp_path):
+    """⚠️ Entrada externa ao pipeline é legítima; o que não pode é ser calada.
+
+    Devolver a entrada sem id e sem nota faria a cadeia parecer completa quando
+    ela termina ali.
+    """
+    from phifm.core.schema.reprodutibilidade import entrada_de
+
+    solto = tmp_path / "de_fora"
+    solto.mkdir()
+    e = entrada_de(solto)
+    assert e.manifesto_id is None
+    assert e.nota and "sem manifesto" in e.nota
+
+
+def test_entrada_de_nao_LEVANTA_com_json_corrompido(tmp_path):
+    """Um manifesto ilegível a montante não pode derrubar a etapa no fim, depois
+    do trabalho feito — ele vira "sem manifesto", que é a verdade."""
+    from phifm.core.schema.reprodutibilidade import entrada_de
+
+    d = tmp_path / "quebrado"
+    d.mkdir()
+    (d / "_manifest.json").write_text("{isso nao e json")
+    e = entrada_de(d)
+    assert e.manifesto_id is None

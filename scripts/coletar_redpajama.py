@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from phifm.core.env import contato_obrigatorio  # noqa: E402
 from phifm.core.schema.reprodutibilidade import (  # noqa: E402
-    Entrada,
+    entrada_de,
     gravar_manifesto_etapa,
 )
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
@@ -64,7 +64,12 @@ def main() -> int:
         descricao=("Fatia de Física do RedPajama-arXiv, filtrada por casamento "
                    "exato com a tabela mestra"),
         raiz=a.out,
-        entradas=[Entrada(caminho=str(a.spine))],
+        # ⚠️ `entrada_de` e não `Entrada(caminho=...)`: é o `manifesto_id` que
+        # forma a CADEIA. Sem ele o manifesto diz "veio daqui" e não diz de qual
+        # VERSÃO daqui, e a proveniência para na primeira aresta. Esta etapa
+        # capturava o próprio manifesto desde o começo e mesmo assim tinha o elo
+        # quebrado — parecia bem atestada.
+        entradas=[entrada_de(a.spine)],
         parametros={"script": "scripts/coletar_redpajama.py",
                     "filtro": "spine (exato)", "max_shards": a.max_shards,
                     "revisao_indice": REVISAO,
