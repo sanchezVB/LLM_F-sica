@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-08
+# Estado do projeto — 2026-09-11
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -14,7 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Sinal de platô no 6 M: **15 avaliações consecutivas abaixo do pico** e queda de 1%, contra ≤1 ponto e ~0 nos outros três |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
-| **Base do recuperador** | 🟡 **o GTE-base zero-shot EMPATA** | 0,2755 contra 0,2810 de r@10 (p=0,545) **sem uma linha do nosso dado** — mas perde fundo (r@200 0,645 contra 0,730) e custa **4,4×** para embutir. A sonda que decide é GTE-base@400k, 2h39 |
+| **Base do recuperador** · T1f | 🟡 **montado, esperando cota** | o GTE-base zero-shot EMPATA (0,2755 contra 0,2810 de r@10, p=0,545) **sem uma linha do nosso dado**. A sonda está em `kaggle/t1f_base_gte.py`: GTE-base@400k contra o MiniLM@400k que já está no disco, **2h39** e **zero upload** (reusa o dataset do T1a, assinatura conferida `e7be008b295aab2f`). ⚠️ A primária é nDCG@10 e isso MUDOU de sentido: o T1e tirou o ΦRank, a cadeia virou ΦEmb → top-10 e **nada lê o fundo hoje** |
 | **T1e** · profundidade | 🔴 **o ΦRank SAI do sistema** | dobrar o candidato move **1,95%** das consultas (19×20, p=1,0). O teto subiu 0,098 e o recall@10 subiu **+1 consulta** de 195 oportunidades. A cadeia é `ΦEmb → top-10` |
 | **Truncagem 192** | 🔴 **não custa nada** | 63,8% das âncoras truncadas e 28,2% dos tokens descartados, e ler 256 ou 384 **não muda o recall** (pareado p=0,08–0,84) e custa 2,9× para embutir. Era a minha melhor aposta |
 | **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
@@ -31,9 +31,10 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
-| **§11.2** · o bake-off | 🔴 **não roda na T4 gratuita** | 44 h por variante × 6 = **263 h** ≈ 8,8 semanas de cota, pela vazão MEDIDA (9,5 TFLOP/s). O DOC-05 orça **US$ 15** numa 4090 alugada — as rodadas são decisão de dinheiro, não de fila |
-
-Suíte: **682 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+| **§11.2** · o bake-off | 🟡 **A×E montado, empacotado** | as seis variantes a 5 B são 263 h ≈ 8,8 semanas de cota. O que cabe é o **par limpo** A×E a 0,8 B: `kaggle/t2a_tokenizer.py`, dois braços de 7,5 h, 5,4 GB empacotados. C e D têm contagem de parâmetros diferente de A (a 48 M a embedding é 43,7%), então carregam confundidor de capacidade. ⚠️ **Empate a 0,8 B NÃO refuta a §8** — registra-se como não decidido |
+| **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
+| **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
+Suíte: **771 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
