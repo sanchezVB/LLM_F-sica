@@ -458,3 +458,21 @@ def test_a_guarda_avisa_que_encolher_UM_braco_quebra_o_pareamento():
     corpo = LACO.split("def _conferir_orcamento_de_sessao")[1].split("\n    def ")[0]
     assert "BRAÇO" in corpo
     assert "orçamento igual" in corpo
+
+
+def test_o_empacotador_exige_que_as_partes_sejam_PREFIXO(tmp_path):
+    """⚠️ Prefixo, não igualdade.
+
+    As duas fatias sorteiam as partes com a mesma semente, então a ordem é a
+    mesma; o que muda é onde cada uma para. E gasta mais tokens por documento e
+    enche o orçamento antes, então o conjunto de documentos de E é um PREFIXO do
+    de A. Exigir igualdade reprovaria o caso normal; não exigir nada deixaria
+    passar dois corpora embaralhados diferentes.
+    """
+    _fatia(tmp_path, "A", partes_usadas=["p35", "p14", "p02", "p09"])
+    _fatia(tmp_path, "E", partes_usadas=["p35", "p14", "p02"])
+    _montar(tmp_path, tmp_path / "pacote")  # prefixo: passa
+
+    _fatia(tmp_path, "E", partes_usadas=["p14", "p35", "p02"])
+    with pytest.raises(SystemExit, match="prefixo"):
+        _montar(tmp_path, tmp_path / "pacote2")

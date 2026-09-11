@@ -283,6 +283,27 @@ def _montar_t2a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
             raise SystemExit(
                 f"as fatias divergem em {campo!r}: {mans['A'].get(campo)!r} contra "
                 f"{mans['E'].get(campo)!r}. O experimento é de uma variável.")
+    # ⚠️ A lista de partes de E tem de ser PREFIXO da de A, e não igual a ela.
+    #
+    # As duas fatias sorteiam as partes com `random.Random(17).shuffle`, então a
+    # ordem é a mesma; o que muda é onde cada uma para. E gasta mais tokens por
+    # documento, então enche os 0,9 B antes — o conjunto de documentos de E é um
+    # PREFIXO do de A, na mesma ordem. É a forma mais limpa que este experimento
+    # pode ter: nenhum documento entra num braço e falta no outro por sorteio.
+    #
+    # Exigir igualdade aqui seria errado (E pode parar numa parte antes), e não
+    # exigir nada deixaria passar duas fatias de corpora embaralhados diferentes —
+    # que é o que aconteceria se o diretório do corpus ganhasse ou perdesse uma
+    # parte entre um preparo e o outro.
+    pa, pe = mans["A"]["partes_usadas"], mans["E"]["partes_usadas"]
+    curto, longo = (pe, pa) if len(pe) <= len(pa) else (pa, pe)
+    if longo[:len(curto)] != curto:
+        raise SystemExit(
+            f"as partes não são prefixo uma da outra:\n  A: {pa}\n  E: {pe}\n"
+            "As duas sorteiam com a mesma semente, então a ordem devia ser a "
+            "mesma. Divergir aqui significa que os corpora não eram o mesmo "
+            "conjunto de arquivos, e os braços veriam textos diferentes.")
+
     # Orçamento igual em TOKENS, que é o protocolo — não em texto. E é justamente
     # porque o texto difere que o experimento tem o que medir.
     ta, te = mans["A"]["tokens"], mans["E"]["tokens"]
