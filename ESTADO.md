@@ -22,6 +22,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **T1b2** · a cadeia | 🟢 **o BM25 SAIU da composição** | a regra pré-registrada decidiu; e em 2026-09-10 o ΦRank saiu também (T1e). A fusão RRF parou de somar (empate, p=0,95) e cobrava **0,026 de teto**. O ΦRank fica, com a evidência enfraquecida (p=0,0081 → **p=0,086**) |
 | **G1.5** · corpus por um hash | 🟡 **o hash cobria 55% do corpus** | ⚠️ o peS2o (18,34 GB, 14,60 B tokens) estava FORA da tabela `ETAPAS` desde 2026-08-26, e o raiz atestava 21,79 GB de um corpus de ~40 GB. Nada acusava: o construtor só percorre a lista, e o relatório sai ✅ sobre o que ele conhece. Agora **40,13 GB · 34 etapas · 1.258 arquivos**, raiz `927ae486…`. Guarda nova: toda fonte de `filtrar_hf.FONTES` tem de ter entrada em `ETAPAS`, código contra código |
 | **G1.5** · parâmetros capturados | 🟡 **os 5 scripts capturam; os artefatos são de antes** | `build_spine`, `build_pairs`, `train_classifier`, `coletar_redpajama` e `filtrar_hf` gravam o próprio manifesto ao terminar, com os argumentos da execução. ⚠️ E o `coletar_redpajama` tinha um elo SOLTO: capturava desde o começo e montava `Entrada(caminho=…)` **sem `manifesto_id`** — parecia bem atestado e a proveniência terminava na primeira aresta. `entrada_de()` centraliza a busca do id nas três formas do repositório |
+| **Pares de citação** · reprodutibilidade | 🔴 **reexecutar troca a RÉGUA do G1** | o embaralhamento mudou depois de 2026-08-07 (`sample(shuffle)` → `sort` por hash, em `c9b7b8d`), então o teto de 8 por âncora escolhe outras arestas. Reexecutado e medido: `pares_validacao` sai com **2,1% das âncoras antigas** — é outro benchmark. Todo número do G1 (nDCG 0,6223, T1a, T1b2, T1c, T1d, T1e) e o dataset T1a publicado no Kaggle foram medidos contra o arquivo atual. **Restaurado byte a byte**; a etapa fica `parametros_reconstruidos=True` de propósito |
+| **Tabela mestra** · reprodutibilidade | 🔴 **a entrada não existe mais** | `data/raw/openalex_works` — quem traz `n_references` e `cited_by_count` — sumiu depois de 2026-08-07. Reexecutar `build_spine` gravou **nulo por cima de 14.052.319 referências**, com relatório completo e **saída 0**; só não se perdeu o grafo que sustenta os 6,7 M de pares porque havia backup. Guardas: `recusar_regressao` roda ANTES de `build`, e `entrada_de` passa a distinguir "caminho AUSENTE" de "sem manifesto". ⚠️ **Um manifesto capturado de uma execução ruim é pior que um reconstruído** — tem mais credibilidade e nada o contradiz |
 | Barramento de verificação | 🟢 5 de 6 | falta só `sandbox` — exige gVisor/Firecracker |
 | **T1a** · ΦEmb na T4 | 🟢 medido | **181,6 pares/s** contra 20-26 aqui; 13 h viram 36 min. Destrava o ΦEnc: ~80 h de T4 em vez de 37 dias |
 | **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reordenador **entrou no sistema** em 2026-09-03 |
@@ -1881,6 +1883,35 @@ depender de `data/processed/` existir. Teria pego isto em 2026-08-26.
 | redpajama_fisica | 12,56 | 46 | 835.379 |
 | openwebmath_fisica | 3,57 | 47 | 860.521 |
 | **pes2o_fisica** | **18,34** | **282** | **5.526.331** |
+
+### ⚠️ Duas etapas NÃO se reconstroem, e as duas foram descobertas tentando
+
+Em 2026-09-11 fui reexecutar `spine` e `pares_citacao` para converter
+`parametros_reconstruidos` de `true` para `false` — capturar os parâmetros de
+verdade em vez de adivinhá-los do código. As duas falharam, por motivos diferentes,
+e **as duas teriam destruído artefatos** se não houvesse backup.
+
+**`spine` — a entrada sumiu.** `data/raw/openalex_works`, que traz `n_references` e
+`cited_by_count`, não existe mais. `attach_citations` trata "sem shards" como caso
+normal e devolve as colunas nulas — correto na primeira construção, destruição numa
+reexecução. Gravou **nulo por cima de 14.052.319 referências**, com relatório
+completo e **saída 0**. É esse grafo que sustenta os 6,7 M de pares do ΦEmb.
+
+**`pares_citacao` — a lógica mudou.** O embaralhamento passou de
+`sample(fraction=1.0, shuffle=True)` para ordenação por hash (`c9b7b8d`, uma
+melhoria: determinístico e sem materializar). Com outro embaralhamento, o teto de 8
+por âncora escolhe outras arestas. Medido: o `pares_validacao` novo tem **2,1% das
+âncoras do antigo** — é outro benchmark. Todo número do G1 foi medido contra o
+arquivo atual.
+
+**A lição que custou mais:** a reexecução da tabela mestra gravou um manifesto com
+`parametros_reconstruidos=False`, atestando como *capturado na execução* um
+artefato degradado. **Um manifesto capturado de uma execução ruim é pior que um
+reconstruído** — tem mais credibilidade e nada o contradiz. Capturar parâmetros é
+necessário e não é suficiente; o script tem de validar a própria entrada.
+
+As duas etapas ficam `parametros_reconstruidos=True` **de propósito**, e agora com
+a razão registrada. É o estado honesto: a marca diz exatamente o que é verdade.
 
 ```bash
 PYTHONPATH=src .venv/Scripts/python.exe scripts/manifesto_corpus.py --verificar --profundo
