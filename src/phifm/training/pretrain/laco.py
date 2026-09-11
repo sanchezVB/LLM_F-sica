@@ -94,6 +94,21 @@ class ConfigTreino:
     # Ids do tokenizer. Ver `models/encoder/config.ESPECIAIS`.
     id_mask: int = 4
     ids_especiais: tuple[int, ...] = (0, 1, 2, 3, 4)
+    # ⚠️ Teto de horas da SESSÃO, e ele aborta em vez de avisar.
+    #
+    # `horas_estimadas` existia neste módulo e não era chamada em lugar nenhum: o
+    # laço sabia projetar o custo e nunca fazia nada com a projeção. Num ambiente
+    # onde a sessão morre no relógio — o Kaggle desliga às 9 h e o checkpoint não
+    # retoma entre sessões — uma projeção não usada é um run que descobre aos 85%
+    # que não cabia.
+    #
+    # O dimensionamento de um run por FLOPs é uma ESTIMATIVA de MFU: a 48 M de
+    # parâmetros a banda de memória manda mais que o tensor core, e 15% contra 25%
+    # de MFU é a diferença entre 5,9 h e 8,9 h. A medida real chega na primeira
+    # janela de log, minutos depois de começar; desligar ali custa esses minutos.
+    #
+    # `None` desliga a guarda, que é o certo para quem roda em máquina própria.
+    limite_horas: float | None = None
 
     def __post_init__(self) -> None:
         if self.total_passos <= 0 or self.acumulacao <= 0:
@@ -270,6 +285,7 @@ class Treinador:
                          m.epoca, self.contadores.fracao_tratada())
                 m.historico.append({k: v for k, v in asdict(m).items()
                                     if k != "historico"})
+                self._conferir_orcamento_de_sessao(m, saida, passo)
                 t0, tokens_desde_log = time.perf_counter(), 0
 
             passo += 1
@@ -357,6 +373,40 @@ class Treinador:
                 "`--passos-estado`, ou a LR de pico: sem checkpoint o rollback é só "
                 "recomeçar do zero.")
         return salto
+
+    def _conferir_orcamento_de_sessao(self, m: Metricas, saida: Path,
+                                      passo: int) -> None:
+        """Aborta quando a vazão MEDIDA diz que o run não cabe na sessão.
+
+        ⚠️ A partir da SEGUNDA janela de log, e não da primeira.
+
+        A primeira janela carrega o autotune do cuDNN, a primeira alocação do
+        cache e a compilação dos kernels — ela mede devagar por construção, e
+        abortar nela reprovaria runs que cabem. A segunda já é regime.
+
+        ⚠️ Aborta, não avisa. O Kaggle desliga a sessão no relógio e este laço não
+        retoma entre sessões: um run que projeta 10 h numa sessão de 9 h não vai
+        entregar 90% do treino, vai entregar nada. Seguir seria gastar a sessão
+        inteira para chegar ao mesmo lugar, só que horas depois.
+        """
+        if self.cfg.limite_horas is None or len(m.historico) < 2:
+            return
+        horas = self.horas_estimadas(m.tokens_por_s)
+        if horas <= self.cfg.limite_horas:
+            return
+        # O checkpoint vai ao disco mesmo assim: se alguém decidir que a sessão
+        # seguinte pode continuar à mão, o que já foi treinado está lá.
+        self._gravar(saida, passo, m, motivo="acima do limite de horas")
+        cabem = int(self.cfg.total_passos * self.cfg.limite_horas / horas)
+        raise SystemExit(
+            f"a {m.tokens_por_s:,.0f} tok/s medidos, os {self.cfg.total_passos:,} "
+            f"passos levam {horas:.1f} h e o limite da sessão é "
+            f"{self.cfg.limite_horas:.1f} h.\n\n"
+            f"Caberiam ~{cabem:,} passos. ⚠️ Mas se este run é um BRAÇO de um "
+            "experimento pareado, reduzir só este quebraria o orçamento igual: o "
+            "outro braço tem de ser reduzido junto, e o que já rodou com o número "
+            "antigo não vale mais.\n\n"
+            f"O estado ficou em {saida}, no passo {passo}.")
 
     def horas_estimadas(self, tokens_por_s: float) -> float:
         tokens = (self.cfg.total_passos * self.fluxo.tokens_por_passo()

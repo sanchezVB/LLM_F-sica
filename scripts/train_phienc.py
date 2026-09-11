@@ -116,6 +116,13 @@ def main() -> int:
     p.add_argument("--passos-log", type=int, default=50)
     p.add_argument("--passos-estado", type=int, default=500)
     p.add_argument("--sem-amp", action="store_true")
+    # ⚠️ O teto da SESSÃO, conferido contra a vazão MEDIDA na segunda janela de
+    # log. Dimensionar por FLOPs é estimar MFU, e 15% contra 25% é a diferença
+    # entre 5,9 h e 8,9 h num run de 0,8 B — os dois lados de uma sessão de 9 h.
+    # Sem isto, um run que não cabe descobre isso aos 85%, com a sessão perdida.
+    p.add_argument("--limite-horas", type=float, default=None,
+                   help="aborta se a vazão medida projetar mais que isto. Use o "
+                        "teto da sessão (9 h no Kaggle); omita em máquina própria")
     p.add_argument("--so-resumo", action="store_true",
                    help="imprime o orçamento e sai, sem treinar")
     a = p.parse_args()
@@ -134,7 +141,7 @@ def main() -> int:
     cfg = ConfigTreino(
         total_passos=a.total_passos, acumulacao=a.acumulacao, lr_pico=a.lr_pico,
         amp=not a.sem_amp, passos_log=a.passos_log,
-        passos_estado=a.passos_estado,
+        passos_estado=a.passos_estado, limite_horas=a.limite_horas,
         id_mask=id_mask, ids_especiais=ids_especiais)
     cfg_mascara = ConfigMascara(taxa=a.taxa_mascara, p_equacao=a.p_equacao,
                                 semente=a.semente)

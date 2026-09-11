@@ -52,6 +52,7 @@ from phifm.core.kaggle import BRACOS_DO_T2A, obter  # noqa: E402
 CELULA = t2a_tokenizer.CELULA
 DOC = t2a_tokenizer.__doc__ or ""
 CODIGO = so_codigo(CELULA)
+LACO = (RAIZ / "src/phifm/training/pretrain/laco.py").read_text(encoding="utf-8")
 
 
 # ── a célula ────────────────────────────────────────────────────────────────
@@ -392,3 +393,68 @@ def test_o_empacotador_diz_o_que_rodar_quando_a_fatia_nao_existe(tmp_path):
     _fatia(tmp_path, "A")
     with pytest.raises(SystemExit, match="preparar_dados_phienc.py"):
         _montar(tmp_path, tmp_path / "pacote")
+
+
+# ── o teto de sessão ────────────────────────────────────────────────────────
+
+def test_a_celula_passa_o_teto_de_horas_da_sessao():
+    """⚠️ Dimensionar por FLOPs é supor MFU, e a suposição é frouxa a 48 M: 15%
+    contra 25% é 8,9 h contra 5,9 h — os dois lados de uma sessão de 9 h. O laço
+    projeta na segunda janela de log e aborta se não couber."""
+    assert '"--limite-horas", LIMITE_H' in CELULA
+    limite = float(CELULA.split("LIMITE_H = ")[1].split("\n")[0])
+    assert 0 < limite < 9.0, (
+        f"teto de {limite} h; a sessão do Kaggle morre às 9 h e o laço não retoma "
+        "entre sessões")
+
+
+def test_o_laco_ABORTA_quando_a_vazao_medida_nao_cabe():
+    """`horas_estimadas` existia e nao era chamada em lugar nenhum: o laco sabia
+    projetar o custo e nunca fazia nada com a projecao.
+
+    Por AST e nao por import: a suite rapida roda sem torch, e `laco.py` importa
+    torch no topo. Um teste que so passa no venv de treino nao roda no CI.
+    """
+    arvore = ast.parse(LACO)
+    cfg = next(n for n in ast.walk(arvore) if isinstance(n, ast.ClassDef)
+               and n.name == "ConfigTreino")
+    campos = {n.target.id: n for n in cfg.body if isinstance(n, ast.AnnAssign)}
+    assert "limite_horas" in campos, "ConfigTreino nao tem limite_horas"
+    assert ast.unparse(campos["limite_horas"].value) == "None", (
+        "a guarda tem de vir desligada: em maquina propria um run longo e normal")
+
+    treinador = next(n for n in ast.walk(arvore) if isinstance(n, ast.ClassDef)
+                     and n.name == "Treinador")
+    metodos = {n.name: n for n in treinador.body
+               if isinstance(n, ast.FunctionDef)}
+    guarda = metodos.get("_conferir_orcamento_de_sessao")
+    assert guarda is not None, "nenhuma guarda de orcamento no Treinador"
+    assert any(isinstance(n, ast.Raise) for n in ast.walk(guarda)), (
+        "a guarda avisa em vez de abortar; a sessao morre no relogio de qualquer "
+        "jeito, e seguir gasta as 9 h para chegar ao mesmo lugar")
+    fontes = {ast.unparse(n.func) for n in ast.walk(guarda)
+              if isinstance(n, ast.Call)}
+    assert "self.horas_estimadas" in fontes, (
+        "a guarda nao usa a projecao — era exatamente esse o defeito")
+
+    # E ela e chamada de dentro do laco, nao so definida.
+    chamada = {ast.unparse(n.func) for n in ast.walk(metodos["treinar"])
+               if isinstance(n, ast.Call)}
+    assert "self._conferir_orcamento_de_sessao" in chamada, (
+        "a guarda existe e o laco nao a chama")
+
+
+def test_a_guarda_espera_a_SEGUNDA_janela_de_log():
+    """A primeira carrega autotune do cuDNN e primeira alocação: ela mede devagar
+    por construção, e abortar nela reprovaria runs que cabem."""
+    corpo = LACO.split("def _conferir_orcamento_de_sessao")[1].split("\n    def ")[0]
+    assert "len(m.historico) < 2" in corpo
+
+
+def test_a_guarda_avisa_que_encolher_UM_braco_quebra_o_pareamento():
+    """A saída natural de "não cabe" é reduzir os passos. Num experimento
+    pareado isso invalida o braço que já rodou — e quem lê a mensagem no Kaggle
+    está a 7,5 h de distância de perceber sozinho."""
+    corpo = LACO.split("def _conferir_orcamento_de_sessao")[1].split("\n    def ")[0]
+    assert "BRAÇO" in corpo
+    assert "orçamento igual" in corpo

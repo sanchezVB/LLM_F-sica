@@ -177,6 +177,16 @@ SEQUENCIAS = 8
 ACUMULACAO = 8
 PASSOS = TOKENS // (CONTEXTO * SEQUENCIAS * ACUMULACAO)
 
+# ⚠️ O teto da sessão, conferido contra a vazão MEDIDA e não contra a estimada.
+#
+# O dimensionamento saiu de FLOPs: 2,56e17 com a atenção contada. Converter isso
+# em horas exige supor a MFU, e a 48 M de parâmetros a suposição é frouxa — 15%
+# contra 25% de MFU é 8,9 h contra 5,9 h, os dois lados de uma sessão de 9 h.
+#
+# O laço projeta na segunda janela de log e aborta se não couber: custa minutos
+# em vez de descobrir aos 85%, com a sessão inteira gasta e nada exportado.
+LIMITE_H = 8.5
+
 print(f"""
 {'=' * 74}
 T2a — a §8 vale alguma coisa?  ·  braço {VARIANTE}
@@ -197,6 +207,8 @@ T2a — a §8 vale alguma coisa?  ·  braço {VARIANTE}
 
   orçamento IDÊNTICO: {TOKENS:,} tokens · contexto {CONTEXTO} ·
                       {SEQUENCIAS}x{ACUMULACAO} · {PASSOS:,} passos
+                      teto de {LIMITE_H} h, conferido contra a vazão MEDIDA na
+                      segunda janela de log — se não couber, aborta em minutos
   mascaramento PADRÃO (p_equacao=0,0) nos dois: o tratamento do §2.3 depende de o
   tokenizer marcar equações, e ligá-lo mediria tokenizer + interação.
 
@@ -233,7 +245,8 @@ _rodar([sys.executable, "-u", CODIGO / "scripts/train_phienc.py",
         "--config", "proxy-bakeoff", "--dados", FATIA, "--out", RUN,
         "--total-passos", PASSOS, "--contexto", CONTEXTO,
         "--sequencias", SEQUENCIAS, "--acumulacao", ACUMULACAO,
-        "--p-equacao", 0.0, "--semente", 17],
+        "--p-equacao", 0.0, "--semente", 17,
+        "--limite-horas", LIMITE_H],
        TRABALHO / f"treino_{VARIANTE}.log")
 custo_treino = round(time.perf_counter() - t0, 1)
 
