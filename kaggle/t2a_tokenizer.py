@@ -187,6 +187,57 @@ PASSOS = TOKENS // (CONTEXTO * SEQUENCIAS * ACUMULACAO)
 # em vez de descobrir aos 85%, com a sessão inteira gasta e nada exportado.
 LIMITE_H = 8.5
 
+# ── a REGRA de leitura, escrita antes de qualquer número existir ────────────
+REGRA = r"""
+  ── A REGRA, escrita ANTES ────────────────────────────────────────────────
+
+  ⚠️ ESTE RUN NÃO É O §11.2 COMO ESCRITO. O protocolo de lá pede 5 B tokens por
+     variante; isto roda 0,8 B — 6,25x menos. 5 B numa T4 seriam ~47 h por
+     braço e a cota semanal inteira é 30 h. A redução não foi escolhida por
+     conveniência de análise: ela é o que existe.
+
+  ⚠️ MEDIDA PRIMÁRIA: bits por byte. NÃO acurácia de MLM.
+
+     Acurácia de MLM não é comparável entre tokenizers diferentes, e o viés dela
+     aponta CONTRA a hipótese. A e E partem o mesmo texto de jeitos diferentes:
+     um token de E é mais curto, então prevê-lo a partir da vizinhança é mais
+     fácil — sobra mais redundância local. E tende a marcar acurácia maior sem
+     ser modelo melhor. Bits por byte normaliza pelo TEXTO em vez do token, que
+     é a forma padrão de comparar vocabulários diferentes.
+
+     A acurácia por região continua sendo calculada, como DIAGNÓSTICO e com o
+     viés nomeado. Ela não decide nada.
+
+  Secundárias, as duas agnósticas ao tokenizer por construção: a sonda de
+  estrutura tensorial (cosseno entre textos, 72 itens) e a recuperação de
+  Física (ranking por cosseno). Nenhuma das duas olha para tokens.
+
+  Os desfechos:
+
+    A VENCE em bits por byte  ->  a §8 compra desempenho, e já a 0,8 B. As
+                                  secundárias entram como corroboração; elas
+                                  não podem derrubar a primária, e se
+                                  contrariarem isso é o resultado a reportar.
+
+    EMPATE                    ->  ⚠️ NÃO refuta a §8. O protocolo pré-registrado
+                                  era 5 B e este run tem 6,25x menos; o que um
+                                  empate diz é "a 0,8 B não dá para ver". A §8
+                                  FICA, e o teste do §11.2 segue em aberto —
+                                  registrado como não decidido, não como nulo.
+
+    E VENCE                   ->  notícia, e contra duas expectativas: a §11.1
+                                  mediu E 27% pior em fertilidade, e A ainda vê
+                                  12,5% mais texto pelo mesmo orçamento. E
+                                  vencer APESAR disso seria evidência de que o
+                                  regex custa, e aí a §8 é que precisa cair.
+
+  ⚠️ A assimetria entre "empate" e as outras duas é deliberada e é a parte que
+     mais precisa estar escrita antes. Um empate é o desfecho MAIS PROVÁVEL de
+     um run subdimensionado por 6x, e é também o que se escreve com mais
+     facilidade como "tentamos, não funciona" — fechando a linha com um nulo
+     que o experimento não tinha poder para produzir.
+"""
+
 print(f"""
 {'=' * 74}
 T2a — a §8 vale alguma coisa?  ·  braço {VARIANTE}
@@ -216,6 +267,7 @@ T2a — a §8 vale alguma coisa?  ·  braço {VARIANTE}
      medidas do §11.2 rodam LOCAL, com os dois checkpoints no mesmo processo —
      é assim que a lição do T1b2 fica respeitada mesmo com treinos separados.
      Esta célula produz um checkpoint exportado e nada mais.
+{REGRA}
 {'=' * 74}
 """, flush=True)
 

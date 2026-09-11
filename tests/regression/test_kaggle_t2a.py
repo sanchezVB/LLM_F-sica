@@ -495,3 +495,62 @@ def test_a_espera_pelo_dataset_ESCALA_com_o_tamanho():
         f"{grande} s para 5,4 GB; o T2a bateria no teto e o timeout convidaria a "
         "republicar")
     assert grande < 3600, f"{grande} s é espera demais para um erro de verdade"
+
+
+# ── a regra de leitura ──────────────────────────────────────────────────────
+
+def test_a_regra_esta_escrita_ANTES_de_qualquer_numero():
+    """Pré-registro só vale se estiver no git antes do resultado — e a lição do
+    T1b2 é que ele também tem de nomear o INSTRUMENTO, não só o limiar."""
+    i_regra = CELULA.index("A REGRA, escrita ANTES")
+    i_treino = CELULA.index("# ── 6.")
+    assert i_regra < i_treino
+
+
+def test_a_primaria_NAO_e_acuracia_de_MLM():
+    """⚠️ Acurácia de MLM não é comparável entre tokenizers, e o viés aponta
+    CONTRA a hipótese.
+
+    A e E partem o mesmo texto de jeitos diferentes: um token de E é mais curto,
+    então prevê-lo a partir da vizinhança é mais fácil — sobra mais redundância
+    local. E marcaria acurácia maior sem ser modelo melhor. Escolher a medida
+    pelo PODER estatístico em vez da validade é o erro do T1b2 numa forma nova.
+    """
+    regra = CELULA[CELULA.index("A REGRA, escrita ANTES"):CELULA.index("# ── 6.")]
+    assert "MEDIDA PRIMÁRIA: bits por byte" in regra
+    assert "NÃO acurácia de MLM" in regra
+    assert "não é comparável entre tokenizers" in regra
+    # E o diagnóstico continua, com o viés nomeado — não some.
+    assert "DIAGNÓSTICO" in regra
+
+
+def test_a_regra_diz_que_EMPATE_nao_refuta_a_secao_8():
+    """⚠️ O desfecho mais provável de um run subdimensionado por 6x é empate, e
+    empate é o que se escreve com mais facilidade como "tentamos, não funciona".
+
+    O §11.2 pede 5 B tokens por variante e este run tem 0,8 B. Sem esta linha
+    escrita antes, um empate vira refutação da §8 por leitura, não por medida.
+    """
+    regra = CELULA[CELULA.index("A REGRA, escrita ANTES"):CELULA.index("# ── 6.")]
+    assert "NÃO refuta a §8" in regra
+    assert "não decidido, não como nulo" in regra
+    assert "6,25x" in regra, "a regra não diz o quanto o run é menor que o §11.2"
+
+
+def test_os_TRES_desfechos_estao_na_regra():
+    regra = CELULA[CELULA.index("A REGRA, escrita ANTES"):CELULA.index("# ── 6.")]
+    for desfecho in ("A VENCE", "EMPATE", "E VENCE"):
+        assert desfecho in regra, f"falta o desfecho {desfecho}"
+
+
+def test_as_secundarias_sao_as_AGNOSTICAS_ao_tokenizer():
+    """Sonda e recuperação comparam cosseno entre textos: nenhuma das duas olha
+    para tokens, então valem entre vocabulários diferentes por construção."""
+    # Normaliza o espaco: a regra e texto embrulhado em 78 colunas, e um termo
+    # pode cair dos dois lados de uma quebra de linha.
+    regra = " ".join(
+        CELULA[CELULA.index("A REGRA, escrita ANTES"):
+               CELULA.index("# ── 6.")].split())
+    assert "sonda de estrutura tensorial" in regra
+    assert "recuperação de Física" in regra
+    assert "agnósticas ao tokenizer" in regra
