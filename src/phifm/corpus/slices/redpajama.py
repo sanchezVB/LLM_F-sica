@@ -10,16 +10,39 @@ sem poder avaliar o gasto.
 
 ## O que "em fluxo" significa aqui, e por que não é detalhe
 
-Os 100 shards somam **81 GB**. O caminho ingênuo baixa, salva, e depois filtra —
-81 GB em disco para produzir ~35 GB de Física. O caminho certo decodifica,
-filtra e descarta na mesma passada: o bruto nunca aterra.
+Os 100 shards somam **92 GB** (medido em 5 shards sorteados em 2026-09-12: 0,924
+GB/shard; a estimativa antiga de `0.81 * len(urls)` errava 14% para baixo). O
+caminho ingênuo baixa, salva, e depois filtra — 92 GB em disco para produzir ~12 GB
+de Física. O caminho certo decodifica, filtra e descarta na mesma passada: o bruto
+nunca aterra.
 
 É a mesma técnica que fez o Sprint S1 caber em 1,4 GB em vez de 150, e a mesma
 lição que quatro travamentos de memória neste projeto ensinaram — todos com a
 mesma causa, materializar o que podia ser percorrido.
 
-Medido em 2026-08-14: **49,7 MB/s** de banda, então o download é ~0,5 h e o
-gargalo passa a ser a decodificação de JSON.
+## ⚠️ O custo de tempo: ~45 min, e NÃO as 11,7 h que este parágrafo dizia
+
+Aqui estava escrito que a banda é 49,7 MB/s, "o download é ~0,5 h e o gargalo passa
+a ser a decodificação de JSON". A primeira metade está certa; a segunda estava
+errada, e o número que dela se derivou estava errado por **12×**.
+
+Medido em 2026-09-12, dos 105 registros de shard concluído no log da coleta:
+
+    mediana 26 s por shard · min 12 s · max 38.542 s
+    os cinco maiores intervalos: 76, 91, 200, 690, 38.542 s
+
+O intervalo de **38.542 s (10,7 h)** é uma PAUSA — a coleta foi interrompida e
+retomada no dia seguinte. Ele é 91% do tempo de parede, e nada tem a ver com
+processar. A 26 s de mediana, os 100 shards levam **~45 min**.
+
+A sonda de domínios confirmou por outro caminho: ela faz a mesma decodificação sem
+escrever parquet e mediu **42,8 MB/s de ponta a ponta** — praticamente a banda. A
+decodificação de JSON **não** é o gargalo.
+
+⚠️ E a causa do meu erro está no método, não no log: eu calculei `último timestamp −
+primeiro timestamp`, que mede tempo de PAREDE com a pausa dentro. É a mesma classe
+de erro que a docstring de `Progresso` documenta — um número que responde outra
+pergunta.
 
 ## O filtro é o spine, não um classificador
 
@@ -61,7 +84,7 @@ log = logging.getLogger(__name__)
 #
 # O que resta é DISPONIBILIDADE, não mutabilidade: se a Together parar de servir
 # `v1.0.0`, a fatia não se refaz. Isso é risco de fonte externa, e nomeá-lo é o
-# melhor que se pode fazer sem espelhar 81 GB.
+# melhor que se pode fazer sem espelhar os 92 GB.
 REVISAO = "398f92572e94f4793e41c22ab7ea2a788d9e7de4"
 INDICE = (
     "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T"

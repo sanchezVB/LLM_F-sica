@@ -14,7 +14,7 @@ em **0,0%** dos documentos contra **84,9%** do RedPajama-arXiv. De LaTeX íntegr
 A fatia de Física do RedPajama já está coletada (828.601 documentos distintos). Os
 de `math` e `cs` passaram pelo mesmo download e foram **descartados pelo filtro** —
 eles têm LaTeX íntegro pelo mesmo mecanismo. Esta sonda mede quantos são, para a
-decisão de recoletar 81 GB sair de medição em vez de suposição.
+decisão de recoletar 92 GB sair de medição em vez de suposição.
 
 ## ⚠️ Os shards são SORTEADOS, e isso não é preciosismo
 
@@ -85,7 +85,8 @@ def ids_do_dominio(raiz: Path, dominio: str) -> set[str]:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--shards", type=int, default=5,
-                   help="quantos dos 100 sortear; cada um é ~0,81 GB de rede")
+                   help="quantos dos 100 sortear; cada um é ~0,92 GB de rede, "
+                        "medido — a estimativa de 0,81 no coletor erra 14%")
     p.add_argument("--spine", type=Path,
                    default=Path("data/processed/spine.parquet"))
     p.add_argument("--semente", type=int, default=17,

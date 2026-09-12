@@ -29,7 +29,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reordenador **entrou no sistema** em 2026-09-03 |
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
-| **LaTeX disponível e NÃO coletado** | 🟡 **`math`+`cs` dobrariam**, medido | sonda em 5 de 100 shards sorteados (4,62 GB, 1,8 min): a Física é **52,2%** do RedPajama; `math` **25,0%** e `cs` **20,1%** foram baixados e DESCARTADOS pelo filtro. Extrapolado ×20: **685.200 docs, 44,6 G chars, +106%** sobre os 42,15 G da Física. Régua: a Física extrapolada dá 794.100 contra 828.601 em disco (−4,2%). ⚠️ Mas isso é VOLUME; acrescentar põe **45% de não-Física** no corpus de um modelo de Física, e esse trade-off nenhum número daqui mediu. Custo de coletar: **81 GB, ~11,7 h, US$ 0** |
+| **LaTeX disponível e NÃO coletado** | 🟡 **`math`+`cs` dobrariam**, medido | sonda em 5 de 100 shards sorteados (4,62 GB, 1,8 min): a Física é **52,2%** do RedPajama; `math` **25,0%** e `cs` **20,1%** foram baixados e DESCARTADOS pelo filtro. Extrapolado ×20: **685.200 docs, 44,6 G chars, +106%** sobre os 42,15 G da Física. Régua: a Física extrapolada dá 794.100 contra 828.601 em disco (−4,2%). ⚠️ Mas isso é VOLUME; acrescentar põe **45% de não-Física** no corpus de um modelo de Física, e esse trade-off nenhum número daqui mediu. Custo de coletar: **92 GB de download, ~45 min, US$ 0** (o bruto não aterra; a saída são ~13 GB de parquet) |
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · fatia de avaliação | 🟢 **51,7 M tokens, DISJUNTA** | `part-00022` — uma das 35 partes que o treino não usou. O manifesto declara `disjunto_do_treino` e as 9 excluídas; o avaliador de MLM **recusa** fatia que não declare |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
@@ -108,7 +108,8 @@ matemática e computação vai na direção oposta dessa medição.
 ΦEnc uma vez com os 27,75 B que existem, ver onde ele perde, e só então decidir —
 porque hoje não há treino de referência contra o qual medir ganho nenhum.
 
-Custo se a decisão for coletar: **81 GB de rede, ~11,7 h, US$ 0**.
+Custo se a decisão for coletar: **92 GB de download, ~45 min, US$ 0**. O bruto
+não aterra — a saída são ~13 GB de parquet.
 
 ### Dois defeitos que a sonda expôs no caminho
 
