@@ -171,31 +171,38 @@ assert torch.cuda.is_available(), "sem GPU. Settings → Accelerator → GPU."
 # ⚠️ Os quatro números abaixo são constantes da célula, e a célula é a MESMA nos
 # dois braços. É isso que garante tokens iguais — calcular passos separadamente
 # por braço seria o jeito de eles divergirem sem ninguém ver.
-# ⚠️ 0,6 B e 16x4, e os dois números mudaram DEPOIS de uma medição — 2026-09-11.
+# ⚠️ 0,6 B com 8x8, e o número de tokens mudou depois de uma MEDIÇÃO — 2026-09-11.
 #
-# A primeira tentativa foi 0,8 B com 8x8, dimensionada por FLOPs. A guarda de
-# sessão mediu 22.530 tok/s na segunda janela de log e projetou **9,9 h** contra as
-# 8,5 h do teto: a estimativa errava por 32%, e a MFU real é 10,0% (contra uns
-# 13-15% que a conta supunha). O run abortou aos 2,5 min em vez de morrer a 85%
-# com a sessão esgotada e nada exportado.
+# A primeira tentativa foi 0,8 B. A guarda de sessão mediu 22.530 tok/s na segunda
+# janela de log e projetou **9,9 h** contra as 8,5 h do teto: a estimativa por
+# FLOPs errava por 32%, e a MFU real é 10,0% (contra uns 13-15% que a conta
+# supunha). O run abortou aos 2,5 min em vez de morrer a 85% com a sessão esgotada.
 #
-# **16x4 em vez de 8x8 é ganho de eficiência, NÃO mudança de experimento.** O fluxo
-# indexa a sequência por `micro_global * sequencias + i` e o laço calcula
-# `micro_global = passo * acumulacao + micro`; com o produto fixo em 64, o passo 0
-# consome as sequências 0..63 nos dois casos, na mesma ordem. O que muda é o
-# agrupamento, e a acumulação de gradiente soma os mesmos micro-lotes. A 8
-# sequências o forward tem 8.192 tokens, que é pouco para saturar uma T4.
+# **0,6 B cabe com a vazão JÁ MEDIDA**: 600 M ÷ 22.530 tok/s = 7,40 h, dentro das
+# 8,5 h. Não depende de nenhum ganho.
 #
-# **0,6 B cabe mesmo se o ganho for ZERO**: 22.530 tok/s × 8,0 h = 649 M. O ganho
-# de lote vira margem, não aposta — e a guarda continua como rede.
+# ## ⚠️ 8 sequências por micro-passo é o TETO desta GPU, medido
 #
-# ⚠️ O preço está registrado na regra abaixo: o §11.2 pede 5 B por variante, e isto
-# passou de 6,25x menos para 8,3x menos. Empate continua não refutando a §8, e o
-# argumento fica mais forte, não mais fraco.
+# A segunda tentativa trocou 8x8 por 16x4 para ganhar vazão — mantendo o produto
+# em 64, é o mesmo treino (o fluxo indexa por `micro_global * sequencias + i` e o
+# laço faz `micro_global = passo * acumulacao + micro`, então o passo 0 consome as
+# sequências 0..63 nos dois casos, na mesma ordem).
+#
+# Deu **OutOfMemory no primeiro backward**: tentou alocar 2,50 GiB com 270 MB
+# livres numa T4 de 14,56 GiB. O que estoura não é o modelo de 48 M — são os
+# LOGITS de MLM, que a 16 sequências são 16 × 1.024 × 40.960 em fp16, **1,34 GB**,
+# mais a cópia do cross-entropy e o backward.
+#
+# ⚠️ E a lição é sobre o meu processo, não sobre a GPU: eu tinha escrito acima que
+# 0,6 B cabe **sem ganho nenhum**, e mesmo assim mudei o lote na mesma rodada. Uma
+# mudança que não era necessária, não era medida, e custou outra sessão. Uma
+# variável por vez vale também quando a variável não é do experimento.
 TOKENS = 600_000_000
 CONTEXTO = 1024
-SEQUENCIAS = 16
-ACUMULACAO = 4
+# ⚠️ NÃO aumente sem medir: 16 estoura a memória da T4 (ver acima). O produto
+# `SEQUENCIAS * ACUMULACAO` é o lote lógico e tem de continuar 64.
+SEQUENCIAS = 8
+ACUMULACAO = 8
 PASSOS = TOKENS // (CONTEXTO * SEQUENCIAS * ACUMULACAO)
 
 # ⚠️ O teto da sessão, conferido contra a vazão MEDIDA e não contra a estimada.

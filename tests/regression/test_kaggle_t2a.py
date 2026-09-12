@@ -612,6 +612,14 @@ def test_o_agrupamento_do_lote_preserva_os_TOKENS_por_passo():
                 if isinstance(alvo, ast.Name) and alvo.id in (
                         "SEQUENCIAS", "ACUMULACAO", "CONTEXTO", "TOKENS"):
                     val[alvo.id] = ast.literal_eval(no.value)
+    # ⚠️ 8 é o TETO medido desta T4: 16 sequências estouram a memória no primeiro
+    # backward, porque os logits de MLM são sequencias × 1.024 × 40.960 — a 16 são
+    # 1,34 GB em fp16, mais a cópia do cross-entropy e o backward. Medido em
+    # 2026-09-11, e custou uma sessão que não precisava ter sido gasta: o
+    # orçamento de 0,6 B já cabia SEM ganho de lote nenhum.
+    assert val["SEQUENCIAS"] <= 8, (
+        f"{val['SEQUENCIAS']} sequências por micro-passo: 16 deu OutOfMemory numa "
+        "T4 de 14,56 GiB (tentou alocar 2,50 GiB com 270 MB livres)")
     assert val["SEQUENCIAS"] * val["ACUMULACAO"] == 64, (
         f"o lote lógico virou {val['SEQUENCIAS'] * val['ACUMULACAO']}; era 64 no "
         "run de referência, e mudá-lo muda os tokens por passo")
