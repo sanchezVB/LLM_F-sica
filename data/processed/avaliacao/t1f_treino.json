@@ -1,0 +1,47 @@
+{
+  "experimento": "t1f",
+  "pergunta": "a base do recuperador importa mais que o ajuste?",
+  "base": "thenlper/gte-base",
+  "git_sha_dados": "185f315",
+  "git_sha_codigo": "7b8b0f4eabd55dbb36765b44cb7732c32247708e",
+  "hiperparametros": {
+    "lote": 128,
+    "negativos_infonce": 127,
+    "max_tokens": 192,
+    "semente": 17,
+    "n_candidatos_aval": 1000,
+    "passos_aval": 200
+  },
+  "pares": 400000,
+  "documentos_distintos": 191198,
+  "custo_segundos": 8061.4,
+  "melhor": {
+    "passo": 3000,
+    "recall_1": 0.5070000290870667,
+    "recall_10": 0.8619999885559082,
+    "mrr": 0.6298683881759644,
+    "ndcg_10": 0.681475818157196,
+    "n_candidatos": 1000,
+    "base": "thenlper/gte-base",
+    "criterio": "nDCG@10 — a métrica do portão G1 (DOC-00 §5)"
+  },
+  "referencia": {
+    "checkpoint": "models/phiemb-minilm-t4-sorteado-melhor",
+    "nota": "NÃO retreinado aqui: mesma T4, mesmo sorteio, mesmos 400 mil pares, já no disco. A avaliação dos dois roda LOCAL na mesma sessão, com o mesmo avaliar_encoders.py."
+  },
+  "custo_de_servico": {
+    "gte_base_s": 954,
+    "nosso_s": 217,
+    "razao": 4.4,
+    "nota": "⚠️ Permanente. Uma vitória do GTE não é automaticamente troca de base: a margem tem de pagar 4,4x de inferência para sempre, e essa decisão é do dono do projeto."
+  },
+  "sonda_de": {
+    "alvo": "GTE-base@6M",
+    "custo_estimado_h_t4": 39,
+    "nota": "⚠️ A 400 mil pares a ordem entre duas bases pode não sobreviver a 6 M — bases maiores costumam precisar de mais dado para se separar. Empate aqui prova que a 400 mil não dá para ver, não que elas empatam a 6 M."
+  },
+  "metrica_primaria": {
+    "nome": "nDCG@10",
+    "por_que": "O T1e tirou o ΦRank do sistema e a cadeia virou ΦEmb -> top-10. NADA lê o fundo hoje, então o r@200 — em que o GTE zero-shot perde por 0,085 — é diagnóstico, e só volta a decidir se um reordenador voltar ao sistema."
+  }
+}

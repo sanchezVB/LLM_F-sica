@@ -1,0 +1,236 @@
+{
+  "n_candidatos": 2000,
+  "teto_do_protocolo": {
+    "recall_1": 1.0,
+    "recall_10": 1.0,
+    "ndcg_10": 1.0,
+    "mrr": 1.0
+  },
+  "modelos": [
+    {
+      "nome": "SciBERT (base do ΦEmb)",
+      "caminho": "allenai/scibert_scivocab_uncased",
+      "recall_1": 0.14900000393390656,
+      "recall_10": 0.3824999928474426,
+      "mrr": 0.2274981588125229,
+      "ndcg_10": 0.2536863088607788,
+      "parametros_m": 109.918464,
+      "segundos": 52.04898680000042,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "PhysBERT (alvo do G1.1)",
+      "caminho": "thellert/physbert_cased",
+      "recall_1": 0.22200000286102295,
+      "recall_10": 0.4909999966621399,
+      "mrr": 0.31697607040405273,
+      "ndcg_10": 0.3506802022457123,
+      "parametros_m": 109.48224,
+      "segundos": 42.001350399999865,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "MiniLM-L6 (genérico 23M)",
+      "caminho": "sentence-transformers/all-MiniLM-L6-v2",
+      "recall_1": 0.31349998712539673,
+      "recall_10": 0.6639999747276306,
+      "mrr": 0.42790111899375916,
+      "ndcg_10": 0.4761127829551697,
+      "parametros_m": 22.713216,
+      "segundos": 9.624382899999546,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "GTE-large (genérico 335M)",
+      "caminho": "thenlper/gte-large",
+      "recall_1": 0.414000004529953,
+      "recall_10": 0.7639999985694885,
+      "mrr": 0.5292665958404541,
+      "ndcg_10": 0.5787665247917175,
+      "parametros_m": 335.141888,
+      "segundos": 172.36481809999987,
+      "erro": "",
+      "nosso": false
+    },
+    {
+      "nome": "ΦEmb/SciBERT (110M)",
+      "caminho": "models\\phiemb",
+      "recall_1": 0.3070000112056732,
+      "recall_10": 0.6704999804496765,
+      "mrr": 0.42630016803741455,
+      "ndcg_10": 0.4745737612247467,
+      "parametros_m": 109.918464,
+      "segundos": 40.53827860000001,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "ΦEmb/MiniLM (23M)",
+      "caminho": "models\\phiemb-minilm-melhor",
+      "recall_1": 0.3479999899864197,
+      "recall_10": 0.7195000052452087,
+      "mrr": 0.4738137722015381,
+      "ndcg_10": 0.52461177110672,
+      "parametros_m": 22.713216,
+      "segundos": 9.331309500000316,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "ΦEmb/MiniLM+GC (23M, 511 neg)",
+      "caminho": "models\\phiemb-minilm-gc-melhor",
+      "recall_1": 0.3619999885559082,
+      "recall_10": 0.7145000100135803,
+      "mrr": 0.478974848985672,
+      "ndcg_10": 0.5271593332290649,
+      "parametros_m": 22.713216,
+      "segundos": 9.223007900000084,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "ΦEmb/MiniLM 1,5M (23M, 127 neg)",
+      "caminho": "models\\phiemb-minilm-1m5-melhor",
+      "recall_1": 0.367000013589859,
+      "recall_10": 0.7425000071525574,
+      "mrr": 0.4916561245918274,
+      "ndcg_10": 0.5441561937332153,
+      "parametros_m": 22.713216,
+      "segundos": 9.235983499999747,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "MiniLM@400k (o nosso)",
+      "caminho": "models\\phiemb-minilm-t4-sorteado-melhor",
+      "recall_1": 0.3725000023841858,
+      "recall_10": 0.7394999861717224,
+      "mrr": 0.4948653280735016,
+      "ndcg_10": 0.5461634397506714,
+      "parametros_m": 22.713216,
+      "segundos": 9.20842949999951,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "GTE-base@400k (T1f)",
+      "caminho": "models\\phiemb-gte-base-400k-melhor",
+      "recall_1": 0.4300000071525574,
+      "recall_10": 0.8009999990463257,
+      "mrr": 0.5570966601371765,
+      "ndcg_10": 0.6094485521316528,
+      "parametros_m": 109.48224,
+      "segundos": 44.12112200000047,
+      "erro": "",
+      "nosso": true
+    },
+    {
+      "nome": "ΦEmb do sistema (6M)",
+      "caminho": "models\\phiemb-do-sistema",
+      "recall_1": 0.43149998784065247,
+      "recall_10": 0.8305000066757202,
+      "mrr": 0.5636326670646667,
+      "ndcg_10": 0.6223083138465881,
+      "parametros_m": 22.713216,
+      "segundos": 9.326649099999486,
+      "erro": "",
+      "nosso": true
+    }
+  ],
+  "pareado": [
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "SciBERT (base do ΦEmb)",
+      "ganha_a": 626,
+      "ganha_b": 61,
+      "discordantes": 687,
+      "p": 4.945926649989596e-119,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "PhysBERT (alvo do G1.1)",
+      "ganha_a": 535,
+      "ganha_b": 116,
+      "discordantes": 651,
+      "p": 3.482319583545618e-65,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "MiniLM-L6 (genérico 23M)",
+      "ganha_a": 328,
+      "ganha_b": 92,
+      "discordantes": 420,
+      "p": 3.731430944339889e-32,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "GTE-large (genérico 335M)",
+      "ganha_a": 188,
+      "ganha_b": 153,
+      "discordantes": 341,
+      "p": 0.06543403701287664,
+      "veredito": "empate — 341 discordantes não separam os dois (p=0.065)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "ΦEmb/SciBERT (110M)",
+      "ganha_a": 356,
+      "ganha_b": 107,
+      "discordantes": 463,
+      "p": 2.6581587147173657e-32,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "ΦEmb/MiniLM (23M)",
+      "ganha_a": 247,
+      "ganha_b": 80,
+      "discordantes": 327,
+      "p": 5.693215357520825e-21,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "ΦEmb/MiniLM+GC (23M, 511 neg)",
+      "ganha_a": 241,
+      "ganha_b": 102,
+      "discordantes": 343,
+      "p": 4.147332852815118e-14,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "ΦEmb/MiniLM 1,5M (23M, 127 neg)",
+      "ganha_a": 222,
+      "ganha_b": 93,
+      "discordantes": 315,
+      "p": 2.561408594326328e-13,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "MiniLM@400k (o nosso)",
+      "ganha_a": 211,
+      "ganha_b": 93,
+      "discordantes": 304,
+      "p": 1.0749788082724702e-11,
+      "veredito": "ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)"
+    },
+    {
+      "a": "ΦEmb do sistema (6M)",
+      "b": "GTE-base@400k (T1f)",
+      "ganha_a": 150,
+      "ganha_b": 147,
+      "discordantes": 297,
+      "p": 0.9076370948113022,
+      "veredito": "empate — 297 discordantes não separam os dois (p=0.908)"
+    }
+  ],
+  "veredito": "nosso candidato: ΦEmb do sistema (6M) · 23M params · nDCG@10 0.622\n\nG1.1: PASSOU — nDCG@10 +0.272 sobre o PhysBERT (limiar +0.05) · pareado em recall@1: ΦEmb do sistema (6M) vence em recall@1 (p=0.0000)\nG1.2: PASSOU — melhor genérico é GTE-large (genérico 335M) (335M, nDCG@10 0.579); nDCG@10 +0.044, razão de params 1/14.8 (≤ 1/10 exigido)\n\nRESSALVAS que mantêm o G1 aberto mesmo com G1.1 e G1.2 verdes:\n  · benchmark PRÓPRIO (pares de citação), não um reservado e publicado\n  · G1.3 (ΦEnc em classificação/NER), G1.4 (ΦOCR) e G1.5 (reprodutibilidade)\n    não são tocados por esta medição\n  · nDCG@10 aqui tem UM relevante por consulta, então é 1/log2(1+pos);\n    um benchmark com julgamentos graduados daria outro número"
+}

@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-11
+# Estado do projeto — 2026-09-12
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -14,7 +14,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEmb** | 🟢 **G1.1 ✅ / G1.2 ✅** | nDCG@10 **0,6223** contra 0,5788 do GTE-large — **+0,044** a 1/14,8 dos parâmetros, teto do protocolo **1,0000**. Supera nas **quatro** métricas; em recall@1 o pareado dá p=0,065, então esse ainda não é estabelecido |
 | **T1a** · volume × diversidade | 🟢 **−0,052 → +0,044** | cinco runs, uma variável cada. Sinal de platô no 6 M: **15 avaliações consecutivas abaixo do pico** e queda de 1%, contra ≤1 ponto e ~0 nos outros três |
 | **Recuperador do sistema** | 🟢 trocado e a cadeia remedida | `phiemb-do-sistema` (6 M), **+0,098** no G1. Mas a cadeia foi de 0,1685 para **0,1688** — **+0,0003** |
-| **Base do recuperador** · T1f | 🟡 **montado, esperando cota** | o GTE-base zero-shot EMPATA (0,2755 contra 0,2810 de r@10, p=0,545) **sem uma linha do nosso dado**. A sonda está em `kaggle/t1f_base_gte.py`: GTE-base@400k contra o MiniLM@400k que já está no disco, **2h39** e **zero upload** (reusa o dataset do T1a, assinatura conferida `e7be008b295aab2f`). ⚠️ A primária é nDCG@10 e isso MUDOU de sentido: o T1e tirou o ΦRank, a cadeia virou ΦEmb → top-10 e **nada lê o fundo hoje** |
+| **Base do recuperador** · T1f | 🟢 **a BASE vence, e por margem grande** | GTE-base@400k faz nDCG@10 **0,6094** contra **0,5462** do MiniLM@400k — **+0,0633**, pareado **219×104 em 323 discordantes, p=1,5e-10**. Uma variável, os dois em 400 mil pares. ⚠️ E o mais forte: ele **EMPATA com o ΦEmb do sistema, que treinou em 6 M** (147×150, p=0,908) — a base entrega com **15× menos dados** o que o volume comprou. ⚠️ **Vencer não é trocar**: o GTE custa 4,4× para embutir, e empatar com o que já está no sistema não paga isso. A pergunta vira o GTE-base@6M (~39 h) |
 | **T1e** · profundidade | 🔴 **o ΦRank SAI do sistema** | dobrar o candidato move **1,95%** das consultas (19×20, p=1,0). O teto subiu 0,098 e o recall@10 subiu **+1 consulta** de 195 oportunidades. A cadeia é `ΦEmb → top-10` |
 | **Truncagem 192** | 🔴 **não custa nada** | 63,8% das âncoras truncadas e 28,2% dos tokens descartados, e ler 256 ou 384 **não muda o recall** (pareado p=0,08–0,84) e custa 2,9× para embutir. Era a minha melhor aposta |
 | **Teto do recuperador** | 🟢 **diagnosticado** | os 37% perdidos têm posto **mediano 396** de 88.807, e só **10 consultas** (0,5%) são inalcançáveis pelos dois métodos. É lacuna de modelo. `@100 → @200` vale **+0,098** de teto — cinco dobras de dado |
@@ -40,13 +40,70 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
 | **Ensaio do T2a** | 🟢 **a cadeia inteira em miniatura, 7 min** | treinar 30 passos com A e com E, exportar, e rodar as três medidas — antes de gastar 15 h de T4. Pegou um bug real: `avaliar_encoders.py --dispositivo dml` morria no primeiro modelo, depois de carregar 133 mil pares e sortear o pool, porque `torch.device("dml")` levanta. Exportação com ida e volta de logits **0,0** |
 | **Termos** | 🟢 **"reranqueador" era neologismo meu** | 115 ocorrências → "reordenador"; "espinha" (tradução literal de *spine*) → "tabela mestra", 62. ⚠️ "espinha dorsal" fica (é *backbone*, outra metáfora) e os IDENTIFICADORES também — renomear `spine.parquet` invalidaria o que o hash raiz atesta. Nomes de datasets ficam como os donos publicam: `peS2o` é "Pretraining Efficiently on S2ORC" |
-Suíte: **785 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **800 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## T1f — a base importa mais que o volume de ajuste (2026-09-12)
+
+    GTE-base@400k   nDCG@10 0,6094 · recall@1 0,4300 · recall@10 0,8010
+    MiniLM@400k     nDCG@10 0,5462 · recall@1 0,3725 · recall@10 0,7395
+                            +0,0633           +0,0575           +0,0615
+
+    pareado em recall@1, McNemar exato: 219 × 104 em 323 discordantes
+                                        p = 1,45e-10
+
+Uma variável — a base —, os dois ajustados nos **mesmos** 400 mil pares sorteados,
+com os mesmos hiperparâmetros, e os dois checkpoints medidos na MESMA sessão local
+pelo protocolo do G1. Custo: 2,24 h de T4, zero de upload.
+
+### ⚠️ E o número que vale mais: empata com o ΦEmb do SISTEMA, que treinou em 6 M
+
+    GTE-base@400k  contra  ΦEmb do sistema (6M):  147 × 150,  p = 0,908
+
+O recuperador que está no sistema hoje custou **15× mais pares** para chegar onde o
+GTE-base chega com 400 mil. A tese do T1a era que volume e diversidade de dados
+compram desempenho — e compram: o sistema saiu de 0,546 para 0,622 nessa escada.
+O T1f mostra que **trocar a base compra a mesma coisa, de uma vez**.
+
+### ⚠️ E eu quase registrei um FALSO NEGATIVO, pelo default de uma bandeira
+
+A primeira medição rodou com `--n 256`, que é o **default** do
+`avaliar_encoders.py`. O G1 vigente usa **n=2000**. Com 256 candidatos a tarefa é
+muito mais fácil, e as duas escalas não se comparam:
+
+    n=2000   SciBERT 0,254 · PhysBERT 0,351 · MiniLM-L6 0,476
+    n= 256   SciBERT 0,469 · PhysBERT 0,535 · MiniLM-L6 0,732
+
+Nesse protocolo errado o T1f dava **+0,039 e p=0,161** — "empate, vantagem não
+estabelecida". No protocolo certo dá **+0,0633 e p=1,45e-10**. O próprio help da
+bandeira avisa que *"256 não separa margens de ~0,02"*, e a tabela de validade em
+`eval/encoders.py` lista "mesmo `n_candidatos`" como condição.
+
+O que me salvou foi estranhar o 0,830 ao lado do 0,6223 histórico antes de escrever
+— exatamente a armadilha que o T1d documentou ("comparar contra o número histórico
+teria reportado SETE VEZES o efeito real"), a um passo de entrar neste arquivo pela
+minha mão. **Um default não é um protocolo.** O n=2000 reproduziu o 0,622 do
+sistema ao milésimo, e foi isso que confirmou a régua.
+
+### O que isto decide, e o que NÃO decide
+
+Pela regra pré-registrada na célula, "GTE VENCE" não é troca de base. O GTE-base
+leva **954 s** para embutir o mesmo universo contra 217 s do nosso — **4,4×**, e
+essa conta é permanente. Pagar 4,4× de inferência para **empatar** com o que já
+está no sistema não se justifica.
+
+O que a sonda decide é que as **~39 h de um GTE-base@6M** passaram a valer a
+pergunta: se a base entrega a 400 mil o que o volume entrega a 6 M, o efeito das
+duas coisas juntas é o que falta medir. E aí a margem tem de pagar os 4,4×.
+
+⚠️ Ressalva que fica: o G1.2 **não** foi tocado por esta medição. O GTE-base tem
+109 M contra os 335 M do GTE-large, razão 1/3,1 — a cláusula pede rival de ≥ 10×,
+ou seja ≥ 1.095 M. O critério continua fechado pelo ΦEmb de 23 M.
 
 ## Três instrumentos estavam errados, e nenhum dava erro (2026-09-11)
 
