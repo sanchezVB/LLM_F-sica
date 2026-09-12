@@ -642,3 +642,37 @@ def test_a_regra_declara_o_NOVO_fator_contra_o_11_2():
     fator = 5_000_000_000 / tokens
     assert f"{fator:.1f}x".replace(".", ",") in regra, (
         f"a regra não cita {fator:.1f}x, que é 5 B / {tokens:,}")
+
+
+def test_a_exportacao_usa_MESMO_ASSIM_e_diz_por_que():
+    """⚠️ Recusar exportar não protege a comparação — deixa 8,3 h num formato que
+    só o laço abre.
+
+    Medido em 2026-09-11: o braço A treinou os 9.155 passos e terminou em ERROR
+    porque o exportador recusou o checkpoint por 1 spike (passo 3.798, 1 rollback).
+    O detector fez o que o DOC-08 §6.1 manda e a perda final veio de curva estável.
+
+    A comparação é LOCAL. O que a protege é a ressalva estar no manifesto do
+    artefato, não o artefato não existir.
+    """
+    assert '"--mesmo-assim"' in CELULA
+    assert "num bake-off isso pode ser lido" in CELULA
+    assert "n_spikes" in CELULA, (
+        "a célula não diz que a comparação local tem de ler o spike dos dois "
+        "braços — sem isso, `--mesmo-assim` só silencia a guarda")
+
+
+def test_o_spike_dos_dois_bracos_vai_para_o_ARTEFATO():
+    """Um braço com spike e outro sem é assimetria real, e a leitura precisa dela.
+    Se o artefato não carrega o spike, a ressalva morre no log da sessão."""
+    arvore = ast.parse(CELULA)
+    # O dict que a célula grava em t2a_<variante>.json.
+    chaves = set()
+    for no in ast.walk(arvore):
+        if isinstance(no, ast.Dict):
+            chaves |= {ast.literal_eval(k) for k in no.keys
+                       if isinstance(k, ast.Constant)
+                       and isinstance(k.value, str)}
+    assert "spike" in chaves, (
+        "o artefato do braço não grava `spike`; a ressalva ficaria só no log")
+    assert "concluido" in chaves

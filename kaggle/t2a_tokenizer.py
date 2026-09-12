@@ -333,9 +333,31 @@ custo_treino = round(time.perf_counter() - t0, 1)
 # ── 7. Exportar, para as três medidas poderem abrir ─────────────────────────
 # ⚠️ O laço grava `state_dict` cru; `AutoModel.from_pretrained` precisa de
 # `config.json` ao lado. Sem esta etapa o checkpoint só o próprio laço entende.
+#
+# ## ⚠️ `--mesmo-assim`, e a razão é o custo de NÃO exportar
+#
+# O exportador recusa checkpoint com spike de perda, com esta mensagem:
+#
+#     num bake-off isso pode ser lido como 'este tokenizer é pior' quando o que
+#     houve foi treino instável
+#
+# Ela está certa, e foi por isso que o braço A terminou em ERROR em 2026-09-11
+# depois de treinar os 9.155 passos: 1 spike no passo 3.798, com 1 rollback. O
+# detector fez o que o DOC-08 §6.1 manda — voltou ao checkpoint, pulou a janela
+# suspeita, reduziu a LR até o passo 4.298 — e a perda final (1,5558) veio de uma
+# curva estável.
+#
+# Recusar exportar não protege a comparação: ela é feita LOCAL, e o que protege é
+# a ressalva estar no manifesto do artefato, onde quem compara tem de olhar. O que
+# a recusa produz é **8,3 h de T4 num formato que só o laço abre** — e depois
+# alguém exporta à mão com esta mesma bandeira, sem nenhuma informação a mais.
+#
+# ⚠️ O que a comparação local TEM de fazer: ler `spike.n_spikes` dos dois braços.
+# Um braço com spike e outro sem é uma assimetria real, e ela entra na leitura —
+# não como "empate" nem como "A é pior", mas como ressalva nomeada.
 EXPORTADO = TRABALHO / f"phienc-{VARIANTE}"
 _rodar([sys.executable, "-u", CODIGO / "scripts/exportar_phienc.py",
-        "--run", RUN, "--para", EXPORTADO,
+        "--run", RUN, "--para", EXPORTADO, "--mesmo-assim",
         "--tokenizer", DADOS / f"variante_{VARIANTE}.json",
         "--nota", f"T2a braço {VARIANTE} · {TOKENS:,} tokens · contexto {CONTEXTO}"],
        TRABALHO / f"exportar_{VARIANTE}.log")
