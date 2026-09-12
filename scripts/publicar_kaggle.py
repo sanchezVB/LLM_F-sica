@@ -218,6 +218,21 @@ FALHAS_SILENCIOSAS = (
     "Dataset creation error",
     "not valid dataset sources",
     "does not resolve to the specified id",
+    # ⚠️ O Kaggle aceita no MÁXIMO 2 sessões de GPU simultâneas, e recusa a
+    # terceira com esta mensagem — saindo com código 0.
+    #
+    # Medido em 2026-09-11: com o T1f e o braço A do T2a rodando, o push do braço
+    # E imprimiu `Kernel push error: Maximum batch GPU session count of 2 reached.`
+    # e este script respondeu `✅ enviado` logo abaixo. O notebook existe no
+    # Kaggle, a versão foi criada, e a EXECUÇÃO não foi enfileirada — que é a
+    # única parte que importa.
+    #
+    # É a pior forma da falha silenciosa: quem lê "enviado" vai esperar um
+    # resultado que nunca vem, e só descobre horas depois, ao procurar a saída.
+    "Maximum batch GPU session count",
+    # A mesma família, para o caso de a mensagem mudar de forma: qualquer linha
+    # que a CLI prefixe como erro de push não pode passar por sucesso.
+    "Kernel push error",
 )
 
 
