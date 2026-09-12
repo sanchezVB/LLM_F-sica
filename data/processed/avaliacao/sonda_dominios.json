@@ -1,0 +1,64 @@
+{
+  "protocolo": {
+    "shards_no_indice": 100,
+    "shards_sorteados": [
+      28,
+      49,
+      55,
+      58,
+      95
+    ],
+    "semente": 17,
+    "revisao_do_indice": "398f92572e94f4793e41c22ab7ea2a788d9e7de4",
+    "segundos": 105.3,
+    "gb_lidos": 4.62,
+    "nota_do_sorteio": "sorteados, não os primeiros: as 8 primeiras partes do corpus têm 32,4% de matemática contra 42,7% das demais, então a ordem carrega viés de composição"
+  },
+  "metadados_disponiveis": {
+    "fisica_na_tabela_mestra": 1595422,
+    "math": 650645,
+    "cs": 932221,
+    "stat": 141311,
+    "q_bio": 37734,
+    "econ": 16055,
+    "nota": "os negativos foram coletados para o classificador e podem ser amostra do domínio; id fora deles cai em `desconhecido`, que é piso de erro"
+  },
+  "na_amostra": {
+    "documentos": {
+      "fisica_ja_no_corpus": 39705,
+      "math": 18977,
+      "cs": 15283,
+      "q_bio": 377,
+      "desconhecido": 511,
+      "stat": 1061,
+      "econ": 136
+    },
+    "caracteres": {
+      "fisica_ja_no_corpus": 2031067036,
+      "math": 1370348908,
+      "cs": 861879867,
+      "q_bio": 20335714,
+      "desconhecido": 28521948,
+      "stat": 66949508,
+      "econ": 10818921
+    },
+    "total_documentos": 76050
+  },
+  "extrapolado_para_100_shards": {
+    "fator": 20.0,
+    "documentos": {
+      "fisica_ja_no_corpus": 794100,
+      "math": 379540,
+      "cs": 305660,
+      "q_bio": 7540,
+      "desconhecido": 10220,
+      "stat": 21220,
+      "econ": 2720
+    },
+    "math_mais_cs_documentos": 685200,
+    "math_mais_cs_caracteres": 44644575500,
+    "math_mais_cs_tokens_a_4_chars": 11161143875,
+    "fisica_conferencia": 794100
+  },
+  "como_ler": "⚠️ `fisica_conferencia` é a régua desta sonda: ela tem de bater com os 828.601 documentos distintos que já estão em disco. Se não bater, a extrapolação está errada e o ganho estimado também. E o erro de AMOSTRAGEM não está calculado: com poucos shards de 100 ele não é desprezível, então o número é ordem de grandeza, não medida."
+}
