@@ -2,7 +2,7 @@
 
 Programa de pesquisa para projetar e construir uma família de foundation models especializada **exclusivamente em Física** e na matemática aplicada que a sustenta, junto com o corpus, a infraestrutura de verificação, os benchmarks e o stack de serving necessários para tornar as alegações auditáveis.
 
-**Status:** corpus de projeto completo (19 documentos + 1 ADR, cobrindo os 20 pipelines). **Sprint S1 concluído**, S2 com os negativos coletados, e o primeiro modelo — ΦEmb — treinado e medido contra o PhysBERT. O código implementa os documentos, não o contrário.
+**Status (2026-09-12):** corpus de projeto completo (19 documentos + 1 ADR, cobrindo os 20 pipelines). **Sprints S1, S2 e S3 concluídos** — 38,96 B tokens no disco, atestados por um hash de manifesto. **ΦEmb treinado, medido e no sistema**; ΦRank treinado, medido e **removido** por não pagar o próprio custo; **ΦEnc ainda não existe**. O bake-off de tokenizer está rodando. O código implementa os documentos, não o contrário.
 
 > **Toda afirmação consequente deste repositório tem estado de verificação explícito** no [painel do DOC-19 §6-B](docs/05-governance/DOC-19-riscos-validade-cientifica.md). Sem isso, ninguém distingue o que foi medido do que foi suposto — nós inclusive. O que está abaixo é medido; o que ainda não foi, está marcado.
 
@@ -48,7 +48,9 @@ O que a legenda de lá distingue, e importa: **🟢 confrontado com execução**
 | [DOC-09](docs/02-models/DOC-09-pos-treino-sft-dpo-rlvr.md) | Pós-treino: SFT, DPO, RLVR, Destilação |
 | [DOC-10](docs/02-models/DOC-10-raciocinio-verificacao-ferramentas.md) | Raciocínio, Verificação e Ferramentas |
 
-**Fase 2 completa.** Quatro troncos treinados, não dez modelos. Barramento de verificação especificado: o ativo central custa **~US$ 50** em computação.
+**Fase 2 completa** — os documentos. A arquitetura decide treinar **quatro troncos em
+vez de dez modelos**; nenhum dos quatro foi treinado ainda. Barramento de verificação
+especificado e implementado 5 de 6: o ativo central custa **~US$ 50** em computação.
 
 ### Fase 3 — Avaliação
 | Doc | Título |
@@ -80,7 +82,8 @@ O que a legenda de lá distingue, e importa: **🟢 confrontado com execução**
 ```
 docs/          ← os 20 documentos de projeto + ADRs. A fonte de verdade.
 configs/       ← árvore Hydra. TODO hiperparâmetro mora aqui, nenhum no código.
-src/phifm/     ← código. S1 concluído, S2 parcial, ΦEmb treinado; o resto segue o desenho.
+src/phifm/     ← código. S1–S3 concluídos, ΦEmb no sistema, ΦRank removido por medição;
+                 ΦEnc escrito e nunca treinado. 813 testes.
   core/          schema, linhagem, licenças, unidades, LaTeX  ← não importa de nada
   corpus/        aquisição → parsing → filtro → dedup → mistura
   verify/        ★ barramento de verificação — 5 de 6: simbólico, dimensional,
@@ -105,6 +108,12 @@ Mapa detalhado e as fronteiras de import impostas em CI: [`src/README.md`](src/R
 
 1. **Física é um domínio pobre em dados.** Toda a literatura de Física legalmente adquirível soma ~30–60 bilhões de tokens após deduplicação. Um modelo 8B compute-ótimo por Chinchilla precisa de 160 bilhões. → O tier generativo é construído por **continual pretraining**, não do zero. Treino do zero é autorizado apenas para encoders, onde o dado é excedente. *(DOC-00 §4)*
 
+   ✅ **Confirmado pela coleta, na ponta baixa da faixa.** O corpus somou **38,96 B
+   tokens** de fontes gratuitas, contra os 30–60 B que o documento estimava. E o
+   número que importa é menor: só **21,74 B** têm LaTeX íntegro — o peS2o, que é
+   14,60 B, tem ambiente de equação em **0,0%** dos documentos. Volume não é o
+   gargalo; integridade matemática é.
+
 2. **A competição não é o SciBERT.** O SciBERT é 82% biomédico e praticamente não viu Física; superá-lo não é resultado. As barras reais são o **PhysBERT** (mesmo domínio) e os **embedders gerais modernos**, contra os quais papers de domínio rotineiramente deixam de comparar. *(DOC-00 §3.1)*
 
    ✅ **Medido, e mais forte do que o documento supunha.** O MiniLM-L6 — genérico, 23 M de parâmetros — bate o PhysBERT (109 M, específico de Física) nas três métricas. Ser treinado **para** embedding importa mais que ser treinado **em** Física. Ver a tabela abaixo.
@@ -117,8 +126,8 @@ Mapa detalhado e as fronteiras de import impostas em CI: [`src/README.md`](src/R
 
 | Degrau | Entrega | **Custo** | Portão | Estado |
 |---|---|---|---|---|
-| **T0 — Corpus** | `PhysCorpus-Open` + tokenizer de Física — publicável sem nenhum modelo | **US$ 0** | Corpus reconstruível a partir de um único hash de manifesto | ⚠️ tabela mestra pronta; tokenizer ⬜ |
-| **T1 — Representação** | ΦEnc / ΦEmb / ΦRank | **US$ 35–120** | Superar o PhysBERT em ≥5 nDCG@10 **e** superar o melhor embedder geral com 1/10 dos parâmetros | ⚠️ **metade** — ver abaixo |
+| **T0 — Corpus** | `PhysCorpus-Open` + tokenizer de Física — publicável sem nenhum modelo | **US$ 0** | Corpus reconstruível a partir de um único hash de manifesto | 🟡 **corpus 38,96 B atestado por um hash; 5 tokenizers treinados, bake-off rodando** — ver abaixo |
+| **T1 — Representação** | ΦEnc / ΦEmb / ΦRank | **US$ 35–120** | Superar o PhysBERT em ≥5 nDCG@10 **e** superar o melhor embedder geral com 1/10 dos parâmetros | 🟡 **ΦEmb passou os dois; ΦRank saiu do sistema; ΦEnc não existe** |
 | **T2 — Raciocínio** | ΦGen-1,5B via CPT + SFT + RLVR, ΦRAG | **US$ 300–600** acum. | ≥ +10 pontos sobre o **próprio modelo base**, zero regressão geral, ≥0,95 de precisão de citação |
 | **T2c — Escala** | ΦGen-8B | **US$ 1.100–2.260** acum. | Competitivo com abertos de porte médio |
 | **T3 — Fronteira** | ΦGen-32B, ΦMM, ΦAgent | 150–600k GPU-h | Exige financiamento externo |
@@ -128,6 +137,30 @@ Detalhamento em [DOC-17A §8](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md
 ---
 
 ## O que já foi medido
+
+### O corpus — 38,96 B tokens, atestados por um hash ✅
+
+```
+hash raiz  3113f0fed57c44ddb6ffbc955d329fb9c4afd88785162e71d5341e84b4674d84
+35 etapas · 1295 arquivos · 52,40 GB
+```
+
+| fonte | tokens | ambiente de equação |
+|---|---|---|
+| RedPajama-arXiv Física | 10,54 B | **84,9%** |
+| RedPajama-arXiv math+cs | 11,20 B | mesmo mecanismo |
+| OpenWebMath | 2,62 B | — |
+| peS2o | 14,60 B | **0,0%** — equações removidas na extração |
+| **total** | **38,96 B** | **21,74 B com LaTeX íntegro** |
+
+⚠️ **O portão do T0 pede o corpus reconstruível a partir do hash, e duas das seis
+etapas NÃO se reconstroem** — descoberto tentando, em 2026-09-12. A tabela mestra
+perdeu a entrada (`data/raw/openalex_works` não existe mais) e reexecutar gravaria
+nulo por cima de 14 M de referências, com código de saída 0; os pares de citação
+mudaram de embaralhamento e o `pares_validacao` reconstruído tem **2,1% das âncoras**
+do atual — é outro benchmark. As duas ficam marcadas `parametros_reconstruidos=true`
+de propósito, com a razão registrada. `redpajama_math_cs` é a primeira etapa com os
+parâmetros **capturados na execução**.
 
 ### Sprint S1 — a tabela mestra de metadados ✅
 
@@ -142,37 +175,70 @@ Detalhamento em [DOC-17A §8](docs/05-governance/DOC-17A-orcamento-gpu-runpod.md
 
 O S1 custou **~3 GB de disco**, não os ~150 GB orçados: o snapshot de 725 GB é lido por faixa de bytes HTTP, 13 das 189 colunas, e nunca toca o disco. Ver [`openalex_snapshot.py`](src/phifm/corpus/acquire/openalex_snapshot.py).
 
-### ΦEmb — recuperação por citação ⚠️
+### ΦEmb — recuperação por citação ✅
 
-256 candidatos, agregação por média, 192 tokens, protocolo idêntico para todos.
-Checkpoint no passo 24.000 de 50.000 — **treino em curso**.
+⚠️ **A tabela que estava aqui vinha de um protocolo quebrado, e os números foram
+retirados.** Ela reportava recall@1 0,402 num pool de 256 candidatos montado com
+`val.head(2000)` — que tem **62% de alvos duplicados**. Colunas byte-idênticas têm
+cosseno idêntico, o `argsort` desempata de forma arbitrária, e o teto de um modelo
+**perfeito** naquele pool era **0,7562 de nDCG@10, não 1,0**. O empate estatístico
+com o MiniLM que este README anunciava era, no protocolo corrigido, uma derrota.
 
-| Modelo | Params | recall@1 | recall@10 | MRR |
+Protocolo de hoje: **2.000 candidatos**, pool sorteado e **desduplicado** (alvo e
+consulta únicos, teto **1,0000** verificado), média mascarada, 192 tokens, idêntico
+para todos, todos medidos na mesma sessão.
+
+| Modelo | Params | nDCG@10 | recall@1 | recall@10 |
 |---|---|---|---|---|
-| **ΦEmb (nosso)** | 110 M | **0,402** | **0,910** | **0,588** |
-| MiniLM-L6 (genérico) | 23 M | 0,398 | 0,805 | 0,531 |
-| PhysBERT (alvo do G1) | 109 M | 0,285 | 0,645 | 0,403 |
-| SciBERT (base do ΦEmb) | 110 M | 0,199 | 0,570 | 0,326 |
+| **ΦEmb do sistema (nosso, 6 M pares)** | **23 M** | **0,622** | **0,431** | **0,831** |
+| GTE-base@400k (T1f, base trocada) | 109 M | 0,609 | 0,430 | 0,801 |
+| GTE-large (melhor genérico) | 335 M | 0,579 | 0,414 | 0,764 |
+| MiniLM-L6 (genérico, sem ajuste) | 23 M | 0,476 | 0,313 | 0,664 |
+| PhysBERT (alvo do G1.1) | 109 M | 0,351 | 0,222 | 0,491 |
+| SciBERT | 110 M | 0,254 | 0,149 | 0,382 |
 
-**O portão T1 não está passado, e a razão importa.** Ele exige duas coisas:
+**O portão T1 passou nas duas metades:**
 
-- *superar o PhysBERT* — ✅ com folga: +0,117 em recall@1, +0,265 em recall@10
-- *superar o melhor embedder geral com 1/10 dos parâmetros* — ❌ **não.** A margem sobre o MiniLM em recall@1 é **+0,004**, contra um erro padrão de ±0,031 em 256 itens: empate estatístico. E o ΦEmb é **5× maior**, não 1/10 menor.
+- *superar o PhysBERT em ≥5 nDCG@10* — ✅ **+0,271**
+- *superar o melhor embedder geral com ≤1/10 dos parâmetros* — ✅ **+0,044** sobre o
+  GTE-large, com **1/14,8** do tamanho. ⚠️ Em recall@1 o pareado dá p=0,065, então
+  essa métrica específica ainda não está estabelecida.
 
-Onde o ΦEmb se separa de verdade é `recall@10` (+0,105) e MRR (+0,057) — ele não acerta mais na primeira posição, ele deixa o certo de fora menos vezes. Para busca isso vale, mas é afirmação diferente da que o portão pede.
+A sugestão que este README fazia — *"aplicar o mesmo fine-tune sobre o MiniLM"* —
+**foi executada e é o campeão atual**. O ΦEmb de 110 M baseado em SciBERT ficou para
+trás: o de 23 M baseado em MiniLM faz 0,622 contra 0,475.
 
-Sugestão que sai da própria medição: aplicar o mesmo fine-tune de citação **sobre o MiniLM**. Ele parte de 0,398 em vez de 0,199, é 5× menor e treina 5× mais rápido — e atacaria justamente a metade do portão que falta.
+### Três resultados NEGATIVOS, que custaram tanto quanto os positivos
+
+| | Medido |
+|---|---|
+| **BM25 na composição** | 🔴 fora. A fusão RRF parou de somar (empate, p=0,95) e cobrava 0,026 de teto |
+| **ΦRank (reordenador)** | 🔴 fora do sistema. Dobrar a profundidade move 1,95% das consultas (p=1,0); o recall@10 sobe **+1 consulta** de 195 oportunidades. A cadeia é `ΦEmb → top-10` |
+| **Truncagem a 192 tokens** | 🔴 não custa nada. 63,8% das âncoras são truncadas e 28,2% dos tokens descartados, e ler 256 ou 384 **não muda o recall** (p=0,08–0,84) e custa 2,9× |
+
+### Tokenizer — 5 variantes treinadas, bake-off rodando 🟡
+
+O DOC-05 §11.1 rodou nas seis variantes (custo US$ 0, em CPU): a variante **A** dá
+fertilidade 0,962 contra 1,426 do Qwen3 — **0,674×**, dentro da meta de ≤0,80×.
+Round-trip 100% e `1.5` consistente em todas.
+
+⚠️ Mas a §11.1 é **proxy**, e o §11.2 — treinar um encoder por variante — é o que
+decide. O par A×E (com e sem o regex de pré-tokenização da §8) está rodando no
+Kaggle. E o proxy **erra por 3×**: no corpus de treino real E gasta 13,6% mais
+tokens por documento, não os 37,7% que a razão de fertilidade prometia.
 
 ### O que ainda não foi medido ⬜
 
 | | Bloqueado por |
 |---|---|
-| **ΦEnc** (o único modelo do zero) | precisa de 15–30 B tokens de texto completo; temos **0,33 B** de títulos e resumos. Depende do Sprint S3 |
-| Tokenizer próprio | DOC-05 inteiro ⬜ — nada executado |
-| Preservação de LaTeX (critério C1) | exige a fonte LaTeX, que vem do S3 |
-| PhysBench | DOC-11 ⬜ |
+| **ΦEnc** (o único modelo do zero) | ✅ o dado deixou de bloquear — **38,96 B tokens** no disco, dos quais **21,74 B de LaTeX íntegro**. Falta a GPU: ~80 h de T4 contra 30 h/semana de cota. E depende do bake-off decidir o tokenizer |
+| PhysBench | DOC-11 ⬜ — `eval/benchmarks/` e `eval/harness/` estão vazios |
+| G1.3 (classificação/NER) e G1.4 (ΦOCR) | não tocados |
+| Composição do corpus | ⚠️ `math`+`cs` dobraram o LaTeX íntegro, mas põem 45% de não-Física. O T1c mediu que domínio importa (p=0,0062); o trade-off **não foi medido** e as fatias ficam separadas para isso |
 
-O S3 é o gargalo real: **~600 GB** contra 425 GB livres no disco. A saída é a mesma do S1 — processar em fluxo, filtrar para Física com a classificadora do S2, descartar o bruto sem gravar.
+**O S3 deixou de ser gargalo.** O que era "~600 GB contra 425 GB livres" resolveu-se
+processando em fluxo: o bruto nunca aterra. Os 93,8 GB da coleta mais recente
+produziram 12 GB de parquet sem nunca ter 1 GB de bruto em disco.
 
 ---
 
