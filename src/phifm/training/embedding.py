@@ -351,8 +351,28 @@ class TreinadorEmb:
         # materializar a matriz N×N é justamente o tensor de 226 MB que matou o
         # treino de lote 128 duas vezes nesta máquina.
         self.atencao = "sdpa" if self.dev.type == "cuda" else "eager"
+        # ⚠️ `dtype=torch.float32` EXPLÍCITO, e o custo de não ter foi medido duas
+        # vezes, no mesmo repositório, com o mesmo modelo.
+        #
+        # `thenlper/gte-base` guarda os pesos em fp16, e o `transformers` novo
+        # carrega no dtype do checkpoint por padrão. O AMP exige pesos-mestres em
+        # fp32 — é ele que faz a passagem em fp16, e o `GradScaler` que desescala
+        # os gradientes de volta. Um modelo já em fp16 não tem para onde
+        # desescalar:
+        #
+        #     ValueError: Attempting to unscale FP16 gradients.
+        #
+        # Isto foi diagnosticado e consertado em `rerank.py` em 2026-09-03, quando
+        # custou um braço inteiro do T1c. A correção ficou LÁ. Este módulo nunca a
+        # recebeu porque nenhuma base fp16 tinha passado por ele — o MiniLM e o
+        # SciBERT são fp32, então o defeito era invisível aqui.
+        #
+        # Em 2026-09-11 o T1f morreu aos 2 min com o mesmo erro: a lição estava
+        # paga, escrita e aplicada num arquivo só. Não é propriedade do gte —
+        # qualquer checkpoint fp16 quebraria.
         self.mod = AutoModel.from_pretrained(
-            cfg.base, attn_implementation=self.atencao).to(self.dev)
+            cfg.base, attn_implementation=self.atencao,
+            dtype=torch.float32).to(self.dev)
         # AMP só faz sentido onde há suporte de verdade. O DirectML não expõe
         # `GradScaler` utilizável, e ligar autocast lá deu queda silenciosa no
         # backward — então a decisão é pelo dispositivo, não por bandeira do
