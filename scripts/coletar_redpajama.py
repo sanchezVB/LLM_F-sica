@@ -10,7 +10,6 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import asdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -40,7 +39,9 @@ def main() -> int:
         liberar_suspensao()
 
     print("\n" + "=" * 70)
-    print(f"RedPajama-arXiv · fatia de Física ({pr.shards_lidos} shards)")
+    print(f"RedPajama-arXiv · fatia de Física "
+          f"({pr.shards_vistos_no_indice} shards no índice, "
+          f"{pr.shards_processados_agora} processados nesta execução)")
     print()
     print(f"  registros vistos    : {pr.registros_vistos:,}")
     print(f"  guardados (Física)  : {pr.registros_guardados:,}  "
@@ -58,7 +59,11 @@ def main() -> int:
     print("base gratuita; o bulk pago do arXiv se mede CONTRA ela, não no vácuo.")
 
     saida = a.out / "_progresso.json"
-    saida.write_text(json.dumps(asdict(pr), indent=2, ensure_ascii=False), encoding="utf-8")
+    # ⚠️ `como_dict()` e não `asdict`: ele separa o que é acumulado do que é
+    # desta execução. Um artefato que mistura os dois já me fez ler o total
+    # da fonte 4,5x menor do que é — ver `Progresso`.
+    saida.write_text(json.dumps(pr.como_dict(), indent=2, ensure_ascii=False),
+                     encoding="utf-8")
     me = gravar_manifesto_etapa(
         etapa="redpajama_fisica",
         descricao=("Fatia de Física do RedPajama-arXiv, filtrada por casamento "
@@ -73,7 +78,9 @@ def main() -> int:
         parametros={"script": "scripts/coletar_redpajama.py",
                     "filtro": "spine (exato)", "max_shards": a.max_shards,
                     "revisao_indice": REVISAO,
-                    "shards_lidos": pr.shards_lidos,
+                    "shards_vistos_no_indice": pr.shards_vistos_no_indice,
+                    "shards_processados_agora": pr.shards_processados_agora,
+                    "taxa_desta_execucao": round(pr.taxa_fisica, 5),
                     "registros_vistos": pr.registros_vistos},
         registros=pr.registros_guardados)
     print(f"manifesto da etapa: {me.manifesto_id[:16]}…")

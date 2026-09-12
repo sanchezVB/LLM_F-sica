@@ -76,22 +76,82 @@ MAX_TENTATIVAS = 8
 
 @dataclass
 class Progresso:
-    shards_lidos: int = 0
+    """⚠️ DOIS ESCOPOS convivem aqui, e essa mistura já produziu leitura errada.
+
+    `shards_lidos` é ACUMULADO: o laço incrementa também para os shards que pula
+    por já estarem em `_shards_feitos.json`. Todos os outros contadores são **desta
+    execução** — `registros_vistos` só cresce dentro de `processar`, que não roda
+    para shard pulado.
+
+    Medido em 2026-09-12: o `_progresso.json` dizia `shards_lidos: 100` (os 100 do
+    índice) com `registros_vistos: 350.451`, e eu li isso como "o RedPajama-arXiv
+    tem 350 mil documentos". Ele tem ~1,59 M — os 828.601 de Física guardados
+    dividido pela taxa. Com o número errado, o teto de ganho de acrescentar `math`
+    e `cs` ao filtro saiu **4,5× menor** do que é.
+
+    O `filtrar_hf.py` já grava `escopo_dos_numeros: "esta execução, não o
+    acumulado"` no artefato dele, pela MESMA razão. A lição estava paga e aplicada
+    num arquivo só — o terceiro caso desse padrão em dois dias.
+
+    Os nomes agora dizem o escopo, e `como_dict` grava os dois lados separados.
+    """
+
+    # Acumulado entre execuções: inclui os shards pulados por retomada.
+    shards_vistos_no_indice: int = 0
+    # Só desta execução.
+    shards_processados_agora: int = 0
     registros_vistos: int = 0
     registros_guardados: int = 0
     bytes_lidos: int = 0
     caracteres_guardados: int = 0
     falhas: list[str] = field(default_factory=list)
 
+    # ⚠️ Compatibilidade de leitura: o nome antigo some, mas os artefatos já
+    # gravados continuam sendo lidos por scripts que o esperam.
+    @property
+    def shards_lidos(self) -> int:
+        return self.shards_vistos_no_indice
+
     @property
     def taxa_fisica(self) -> float:
+        """⚠️ A taxa é DESTA execução, e só ela permite estimar o total da fonte.
+
+        `registros_guardados / registros_vistos` nos shards processados agora. Para
+        estimar quantos documentos a fonte inteira tem, divida o acumulado em disco
+        por esta taxa — nunca use `registros_vistos` como se fosse o total.
+        """
         return self.registros_guardados / max(self.registros_vistos, 1)
 
+    def como_dict(self) -> dict:
+        """Os dois escopos, nomeados. É isto que vai para o `_progresso.json`."""
+        return {
+            "escopo_acumulado": {
+                "shards_vistos_no_indice": self.shards_vistos_no_indice,
+                "nota": "inclui os shards pulados por retomada",
+            },
+            "escopo_desta_execucao": {
+                "shards_processados_agora": self.shards_processados_agora,
+                "registros_vistos": self.registros_vistos,
+                "registros_guardados": self.registros_guardados,
+                "taxa": round(self.taxa_fisica, 5),
+                "bytes_lidos": self.bytes_lidos,
+                "caracteres_guardados": self.caracteres_guardados,
+            },
+            "falhas": self.falhas,
+            "como_estimar_o_total_da_fonte": (
+                "documentos em disco ÷ `taxa`. NÃO use `registros_vistos` como "
+                "total da fonte: ele conta só os shards processados nesta "
+                "execução, e numa coleta retomada isso é uma fração."),
+        }
+
     def linha(self) -> str:
-        return (f"{self.shards_lidos} shards · {self.registros_vistos:,} vistos · "
+        return (f"{self.shards_vistos_no_indice} shards no índice "
+                f"({self.shards_processados_agora} processados agora) · "
+                f"{self.registros_vistos:,} vistos · "
                 f"{self.registros_guardados:,} guardados ({100*self.taxa_fisica:.1f}%) · "
                 f"{self.bytes_lidos/1e9:.1f} GB lidos · "
-                f"{self.caracteres_guardados/1e9:.1f} G chars")
+                f"{self.caracteres_guardados/1e9:.1f} G chars "
+                f"— os contadores depois de 'shards' são DESTA execução")
 
 
 def ids_do_spine(spine: Path) -> set[str]:
@@ -208,7 +268,10 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
 
     for n, url in enumerate(urls, 1):
         if n in feitos:
-            p.shards_lidos += 1
+            # ⚠️ Só o acumulado. Este shard não foi processado AGORA, então
+            # `registros_vistos` e `bytes_lidos` não crescem — é essa assimetria
+            # que fazia os dois escopos se confundirem no artefato.
+            p.shards_vistos_no_indice += 1
             continue
 
         # `concluiu` explícito em vez de `for/else`: são TRÊS desfechos — sucesso,
@@ -236,7 +299,8 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
         elif not any(f.startswith(f"shard {n}:") for f in p.falhas):
             p.falhas.append(f"shard {n}: rede indisponível após {MAX_TENTATIVAS} tentativas")
             log.error("shard %d desistido após %d tentativas", n, MAX_TENTATIVAS)
-        p.shards_lidos += 1
+        p.shards_vistos_no_indice += 1
+        p.shards_processados_agora += 1
         dt = time.perf_counter() - t0
         log.info("shard %d/%d · %s · %.1f MB/s", n, len(urls), p.linha(),
                  p.bytes_lidos / 1e6 / max(dt, 1))
