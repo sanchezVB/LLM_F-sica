@@ -171,10 +171,31 @@ assert torch.cuda.is_available(), "sem GPU. Settings → Accelerator → GPU."
 # ⚠️ Os quatro números abaixo são constantes da célula, e a célula é a MESMA nos
 # dois braços. É isso que garante tokens iguais — calcular passos separadamente
 # por braço seria o jeito de eles divergirem sem ninguém ver.
-TOKENS = 800_000_000
+# ⚠️ 0,6 B e 16x4, e os dois números mudaram DEPOIS de uma medição — 2026-09-11.
+#
+# A primeira tentativa foi 0,8 B com 8x8, dimensionada por FLOPs. A guarda de
+# sessão mediu 22.530 tok/s na segunda janela de log e projetou **9,9 h** contra as
+# 8,5 h do teto: a estimativa errava por 32%, e a MFU real é 10,0% (contra uns
+# 13-15% que a conta supunha). O run abortou aos 2,5 min em vez de morrer a 85%
+# com a sessão esgotada e nada exportado.
+#
+# **16x4 em vez de 8x8 é ganho de eficiência, NÃO mudança de experimento.** O fluxo
+# indexa a sequência por `micro_global * sequencias + i` e o laço calcula
+# `micro_global = passo * acumulacao + micro`; com o produto fixo em 64, o passo 0
+# consome as sequências 0..63 nos dois casos, na mesma ordem. O que muda é o
+# agrupamento, e a acumulação de gradiente soma os mesmos micro-lotes. A 8
+# sequências o forward tem 8.192 tokens, que é pouco para saturar uma T4.
+#
+# **0,6 B cabe mesmo se o ganho for ZERO**: 22.530 tok/s × 8,0 h = 649 M. O ganho
+# de lote vira margem, não aposta — e a guarda continua como rede.
+#
+# ⚠️ O preço está registrado na regra abaixo: o §11.2 pede 5 B por variante, e isto
+# passou de 6,25x menos para 8,3x menos. Empate continua não refutando a §8, e o
+# argumento fica mais forte, não mais fraco.
+TOKENS = 600_000_000
 CONTEXTO = 1024
-SEQUENCIAS = 8
-ACUMULACAO = 8
+SEQUENCIAS = 16
+ACUMULACAO = 4
 PASSOS = TOKENS // (CONTEXTO * SEQUENCIAS * ACUMULACAO)
 
 # ⚠️ O teto da sessão, conferido contra a vazão MEDIDA e não contra a estimada.
@@ -192,7 +213,7 @@ REGRA = r"""
   ── A REGRA, escrita ANTES ────────────────────────────────────────────────
 
   ⚠️ ESTE RUN NÃO É O §11.2 COMO ESCRITO. O protocolo de lá pede 5 B tokens por
-     variante; isto roda 0,8 B — 6,25x menos. 5 B numa T4 seriam ~47 h por
+     variante; isto roda 0,6 B — 8,3x menos. 5 B numa T4 seriam ~47 h por
      braço e a cota semanal inteira é 30 h. A redução não foi escolhida por
      conveniência de análise: ela é o que existe.
 
@@ -214,14 +235,14 @@ REGRA = r"""
 
   Os desfechos:
 
-    A VENCE em bits por byte  ->  a §8 compra desempenho, e já a 0,8 B. As
+    A VENCE em bits por byte  ->  a §8 compra desempenho, e já a 0,6 B. As
                                   secundárias entram como corroboração; elas
                                   não podem derrubar a primária, e se
                                   contrariarem isso é o resultado a reportar.
 
     EMPATE                    ->  ⚠️ NÃO refuta a §8. O protocolo pré-registrado
-                                  era 5 B e este run tem 6,25x menos; o que um
-                                  empate diz é "a 0,8 B não dá para ver". A §8
+                                  era 5 B e este run tem 8,3x menos; o que um
+                                  empate diz é "a 0,6 B não dá para ver". A §8
                                   FICA, e o teste do §11.2 segue em aberto —
                                   registrado como não decidido, não como nulo.
 

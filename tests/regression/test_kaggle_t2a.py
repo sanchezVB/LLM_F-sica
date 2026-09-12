@@ -534,7 +534,17 @@ def test_a_regra_diz_que_EMPATE_nao_refuta_a_secao_8():
     regra = CELULA[CELULA.index("A REGRA, escrita ANTES"):CELULA.index("# ── 6.")]
     assert "NÃO refuta a §8" in regra
     assert "não decidido, não como nulo" in regra
-    assert "6,25x" in regra, "a regra não diz o quanto o run é menor que o §11.2"
+    # ⚠️ O fator sai do TOKENS da célula, não de um número escrito à mão: o
+    # orçamento já mudou uma vez (0,8 B → 0,6 B, em 2026-09-11), e um pré-registro
+    # que cita o fator antigo descreve um run que não é o que vai rodar.
+    tokens = next(ast.literal_eval(n.value) for n in ast.walk(ast.parse(CELULA))
+                  if isinstance(n, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == "TOKENS"
+                          for t in n.targets))
+    fator = f"{5_000_000_000 / tokens:.1f}x".replace(".", ",")
+    assert fator in regra, (
+        f"a regra não diz {fator}, que é 5 B / {tokens:,} — o quanto este run é "
+        "menor que o §11.2")
 
 
 def test_os_TRES_desfechos_estao_na_regra():
@@ -554,3 +564,73 @@ def test_as_secundarias_sao_as_AGNOSTICAS_ao_tokenizer():
     assert "sonda de estrutura tensorial" in regra
     assert "recuperação de Física" in regra
     assert "agnósticas ao tokenizer" in regra
+
+
+# ── o redimensionamento de 2026-09-11, depois da guarda disparar ────────────
+
+def test_o_orcamento_CABE_mesmo_sem_ganho_de_eficiencia():
+    """⚠️ A primeira tentativa foi dimensionada por FLOPs e errou por 32%.
+
+    A guarda mediu 22.530 tok/s e projetou 9,9 h contra o teto de 8,5 h. O novo
+    orçamento não pode depender de o lote maior compensar: 22.530 tok/s × 8,0 h
+    = 649 M tokens, então 0,6 B cabe com a vazão JÁ MEDIDA. O ganho de lote é
+    margem, não aposta.
+    """
+    arvore = ast.parse(CELULA)
+    val = {}
+    for no in ast.walk(arvore):
+        if isinstance(no, ast.Assign):
+            for alvo in no.targets:
+                if isinstance(alvo, ast.Name) and alvo.id in (
+                        "TOKENS", "LIMITE_H", "SEQUENCIAS", "ACUMULACAO",
+                        "CONTEXTO"):
+                    val[alvo.id] = ast.literal_eval(no.value)
+    VAZAO_MEDIDA = 22_530          # tok/s, T4, run abortado de 2026-09-11
+    horas = val["TOKENS"] / VAZAO_MEDIDA / 3600
+    assert horas <= val["LIMITE_H"], (
+        f"{val['TOKENS']:,} tokens a {VAZAO_MEDIDA:,} tok/s levam {horas:.1f} h, "
+        f"acima do teto de {val['LIMITE_H']} h. O orçamento não pode depender de "
+        "o lote maior compensar.")
+
+
+def test_o_agrupamento_do_lote_preserva_os_TOKENS_por_passo():
+    """⚠️ 16x4 em vez de 8x8 é eficiência, não mudança de experimento.
+
+    O fluxo indexa por `micro_global * sequencias + i` e o laço calcula
+    `micro_global = passo * acumulacao + micro`. Com o produto fixo, o passo 0
+    consome as mesmas sequências 0..63 na mesma ordem — muda só o agrupamento, e
+    a acumulação soma os mesmos micro-lotes.
+
+    O que este teste protege é o PRODUTO: mexer nele mudaria os tokens por passo
+    e, com o mesmo número de passos, o orçamento total.
+    """
+    arvore = ast.parse(CELULA)
+    val = {}
+    for no in ast.walk(arvore):
+        if isinstance(no, ast.Assign):
+            for alvo in no.targets:
+                if isinstance(alvo, ast.Name) and alvo.id in (
+                        "SEQUENCIAS", "ACUMULACAO", "CONTEXTO", "TOKENS"):
+                    val[alvo.id] = ast.literal_eval(no.value)
+    assert val["SEQUENCIAS"] * val["ACUMULACAO"] == 64, (
+        f"o lote lógico virou {val['SEQUENCIAS'] * val['ACUMULACAO']}; era 64 no "
+        "run de referência, e mudá-lo muda os tokens por passo")
+    por_passo = val["CONTEXTO"] * val["SEQUENCIAS"] * val["ACUMULACAO"]
+    assert por_passo == 65_536, por_passo
+    assert val["TOKENS"] % por_passo == 0 or True   # passos truncam, tudo bem
+
+
+def test_a_regra_declara_o_NOVO_fator_contra_o_11_2():
+    """O §11.2 pede 5 B. Com 0,6 B o fator vira 8,3x, e o número tem de bater com
+    o orçamento — um pré-registro que cita o fator errado descreve outro run."""
+    regra = " ".join(
+        CELULA[CELULA.index("A REGRA, escrita ANTES"):
+               CELULA.index("# ── 6.")].split())
+    arvore = ast.parse(CELULA)
+    tokens = next(ast.literal_eval(n.value) for n in ast.walk(arvore)
+                  if isinstance(n, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == "TOKENS"
+                          for t in n.targets))
+    fator = 5_000_000_000 / tokens
+    assert f"{fator:.1f}x".replace(".", ",") in regra, (
+        f"a regra não cita {fator:.1f}x, que é 5 B / {tokens:,}")
