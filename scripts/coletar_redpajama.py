@@ -28,7 +28,26 @@ def main() -> int:
     p.add_argument("--spine", type=Path, default=Path("data/processed/spine.parquet"))
     p.add_argument("--max-shards", type=int, default=None,
                    help="teto nesta execução; retomável pelo que já está em disco")
+    # ⚠️ O nome da ETAPA vinha FIXO como "redpajama_fisica", e isso é uma armadilha
+    # para qualquer coleta com outro filtro.
+    #
+    # O `--spine` e o `--out` sempre foram parametrizáveis, então apontar este
+    # script para outro conjunto de ids e outro destino sempre foi possível — e
+    # gravaria um manifesto dizendo `etapa: "redpajama_fisica"` no diretório novo.
+    # Proveniência errada com a cara certa, que é o que este repositório passou dois
+    # dias consertando em outros lugares.
+    #
+    # O padrão deriva do nome do diretório de saída, que é o que um leitor esperaria.
+    p.add_argument("--etapa", default=None,
+                   help="nome da etapa no manifesto; por omissão, o nome do "
+                        "diretório de `--out`")
+    p.add_argument("--descricao", default=None,
+                   help="descrição da etapa; por omissão, nomeia o filtro usado")
     a = p.parse_args()
+    etapa = a.etapa or a.out.name
+    descricao = a.descricao or (
+        f"Fatia do RedPajama-arXiv filtrada por casamento exato com "
+        f"{str(a.spine).replace(chr(92), '/')}")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
 
@@ -39,12 +58,12 @@ def main() -> int:
         liberar_suspensao()
 
     print("\n" + "=" * 70)
-    print(f"RedPajama-arXiv · fatia de Física "
+    print(f"RedPajama-arXiv · {etapa} "
           f"({pr.shards_vistos_no_indice} shards no índice, "
           f"{pr.shards_processados_agora} processados nesta execução)")
     print()
     print(f"  registros vistos    : {pr.registros_vistos:,}")
-    print(f"  guardados (Física)  : {pr.registros_guardados:,}  "
+    print(f"  guardados (no filtro): {pr.registros_guardados:,}  "
           f"({100*pr.taxa_fisica:.1f}%)")
     print(f"  lidos da rede       : {pr.bytes_lidos/1e9:.1f} GB")
     print(f"  texto guardado      : {pr.caracteres_guardados/1e9:.1f} G caracteres")
@@ -65,9 +84,8 @@ def main() -> int:
     saida.write_text(json.dumps(pr.como_dict(), indent=2, ensure_ascii=False),
                      encoding="utf-8")
     me = gravar_manifesto_etapa(
-        etapa="redpajama_fisica",
-        descricao=("Fatia de Física do RedPajama-arXiv, filtrada por casamento "
-                   "exato com a tabela mestra"),
+        etapa=etapa,
+        descricao=descricao,
         raiz=a.out,
         # ⚠️ `entrada_de` e não `Entrada(caminho=...)`: é o `manifesto_id` que
         # forma a CADEIA. Sem ele o manifesto diz "veio daqui" e não diz de qual
