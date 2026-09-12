@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Sprint S3 · 4b — fatia de Física do RedPajama-arXiv, filtrada pelo spine.
+"""Sprint S3 · 4b — fatia do RedPajama-arXiv, filtrada por um conjunto de ids.
 
     PYTHONPATH=src .venv/Scripts/python.exe scripts/coletar_redpajama.py
 
-Em fluxo: os 81 GB nunca aterram. Ver a docstring de
+Em fluxo: os 94 GB nunca aterram. Ver a docstring de
 `phifm.corpus.slices.redpajama` para o desenho e as medições.
 """
 import argparse

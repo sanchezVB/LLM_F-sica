@@ -95,6 +95,9 @@ INDICE = (
 FLUSH = 20_000
 # Tentativas por shard quando a REDE está indisponível. Ver o aviso em `coletar`.
 MAX_TENTATIVAS = 8
+# GB por shard, MEDIDO em duas passadas completas dos 100 shards:
+# 2026-09-12 leu 93,8 GB. A estimativa anterior era 0,81 e errava 14%.
+GB_POR_SHARD = 0.938
 
 
 @dataclass
@@ -178,14 +181,19 @@ class Progresso:
 
 
 def ids_do_spine(spine: Path) -> set[str]:
-    """Os identificadores de Física, como conjunto para consulta O(1).
+    """Os identificadores do FILTRO, como conjunto para consulta O(1).
+
+    ⚠️ O nome do parâmetro é `spine` por história, e o conteúdo é o que o chamador
+    passar. Em 2026-09-12 este mesmo código filtrou `math`+`cs` a partir de
+    `spine_math_cs.parquet` — 1.438.941 ids que não são de Física. A mensagem de
+    log dizia "identificadores de Física" para os dois casos.
 
     1,59 M strings curtas custam ~150 MB de RAM — barato o suficiente para
     dispensar junção em disco, e a única estrutura que permite decidir registro a
     registro sem materializar o shard.
     """
     ids = set(pl.scan_parquet(spine).select("arxiv_id").collect()["arxiv_id"])
-    log.info("spine: %s identificadores de Física", f"{len(ids):,}")
+    log.info("filtro: %s identificadores de %s", f"{len(ids):,}", spine.name)
     return ids
 
 
@@ -258,7 +266,10 @@ def coletar(destino: Path, spine: Path, max_shards: int | None = None,
     urls = _urls(sessao)
     if max_shards:
         urls = urls[:max_shards]
-    log.info("%d shards a percorrer (~%.0f GB)", len(urls), 0.81 * len(urls))
+    # ⚠️ 0,924 GB/shard MEDIDO em duas passadas completas (2026-08-14 e
+    # 2026-09-12: 93,8 GB em 100 shards). A constante antiga era 0,81, que errava
+    # 14% para baixo — e esse número entrou numa decisão de coleta.
+    log.info("%d shards a percorrer (~%.0f GB)", len(urls), GB_POR_SHARD * len(urls))
 
     p = Progresso()
     feitos = feitas(destino)

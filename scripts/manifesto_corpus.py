@@ -145,6 +145,28 @@ ETAPAS: list[dict] = [
     # A guarda contra a próxima está em `test_manifesto_g1_5.py`: toda fonte de
     # `filtrar_hf.FONTES` tem de ter entrada aqui, conferido por código contra
     # código, sem depender de `data/processed/` existir.
+    # ⚠️ Acrescentada em 2026-09-12, no MESMO dia da coleta — e essa pressa é
+    # deliberada. O peS2o ficou 16 dias fora desta lista e o manifesto raiz seguiu
+    # atestando 55% do corpus; a guarda em `test_manifesto_g1_5.py` pega fonte de
+    # `filtrar_hf.FONTES` que falte aqui, mas esta fatia vem do coletor do
+    # RedPajama, que a guarda não cobre.
+    {
+        "etapa": "redpajama_math_cs",
+        "descricao": ("Fatia math+cs do RedPajama-arXiv: LaTeX íntegro que o "
+                      "filtro de Física descartava"),
+        "raiz": "data/processed/redpajama_math_cs",
+        "entradas": ["data/processed/spine_math_cs.parquet"],
+        "externas": [("togethercomputer/RedPajama-Data-1T", "hf_dataset")],
+        # ⚠️ O `spine` aqui NÃO é a tabela mestra: é o conjunto de 1.438.941 ids de
+        # `math`+`cs` com os 179.441 cross-list já coletados subtraídos. Sem a
+        # subtração a coleta duplicaria o que está em `redpajama_fisica`, e o S3b
+        # mediu que duplicação em pré-treino degrada 16,6%. Verificado depois da
+        # coleta: sobreposição ZERO e duplicação 1,000x.
+        "parametros": {"script": "scripts/coletar_redpajama.py",
+                       "filtro": "spine_math_cs (exato)",
+                       "ids_no_filtro": 1_438_941,
+                       "cross_list_subtraidos": 179_441},
+    },
     {
         "etapa": "pes2o_fisica",
         "descricao": "Fatia de Física do peS2o v2, filtrada pelo classificador",
