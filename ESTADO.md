@@ -29,6 +29,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **T1b** · busca híbrida | 🟢 **composição completa** | RRF entrega nDCG 0,1576 e vence os isolados (p<0,001); com o ΦRank de PhysBERT vai a **0,1666** (p=0,0062). O reordenador **entrou no sistema** em 2026-09-03 |
 | **T1c** · ΦRank de base diferente | 🟢 **fechado: domínio** | PhysBERT vence a fusão (nDCG **0,1666** vs 0,1576, **p=0,0062**); `gte-base`, do MESMO tamanho, **empata** (p=0,637). Não é diversidade de base nem capacidade — é **pré-treino em Física** |
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
+| **LaTeX disponível e NÃO coletado** | 🟡 **`math`+`cs` dobrariam**, medido | sonda em 5 de 100 shards sorteados (4,62 GB, 1,8 min): a Física é **52,2%** do RedPajama; `math` **25,0%** e `cs` **20,1%** foram baixados e DESCARTADOS pelo filtro. Extrapolado ×20: **685.200 docs, 44,6 G chars, +106%** sobre os 42,15 G da Física. Régua: a Física extrapolada dá 794.100 contra 828.601 em disco (−4,2%). ⚠️ Mas isso é VOLUME; acrescentar põe **45% de não-Física** no corpus de um modelo de Física, e esse trade-off nenhum número daqui mediu. Custo de coletar: **81 GB, ~11,7 h, US$ 0** |
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · fatia de avaliação | 🟢 **51,7 M tokens, DISJUNTA** | `part-00022` — uma das 35 partes que o treino não usou. O manifesto declara `disjunto_do_treino` e as 9 excluídas; o avaliador de MLM **recusa** fatia que não declare |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
@@ -40,13 +41,108 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
 | **Ensaio do T2a** | 🟢 **a cadeia inteira em miniatura, 7 min** | treinar 30 passos com A e com E, exportar, e rodar as três medidas — antes de gastar 15 h de T4. Pegou um bug real: `avaliar_encoders.py --dispositivo dml` morria no primeiro modelo, depois de carregar 133 mil pares e sortear o pool, porque `torch.device("dml")` levanta. Exportação com ida e volta de logits **0,0** |
 | **Termos** | 🟢 **"reranqueador" era neologismo meu** | 115 ocorrências → "reordenador"; "espinha" (tradução literal de *spine*) → "tabela mestra", 62. ⚠️ "espinha dorsal" fica (é *backbone*, outra metáfora) e os IDENTIFICADORES também — renomear `spine.parquet` invalidaria o que o hash raiz atesta. Nomes de datasets ficam como os donos publicam: `peS2o` é "Pretraining Efficiently on S2ORC" |
-Suíte: **800 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **813 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## A sonda de domínios: `math` e `cs` dobrariam o LaTeX (2026-09-12)
+
+A pergunta era "dá para aumentar o corpus para o modelo ser mais preciso?". O
+projeto já tinha respondido **não** por três caminhos — o corpus tem 27,75 B contra
+os 15–30 B que o DOC-07 §2 pede; o T1a mediu platô de volume; e o T1f mostrou que a
+base entrega com 400 mil pares o que 6 M entregaram. Mas a resposta certa não era
+"não": era **"volume não, integridade matemática sim"**.
+
+De 27,75 B tokens, só ~10,5 B são LaTeX íntegro. O peS2o é 14,60 B e tem ambiente
+de equação em **0,0%** dos documentos. Então a pergunta útil virou: quanto LaTeX
+existe no RedPajama que o filtro de Física **descartou**?
+
+    5 de 100 shards sorteados · 4,62 GB · 1,8 min
+
+    classe                  docs       %    G chars   chars/doc
+    fisica_ja_no_corpus   39.705   52,2%     2,031      51.154
+    math                  18.977   25,0%     1,370      72.211
+    cs                    15.283   20,1%     0,862      56.395
+    stat                   1.061    1,4%     0,067
+    desconhecido             511    0,7%     0,029
+
+    extrapolando ×20:  math + cs = 685.200 docs · 44,6 G chars
+                       +106% sobre os 42,15 G chars da Física
+
+### ⚠️ A régua da sonda, e por que ela é a parte que faz o número valer
+
+A Física extrapolada dá **794.100** documentos contra **828.601** em disco: erro de
+**−4,2%**. Uma extrapolação sem conferência é afirmação; com ela é medida com viés
+conhecido, e o ganho real fica ~4% acima do estimado.
+
+E `desconhecido` ficou em **0,7%**, então os metadados dos negativos cobrem quase
+tudo que o RedPajama traz — o piso de erro da classificação é baixo.
+
+### Três coisas que a sonda mostrou e eu não esperava
+
+**`math` tem papers 1,41× mais longos que Física** — 72.211 contra 51.154
+caracteres. Ele é 25,0% dos documentos e **30,5% dos caracteres**.
+
+**Os cross-list já estavam cobertos.** 123.418 ids de `math` e 56.023 de `cs`
+também estão na tabela mestra de Física; o filtro atual já os guardou, então saem
+da conta do ganho. Contá-los infliaria o resultado com o que está no disco.
+
+**A Física é 52,2% do RedPajama-arXiv**, não os ~43% que a docstring do módulo
+estimava a partir de UM shard.
+
+### ⚠️ O que a sonda NÃO responde, e é a decisão de verdade
+
+Ela mede **volume de LaTeX**. Composição é outra coisa: acrescentar `math`+`cs`
+põe **45% de não-Física** no corpus de um modelo de Física.
+
+E há evidência deste projeto de que domínio importa: o T1c mediu que o PhysBERT
+vence o `gte-base` **do mesmo tamanho** (p=0,0062) e concluiu "não é diversidade de
+base nem capacidade — é **pré-treino em Física**". Diluir o corpus em 45% de
+matemática e computação vai na direção oposta dessa medição.
+
+**Nenhum número deste projeto mediu esse trade-off.** O caminho honesto é treinar o
+ΦEnc uma vez com os 27,75 B que existem, ver onde ele perde, e só então decidir —
+porque hoje não há treino de referência contra o qual medir ganho nenhum.
+
+Custo se a decisão for coletar: **81 GB de rede, ~11,7 h, US$ 0**.
+
+### Dois defeitos que a sonda expôs no caminho
+
+**1. Dois ESCOPOS no mesmo artefato, e eu li o total da fonte 5× menor.** O
+`_progresso.json` da coleta dizia `shards_lidos: 100` com
+`registros_vistos: 350.451`, e a primeira estimativa que dei saiu daí: "a fonte tem
+350 mil documentos". Ela tem ~1,4 M. A causa é uma assimetria no laço — o shard
+pulado por retomada incrementa o contador de shards e **não passa por `processar`**,
+então registros e bytes não crescem com ele.
+
+⚠️ E o `filtrar_hf.py` já gravava `escopo_dos_numeros: "esta execução, não o
+acumulado"` pela MESMA razão, num artefato irmão. **Quarto caso em dois dias** de
+lição paga e aplicada num arquivo só — depois do `dtype=float32` (rerank tinha,
+embedding não), do `console.utf8()` (dez scripts tinham, o verificador do corpus
+não) e do `--dispositivo dml`.
+
+Agora os nomes dizem o escopo, `como_dict()` separa os dois blocos, e o artefato
+carrega a conta certa: **documentos em disco ÷ taxa**.
+
+**2. O artefato não serializava, e o erro esperou o download terminar.** A primeira
+execução leu os 5 shards, contou tudo, e morreu em `TypeError: Object of type int64
+is not JSON serializable` na gravação — `permutation` do numpy devolve `np.int64`.
+Os números ficaram só no log e os 4,62 GB foram refeitos.
+
+Mesma família do "guarda depois da escrita não é guarda": um defeito no ÚLTIMO passo
+espera o trabalho caro terminar para aparecer. O teste novo monta o artefato com
+tipos de numpy dentro e exige que serialize, sem tocar na rede.
+
+### E a suspeita que motivou a investigação estava errada — felizmente
+
+Eu desconfiei de duplicação, porque o manifesto atesta 835.379 registros e a última
+execução guardou 182.926. Medido: **835.379 linhas com 828.601 ids distintos,
+1,01×**. O corpus está limpo, e é bom que esteja — o S3b mediu que duplicação em
+pré-treino **degrada 16,6%**. A discrepância era o defeito 1, não duplicata.
 
 ## T1f — a base importa mais que o volume de ajuste (2026-09-12)
 
