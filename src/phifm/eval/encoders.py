@@ -145,29 +145,50 @@ class Resultado:
     posicoes: list[int] = field(default_factory=list)
 
 
+# O ModernBERT do ΦEnc não aceita `token_type_ids`, e um tokenizer BERT os produz.
+# Passar `**b` cru quebraria o ΦEnc e daria a impressão de que o checkpoint está
+# corrompido. Restringir às duas chaves que TODO encoder desta comparação aceita
+# também remove uma assimetria silenciosa: hoje SciBERT e PhysBERT recebem
+# `token_type_ids` e o ΦEnc não receberia, e "mesma entrada para todos" é a
+# primeira linha da tabela de invariantes desta docstring.
+#
+# ⚠️ Isto NÃO muda número nenhum já publicado: a entrada é de segmento único, e
+# `token_type_ids` todo zero é exatamente o default de quem os omite. Está travado
+# em `test_token_type_ids_nao_mudam_o_vetor`, que mede em vez de afirmar.
+ENTRADAS_DO_ENCODER = ("input_ids", "attention_mask")
+
+
 @torch.no_grad()
 def _codificar(mod, tok, textos: list[str], dev, max_tokens: int, lote: int) -> torch.Tensor:
     saidas = []
     for i in range(0, len(textos), lote):
         b = tok(textos[i:i + lote], padding="max_length", truncation=True,
                 max_length=max_tokens, return_tensors="pt")
-        b = {k: v.to(dev) for k, v in b.items()}
+        b = {k: v.to(dev) for k, v in b.items() if k in ENTRADAS_DO_ENCODER}
         h = mod(**b).last_hidden_state
         saidas.append(F.normalize(media_mascarada(h, b["attention_mask"]), dim=-1).cpu())
     return torch.cat(saidas)
 
 
-def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
-               max_tokens: int = 192, lote: int = 16, dispositivo: str = "cpu",
-               semente: int = SEMENTE_POOL) -> Resultado:
-    t0 = time.perf_counter()
+def avaliar_carregado(mod, tok, nome: str, caminho: str, val: pl.DataFrame, *,
+                      n: int = 256, max_tokens: int = 192, lote: int = 16,
+                      dispositivo: str = "cpu", semente: int = SEMENTE_POOL,
+                      t0: float | None = None) -> Resultado:
+    """Mede um encoder JÁ CARREGADO. É o único lugar onde a métrica é calculada.
+
+    Existe separado de `avaliar_um` porque o ΦEnc não carrega por
+    `AutoModel.from_pretrained`: ele é um `state_dict` cru gravado pelo laço de
+    pré-treino, com um tokenizer que é um JSON do `tokenizers` e não um diretório
+    do `transformers` (ver `phifm.eval.phienc`).
+
+    A alternativa seria um segundo avaliador para o ΦEnc, e é justamente a
+    tentação que este repositório já pagou duas vezes: dois caminhos que calculam
+    a mesma métrica divergem em silêncio e nada aponta qual está certo. Aqui o
+    ΦEnc e o PhysBERT passam pelas MESMAS quatro linhas de métrica — o que muda
+    é só quem carrega os pesos.
+    """
+    t0 = time.perf_counter() if t0 is None else t0
     dev = torch.device(dispositivo)
-    try:
-        tok = AutoTokenizer.from_pretrained(caminho)
-        mod = AutoModel.from_pretrained(caminho, attn_implementation="eager").to(dev).eval()
-    except Exception as exc:
-        return Resultado(nome, caminho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                         erro=f"{type(exc).__name__}: {str(exc)[:120]}")
 
     amostra = preparar_pool(val, n, semente)
     va = _codificar(mod, tok, amostra["ancora"].to_list(), dev, max_tokens, lote)
@@ -192,6 +213,22 @@ def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
         time.perf_counter() - t0,
         posicoes=pos.tolist(),
     )
+
+
+def avaliar_um(caminho: str, nome: str, val: pl.DataFrame, *, n: int = 256,
+               max_tokens: int = 192, lote: int = 16, dispositivo: str = "cpu",
+               semente: int = SEMENTE_POOL) -> Resultado:
+    t0 = time.perf_counter()
+    dev = torch.device(dispositivo)
+    try:
+        tok = AutoTokenizer.from_pretrained(caminho)
+        mod = AutoModel.from_pretrained(caminho, attn_implementation="eager").to(dev).eval()
+    except Exception as exc:
+        return Resultado(nome, caminho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                         erro=f"{type(exc).__name__}: {str(exc)[:120]}")
+
+    return avaliar_carregado(mod, tok, nome, caminho, val, n=n, max_tokens=max_tokens,
+                             lote=lote, dispositivo=dispositivo, semente=semente, t0=t0)
 
 
 def _digesto(val: pl.DataFrame, n: int, semente: int = SEMENTE_POOL) -> str:

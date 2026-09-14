@@ -178,8 +178,49 @@ def test_o_digesto_do_cache_passa_pelo_MESMO_pool():
     assert "preparar_pool" in corpo, (
         "o digesto deixou de usar `preparar_pool`; ele passaria a descrever uma "
         "amostra diferente da avaliada")
+
+    # ⚠️ Em 2026-09-14 a métrica saiu de `avaliar_um` para `avaliar_carregado`, de
+    # onde o ΦEnc também a consome — ele carrega de um `state_dict` cru e não por
+    # `AutoModel.from_pretrained`. A propriedade que este teste protege não mudou;
+    # o que mudou foi onde ela mora, e a asserção segue o caminho em vez de ser
+    # afrouxada. Quem monta o pool agora é `avaliar_carregado`, e `avaliar_um`
+    # tem de DELEGAR — se ele voltar a montar o seu próprio, passam a existir
+    # dois pools e o cache diria "mesmo protocolo" para amostras diferentes.
+    corpo_medida = fonte.split("def avaliar_carregado")[1].split("\ndef ")[0]
+    assert "preparar_pool" in corpo_medida, (
+        "`avaliar_carregado` deixou de usar `preparar_pool` — é ele que mede")
+
     corpo_aval = fonte.split("def avaliar_um")[1].split("\ndef ")[0]
-    assert "preparar_pool" in corpo_aval
+    assert "avaliar_carregado" in corpo_aval, (
+        "`avaliar_um` deixou de delegar a medição; se ele recalcular a métrica, "
+        "passam a existir dois caminhos que divergem em silêncio")
+    assert "preparar_pool" not in corpo_aval, (
+        "`avaliar_um` voltou a montar o próprio pool em vez de delegar")
+
+
+def test_a_avaliacao_do_PHIENC_usa_o_mesmo_caminho_de_medida():
+    """O ΦEnc é o terceiro consumidor da métrica, e o mais fácil de duplicar.
+
+    Ele carrega diferente de todo o resto — `state_dict` cru do laço de
+    pré-treino, tokenizer que é JSON do `tokenizers` — e essa diferença é
+    exatamente o convite a escrever "só um avaliadorzinho" ao lado. Se isso
+    acontecer, o braço tratado e o PhysBERT passam a ser medidos por códigos
+    diferentes, e a tabela não avisa.
+
+    ⚠️ Os proibidos são CONSTRUÇÕES, não o nome da métrica. A primeira versão
+    deste teste também proibia `"ndcg"`, e reprovou — no `RESSALVA`, que menciona
+    "nDCG@10 0,207" justamente para explicar por que o número absoluto não vale.
+    É a quinta ocorrência da armadilha que o `tests/conftest.py` cataloga: uma
+    asserção de ausência encontrando o texto que explica a ausência. `so_codigo_de`
+    remove comentários, mas uma constante de string é código — e tem de ser.
+    """
+    fonte = so_codigo_de(RAIZ / "src/phifm/eval/phienc.py")
+    assert "avaliar_carregado" in fonte, (
+        "`phienc.py` deixou de usar a medida compartilhada de `encoders.py`")
+    for proibido in ("argsort", "log2"):
+        assert proibido not in fonte.lower(), (
+            f"`phienc.py` contém {proibido!r}: a métrica foi reimplementada aqui em "
+            "vez de delegada, e duas cópias divergem sem nada apontar qual vale")
 
 
 def test_o_avaliar_do_TREINO_usa_o_mesmo_pool():
