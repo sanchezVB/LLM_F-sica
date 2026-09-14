@@ -141,11 +141,12 @@ def config_do_checkpoint(meta: dict) -> ConfigEnc:
     return cfg
 
 
-def carregar(diretorio: Path, tokenizer: Path, dispositivo: str = "cpu"):
-    """Devolve `(encoder, tokenizador, metricas)` prontos para `avaliar_carregado`.
+def carregar_mlm(diretorio: Path, tokenizer: Path, dispositivo: str = "cpu"):
+    """Devolve `(ModernBertForMaskedLM, tokenizador, metricas)`.
 
-    O encoder é o **tronco** (`ModernBertModel`), não a cabeça de MLM: quem
-    recupera é a representação, e a projeção de saída amarrada não participa.
+    A avaliação de MLM (`phifm.eval.mlm`) precisa da CABEÇA, porque o que ela mede
+    é a probabilidade atribuída aos tokens mascarados. A de recuperação precisa do
+    tronco. Carregar é a mesma coisa nos dois casos, e por isso é um lugar só.
     """
     diretorio, tokenizer = Path(diretorio), Path(tokenizer)
     meta = _ler_metricas(diretorio)
@@ -166,8 +167,17 @@ def carregar(diretorio: Path, tokenizer: Path, dispositivo: str = "cpu"):
     log.info("%s · passo %s · carregado de %s",
              cfg.nome, estado.get("passo", "?"), diretorio)
 
-    encoder = completo.model.to(dev).eval()
-    return encoder, carregar_tokenizer(tokenizer, cfg), meta
+    return completo.to(dev).eval(), carregar_tokenizer(tokenizer, cfg), meta
+
+
+def carregar(diretorio: Path, tokenizer: Path, dispositivo: str = "cpu"):
+    """Devolve `(tronco, tokenizador, metricas)` para `avaliar_carregado`.
+
+    O tronco (`ModernBertModel`), e não a cabeça: quem recupera é a representação,
+    e a projeção de saída amarrada não participa.
+    """
+    completo, tok, meta = carregar_mlm(diretorio, tokenizer, dispositivo)
+    return completo.model, tok, meta
 
 
 def carregar_tokenizer(caminho: Path, cfg: ConfigEnc):

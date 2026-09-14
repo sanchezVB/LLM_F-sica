@@ -81,6 +81,7 @@ from transformers import AutoModel, AutoTokenizer
 # `preparar_pool` mora em `training/amostragem.py`, livre de torch, para o teste
 # da guarda rodar na suíte rápida — e ao lado do irmão deste defeito, o
 # `amostrar_por_documento`.
+from phifm.eval.statistics.proporcao import binomial_exata_bicaudal
 from phifm.training.amostragem import SEMENTE_POOL, preparar_pool
 from phifm.training.embedding import media_mascarada
 
@@ -417,11 +418,11 @@ def comparar_pareado(a: Resultado, b: Resultado) -> dict:
         return {"a": a.nome, "b": b.nome, "ganha_a": 0, "ganha_b": 0, "discordantes": 0,
                 "p": 1.0, "veredito": "idênticos item a item — nada a decidir"}
 
-    # Binomial exata bicaudal com p=0,5 sobre os discordantes.
-    from math import comb
-    k = min(ganha_a, ganha_b)
-    cauda = sum(comb(disc, i) for i in range(k + 1)) / 2 ** disc
-    p = min(1.0, 2 * cauda)
+    # ⚠️ A conta mora em `eval.statistics.proporcao` porque a ablação do ΦEnc usa a
+    # MESMA — lá sobre perda por sequência, aqui sobre recall@1 por item. Duas
+    # cópias de um teste estatístico divergem sem sintoma: as duas devolvem um
+    # número entre 0 e 1, e o errado parece tão válido quanto o certo.
+    p = binomial_exata_bicaudal(ganha_a, ganha_b)["p"]
 
     vencedor = a.nome if ganha_a > ganha_b else b.nome
     if p < 0.05:

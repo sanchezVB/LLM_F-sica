@@ -120,6 +120,11 @@ def main() -> int:
                    help="sorteio das partes. Com o teto de tokens, só uma fração "
                         "das partes é lida, e pegar as primeiras enviesa — ver a "
                         "docstring")
+    p.add_argument("--excluir-de", type=Path, default=None, metavar="MANIFESTO",
+                   help="caminho de um MANIFESTO_DADOS.json; as partições que ele "
+                        "lista em `partes_usadas` sao PULADAS. E assim que se monta "
+                        "o conjunto de avaliacao disjunto do de treino, que a "
+                        "avaliacao de MLM exige (o Fluxo nao tem split)")
     p.add_argument("--em-ordem", action="store_true",
                    help="lê as partes na ordem do disco em vez de sortear. Só para "
                         "reproduzir uma preparação antiga; enviesa")
@@ -133,6 +138,38 @@ def main() -> int:
     partes = sorted(glob.glob(str(a.corpus / "part-*.parquet")))
     if not partes:
         raise SystemExit(f"nenhum part-*.parquet em {a.corpus}")
+
+    # ── conjunto de avaliação disjunto do de treino ──────────────────────────
+    #
+    # O `Fluxo` do pré-treino permuta TODAS as sequências do binário: não existe
+    # divisão de validação. Sem isto, avaliar perplexidade mediria dado visto — e
+    # o erro não tem sintoma, porque os dois binários têm o mesmo formato e o
+    # mesmo nome de arquivo.
+    #
+    # A exclusão é por PARTIÇÃO, e portanto por documento: nenhuma sequência
+    # atravessa a fronteira. Uma divisão por índice de sequência não daria isso —
+    # um documento longo ocupa várias sequências consecutivas.
+    if a.excluir_de:
+        man = json.loads(Path(a.excluir_de).read_text(encoding="utf-8"))
+        usadas = set(man.get("partes_usadas") or [])
+        if not usadas:
+            raise SystemExit(
+                f"{a.excluir_de} não lista `partes_usadas`. Com sorteio, saber que 9 "
+                "de 44 partes entraram não permite reconstruir QUAIS — sem a lista "
+                "não há como montar um conjunto disjunto.")
+        antes = len(partes)
+        # `caminho`, e não `p`: `p` é o ArgumentParser três linhas acima. A
+        # compreensão não vaza em Python 3, mas reusar o nome aqui é convidar
+        # alguém a mover a linha para fora dela um dia.
+        partes = [caminho for caminho in partes if Path(caminho).name not in usadas]
+        log.info("excluindo %d partição(ões) de %s: %d candidatas restam",
+                 antes - len(partes), a.excluir_de, len(partes))
+        if not partes:
+            raise SystemExit(
+                f"o treino em {a.excluir_de} usou TODAS as {antes} partições; não sobra "
+                "nada para avaliar. Prepare o treino com `--max-tokens` menor, ou "
+                "aceite que não há conjunto de avaliação disjunto neste corpus.")
+
     # ⚠️ Sorteia. Com `--max-tokens` abaixo do corpus inteiro, só uma fração das
     # partes é lida, e as partes não são intercambiáveis — ver a docstring.
     if not a.em_ordem:

@@ -73,3 +73,41 @@ def n_para_meia_largura(meia_largura: float, p_esperado: float = 0.05,
     # Aproximação normal, que basta para dimensionar: n = z²p(1−p)/m².
     return max(1, math.ceil(z * z * p_esperado * (1 - p_esperado)
                             / (meia_largura * meia_largura)))
+
+
+def binomial_exata_bicaudal(ganha_a: int, ganha_b: int) -> dict:
+    """Teste de McNemar exato sobre pares discordantes.
+
+    O par concordante — os dois sistemas acertam, ou os dois erram — **não carrega
+    informação sobre a diferença** entre eles, e é por isso que ele sai da conta.
+    O que sobra é uma binomial com p = 0,5 sobre os discordantes: sob a hipótese
+    nula, cada discordância cai para um lado por moeda.
+
+    Exata, e não aproximação normal, porque a aproximação é ruim justamente onde
+    o número de discordantes é pequeno — que é o regime de todo experimento de
+    orçamento zero deste repositório.
+
+    ## Por que isto mora aqui e não onde é usado
+
+    A mesma conta decide a comparação entre encoders (recall@1 por item) e entre
+    braços da ablação do ΦEnc (perda por sequência). Duas cópias de um teste
+    estatístico divergem em silêncio e não há sintoma: os dois devolvem um número
+    entre 0 e 1, e o errado parece tão válido quanto o certo.
+
+    >>> binomial_exata_bicaudal(10, 0)["p"] < 0.01
+    True
+    >>> binomial_exata_bicaudal(5, 5)["p"]
+    1.0
+    >>> binomial_exata_bicaudal(0, 0)["discordantes"]
+    0
+    """
+    if ganha_a < 0 or ganha_b < 0:
+        raise ValueError(f"contagens negativas: {ganha_a}, {ganha_b}")
+    disc = ganha_a + ganha_b
+    if disc == 0:
+        return {"ganha_a": 0, "ganha_b": 0, "discordantes": 0, "p": 1.0}
+
+    k = min(ganha_a, ganha_b)
+    cauda = sum(math.comb(disc, i) for i in range(k + 1)) / 2 ** disc
+    return {"ganha_a": ganha_a, "ganha_b": ganha_b, "discordantes": disc,
+            "p": min(1.0, 2 * cauda)}
