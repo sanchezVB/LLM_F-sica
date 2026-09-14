@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-06
+# Estado do projeto — 2026-09-14
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -21,13 +21,92 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · código | 🟡 escrito, não treinado | mascaramento de equações, fluxo sem estado, detector de spike, laço WSD. Fumaça em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
-| **ΦEnc** · avaliação | 🔴 não existe | é o gargalo agora. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em equações e uma sonda de estrutura tensorial — nenhuma das três existe |
+| **ΦEnc** · avaliação | 🟢 **as três existem** | recuperação, MLM em texto denso em equações e sonda de estrutura tensorial, escritas em 2026-09-14. Nenhuma foi RODADA sobre um ΦEnc treinado — não há um |
+| **ΦEnc** · divisão de validação | 🟠 **falta preparar** | o `Fluxo` permuta TODAS as sequências: não existe holdout. `preparar_dados_phienc.py --excluir-de` monta um das 35 partições não usadas, e a avaliação de MLM **levanta** sem ele |
 
 Suíte: **618 testes** (13 saltados), `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+⚠️ Esse número **não mudou** com as três avaliações: os 49 testes novos dependem de
+torch e ficam todos na venv de treino. Total coletado com tudo instalado: **784**,
+dos quais 167 nos 15 módulos travados por `importorskip`.
+
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
-`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
+`.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py tests/regression/test_avaliacao_phienc.py tests/regression/test_avaliacao_mlm.py tests/regression/test_sonda_tensorial.py -q`
+
+⚠️ **`test_laco_pretreino::test_a_perda_desce_em_alguns_passos` falha** num container
+com `transformers` 5.17 — e falha também no HEAD limpo, conferido em worktree
+separado, então não é das avaliações. A perda fica plana em 8 passos sobre dado
+aleatório. O projeto mira 4.48; **conferir na venv de treino antes de gastar cota**,
+porque um laço que não reduz perda torna a ablação inútil por melhor que a avaliação
+seja.
+
+## As três avaliações do ΦEnc existem — o gargalo declarado acabou (2026-09-14)
+
+O DOC-05 §11.2 pede três, e `src/phifm/eval/` tinha os diretórios vazios. Agora:
+
+| avaliação | módulo | script | testes |
+|---|---|---|---|
+| recuperação de Física | `eval/phienc.py` | `avaliar_phienc.py` | 14 |
+| MLM em texto denso em equações | `eval/mlm.py` | `avaliar_mlm_phienc.py` | 16 |
+| sonda de estrutura tensorial | `eval/tensorial.py` | `avaliar_tensorial.py` | 19 |
+
+**Nenhuma foi rodada sobre um ΦEnc de verdade**, porque não existe um. O que está
+conferido é a costura, ponta a ponta, com checkpoints sintéticos — e duas sanidades
+que valem: a perda de MLM sai **4,16** contra ln(64) = **4,159** (modelo não treinado
+prevê uniforme), e a sonda diz "responde ao número de caracteres, não à Física" com
+pesos aleatórios, que é o veredito correto.
+
+### Uma métrica, um caminho
+
+`avaliar_um` foi partido: `avaliar_carregado` mede e passou a ser o **único lugar do
+repositório** onde recall@k, MRR e nDCG@10 são computados. O ΦEnc carrega diferente
+de todo o resto — `state_dict` cru do laço, tokenizer que é JSON do `tokenizers` — e
+essa diferença era o convite a escrever um segundo avaliador ao lado. A binomial
+exata saiu de dentro de `comparar_pareado` para `eval/statistics/proporcao.py` pelo
+mesmo motivo: ela decide encoders **e** a ablação.
+
+### ⚠️ Não existia divisão de validação, e o erro não tinha sintoma
+
+O `Fluxo` permuta **todas** as sequências do binário. Avaliar perplexidade sobre
+`phienc_dados` mediria dado visto — e como o conjunto de avaliação e o de treino têm
+o mesmo formato e o mesmo nome de arquivo, sai um número bom e ninguém desconfia.
+
+`--excluir-de` monta o holdout das partições que o treino não usou (9 de 44 foram
+usadas; **35 sobram**), e `conferir_disjuncao` levanta se as listas `partes_usadas`
+se cruzarem. A disjunção é por partição e portanto por documento: nenhuma sequência
+atravessa a fronteira, o que uma divisão por índice de sequência não garantiria.
+
+### O 2×2 do MLM, e a única célula que não é tautológica
+
+Cada regime favorece um braço **por construção** — o aleatório é o objetivo do
+controle, o de equação é o do tratado. Reportar só um deles seria circular nos dois
+sentidos. A célula que decide alguma coisa é **tokens de equação sob mascaramento
+ALEATÓRIO**: a tarefa é a do controle, e a classe de token é a que o tratamento
+deveria ensinar.
+
+### Cinco defeitos, todos achados medindo
+
+| onde | o defeito | como apareceu |
+|---|---|---|
+| guarda de tokenizer | conferia `pad_token_id` contra si mesmo — os nomes dos especiais são DERIVADOS desses ids, então valia por construção | um teste reprovou o que deveria passar |
+| sonda, par `hall` | o controle era **igual à base**: distância zero em todas as bases, e a sonda aprovaria qualquer modelo | `\rho_{xy}` não tem índice mudo, logo não admite no-op |
+| sonda, distância crua | media **caracteres**, não Física: 1 contra 18 de edição no `posicao_tensor` | com pesos aleatórios os 8 pares se moveram mais no controle |
+| MLM, contexto pequeno | com contexto 64 o orçamento (19) fica abaixo de `MIN_TOKENS_TRATAMENTO` (20) e **nenhuma** equação pode ser tratada — o 2×2 vira dois regimes idênticos | `fracao_tratada` saiu 0,0 num teste sintético |
+| teste novo | proibia `"ndcg"` no fonte e reprovou no `RESSALVA`, que menciona nDCG para explicar a ressalva | **quinta** ocorrência da armadilha do `conftest.py`, criada por mim |
+
+### Duas limitações que ficam declaradas
+
+**MLM cru é recuperador fraco.** O SciBERT, que é exatamente isso, dá nDCG@10
+**0,207** contra 0,370 do MiniLM treinado *para* embedding. Esperar menos que o
+SciBERT na avaliação de recuperação é o correto, e comparar com a tabela do G1 seria
+ler o número errado. A ressalva acompanha todo artefato.
+
+**A média mascarada é quase invariante a permutação.** Trocar dois índices de lugar
+mal move o vetor — medido no par `hall`, distância **exatamente 0,00000**. É
+limitação do *readout*, não do encoder, e torna a categoria `ordem` da sonda a mais
+difícil das três por construção. A agregação continua sendo a média porque é a mesma
+das outras duas avaliações; trocá-la só ali tornaria os três números incomparáveis.
 
 ## ⚠️ O Portão G1 media contra um teto de 0,7562, e o treino via um prefixo (2026-09-06)
 
@@ -303,7 +382,11 @@ DOC-08 §4 para preferir WSD a cosseno.
 Agora `passos_warmup` é absoluto, derivado uma vez por `plano_wsd()` e guardado no
 checkpoint. A tentação era ajustar o número esperado no teste.
 
-### O que NÃO existe, e é o gargalo agora
+### ~~O que NÃO existe, e é o gargalo agora~~ — resolvido em 2026-09-14
+
+> **As três avaliações foram escritas.** Ver a seção de 2026-09-14 no topo deste
+> arquivo. A frase abaixo fica porque a segunda metade dela continua valendo, e é a
+> razão de as três existirem: perda baixa não é veredito.
 
 **Avaliação.** O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em
 equações e uma sonda de estrutura tensorial. Um `phienc.json` com perda baixa **não
@@ -1408,6 +1491,27 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
 
 ## O que fazer a seguir, em ordem
 
+**Atualizado em 2026-09-14.** Com as três avaliações escritas, o caminho até um
+veredito sobre a hipótese do DOC-07 §2.3 é uma sequência, e cada passo destrava o
+seguinte:
+
+| # | passo | custo | destrava |
+|---|---|---|---|
+| A | conferir `test_laco_pretreino` na venv de treino | minutos | tudo abaixo: laço que não reduz perda torna a ablação inútil |
+| B | preparar o holdout com `--excluir-de` | ~CPU, US$ 0 | a avaliação de MLM, que **levanta** sem conjunto disjunto |
+| C | retreino da T1a com pares sorteados | 36 min de T4 | a remedição do G1 — 10,7× mais documentos distintos pelo mesmo custo |
+| D | empacotar o ΦEnc para o Kaggle | código | a ablação; o molde é `kaggle/t1a_phiemb.py` e `t1c_phirank.py` |
+| E | rodar a ablação, controle e tratado | 6,4–10,7 h de cota | **o veredito**, pelas três avaliações |
+
+O passo A é o mais barato e o que mais pode custar: ele decide se D e E valem a pena.
+
+⚠️ E um item que deixou de ser o que era: **preparar as 44 partições**. Só 9 foram
+usadas porque `--max-tokens` tem default de 2 B, escolhido para a ablação caber na
+cota — não porque o dado acabou. Subir para 11 B dá os 10,54 B inteiros (~2,8 h de
+CPU, ~32 GB de disco). Mas isso é para o ΦEnc **final**, não para a ablação: a 2 B o
+proxy de 48 M fica em 21 tokens/parâmetro, que é o ponto de Chinchilla e está certo
+para o que ela mede.
+
 1. ~~Negativos de `math`~~ — ✅ 774.063 registros, 22 fatias, zero falhas
 2. ~~Retreinar `is_physics` e medir transferência~~ — ✅ ver §resultado final
 3. ~~**4d · OpenWebMath filtrado**~~ — ✅ 860.521 documentos, 2,62 B tokens, zero
@@ -1415,17 +1519,32 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
    distribuição de domínios. **peS2o não iniciado** (42,7 h medidas).
 4. ~~**Medir se `stat` é vizinho próximo**~~ — ✅ **não é** (1,0×). A suspeita era
    minha, o documento estava certo. `math` segue o pior (42,1% de FP).
-5. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
-   (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
+5. ~~**Decidir sobre o bulk pago do arXiv** — US$ 100–180.~~ — ⚠️ **vencido pelo
+   [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md).** Duas coisas
+   estavam erradas: não é pré-requisito (o RedPajama-arXiv tem ambiente de equação
+   em 84,9% e estava no disco), e a cotação nunca foi US$ 100–180 — o bucket é
+   *requester pays* e o fonte inteiro para fora da AWS passa de **US$ 400**. A
+   medição de degradação (16,6%, IC [12,9%–20,8%]) continua válida e é o que
+   justificaria comprar; a decisão segue aberta, com o preço certo.
 6. ~~**4b · RedPajama filtrado pelo spine**~~ — ✅ 835.379 documentos,
    42.145.866.036 caracteres = **10,54 B tokens** (contagem exata; o estimado era
    10,56 B ±4%). Com o OpenWebMath, o corpus é **13,15 B tokens**.
 7. **Fechar o G1.2** — ⚠️ as duas rotas baratas estão **descartadas por medição**:
    lote maior piorou (0,4486) e mais dados empataram (0,4520), ver §"As duas
    alavancas de escala são planas". O que resta pede dinheiro: base maior
-   (ΦEnc-150M, US$ 25–90 alugado) ou supervisão diferente do par de citação. A
+   (ΦEnc-150M, US$ 25–90 alugado) ou supervisão diferente do par de citação. ~~A
    decisão é do dono do projeto, e é a primeira do projeto que não tem versão de
-   custo zero.
+   custo zero.~~
+
+   ⚠️ **Essa última frase deixou de valer em 2026-09-06**, e vale registrar por
+   quê: a auditoria de amostragem abriu uma rota de custo zero que era invisível
+   antes — treinar com os MESMOS 400 mil pares, sorteados, dá 191.300 documentos
+   citados distintos em vez de 17.844. Mesma GPU, mesmo tempo, 10,7× mais
+   diversidade. É o passo **C** da tabela acima.
+
+   Duas rotas caras foram descartadas por medição, e isso foi lido como "não há
+   rota barata" quando o certo era "não há rota barata **entre as que eu havia
+   pensado**". A terceira apareceu de um defeito, não de uma ideia.
 8. ~~**Fechar o G1.5**~~ — 🟡 metade fechada, ver §"G1.5 — o corpus por um hash".
    O que falta é capturar parâmetros na execução em vez de reconstruí-los, e isso
    se resolve etapa por etapa, de graça, quando cada uma rodar de novo.
