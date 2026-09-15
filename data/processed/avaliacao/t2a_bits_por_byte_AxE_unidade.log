@@ -1,0 +1,99 @@
+23:32:22 INFO    40 partes reservadas de 44 (4 no treino)
+23:32:24 INFO    2000 documentos, contexto 1024, máscara 15%
+23:32:24 INFO    dispositivo: AMD Radeon RX 7600 (DirectML)
+23:32:24 INFO    medindo A (models/phienc-t2a-A)
+23:32:34 INFO      A: 50/2000 documentos
+23:32:40 INFO      A: 100/2000 documentos
+23:32:46 INFO      A: 150/2000 documentos
+23:32:52 INFO      A: 200/2000 documentos
+23:32:58 INFO      A: 250/2000 documentos
+23:33:05 INFO      A: 300/2000 documentos
+23:33:11 INFO      A: 350/2000 documentos
+23:33:17 INFO      A: 400/2000 documentos
+23:33:23 INFO      A: 450/2000 documentos
+23:33:29 INFO      A: 500/2000 documentos
+23:33:37 INFO      A: 550/2000 documentos
+23:33:43 INFO      A: 600/2000 documentos
+23:33:50 INFO      A: 650/2000 documentos
+23:33:57 INFO      A: 700/2000 documentos
+23:34:03 INFO      A: 750/2000 documentos
+23:34:10 INFO      A: 800/2000 documentos
+23:34:17 INFO      A: 850/2000 documentos
+23:34:23 INFO      A: 900/2000 documentos
+23:34:29 INFO      A: 950/2000 documentos
+23:34:35 INFO      A: 1000/2000 documentos
+23:34:42 INFO      A: 1050/2000 documentos
+23:34:48 INFO      A: 1100/2000 documentos
+23:34:55 INFO      A: 1150/2000 documentos
+23:35:01 INFO      A: 1200/2000 documentos
+23:35:07 INFO      A: 1250/2000 documentos
+23:35:13 INFO      A: 1300/2000 documentos
+23:35:20 INFO      A: 1350/2000 documentos
+23:35:26 INFO      A: 1400/2000 documentos
+23:35:32 INFO      A: 1450/2000 documentos
+23:35:38 INFO      A: 1500/2000 documentos
+23:35:44 INFO      A: 1550/2000 documentos
+23:35:51 INFO      A: 1600/2000 documentos
+23:35:57 INFO      A: 1650/2000 documentos
+23:36:03 INFO      A: 1700/2000 documentos
+23:36:09 INFO      A: 1750/2000 documentos
+23:36:15 INFO      A: 1800/2000 documentos
+23:36:22 INFO      A: 1850/2000 documentos
+23:36:28 INFO      A: 1900/2000 documentos
+23:36:34 INFO      A: 1950/2000 documentos
+23:36:40 INFO      A: 2000/2000 documentos
+23:36:40 INFO    A                        1.30962 bits/byte · 1181775 bytes escondidos · 253.3 s
+23:36:40 INFO    medindo E (models/phienc-t2a-E)
+23:36:48 INFO      E: 50/2000 documentos
+23:36:55 INFO      E: 100/2000 documentos
+23:37:02 INFO      E: 150/2000 documentos
+23:37:09 INFO      E: 200/2000 documentos
+23:37:16 INFO      E: 250/2000 documentos
+23:37:23 INFO      E: 300/2000 documentos
+23:37:31 INFO      E: 350/2000 documentos
+23:37:38 INFO      E: 400/2000 documentos
+23:37:45 INFO      E: 450/2000 documentos
+23:37:52 INFO      E: 500/2000 documentos
+23:37:59 INFO      E: 550/2000 documentos
+23:38:06 INFO      E: 600/2000 documentos
+23:38:14 INFO      E: 650/2000 documentos
+23:38:21 INFO      E: 700/2000 documentos
+23:38:28 INFO      E: 750/2000 documentos
+23:38:35 INFO      E: 800/2000 documentos
+23:38:42 INFO      E: 850/2000 documentos
+23:38:50 INFO      E: 900/2000 documentos
+23:38:57 INFO      E: 950/2000 documentos
+23:39:04 INFO      E: 1000/2000 documentos
+23:39:11 INFO      E: 1050/2000 documentos
+23:39:19 INFO      E: 1100/2000 documentos
+23:39:26 INFO      E: 1150/2000 documentos
+23:39:33 INFO      E: 1200/2000 documentos
+23:39:40 INFO      E: 1250/2000 documentos
+23:39:48 INFO      E: 1300/2000 documentos
+23:39:55 INFO      E: 1350/2000 documentos
+23:40:02 INFO      E: 1400/2000 documentos
+23:40:09 INFO      E: 1450/2000 documentos
+23:40:18 INFO      E: 1500/2000 documentos
+23:40:25 INFO      E: 1550/2000 documentos
+23:40:32 INFO      E: 1600/2000 documentos
+23:40:39 INFO      E: 1650/2000 documentos
+23:40:46 INFO      E: 1700/2000 documentos
+23:40:53 INFO      E: 1750/2000 documentos
+23:41:00 INFO      E: 1800/2000 documentos
+23:41:07 INFO      E: 1850/2000 documentos
+23:41:14 INFO      E: 1900/2000 documentos
+23:41:22 INFO      E: 1950/2000 documentos
+23:41:29 INFO      E: 2000/2000 documentos
+23:41:29 INFO    E                        1.36795 bits/byte · 1181775 bytes escondidos · 288.1 s
+23:41:29 INFO    bytes escondidos idênticos nos 2 braços, documento a documento
+
+==============================================================================
+  BITS POR BYTE · 2000 documentos · contexto 1024 · mascaramento por UNIDADE
+  (menor é melhor)             bits/byte        bytes  acurácia*
+  A                              1.30962    1,181,775     0.4166
+  E                              1.36795    1,181,775     0.4230
+  * acurácia é DIAGNÓSTICO: ela não compara tokenizers.
+
+  A × E: Δ -0.05088 [-0.05604, -0.04585] → A vence
+==============================================================================
+  -> data\processed\avaliacao\t2a_bits_por_byte_AxE_unidade.json
