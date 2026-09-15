@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-12
+# Estado do projeto — 2026-09-15
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -36,7 +36,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
-| **§11.2** · o bake-off | 🟡 **A×E montado, empacotado** | as seis variantes a 5 B são 263 h ≈ 8,8 semanas de cota. O que cabe é o **par limpo** A×E a 0,8 B: `kaggle/t2a_tokenizer.py`, dois braços de 7,5 h, 5,4 GB empacotados. C e D têm contagem de parâmetros diferente de A (a 48 M a embedding é 43,7%), então carregam confundidor de capacidade. ⚠️ **Empate a 0,8 B NÃO refuta a §8** — registra-se como não decidido |
+| **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15 |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
@@ -49,6 +49,68 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## T2a — E vence, e só o terceiro instrumento podia dizer isso (2026-09-15)
+
+O braço E terminou no Kaggle (8 h 08 min, 0 rollbacks), foi baixado e **reexportado
+localmente**: o Kaggle exporta com `transformers` 5.0, a medida roda na 4.48.3, que
+ignora chave desconhecida do config e usaria defaults. Pelo mesmo exportador de A:
+78 tensores idênticos, diferença de logits 0, configs A e E idênticos byte a byte.
+
+Três instrumentos, todos sobre partes que nenhum braço viu (40 de 44), cada um com
+a regra commitada ANTES do próprio número:
+
+| instrumento | docs | viés favorece | A | E | A − E |
+|---|---|---|---|---|---|
+| 1 · 15% dos tokens | 2.000 | E (tokens curtos) | 0,66534 | 0,58780 | **+0,078** [+0,074; +0,083] |
+| 2 · unidades comuns inteiras | 2.000 | A (marginais ≥ conjunta) | 1,30962 | 1,36795 | **−0,051** [−0,056; −0,046] |
+| 3 · PLL-word-l2r nas mesmas unidades | 1.000 | resíduo leve para A | 0,89688 | 0,85004 | **+0,047** [+0,043; +0,050] |
+
+Bits por byte, menor é melhor. **Pela regra (`9d08f32`): E à frente na l2r é robusto,
+e a §8 do DOC-05 cai** — o regex de LaTeX custa, a 0,6 B.
+
+### Por que foram três, e não um
+
+- **O instrumento 1 era o pré-registrado, e a regra dele já dizia que "E vence" é
+  ambíguo**: 15% dos tokens de E escondem pedaços menores, cercados de fragmentos
+  visíveis da mesma palavra. O resultado caiu no lado para onde ele empurra.
+- ⚠️ **O desempate escrito na docstring era o instrumento errado.** Ela mandava rodar
+  a pseudo-verossimilhança original (um token por vez), que tem o MESMO viés, mais
+  forte — Kauf & Ivanova (ACL 2023) mediram. Corrigido antes de rodar. Terceira vez
+  que o instrumento nomeado de antemão é o errado, depois de acurácia de MLM aqui e
+  McNemar sobre top-k no T1b2.
+- **Os instrumentos 1 e 2 se anularam**, cada um a favor do braço que favorece. Dois
+  ICs estreitos, de sinais opostos: um instrumento enviesado com poder de sobra acha
+  o viés com a mesma confiança com que acharia o efeito.
+- **O 3 cai DENTRO do intervalo que 1 e 2 cercam** (+0,078 > +0,047 > −0,051), como
+  a teoria prevê. E a queda de 2 para 3 é maior em E (−0,52) que em A (−0,41): E
+  pagava mais a folga entre marginais e conjunta, que é o mecanismo nomeado. (2 foi
+  medido em 2.000 documentos e 3 nos primeiros 1.000 deles; a comparação é
+  aproximada.)
+
+Medido antes de desenhar o 2: unidades de mais de 8 tokens são 6% das unidades e
+**53% dos bytes**. A diferença entre os tokenizers mora no LaTeX longo sem espaço.
+
+### O que acompanha o número
+
+- ⚠️ **Assimetria não controlada, a favor de E.** A teve um spike no passo 3.798:
+  voltou ao checkpoint 3.500, descartou 299 lotes (~3,3% do orçamento) e fez 500
+  passos com LR pela metade. E rodou limpo. Estimativa de ordem de grandeza, NÃO
+  medida: 3% a menos de atualizações no platô, seguidas do decaimento final, move
+  bem menos que os ~5% de diferença. Só uma segunda semente de A resolveria.
+- **0,6 B, 8,3× abaixo do protocolo do §11.2**, uma semente por braço.
+- **O resíduo do 3 favorece A**, e E venceu apesar dele.
+
+### O que isto muda
+
+- **O controle da ablação do §2.3 passa a ser o braço E**, e o braço tratado tem de
+  usar o tokenizer E. ⚠️ A célula do T2a avisava que com E `\frac` está estilhaçado e
+  o mascaramento por span se comporta de outro jeito — conferir isso ANTES de gastar
+  as 10 h 25 de cota que restam.
+- A §8 e a §11 do DOC-05 precisam ser reescritas com este resultado.
+- Pausa no meio da l2r: o processo foi suspenso (`NtSuspendProcess`) para liberar a
+  GPU e retomado 38 min depois, sem erro — a conferência do atalho da cabeça e a de
+  bytes idênticos passaram no fim.
 
 ## A sonda de domínios: `math` e `cs` dobrariam o LaTeX (2026-09-12)
 

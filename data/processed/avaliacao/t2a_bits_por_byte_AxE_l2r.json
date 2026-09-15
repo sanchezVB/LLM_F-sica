@@ -1,0 +1,71 @@
+{
+  "protocolo": {
+    "documentos": 1000,
+    "contexto": 1024,
+    "fracao_mascara": 0.15,
+    "semente": 17,
+    "mascaramento": "l2r",
+    "min_caracteres": 2000,
+    "corpus": "data/processed/redpajama_fisica",
+    "excluido_de": "data/processed/t2a_A",
+    "disjunto_do_treino": true,
+    "partes_reservadas": 40,
+    "dispositivo": "privateuseone:0"
+  },
+  "modelos": {
+    "A": {
+      "bits_por_byte": 0.89688,
+      "documentos": 1000,
+      "bytes_escondidos": 588170,
+      "tokens_escondidos": 128159,
+      "bytes_por_token_escondido": 4.589,
+      "acuracia_diagnostica": 0.5085,
+      "bits_por_token": 4.1161,
+      "nota": "⚠️ `acuracia_diagnostica` NÃO compara tokenizers: quem parte em pedaços menores acerta mais sem ser melhor. Quem decide é `bits_por_byte`, cujo denominador é TEXTO. E ele ainda é conservador para o tokenizer de tokens longos, que esconde pedaços maiores por máscara — ver o módulo.",
+      "caminho": "models/phienc-t2a-A",
+      "segundos": 2610.0,
+      "documentos_no_teto_de_contexto": 0,
+      "id_mascara": 4,
+      "n_ids_especiais": 5
+    },
+    "E": {
+      "bits_por_byte": 0.85004,
+      "documentos": 1000,
+      "bytes_escondidos": 588170,
+      "tokens_escondidos": 153165,
+      "bytes_por_token_escondido": 3.84,
+      "acuracia_diagnostica": 0.5741,
+      "bits_por_token": 3.2643,
+      "nota": "⚠️ `acuracia_diagnostica` NÃO compara tokenizers: quem parte em pedaços menores acerta mais sem ser melhor. Quem decide é `bits_por_byte`, cujo denominador é TEXTO. E ele ainda é conservador para o tokenizer de tokens longos, que esconde pedaços maiores por máscara — ver o módulo.",
+      "caminho": "models/phienc-t2a-E",
+      "segundos": 6865.6,
+      "documentos_no_teto_de_contexto": 0,
+      "id_mascara": 4,
+      "n_ids_especiais": 5
+    }
+  },
+  "confrontos": [
+    {
+      "diferenca_media": 0.046613,
+      "ic95": [
+        0.043213,
+        0.050061
+      ],
+      "cruza_zero": false,
+      "documentos": 1000,
+      "vence": "b",
+      "reamostras": 10000,
+      "nota": "Em bits por byte, MENOR é melhor: `vence` nomeia o braço com menos bits. `cruza_zero` verdadeiro é EMPATE, e num run subdimensionado empate não é evidência contra a hipótese.",
+      "braços": {
+        "a": "A",
+        "b": "E"
+      },
+      "vencedor": "E",
+      "bits_por_byte": {
+        "A": 0.89688,
+        "E": 0.85004
+      }
+    }
+  ],
+  "como_ler": "MENOR é melhor. As MESMAS unidades e o MESMO contexto do mascaramento por unidade, mas cada unidade pontuada pela regra da cadeia (PLL-word-l2r, Kauf & Ivanova, ACL 2023): a folga entre marginais e conjunta some. ⚠️ Resíduo nomeado antes do número: dentro da unidade, o tokenizer de tokens curtos ainda tem trechos escondidos mais longos, fora da distribuição do treino — favorece o de tokens LONGOS. Empate aqui é 'não decidido', não evidência contra a §8. Regra completa no módulo."
+}
