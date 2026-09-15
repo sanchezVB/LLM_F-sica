@@ -59,7 +59,13 @@ import torch.nn.functional as F  # noqa: E402
 from transformers import AutoModelForMaskedLM, AutoTokenizer  # noqa: E402
 
 from phifm.core.console import utf8 as console_utf8  # noqa: E402
-from phifm.eval.bits_por_byte import Acumulador, confronto  # noqa: E402
+from phifm.eval.bits_por_byte import (  # noqa: E402
+    Acumulador,
+    confronto,
+    posicoes_nas_unidades,
+    sortear_unidades,
+    unidades_comuns,
+)
 from phifm.eval.mlm_regiao import posicoes_mascaradas  # noqa: E402
 from phifm.training.embedding import escolher_dispositivo  # noqa: E402
 from phifm.training.pretrain.dados import NOME_MANIFESTO  # noqa: E402
@@ -162,7 +168,8 @@ def janela_comum(texto: str, tokenizers: list, contexto: int,
 
 def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
           fracao: float, semente: int, tokenizers_todos: list,
-          teto_caracteres: int) -> tuple[Acumulador, dict]:
+          teto_caracteres: int,
+          mascaramento: str = "token") -> tuple[Acumulador, dict]:
     tok = AutoTokenizer.from_pretrained(caminho)
     mod = AutoModelForMaskedLM.from_pretrained(
         caminho, attn_implementation="eager").to(dev).eval()
@@ -180,8 +187,21 @@ def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
             offs = enc["offset_mapping"]
             if len(ids) >= contexto:
                 n_truncados += 1
-            proibidas = np.flatnonzero(np.isin(ids, especiais))
-            pos = posicoes_mascaradas(len(ids), semente, i, fracao, proibidas)
+            if mascaramento == "unidade":
+                # ⚠️ Os offsets de TODOS os braços, tokenizados exatamente como
+                # este: as unidades têm de ser as mesmas em cada passada.
+                offs_todos = [
+                    t(texto, return_offsets_mapping=True, truncation=True,
+                      max_length=contexto)["offset_mapping"]
+                    for t in tokenizers_todos]
+                unid = unidades_comuns(offs_todos, len(texto))
+                escolha = sortear_unidades(len(unid), semente, i, fracao)
+                pos, bytes_tok = posicoes_nas_unidades(
+                    offs, [unid[k] for k in escolha], texto)
+            else:
+                proibidas = np.flatnonzero(np.isin(ids, especiais))
+                pos = posicoes_mascaradas(len(ids), semente, i, fracao, proibidas)
+                bytes_tok = None
             if pos.size == 0:
                 continue
             entrada = ids.copy()
@@ -198,9 +218,10 @@ def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
             # ⚠️ Os bytes que cada token mascarado cobria, do OFFSET e não de uma
             # média: a média já é a quantidade que se quer comparar, e usá-la no
             # denominador esconderia a diferença dentro do próprio denominador.
-            bytes_tok = np.array(
-                [len(texto[a:b_].encode("utf-8")) for a, b_ in
-                 (offs[int(p)] for p in pos)], dtype=np.int64)
+            if bytes_tok is None:
+                bytes_tok = np.array(
+                    [len(texto[a:b_].encode("utf-8")) for a, b_ in
+                     (offs[int(p)] for p in pos)], dtype=np.int64)
             acum.somar(log_probs, bytes_tok, certo)
             if (i + 1) % 50 == 0:
                 log.info("  %s: %d/%d documentos", rotulo, i + 1, len(textos))
@@ -212,6 +233,27 @@ def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
     d["id_mascara"] = id_mask
     d["n_ids_especiais"] = len(especiais)
     return acum, d
+
+
+COMO_LER = {
+    "token": (
+        "MENOR é melhor: bits por byte é custo de reconstruir o texto. O "
+        "denominador é TEXTO, então a conta vale entre vocabulários diferentes — "
+        "que acurácia de MLM não vale. ⚠️ Mascarando por TOKEN o teste é "
+        "CONSERVADOR para o tokenizer de tokens longos: ele esconde pedaços "
+        "maiores por máscara. Vitória dele é robusta; empate e derrota são "
+        "ambíguos e pedem o mascaramento por UNIDADE, de viés oposto. NÃO a "
+        "pseudo-verossimilhança original, que tem o mesmo viés mais forte "
+        "(Kauf & Ivanova, ACL 2023)."),
+    "unidade": (
+        "MENOR é melhor. Por UNIDADE os braços escondem os MESMOS bytes com o "
+        "MESMO contexto visível — conferido documento a documento. ⚠️ O viés "
+        "que sobra favorece o tokenizer de tokens LONGOS: os tokens de uma "
+        "unidade são previstos independentemente, e quem a parte em mais pedaços "
+        "paga a folga entre entropias marginais e conjunta. Vitória do de tokens "
+        "CURTOS aqui é robusta; a regra completa, escrita antes do número, está "
+        "no módulo `phifm.eval.bits_por_byte`."),
+}
 
 
 def main() -> int:
@@ -228,6 +270,13 @@ def main() -> int:
     p.add_argument("--n-documentos", type=int, default=500)
     p.add_argument("--contexto", type=int, default=1024)
     p.add_argument("--fracao-mascara", type=float, default=0.15)
+    p.add_argument("--mascaramento", choices=("token", "unidade"),
+                   default="token",
+                   help="`token`: 15%% dos tokens de cada braço, viés a favor do "
+                        "tokenizer de tokens CURTOS. `unidade`: 15%% das unidades "
+                        "comuns a todos os braços, escondidas inteiras — mesmos "
+                        "bytes e mesmo contexto nos braços, viés a favor do de "
+                        "tokens LONGOS. Ver o módulo `phifm.eval.bits_por_byte`")
     p.add_argument("--min-caracteres", type=int, default=2000)
     p.add_argument("--teto-caracteres", type=int, default=20_000,
                    help="corte bruto antes de tokenizar; só para não gastar "
@@ -270,14 +319,29 @@ def main() -> int:
         log.info("medindo %s (%s)", rotulo, caminho)
         acums[rotulo], resultados[rotulo] = medir(
             rotulo, caminho, textos, dev, a.contexto, a.fracao_mascara,
-            a.semente, tokenizers, a.teto_caracteres)
+            a.semente, tokenizers, a.teto_caracteres, a.mascaramento)
         d = resultados[rotulo]
         log.info("%-24s %.5f bits/byte · %d bytes escondidos · %.1f s",
                  rotulo, d["bits_por_byte"], d["bytes_escondidos"],
                  d["segundos"])
 
-    confrontos = []
     rotulos = [r for r, _ in specs]
+    if a.mascaramento == "unidade":
+        # ⚠️ A promessa inteira do instrumento, conferida e não suposta: os braços
+        # esconderam os MESMOS bytes em cada documento. Se não, o pareamento
+        # compararia textos diferentes e o número sairia igual de limpo.
+        ref = [d.bytes_escondidos for d in acums[rotulos[0]].docs]
+        for r in rotulos[1:]:
+            outro = [d.bytes_escondidos for d in acums[r].docs]
+            if outro != ref:
+                raise SystemExit(
+                    f"--mascaramento unidade: {rotulos[0]} e {r} esconderam bytes "
+                    "DIFERENTES. As unidades não são comuns; nenhum número deste "
+                    "run é válido.")
+        log.info("bytes escondidos idênticos nos %d braços, documento a documento",
+                 len(rotulos))
+
+    confrontos = []
     for i in range(len(rotulos)):
         for j in range(i + 1, len(rotulos)):
             confrontos.append(confronto(rotulos[i], acums[rotulos[i]],
@@ -288,6 +352,7 @@ def main() -> int:
         "protocolo": {
             "documentos": len(textos), "contexto": a.contexto,
             "fracao_mascara": a.fracao_mascara, "semente": a.semente,
+            "mascaramento": a.mascaramento,
             "min_caracteres": a.min_caracteres,
             "corpus": str(a.corpus).replace("\\", "/"),
             "excluido_de": (str(a.excluir_de).replace("\\", "/")
@@ -298,14 +363,7 @@ def main() -> int:
         },
         "modelos": resultados,
         "confrontos": confrontos,
-        "como_ler": (
-            "MENOR é melhor: bits por byte é custo de reconstruir o texto. O "
-            "denominador é TEXTO, então a conta vale entre vocabulários "
-            "diferentes — que acurácia de MLM não vale. ⚠️ O teste continua "
-            "CONSERVADOR para o tokenizer de tokens longos: ele esconde pedaços "
-            "maiores por máscara. Vitória dele é robusta; empate e derrota são "
-            "ambíguos e pedem a pseudo-verossimilhança canônica antes de virar "
-            "conclusão."),
+        "como_ler": COMO_LER[a.mascaramento],
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(artefato, indent=2, ensure_ascii=False),
@@ -313,7 +371,8 @@ def main() -> int:
 
     print()
     print("=" * 78)
-    print(f"  BITS POR BYTE · {len(textos)} documentos · contexto {a.contexto}")
+    print(f"  BITS POR BYTE · {len(textos)} documentos · contexto {a.contexto} "
+          f"· mascaramento por {a.mascaramento.upper()}")
     print(f"  {'(menor é melhor)':<26} {'bits/byte':>11} {'bytes':>12} "
           f"{'acurácia*':>10}")
     for rotulo in rotulos:

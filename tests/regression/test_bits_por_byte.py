@@ -24,6 +24,9 @@ from phifm.eval.bits_por_byte import (  # noqa: E402
     Acumulador,
     bootstrap_pareado,
     confronto,
+    posicoes_nas_unidades,
+    sortear_unidades,
+    unidades_comuns,
 )
 
 
@@ -165,3 +168,124 @@ def test_o_confronto_nomeia_o_vencedor_pelo_ROTULO():
     r = confronto("variante A", a, "variante E", b)
     assert r["vencedor"] == "variante A"
     assert r["bits_por_byte"]["variante A"] < r["bits_por_byte"]["variante E"]
+
+
+# ── o segundo instrumento: unidades comuns ──────────────────────────────────
+#
+# ⚠️ Adicionado em 2026-09-14, depois de o mascaramento por token dar E à frente
+# por +0,078. Aquele instrumento favorece o tokenizer de tokens curtos; este
+# favorece o de tokens longos. Os testes abaixo travam as três promessas que
+# tornam o segundo legível: nenhum token partido, bytes idênticos, contexto igual.
+
+
+def _segmentacao(rng, n: int) -> list[tuple[int, int]]:
+    """Uma partição aleatória de `[0, n)` em tokens, às vezes pulando um caractere
+    (o espaço que um pré-tokenizador descarta)."""
+    offs, i = [], 0
+    while i < n:
+        if rng.random() < 0.1:
+            i += 1
+            continue
+        j = min(n, i + int(rng.integers(1, 6)))
+        offs.append((i, j))
+        i = j
+    return offs
+
+
+def test_a_unidade_comum_NAO_parte_token_de_braco_nenhum():
+    """`\\frac` inteiro em A, `\\fr` + `ac` em E: a unidade é a palavra toda."""
+    A = [(0, 5)]
+    E = [(0, 3), (3, 5)]
+    assert unidades_comuns([A, E], 5) == [(0, 5)]
+
+
+def test_texto_que_um_braco_NAO_representa_fica_fora():
+    """O espaço em `ab cd` não tem token em nenhum braço: não há como escondê-lo."""
+    A = [(0, 2), (3, 5)]
+    E = [(0, 1), (1, 2), (3, 5)]
+    assert unidades_comuns([A, E], 5) == [(0, 2), (3, 5)]
+
+
+def test_com_um_braco_so_e_RECUSADO():
+    with pytest.raises(ValueError, match="entre BRAÇOS"):
+        unidades_comuns([[(0, 3)]], 3)
+
+
+def test_os_bytes_escondidos_sao_IDENTICOS_nos_bracos():
+    """⚠️ A promessa inteira do instrumento, sobre segmentações aleatórias e texto
+    com caracteres de vários bytes. O script confere o mesmo em produção."""
+    rng = np.random.default_rng(3)
+    for caso in range(200):
+        n = int(rng.integers(5, 80))
+        texto = "".join(rng.choice(list(r"ab \{}αβ∂"), size=n))
+        bracos = [_segmentacao(rng, n) for _ in range(3)]
+        unid = unidades_comuns(bracos, n)
+        esc = [unid[k] for k in sortear_unidades(len(unid), 17, caso, 0.3)]
+        somas = {int(posicoes_nas_unidades(b, esc, texto)[1].sum()) for b in bracos}
+        assert len(somas) <= 1, (caso, somas)
+
+
+def test_toda_posicao_da_unidade_e_escondida_e_NENHUMA_de_fora():
+    rng = np.random.default_rng(5)
+    for caso in range(200):
+        n = int(rng.integers(5, 80))
+        texto = "x" * n
+        A, E = _segmentacao(rng, n), _segmentacao(rng, n)
+        unid = unidades_comuns([A, E], n)
+        esc = [unid[k] for k in sortear_unidades(len(unid), 17, caso, 0.3)]
+        for offs in (A, E):
+            pos, _ = posicoes_nas_unidades(offs, esc, texto)
+            dentro = {i for i, (a, b) in enumerate(offs)
+                      if any(lo <= a < hi for lo, hi in esc)}
+            assert set(pos.tolist()) == dentro
+            for i in pos:
+                a, b = offs[int(i)]
+                assert any(lo <= a and b <= hi for lo, hi in esc)
+
+
+def test_especiais_com_offset_zero_nunca_sao_escondidos():
+    """[CLS] e [SEP] chegam com `(0, 0)`; escondê-los mediria outra tarefa."""
+    offs = [(0, 0), (0, 3), (3, 5), (0, 0)]
+    pos, byt = posicoes_nas_unidades(offs, [(0, 5)], "abcde")
+    assert pos.tolist() == [1, 2]
+    assert byt.tolist() == [5, 0]
+
+
+def test_offsets_de_OUTRO_braco_sao_recusados():
+    """Um token que atravessa a unidade prova que os cortes vieram de outro braço."""
+    with pytest.raises(ValueError, match="atravessa"):
+        posicoes_nas_unidades([(0, 4)], [(0, 2)], "abcd")
+    with pytest.raises(ValueError, match="não é comum"):
+        posicoes_nas_unidades([(0, 2)], [(3, 4)], "abcd")
+
+
+def test_o_sorteio_e_DETERMINISTICO_e_nunca_vazio():
+    a = sortear_unidades(100, 17, 4, 0.15)
+    assert a.tolist() == sortear_unidades(100, 17, 4, 0.15).tolist()
+    assert a.tolist() != sortear_unidades(100, 17, 5, 0.15).tolist()
+    assert sortear_unidades(3, 17, 0, 0.0).size == 1
+    assert sortear_unidades(0, 17, 0, 0.15).size == 0
+
+
+def test_o_viés_por_unidade_PENALIZA_quem_parte_mais():
+    """⚠️ Por que este instrumento favorece A, e não é neutro.
+
+    Dois caracteres perfeitamente correlacionados — `xy` ou `zw`, meio a meio. A
+    entropia real da unidade é 1 bit. Um braço que a tem como UM token paga 1 bit;
+    um que a parte em dois, previstos independentemente com marginais ótimas (1/2
+    cada), paga 2 — sem ser modelo pior. Vitória do braço que parte mais, aqui, é
+    vitória apesar do instrumento."""
+    inteiro, partido = Acumulador(), Acumulador()
+    _doc(inteiro, [0.5], [2])
+    _doc(partido, [0.5, 0.5], [2, 0])
+    assert inteiro.como_dict()["bits_por_byte"] == 0.5
+    assert partido.como_dict()["bits_por_byte"] == 1.0
+
+
+def test_a_leitura_NAO_manda_mais_para_a_PLL_original():
+    """A docstring mandava desfazer a ambiguidade com a pseudo-verossimilhança
+    original, que tem o mesmo viés, mais forte. Fica travado que o artefato
+    aponta para o instrumento de viés oposto."""
+    fonte = (RAIZ / "scripts/avaliar_bits_por_byte.py").read_text(encoding="utf-8")
+    assert "pedem a pseudo-verossimilhança canônica" not in fonte
+    assert "Kauf & Ivanova" in fonte

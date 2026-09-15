@@ -1,0 +1,70 @@
+{
+  "protocolo": {
+    "documentos": 2000,
+    "contexto": 1024,
+    "fracao_mascara": 0.15,
+    "semente": 17,
+    "min_caracteres": 2000,
+    "corpus": "data/processed/redpajama_fisica",
+    "excluido_de": "data/processed/t2a_A",
+    "disjunto_do_treino": true,
+    "partes_reservadas": 40,
+    "dispositivo": "privateuseone:0"
+  },
+  "modelos": {
+    "A": {
+      "bits_por_byte": 0.66534,
+      "documentos": 2000,
+      "bytes_escondidos": 1175305,
+      "tokens_escondidos": 256121,
+      "bytes_por_token_escondido": 4.589,
+      "acuracia_diagnostica": 0.5909,
+      "bits_por_token": 3.0532,
+      "nota": "⚠️ `acuracia_diagnostica` NÃO compara tokenizers: quem parte em pedaços menores acerta mais sem ser melhor. Quem decide é `bits_por_byte`, cujo denominador é TEXTO. E ele ainda é conservador para o tokenizer de tokens longos, que esconde pedaços maiores por máscara — ver o módulo.",
+      "caminho": "models/phienc-t2a-A",
+      "segundos": 230.9,
+      "documentos_no_teto_de_contexto": 0,
+      "id_mascara": 4,
+      "n_ids_especiais": 5
+    },
+    "E": {
+      "bits_por_byte": 0.5878,
+      "documentos": 2000,
+      "bytes_escondidos": 1172809,
+      "tokens_escondidos": 305462,
+      "bytes_por_token_escondido": 3.839,
+      "acuracia_diagnostica": 0.6783,
+      "bits_por_token": 2.2568,
+      "nota": "⚠️ `acuracia_diagnostica` NÃO compara tokenizers: quem parte em pedaços menores acerta mais sem ser melhor. Quem decide é `bits_por_byte`, cujo denominador é TEXTO. E ele ainda é conservador para o tokenizer de tokens longos, que esconde pedaços maiores por máscara — ver o módulo.",
+      "caminho": "models/phienc-t2a-E",
+      "segundos": 271.8,
+      "documentos_no_teto_de_contexto": 0,
+      "id_mascara": 4,
+      "n_ids_especiais": 5
+    }
+  },
+  "confrontos": [
+    {
+      "diferenca_media": 0.078217,
+      "ic95": [
+        0.073759,
+        0.082603
+      ],
+      "cruza_zero": false,
+      "documentos": 2000,
+      "vence": "b",
+      "reamostras": 10000,
+      "nota": "Em bits por byte, MENOR é melhor: `vence` nomeia o braço com menos bits. `cruza_zero` verdadeiro é EMPATE, e num run subdimensionado empate não é evidência contra a hipótese.",
+      "braços": {
+        "a": "A",
+        "b": "E"
+      },
+      "vencedor": "E",
+      "bits_por_byte": {
+        "A": 0.66534,
+        "E": 0.5878
+      }
+    }
+  ],
+  "como_ler": "MENOR é melhor: bits por byte é custo de reconstruir o texto. O denominador é TEXTO, então a conta vale entre vocabulários diferentes — que acurácia de MLM não vale. ⚠️ O teste continua CONSERVADOR para o tokenizer de tokens longos: ele esconde pedaços maiores por máscara. Vitória dele é robusta; empate e derrota são ambíguos e pedem a pseudo-verossimilhança canônica antes de virar conclusão."
+}

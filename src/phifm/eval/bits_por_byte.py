@@ -41,12 +41,66 @@ A consequência para a leitura, e ela tem de estar escrita antes do número:
 
   - **A vence** — robusto. Venceu apesar de o instrumento favorecer E.
   - **empate**  — ambíguo, e não é evidência contra a §8.
-  - **E vence** — ambíguo pelo mesmo motivo, e pede o teste canônico
-    (pseudo-verossimilhança de Salazar et al., um passe por token) antes de virar
-    conclusão. É caro: O(n) passes por sequência em vez de um.
+  - **E vence** — ambíguo pelo mesmo motivo, e pede um SEGUNDO instrumento, de
+    viés oposto, antes de virar conclusão.
 
 Medir os bytes REALMENTE escondidos por cada modelo, em vez de supor que 15% dos
 tokens é 15% do texto, é o que mantém o denominador honesto sob esse viés.
+
+## ⚠️ O segundo instrumento NÃO é a pseudo-verossimilhança original
+
+Corrigido em 2026-09-14, depois de o mascaramento por token dar E à frente por
++0,078 [+0,074; +0,083] e ANTES de rodar qualquer outra medida.
+
+Esta docstring nomeava "o teste canônico (pseudo-verossimilhança de Salazar et
+al., um passe por token)" como o que desfaria a ambiguidade. Ele tem o MESMO viés,
+mais forte: com um token escondido e todo o resto visível, os fragmentos vizinhos
+da mesma palavra ficam todos à mostra. Kauf & Ivanova (ACL 2023, "A Better Way to
+Do Masked Language Model Scoring") mediram exatamente isso — a PLL original INFLA a
+nota de palavras partidas em vários tokens. Um "E vence de novo" nela pareceria
+confirmação e seria o artefato ampliado.
+
+É a terceira vez que o instrumento nomeado de antemão é o errado: acurácia de MLM
+neste mesmo experimento, McNemar sobre pertinência ao top-k no T1b2.
+
+## O segundo instrumento: UNIDADES COMUNS escondidas inteiras
+
+Um **corte comum** é uma posição do texto que não cai dentro de token nenhum de
+NENHUM braço. Entre dois cortes comuns consecutivos há uma **unidade**, e cada
+unidade é um conjunto de tokens inteiros em cada braço. Sortear unidades e mascarar
+todos os tokens delas dá, nos dois braços:
+
+  - os MESMOS bytes escondidos, byte a byte — conferido documento a documento, e o
+    script levanta se divergirem;
+  - o MESMO contexto visível.
+
+A redundância local some por construção. O viés que sobra aponta para o OUTRO
+lado: os tokens de uma unidade são previstos independentemente, e a soma das
+entropias marginais é ≥ a entropia conjunta, com igualdade só quando a unidade é
+um token. Quem parte a unidade em mais pedaços paga essa folga — e é E, que usa
+mais tokens que A em 19,8% das unidades e menos em 7,3% (200 documentos). Kauf &
+Ivanova medem a mesma direção na variante com todos os tokens da palavra
+mascarados.
+
+⚠️ Medido nos mesmos 200 documentos: as unidades de mais de 8 tokens são 6% das
+unidades e **53% dos bytes**. A diferença entre os tokenizers mora nas sequências
+longas de LaTeX sem espaço. Um instrumento que sorteia por token vê sobretudo
+pedaços curtos; sortear por unidade com a mesma probabilidade para cada uma
+esconde cada BYTE com a mesma probabilidade.
+
+## A regra do segundo instrumento, escrita antes do número
+
+Os dois instrumentos têm vieses OPOSTOS — por token favorece E, por unidade
+favorece A —, e é por isso que juntos decidem:
+
+  - **E à frente por unidade** (IC não cruza zero) → E vence em dois instrumentos
+    de vieses opostos. **Robusto.** Pela regra do T2a, a §8 é que precisa cair.
+  - **A à frente por unidade** → os dois discordam na direção dos próprios vieses:
+    o viés é do tamanho do efeito, e eles NÃO decidem. Decide a PLL-word-l2r de
+    Kauf & Ivanova (esconder o token e os da mesma unidade à direita dele), pelo
+    IC dela; se ela empatar, o T2a fica **não decidido**.
+  - **empate por unidade** → E empatou no instrumento que favorece A e venceu no
+    que favorece E. Também não decide; mesma saída, a l2r.
 
 ## O pareamento é por DOCUMENTO, e não por posição
 
@@ -203,3 +257,106 @@ def confronto(rotulo_a: str, acum_a: Acumulador,
     r["bits_por_byte"] = {rotulo_a: acum_a.como_dict()["bits_por_byte"],
                           rotulo_b: acum_b.como_dict()["bits_por_byte"]}
     return r
+
+
+# ── o segundo instrumento: unidades comuns escondidas inteiras ─────────────
+#
+# Ver o § "O segundo instrumento" na docstring. O que estas funções garantem, e os
+# testes travam: nenhuma unidade parte token de braço nenhum, os bytes escondidos
+# são idênticos entre os braços, e toda posição de uma unidade escondida é
+# mascarada — e nenhuma de fora.
+
+def cortes_de(offsets, n_caracteres: int) -> np.ndarray:
+    """`pode[p]` é verdadeiro se cortar o texto na posição `p` não parte um token.
+
+    `offsets` são os `(início, fim)` em CARACTERES de um braço. Especiais chegam com
+    `(0, 0)` e não proíbem nada.
+    """
+    pode = np.ones(n_caracteres + 1, dtype=bool)
+    for a, b in offsets:
+        if b - a > 1:
+            pode[a + 1:b] = False
+    return pode
+
+
+def unidades_comuns(offsets_por_braco: list, n_caracteres: int) -> list[tuple[int, int]]:
+    """Os intervalos entre cortes comuns consecutivos que têm token em TODOS os braços.
+
+    ⚠️ Um intervalo sem token em algum braço é texto que aquele braço não
+    representa — espaço descartado pelo pré-tokenizador, por exemplo. Não há como
+    escondê-lo nos dois, então ele fica fora; os bytes dele não entram em conta
+    nenhuma, em braço nenhum.
+    """
+    if len(offsets_por_braco) < 2:
+        raise ValueError(
+            "unidade comum é entre BRAÇOS: com um só, ela é o próprio token e o "
+            "instrumento deixa de ter o que igualar.")
+    pode = np.ones(n_caracteres + 1, dtype=bool)
+    for offs in offsets_por_braco:
+        pode &= cortes_de(offs, n_caracteres)
+    cortes = np.flatnonzero(pode)
+    if cortes.size < 2:
+        return []
+    ok = np.ones(cortes.size - 1, dtype=bool)
+    for offs in offsets_por_braco:
+        inicios = np.sort(np.array([a for a, b in offs if b > a], dtype=np.int64))
+        # Quantos tokens começam antes de cada corte; a diferença entre cortes
+        # consecutivos é quantos começam DENTRO da unidade.
+        ok &= np.diff(np.searchsorted(inicios, cortes, side="left")) > 0
+    return [(int(lo), int(hi)) for lo, hi in zip(cortes[:-1][ok], cortes[1:][ok], strict=True)]
+
+
+def sortear_unidades(n_unidades: int, semente: int, indice: int,
+                     fracao: float) -> np.ndarray:
+    """Índices das unidades a esconder: cada uma com probabilidade `fracao`.
+
+    Probabilidade igual por UNIDADE é probabilidade igual por BYTE, qualquer que
+    seja o tamanho dela — que é o que faz as unidades longas de LaTeX, onde os
+    tokenizers diferem, entrarem na proporção em que existem no texto.
+
+    Determinístico em `(semente, indice)`, igual para todos os braços porque as
+    unidades são as mesmas. Nunca vazio quando há unidade: um documento sem nada
+    escondido sairia do pareamento de um jeito que só a sorte decide.
+    """
+    if n_unidades <= 0:
+        return np.empty(0, dtype=np.int64)
+    # O `2` separa este fluxo do de `posicoes_mascaradas`, que usa `(semente,
+    # indice)`: os dois instrumentos não devem esconder coisas correlacionadas.
+    rng = np.random.default_rng((semente, indice, 2))
+    escolhidas = np.flatnonzero(rng.random(n_unidades) < fracao)
+    if escolhidas.size == 0:
+        escolhidas = np.array([int(rng.integers(n_unidades))], dtype=np.int64)
+    return escolhidas.astype(np.int64)
+
+
+def posicoes_nas_unidades(offsets, unidades: list[tuple[int, int]],
+                          texto: str) -> tuple[np.ndarray, np.ndarray]:
+    """As posições dos tokens deste braço dentro das `unidades`, e os bytes de cada.
+
+    ⚠️ Os bytes da unidade vão INTEIROS para o primeiro token dela, e os demais
+    recebem zero. Assim a soma por documento é exatamente o texto escondido —
+    incluindo o espaço que o braço não representa por token —, idêntica em todos
+    os braços. Repartir por token contaria duas vezes um caractere que um
+    tokenizer de bytes parte em dois tokens com o mesmo offset.
+    """
+    inicios = np.array([a if b > a else -1 for a, b in offsets], dtype=np.int64)
+    fins = np.array([b for _, b in offsets], dtype=np.int64)
+    pos: list[int] = []
+    byt: list[int] = []
+    for lo, hi in unidades:
+        idx = np.flatnonzero((inicios >= lo) & (inicios < hi))
+        if idx.size == 0:
+            raise ValueError(
+                f"a unidade {(lo, hi)} não tem token neste braço: ela não é comum, "
+                "e escondê-la num braço só desigualaria os bytes.")
+        if int(fins[idx].max()) > hi:
+            raise ValueError(
+                f"um token atravessa o fim da unidade {(lo, hi)}: os offsets não "
+                "são de um dos braços que definiram os cortes.")
+        pos.extend(idx.tolist())
+        byt.extend([len(texto[lo:hi].encode("utf-8"))] + [0] * (idx.size - 1))
+    if not pos:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
+    ordem = np.argsort(np.asarray(pos), kind="stable")
+    return (np.asarray(pos, dtype=np.int64)[ordem],
+            np.asarray(byt, dtype=np.int64)[ordem])
