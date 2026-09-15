@@ -62,7 +62,9 @@ from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.eval.bits_por_byte import (  # noqa: E402
     Acumulador,
     confronto,
+    planos_l2r,
     posicoes_nas_unidades,
+    posicoes_por_unidade,
     sortear_unidades,
     unidades_comuns,
 )
@@ -166,6 +168,52 @@ def janela_comum(texto: str, tokenizers: list, contexto: int,
     return bruto[:corte]
 
 
+def _pontuar_l2r(mod, ids: np.ndarray, grupos: list[np.ndarray], pos: np.ndarray,
+                 id_mask: int, dev, conferir: bool) -> tuple[np.ndarray, np.ndarray]:
+    """`ln p` e acerto de cada posição de `pos`, pela PLL-word-l2r.
+
+    Um passe por plano de `planos_l2r`, em lote 1: medido, lote maior fica MAIS
+    lento nesta GPU. Os logits saem só das posições pontuadas — `head` e `decoder`
+    aplicados a elas —, porque a saída inteira seria 1.024 × 40.960 por passe.
+
+    ⚠️ `conferir`: no primeiro documento, o atalho é comparado com `mod(...).logits`
+    no mesmo passe. Se a cabeça do MLM tiver um passo que o atalho pula, os bits
+    sairiam de outro modelo e nada acusaria.
+    """
+    lp_de: dict[int, float] = {}
+    certo_de: dict[int, bool] = {}
+    am = torch.ones(1, len(ids), dtype=torch.long, device=dev)
+    for escondidas, pontuadas in planos_l2r(grupos):
+        entrada = ids.copy()
+        entrada[escondidas] = id_mask
+        x = torch.tensor(entrada, device=dev).unsqueeze(0)
+        sel = torch.tensor(pontuadas, device=dev)
+        h = mod.model(input_ids=x, attention_mask=am).last_hidden_state[0]
+        logits = mod.decoder(mod.head(h[sel])).float()
+        if conferir:
+            cheio = mod(input_ids=x, attention_mask=am).logits[0][sel].float()
+            dif = float((cheio - logits).abs().max())
+            if dif > 1e-3:
+                raise SystemExit(
+                    f"o atalho da cabeça do MLM difere da saída do modelo em {dif:.3g}: "
+                    "os bits da l2r sairiam de outra função.")
+            log.info("atalho da cabeça conferido contra mod(...).logits: "
+                     "diferença máxima %.2g", dif)
+            conferir = False
+        lp = F.log_softmax(logits, dim=-1)
+        alvos = torch.tensor(ids[pontuadas], device=dev)
+        v = lp.gather(1, alvos.unsqueeze(1)).squeeze(1).cpu().numpy()
+        c = (lp.argmax(dim=-1) == alvos).cpu().numpy()
+        for k, p_ in enumerate(pontuadas.tolist()):
+            if p_ in lp_de:
+                raise AssertionError(f"posição {p_} pontuada duas vezes")
+            lp_de[p_], certo_de[p_] = float(v[k]), bool(c[k])
+    if sorted(lp_de) != pos.tolist():
+        raise AssertionError("a l2r não pontuou exatamente as posições escondidas")
+    return (np.array([lp_de[p_] for p_ in pos.tolist()], dtype=np.float64),
+            np.array([certo_de[p_] for p_ in pos.tolist()]))
+
+
 def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
           fracao: float, semente: int, tokenizers_todos: list,
           teto_caracteres: int,
@@ -187,7 +235,7 @@ def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
             offs = enc["offset_mapping"]
             if len(ids) >= contexto:
                 n_truncados += 1
-            if mascaramento == "unidade":
+            if mascaramento in ("unidade", "l2r"):
                 # ⚠️ Os offsets de TODOS os braços, tokenizados exatamente como
                 # este: as unidades têm de ser as mesmas em cada passada.
                 offs_todos = [
@@ -196,13 +244,24 @@ def medir(rotulo: str, caminho: str, textos: list[str], dev, contexto: int,
                     for t in tokenizers_todos]
                 unid = unidades_comuns(offs_todos, len(texto))
                 escolha = sortear_unidades(len(unid), semente, i, fracao)
-                pos, bytes_tok = posicoes_nas_unidades(
-                    offs, [unid[k] for k in escolha], texto)
+                escondidas = [unid[k] for k in escolha]
+                pos, bytes_tok = posicoes_nas_unidades(offs, escondidas, texto)
             else:
                 proibidas = np.flatnonzero(np.isin(ids, especiais))
                 pos = posicoes_mascaradas(len(ids), semente, i, fracao, proibidas)
                 bytes_tok = None
             if pos.size == 0:
+                continue
+            if mascaramento == "l2r":
+                log_probs, certo = _pontuar_l2r(
+                    mod, ids, posicoes_por_unidade(offs, escondidas), pos,
+                    id_mask, dev, conferir=(i == 0))
+                acum.somar(log_probs, bytes_tok, certo)
+                if (i + 1) % 10 == 0:
+                    gasto = time.perf_counter() - t0
+                    log.info("  %s: %d/%d documentos · faltam ~%.0f min", rotulo,
+                             i + 1, len(textos),
+                             gasto / (i + 1) * (len(textos) - i - 1) / 60)
                 continue
             entrada = ids.copy()
             entrada[pos] = id_mask
@@ -253,6 +312,14 @@ COMO_LER = {
         "paga a folga entre entropias marginais e conjunta. Vitória do de tokens "
         "CURTOS aqui é robusta; a regra completa, escrita antes do número, está "
         "no módulo `phifm.eval.bits_por_byte`."),
+    "l2r": (
+        "MENOR é melhor. As MESMAS unidades e o MESMO contexto do mascaramento por "
+        "unidade, mas cada unidade pontuada pela regra da cadeia (PLL-word-l2r, "
+        "Kauf & Ivanova, ACL 2023): a folga entre marginais e conjunta some. ⚠️ "
+        "Resíduo nomeado antes do número: dentro da unidade, o tokenizer de tokens "
+        "curtos ainda tem trechos escondidos mais longos, fora da distribuição do "
+        "treino — favorece o de tokens LONGOS. Empate aqui é 'não decidido', não "
+        "evidência contra a §8. Regra completa no módulo."),
 }
 
 
@@ -270,13 +337,16 @@ def main() -> int:
     p.add_argument("--n-documentos", type=int, default=500)
     p.add_argument("--contexto", type=int, default=1024)
     p.add_argument("--fracao-mascara", type=float, default=0.15)
-    p.add_argument("--mascaramento", choices=("token", "unidade"),
+    p.add_argument("--mascaramento", choices=("token", "unidade", "l2r"),
                    default="token",
                    help="`token`: 15%% dos tokens de cada braço, viés a favor do "
                         "tokenizer de tokens CURTOS. `unidade`: 15%% das unidades "
                         "comuns a todos os braços, escondidas inteiras — mesmos "
                         "bytes e mesmo contexto nos braços, viés a favor do de "
-                        "tokens LONGOS. Ver o módulo `phifm.eval.bits_por_byte`")
+                        "tokens LONGOS. `l2r`: as mesmas unidades, pontuadas pela "
+                        "regra da cadeia dentro de cada uma (Kauf & Ivanova), um "
+                        "passe por token — ~70x mais cara. Ver o módulo "
+                        "`phifm.eval.bits_por_byte`")
     p.add_argument("--min-caracteres", type=int, default=2000)
     p.add_argument("--teto-caracteres", type=int, default=20_000,
                    help="corte bruto antes de tokenizar; só para não gastar "
@@ -326,7 +396,7 @@ def main() -> int:
                  d["segundos"])
 
     rotulos = [r for r, _ in specs]
-    if a.mascaramento == "unidade":
+    if a.mascaramento in ("unidade", "l2r"):
         # ⚠️ A promessa inteira do instrumento, conferida e não suposta: os braços
         # esconderam os MESMOS bytes em cada documento. Se não, o pareamento
         # compararia textos diferentes e o número sairia igual de limpo.

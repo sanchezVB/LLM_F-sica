@@ -102,6 +102,49 @@ favorece A —, e é por isso que juntos decidem:
   - **empate por unidade** → E empatou no instrumento que favorece A e venceu no
     que favorece E. Também não decide; mesma saída, a l2r.
 
+## O terceiro instrumento, a PLL-word-l2r — como ela é aplicada aqui
+
+Escrito em 2026-09-14, com os dois primeiros já rodados e se anulando (por token
+E +0,078; por unidade A −0,051) e ANTES de rodar este.
+
+Kauf & Ivanova pontuam cada token com ele e os tokens da mesma palavra À DIREITA
+escondidos, e os da esquerda visíveis. Somando por unidade, isso é a regra da
+cadeia: log p(unidade) = Σ log p(token_r | tokens_<r da unidade, contexto). A folga
+entre marginais e conjunta, que enviesava o segundo instrumento a favor de A, some.
+
+⚠️ A escolha que a frase deles não fixa: **o que acontece com as OUTRAS unidades
+sorteadas**. Aqui elas ficam inteiramente escondidas, como no segundo instrumento.
+Assim o contexto fora da unidade é idêntico ao do segundo instrumento e idêntico
+entre os braços, e a ÚNICA diferença entre os dois instrumentos é a fatoração
+dentro da unidade — que é exatamente o viés a remover.
+
+A alternativa barata, pontuar o r-ésimo token de TODAS as unidades num mesmo passe,
+foi descartada: no passe r cada braço revelaria os r primeiros tokens das outras
+unidades, e r tokens de A e r tokens de E são bytes diferentes. O contexto voltaria
+a diferir entre os braços.
+
+Custo: um passe por token escondido, menos um por unidade. Medido em 150
+documentos: 67 sequências por documento em A, 92 em E; a RX 7600 faz 10 seq/s em
+lote 1 e fica mais LENTA com lote maior (a atenção eager é limitada por memória).
+2.000 documentos seriam ~8,9 h. **n = 1.000**, decidido aqui: são os mil primeiros
+dos mesmos 2.000 (o sorteio dentro de uma parte é a mesma permutação), e o IC do
+segundo instrumento a 2.000 teve meia-largura 0,005 — a 1.000, ~0,007 bit/byte,
+abaixo de 1% do valor medido. Uma diferença menor não justificaria escolher
+tokenizer.
+
+⚠️ O viés residual, nomeado antes: dentro da unidade, E ainda tem MAIS tokens
+consecutivos escondidos que A, e o treino mascarou 30% dos tokens ao acaso — trecho
+longo escondido é fora da distribuição, mais para E. O resíduo favorece A.
+
+A regra, do mesmo jeito que a anterior:
+
+  - **E à frente na l2r** (IC não cruza zero) → E vence apesar do resíduo a favor
+    de A. Robusto; pela regra do T2a, a §8 cai.
+  - **A à frente na l2r** → A vence, com a ressalva do resíduo registrada ao lado do
+    número. A §8 fica.
+  - **empate na l2r** → **não decidido**, e NÃO é evidência contra a §8: é o
+    desfecho que a regra do T2a manda registrar como "a 0,6 B não dá para ver".
+
 ## O pareamento é por DOCUMENTO, e não por posição
 
 Entre tokenizers diferentes não existe "a mesma posição": os fluxos têm
@@ -329,20 +372,15 @@ def sortear_unidades(n_unidades: int, semente: int, indice: int,
     return escolhidas.astype(np.int64)
 
 
-def posicoes_nas_unidades(offsets, unidades: list[tuple[int, int]],
-                          texto: str) -> tuple[np.ndarray, np.ndarray]:
-    """As posições dos tokens deste braço dentro das `unidades`, e os bytes de cada.
+def posicoes_por_unidade(offsets, unidades: list[tuple[int, int]]) -> list[np.ndarray]:
+    """As posições dos tokens deste braço em cada unidade, em ordem, uma lista por unidade.
 
-    ⚠️ Os bytes da unidade vão INTEIROS para o primeiro token dela, e os demais
-    recebem zero. Assim a soma por documento é exatamente o texto escondido —
-    incluindo o espaço que o braço não representa por token —, idêntica em todos
-    os braços. Repartir por token contaria duas vezes um caractere que um
-    tokenizer de bytes parte em dois tokens com o mesmo offset.
+    Levanta se a unidade não tiver token neste braço ou se um token a atravessar:
+    as duas coisas provam que as unidades não vieram destes offsets.
     """
     inicios = np.array([a if b > a else -1 for a, b in offsets], dtype=np.int64)
     fins = np.array([b for _, b in offsets], dtype=np.int64)
-    pos: list[int] = []
-    byt: list[int] = []
+    grupos = []
     for lo, hi in unidades:
         idx = np.flatnonzero((inicios >= lo) & (inicios < hi))
         if idx.size == 0:
@@ -353,6 +391,24 @@ def posicoes_nas_unidades(offsets, unidades: list[tuple[int, int]],
             raise ValueError(
                 f"um token atravessa o fim da unidade {(lo, hi)}: os offsets não "
                 "são de um dos braços que definiram os cortes.")
+        grupos.append(idx.astype(np.int64))
+    return grupos
+
+
+def posicoes_nas_unidades(offsets, unidades: list[tuple[int, int]],
+                          texto: str) -> tuple[np.ndarray, np.ndarray]:
+    """As posições dos tokens deste braço dentro das `unidades`, e os bytes de cada.
+
+    ⚠️ Os bytes da unidade vão INTEIROS para o primeiro token dela, e os demais
+    recebem zero. Assim a soma por documento é exatamente o texto escondido —
+    incluindo o espaço que o braço não representa por token —, idêntica em todos
+    os braços. Repartir por token contaria duas vezes um caractere que um
+    tokenizer de bytes parte em dois tokens com o mesmo offset.
+    """
+    pos: list[int] = []
+    byt: list[int] = []
+    for (lo, hi), idx in zip(unidades, posicoes_por_unidade(offsets, unidades),
+                             strict=True):
         pos.extend(idx.tolist())
         byt.extend([len(texto[lo:hi].encode("utf-8"))] + [0] * (idx.size - 1))
     if not pos:
@@ -360,3 +416,29 @@ def posicoes_nas_unidades(offsets, unidades: list[tuple[int, int]],
     ordem = np.argsort(np.asarray(pos), kind="stable")
     return (np.asarray(pos, dtype=np.int64)[ordem],
             np.asarray(byt, dtype=np.int64)[ordem])
+
+
+def planos_l2r(grupos: list[np.ndarray]) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Os passes da PLL-word-l2r: `(posições escondidas, posições pontuadas)`.
+
+    Ver o § do terceiro instrumento. Garantias, travadas nos testes:
+
+      - cada token de cada unidade é pontuado EXATAMENTE uma vez;
+      - ao pontuar o token r de uma unidade, os r anteriores DELA estão visíveis e
+        o resto dela escondido;
+      - as OUTRAS unidades estão inteiramente escondidas em todo passe — o mesmo
+        contexto do segundo instrumento, igual entre os braços.
+
+    O primeiro passe esconde tudo e pontua o primeiro token de cada unidade de uma
+    vez: nele o contexto de cada uma já é o exigido. Cada token seguinte precisa
+    do próprio passe.
+    """
+    if not grupos:
+        return []
+    todas = np.sort(np.concatenate(grupos))
+    planos = [(todas, np.sort(np.array([int(g[0]) for g in grupos], dtype=np.int64)))]
+    for g in grupos:
+        for r in range(1, g.size):
+            planos.append((todas[~np.isin(todas, g[:r])],
+                           np.array([int(g[r])], dtype=np.int64)))
+    return planos

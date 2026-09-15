@@ -24,6 +24,7 @@ from phifm.eval.bits_por_byte import (  # noqa: E402
     Acumulador,
     bootstrap_pareado,
     confronto,
+    planos_l2r,
     posicoes_nas_unidades,
     sortear_unidades,
     unidades_comuns,
@@ -289,3 +290,66 @@ def test_a_leitura_NAO_manda_mais_para_a_PLL_original():
     fonte = (RAIZ / "scripts/avaliar_bits_por_byte.py").read_text(encoding="utf-8")
     assert "pedem a pseudo-verossimilhança canônica" not in fonte
     assert "Kauf & Ivanova" in fonte
+
+
+# ── o terceiro instrumento: PLL-word-l2r ────────────────────────────────────
+
+def _grupos():
+    return [np.array([2]), np.array([5, 6, 7]), np.array([10, 11])]
+
+
+def test_l2r_pontua_cada_token_EXATAMENTE_uma_vez():
+    planos = planos_l2r(_grupos())
+    pontuadas = np.concatenate([p for _, p in planos]).tolist()
+    assert sorted(pontuadas) == [2, 5, 6, 7, 10, 11]
+    assert len(pontuadas) == len(set(pontuadas))
+    assert len(planos) == 1 + (3 - 1) + (2 - 1)
+
+
+def test_l2r_revela_so_os_ANTERIORES_da_propria_unidade():
+    """Regra da cadeia dentro da unidade: ao pontuar o token r, os r anteriores
+    dela estão visíveis e ela mesma, dali para a direita, escondida."""
+    grupos = _grupos()
+    for escondidas, pontuadas in planos_l2r(grupos):
+        esc = set(escondidas.tolist())
+        for alvo in pontuadas.tolist():
+            assert alvo in esc
+            g = next(g for g in grupos if alvo in g.tolist())
+            r = g.tolist().index(alvo)
+            assert all(t not in esc for t in g[:r].tolist())
+            assert all(t in esc for t in g[r:].tolist())
+
+
+def test_l2r_mantem_as_OUTRAS_unidades_inteiramente_escondidas():
+    """⚠️ A escolha que torna o contexto igual entre os braços. Revelar r tokens
+    das outras unidades revelaria bytes diferentes em A e em E."""
+    grupos = _grupos()
+    for escondidas, pontuadas in planos_l2r(grupos):
+        esc = set(escondidas.tolist())
+        donos = {i for i, g in enumerate(grupos)
+                 if set(g.tolist()) & set(pontuadas.tolist())}
+        if len(pontuadas) > 1:
+            continue  # o primeiro passe: tudo escondido, conferido abaixo
+        for i, g in enumerate(grupos):
+            if i not in donos:
+                assert set(g.tolist()) <= esc
+
+
+def test_o_primeiro_passe_esconde_TUDO_e_pontua_os_primeiros():
+    escondidas, pontuadas = planos_l2r(_grupos())[0]
+    assert escondidas.tolist() == [2, 5, 6, 7, 10, 11]
+    assert pontuadas.tolist() == [2, 5, 10]
+
+
+def test_l2r_sem_unidade_nao_tem_passe():
+    assert planos_l2r([]) == []
+
+
+def test_a_regra_da_cadeia_FECHA_a_folga_do_segundo_instrumento():
+    """O mesmo caso de `test_o_viés_por_unidade_PENALIZA_quem_parte_mais`: `xy` ou
+    `zw`, meio a meio. Pela cadeia, p(1º) = 1/2 e p(2º | 1º) = 1 — o braço que
+    parte paga 1 bit, o mesmo que o que não parte."""
+    inteiro, partido = Acumulador(), Acumulador()
+    _doc(inteiro, [0.5], [2])
+    _doc(partido, [0.5, 1.0], [2, 0])
+    assert inteiro.como_dict()["bits_por_byte"] == partido.como_dict()["bits_por_byte"]
