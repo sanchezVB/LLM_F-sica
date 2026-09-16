@@ -1,0 +1,33 @@
+18:56:39 INFO    fatia disjunta: 4 partes excluídas do treino em data/processed/t2a_A
+18:56:39 INFO    especiais do modelo: máscara=4 · 5 ids especiais
+18:56:39 INFO    dispositivo: AMD Radeon RX 7600 (DirectML)
+18:56:42 INFO    modelo models/phienc-t2eq-E-tratado · vocab 40,960 · contexto de avaliação 1024 · privateuseone:0
+18:56:46 INFO      51/2000 sequências · 13.58/s · faltam 2 min
+18:56:50 INFO      101/2000 sequências · 14.15/s · faltam 2 min
+18:57:11 INFO      451/2000 sequências · 15.73/s · faltam 2 min
+18:57:22 INFO      651/2000 sequências · 16.31/s · faltam 1 min
+18:57:25 INFO      701/2000 sequências · 16.60/s · faltam 1 min
+18:57:34 INFO      851/2000 sequências · 16.43/s · faltam 1 min
+18:57:42 INFO      951/2000 sequências · 15.88/s · faltam 1 min
+18:57:45 INFO      1001/2000 sequências · 15.88/s · faltam 1 min
+18:57:48 INFO      1051/2000 sequências · 15.95/s · faltam 1 min
+18:57:51 INFO      1101/2000 sequências · 15.98/s · faltam 1 min
+18:57:58 INFO      1201/2000 sequências · 15.93/s · faltam 1 min
+18:58:03 INFO      1301/2000 sequências · 16.11/s · faltam 1 min
+18:58:06 INFO      1351/2000 sequências · 16.24/s · faltam 1 min
+18:58:10 INFO      1401/2000 sequências · 16.07/s · faltam 1 min
+18:58:16 INFO      1501/2000 sequências · 16.05/s · faltam 1 min
+18:58:19 INFO      1551/2000 sequências · 16.11/s · faltam 0 min
+18:58:31 INFO      1751/2000 sequências · 16.13/s · faltam 0 min
+18:58:42 INFO      1951/2000 sequências · 16.37/s · faltam 0 min
+
+==========================================================================
+  MLM · prova EQUACAO · models/phienc-t2eq-E-tratado · contexto 1024 · 1091 de 2000 sequências sorteadas
+==========================================================================
+  equação  0.1984  (104,141 tokens)
+  (prova de equação inteira: todo token avaliado é de equação — é a checagem de manipulação 2, não a primária)
+
+  fração de equação na fatia: 0.3511
+  ⚠️ A `vantagem_em_equacao` já é +0,1286 num modelo SEM tratamento (ModernBERT-base): token de LaTeX é intrinsecamente mais previsível que prosa. O que testa a hipótese do DOC-07 §2.3 é a DIFERENÇA ENTRE BRAÇOS desta vantagem, não o valor dela. Máscara UNIFORME, ignorando as marcas — as marcas só dizem onde cada acerto caiu. Avaliar com a política de máscara do braço tratado o testaria na distribuição do próprio treino e o controle numa estranha a ele, e o tratado ganharia por construção. Por isso este teste é CONSERVADOR para a hipótese do DOC-07 §2.3.
+==========================================================================
+  -> data\processed\avaliacao\t2eq_mlm_tratado_equacao.json

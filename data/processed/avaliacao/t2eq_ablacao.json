@@ -1,0 +1,79 @@
+{
+  "experimento": "DOC-07 §2.3 — mascaramento de equações inteiras, a 0,6 B",
+  "regra": "kaggle/t2eq_tratado.py · REGRA_ABLACAO",
+  "protocolo": {
+    "amostragem": "sorteada",
+    "contexto": 1024,
+    "fracao_mascara": 0.15,
+    "semente": 17,
+    "n_sequencias_pedidas": 2000,
+    "dados": "data/processed/phienc_aval_E",
+    "tokenizer_sha": "1e1b49380deb8514"
+  },
+  "modelos": {
+    "controle_uniforme": "models/phienc-t2a-E",
+    "tratado_uniforme": "models/phienc-t2eq-E-tratado",
+    "controle_equacao": "models/phienc-t2a-E",
+    "tratado_equacao": "models/phienc-t2eq-E-tratado"
+  },
+  "checagens": {
+    "1_fracao_tratada": {
+      "valor": 0.5381,
+      "minimo": 0.5,
+      "aprovada": true
+    },
+    "2_prova_com_equacao_inteira": {
+      "diferenca": 0.12799,
+      "ic95": [
+        0.12224,
+        0.13374
+      ],
+      "aprovada": true
+    }
+  },
+  "desfecho": "CONTROLE À FRENTE",
+  "leitura": "o tratamento piora equação relativamente à prosa. É o negativo que o DOC-07 manda publicar, com a escala de 0,6 B declarada ao lado.",
+  "primaria": {
+    "quantidade": "(acc_eq − acc_prosa) do tratado − (acc_eq − acc_prosa) do controle",
+    "diferenca_das_diferencas": -0.004,
+    "ic95": [
+      -0.00581,
+      -0.00216
+    ],
+    "cruza_zero": false,
+    "controle": {
+      "acuracia_equacao": 0.8694,
+      "acuracia_prosa": 0.69444,
+      "vantagem_em_equacao": 0.17497
+    },
+    "tratado": {
+      "acuracia_equacao": 0.86432,
+      "acuracia_prosa": 0.69335,
+      "vantagem_em_equacao": 0.17097
+    },
+    "sequencias": 2000,
+    "tokens_equacao": 108388,
+    "tokens_prosa": 199474,
+    "reamostras": 10000,
+    "teste": "bootstrap pareado por SEQUÊNCIA, as mesmas reamostras nos dois braços"
+  },
+  "checagem_2_detalhe": {
+    "diferenca": 0.12799,
+    "ic95": [
+      0.12224,
+      0.13374
+    ],
+    "cruza_zero": false,
+    "acuracia_controle": 0.07037,
+    "acuracia_tratado": 0.19836,
+    "sequencias": 1091,
+    "tokens": 104141,
+    "reamostras": 10000
+  },
+  "ressalvas": [
+    "0,6 B tokens, 3,3x abaixo dos 2 B para os quais a ablação foi preparada; uma semente por braço.",
+    "O tratado teve 1 spike (passo 8.075, rollback de 76 lotes, LR pela metade até 8.575) e o controle nenhum — assimetria CONTRA o tratado.",
+    "A prova uniforme é o objetivo do controle: o viés dela aponta para ele.",
+    "Secundárias (recuperação, sonda tensorial) não entram aqui."
+  ]
+}

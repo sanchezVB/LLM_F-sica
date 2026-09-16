@@ -1,0 +1,17 @@
+
+==========================================================================
+  DOC-07 §2.3 · ablação do mascaramento de equações · a 0,6 B
+==========================================================================
+  checagem 1 · fração tratada 0.5381 (mín. 0,50) · ✅
+  checagem 2 · equação inteira: tratado − controle +0.1280 [0.12224, 0.13374] · ✅
+      controle 0.0704 · tratado 0.1984 · 104,141 tokens
+
+  PRIMÁRIA · diferença das diferenças (prova uniforme)
+    controle  equação 0.8694 · prosa 0.6944 · vantagem +0.1750
+    tratado   equação 0.8643 · prosa 0.6934 · vantagem +0.1710
+    tratado − controle: -0.00400 [-0.00581, -0.00216] · 2,000 sequências
+
+  DESFECHO: CONTROLE À FRENTE
+  o tratamento piora equação relativamente à prosa. É o negativo que o DOC-07 manda publicar, com a escala de 0,6 B declarada ao lado.
+==========================================================================
+  -> data\processed\avaliacao\t2eq_ablacao.json

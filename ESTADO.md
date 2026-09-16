@@ -37,6 +37,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15 |
+| **§2.3** · mascarar equações inteiras | 🔴 **negativo, a 0,6 B** | o tratamento PEGOU (equação inteira escondida: 7% → 20%) e não transferiu: diferença das diferenças **−0,0040** [−0,0058; −0,0022] pela regra pré-registrada. ⚠️ Cai na direção de um viés que a regra nomeou antes. Ver a seção de 2026-09-16 |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
@@ -49,6 +50,63 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## §2.3 — pela regra, o NEGATIVO: o tratamento pegou e não transferiu (2026-09-16)
+
+A ablação do mascaramento de equações inteiras, a 0,6 B, lida pela regra de
+`kaggle/t2eq_tratado.py` (corrigida antes de qualquer número). Fatia `phienc_aval_E`
+(parte 3, disjunta do T2a), 2.000 sequências sorteadas, contexto 1.024, as MESMAS
+sequências, posições e regiões nos dois braços — conferido nos artefatos.
+
+| | controle (E) | tratado (E, `p_equacao` 0,6) | tratado − controle |
+|---|---|---|---|
+| checagem 1 · fração tratada | — | 0,5381 | ✅ ≥ 0,50 |
+| checagem 2 · equação INTEIRA escondida (104.141 tokens, 1.091 seq.) | 0,0704 | **0,1984** | **+0,128** [+0,122; +0,134] ✅ |
+| prova uniforme · acurácia em equação (108.388 tokens) | 0,8694 | 0,8643 | −0,0051 |
+| prova uniforme · acurácia em prosa (199.474 tokens) | 0,6944 | 0,6933 | −0,0011 |
+| **primária · diferença das diferenças** | vantagem +0,1750 | vantagem +0,1710 | **−0,0040 [−0,0058; −0,0022]** |
+
+**Desfecho pela regra: CONTROLE À FRENTE — o negativo que o DOC-07 manda publicar**, com
+a escala de 0,6 B declarada ao lado.
+
+### O que o número diz
+
+**O tratamento pegou.** Reconstruir uma equação inteira escondida vai de 7% para 20% —
+quase o triplo. **E não transferiu**: com a máscara pontual, o tratado acerta MENOS
+tokens de equação que o controle, e a perda em equação é maior que a em prosa. O
+modelo aprendeu a tarefa em que foi treinado, e isso não virou compreensão melhor da
+notação.
+
+### O que acompanha o número, e uma ressalva que a própria regra nomeou
+
+- ⚠️ **O resultado cai na direção de um viés declarado antes.** A regra diz: *"O viés
+  da prova aponta para o CONTROLE (…) a diferença das diferenças cancela o custo geral
+  de distribuição, mas não prova que ele é igual nas duas regiões."* E há um mecanismo
+  concreto para ele não ser: o tratado viu token de equação mascarado sobretudo em
+  blocos inteiros, e a prova uniforme esconde token de equação isolado, com os
+  vizinhos à mostra — o regime que o controle praticou o treino todo. Esse custo
+  mora justamente na região de equação. A regra mapeia o resultado para o negativo,
+  e ele fica registrado assim; a ressalva vai ao lado, não por cima.
+- **O efeito é pequeno**: −0,4 ponto, contra +12,8 pontos da checagem 2.
+- **0,6 B, 3,3× abaixo dos 2 B** para os quais a ablação foi preparada; uma semente por
+  braço.
+- **O spike foi CONTRA o tratado** (rollback de 76 lotes, LR pela metade na entrada do
+  decaimento). A diferença das diferenças cancela uma degradação geral, não uma
+  regional.
+- **A região "equação" é `BIT_MATH`**, inline e display juntos; o tratamento só usou
+  display. Separar as duas seria análise EXPLORATÓRIA, feita depois do número, e não
+  mudaria o desfecho.
+- **As secundárias não rodaram** (recuperação e sonda tensorial). Pela regra, não
+  derrubam a primária.
+
+### Consequência
+
+O DOC-07 §2.3 diz: *"Se não ajudar, é descartado e o negativo é publicado."* O
+docstring de `mascaramento.py` chama esta adição de *"a razão científica de treinar o
+ΦEnc do zero em vez de ajustar um modelo existente"*. A 0,6 B, essa razão não se
+sustentou. A decisão sobre o que isso muda no plano do ΦEnc não está tomada.
+
+Artefatos: `data/processed/avaliacao/t2eq_*.json` e `t2eq_ablacao.json`.
 
 ## A junção do branch do Mac foi SELETIVA, e ela mesma achou quatro defeitos (2026-09-16)
 

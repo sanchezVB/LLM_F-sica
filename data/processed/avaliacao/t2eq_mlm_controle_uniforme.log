@@ -1,0 +1,56 @@
+18:46:27 INFO    fatia disjunta: 4 partes excluídas do treino em data/processed/t2a_A
+18:46:27 INFO    especiais do modelo: máscara=4 · 5 ids especiais
+18:46:28 INFO    dispositivo: AMD Radeon RX 7600 (DirectML)
+18:46:33 INFO    modelo models/phienc-t2a-E · vocab 40,960 · contexto de avaliação 1024 · privateuseone:0
+18:46:41 INFO      51/2000 sequências · 6.48/s · faltam 5 min
+18:46:47 INFO      101/2000 sequências · 7.20/s · faltam 4 min
+18:46:53 INFO      151/2000 sequências · 7.57/s · faltam 4 min
+18:46:59 INFO      201/2000 sequências · 7.82/s · faltam 4 min
+18:47:05 INFO      251/2000 sequências · 7.88/s · faltam 4 min
+18:47:12 INFO      301/2000 sequências · 7.82/s · faltam 4 min
+18:47:18 INFO      351/2000 sequências · 7.93/s · faltam 3 min
+18:47:23 INFO      401/2000 sequências · 8.00/s · faltam 3 min
+18:47:29 INFO      451/2000 sequências · 8.04/s · faltam 3 min
+18:47:36 INFO      501/2000 sequências · 8.06/s · faltam 3 min
+18:47:41 INFO      551/2000 sequências · 8.09/s · faltam 3 min
+18:47:47 INFO      601/2000 sequências · 8.11/s · faltam 3 min
+18:47:53 INFO      651/2000 sequências · 8.16/s · faltam 3 min
+18:47:59 INFO      701/2000 sequências · 8.20/s · faltam 3 min
+18:48:04 INFO      751/2000 sequências · 8.24/s · faltam 3 min
+18:48:10 INFO      801/2000 sequências · 8.28/s · faltam 2 min
+18:48:16 INFO      851/2000 sequências · 8.31/s · faltam 2 min
+18:48:21 INFO      901/2000 sequências · 8.34/s · faltam 2 min
+18:48:27 INFO      951/2000 sequências · 8.37/s · faltam 2 min
+18:48:33 INFO      1001/2000 sequências · 8.39/s · faltam 2 min
+18:48:38 INFO      1051/2000 sequências · 8.41/s · faltam 2 min
+18:48:44 INFO      1101/2000 sequências · 8.43/s · faltam 2 min
+18:48:49 INFO      1151/2000 sequências · 8.45/s · faltam 2 min
+18:48:55 INFO      1201/2000 sequências · 8.46/s · faltam 2 min
+18:49:01 INFO      1251/2000 sequências · 8.48/s · faltam 1 min
+18:49:07 INFO      1301/2000 sequências · 8.49/s · faltam 1 min
+18:49:12 INFO      1351/2000 sequências · 8.51/s · faltam 1 min
+18:49:18 INFO      1401/2000 sequências · 8.52/s · faltam 1 min
+18:49:23 INFO      1451/2000 sequências · 8.53/s · faltam 1 min
+18:49:29 INFO      1501/2000 sequências · 8.54/s · faltam 1 min
+18:49:35 INFO      1551/2000 sequências · 8.55/s · faltam 1 min
+18:49:40 INFO      1601/2000 sequências · 8.56/s · faltam 1 min
+18:49:46 INFO      1651/2000 sequências · 8.57/s · faltam 1 min
+18:49:52 INFO      1701/2000 sequências · 8.58/s · faltam 1 min
+18:49:57 INFO      1751/2000 sequências · 8.59/s · faltam 0 min
+18:50:03 INFO      1801/2000 sequências · 8.60/s · faltam 0 min
+18:50:08 INFO      1851/2000 sequências · 8.60/s · faltam 0 min
+18:50:14 INFO      1901/2000 sequências · 8.61/s · faltam 0 min
+18:50:20 INFO      1951/2000 sequências · 8.62/s · faltam 0 min
+
+==========================================================================
+  MLM · prova UNIFORME · models/phienc-t2a-E · contexto 1024 · 2000 de 2000 sequências sorteadas
+==========================================================================
+  equação  0.8694  (108,388 tokens)
+  prosa    0.6944  (199,474 tokens)
+  total    0.7560
+  VANTAGEM EM EQUAÇÃO: +0.1750
+
+  fração de equação na fatia: 0.3511
+  ⚠️ A `vantagem_em_equacao` já é +0,1286 num modelo SEM tratamento (ModernBERT-base): token de LaTeX é intrinsecamente mais previsível que prosa. O que testa a hipótese do DOC-07 §2.3 é a DIFERENÇA ENTRE BRAÇOS desta vantagem, não o valor dela. Máscara UNIFORME, ignorando as marcas — as marcas só dizem onde cada acerto caiu. Avaliar com a política de máscara do braço tratado o testaria na distribuição do próprio treino e o controle numa estranha a ele, e o tratado ganharia por construção. Por isso este teste é CONSERVADOR para a hipótese do DOC-07 §2.3.
+==========================================================================
+  -> data\processed\avaliacao\t2eq_mlm_controle_uniforme.json
