@@ -483,6 +483,28 @@ T2A_E = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# ⚠️ §2.3 — o braço TRATADO da ablação de mascaramento de equações.
+#
+# O CONTROLE não está aqui porque não roda de novo: é o `t2a_e`, que treinou com
+# `p_equacao=0` no tokenizer que venceu o bake-off. Este braço reusa o dataset, a
+# variante, os scripts e o repositório dele, e a célula é DERIVADA da do T2a —
+# ver `kaggle/t2eq_tratado.py`. O teste confere que tudo o que identifica os DADOS
+# e o CÓDIGO é igual ao do `t2a_e`; o que difere é o notebook e a célula.
+T2EQ_TRATADO = Experimento(
+    nome="t2eq_tratado",
+    reusa_dados_de="t2a_a",
+    titulo_dados="PhiFM T2a — fatias dos tokenizers A e E",
+    slug_dados="phifm-t2a-fatias-a-e",
+    titulo_notebook="PhiFM T2 Equacoes Tratado",
+    slug_notebook="phifm-t2-equacoes-tratado",
+    pacote="data/processed/kaggle_t2a",
+    fonte_celula="kaggle/t2eq_tratado.py",
+    arquivos=_T2A_ARQUIVOS,
+    scripts=_T2A_SCRIPTS,
+    variante="E",
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
@@ -495,7 +517,7 @@ BRACOS_DO_T2A = ("t2a_a", "t2a_e")
 
 EXPERIMENTOS: dict[str, Experimento] = {
     e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
-                        T2A_A, T2A_E)}
+                        T2A_A, T2A_E, T2EQ_TRATADO)}
 
 
 def obter(nome: str) -> Experimento:
