@@ -93,7 +93,7 @@ hipótese; testa se o tratamento pegou. `mlm_regiao` só mede o regime neutro.
 A ablação do mascaramento de equações (DOC-07 §2.3) cabe na cota porque o
 **controle já treinou**: é o braço E do T2a, `p_equacao` 0,0, no tokenizer que
 venceu. Falta só o tratado — `kaggle/t2eq_tratado.py`, experimento `t2eq_tratado`,
-notebook `phifm-t2-equacoes-tratado`. **Montado e preparado; NÃO enviado.**
+notebook `phifm-t2-equacoes-tratado`. **Lançado em 2026-09-16 às 10:04** (código `9a5956e`); a primeira tentativa de envio caiu ANTES de chegar ao Kaggle, por um travessão decodificado em cp1252 no publicador.
 
 **A célula não é escrita: é `derivar(célula do T2a)`**, com as trocas declaradas no
 módulo e cada âncora exigida exatamente uma vez. 14 testes, os centrais pela AST: a
@@ -117,18 +117,26 @@ Conferido no notebook preparado, contra o do controle:
   exportado. Conferir a do tratado quando ele voltar;
 - 0,6 B contra os 2 B para os quais a ablação foi preparada.
 
-**A regra está na célula**, impressa antes de treinar. Primária: perda nos tokens de
-equação sob mascaramento ALEATÓRIO (a célula de mecanismo), 2.000 sequências
-disjuntas, mesmas máscaras, bootstrap pareado por sequência — viés a favor do
-controle, então vitória do tratado é robusta. Duas checagens de manipulação: fração
-tratada ≥ 0,50 no treino, e o tratado vencer no regime de equação. Controle à frente
-só é o negativo do DOC-07 se o prejuízo em equação exceder o de prosa; empate NÃO é
-o negativo.
+**A regra está na célula, e foi CORRIGIDA antes de qualquer número do tratado.** A
+primeira versão, publicada com o braço, usava como primária a perda nos tokens de
+equação e deixava a diferença das diferenças só para desempate. Ela seguia o desenho
+do `eval/mlm.py` do branch do Mac, e não o de `eval/mlm_regiao.py`, que desde
+2026-09-10 diz por que isso está errado: token de equação é muito mais fácil que prosa
+SEM tratamento (+0,1286 no ModernBERT-base), e um tratado que melhorasse tudo por
+igual sairia lido como evidência. Achado na junção do branch do Mac.
 
-⚠️ **Antes de MEDIR (não antes de treinar)**, o `eval/mlm.py` do branch do Mac
-precisa de três coisas: teste na célula de mecanismo (hoje só reporta a diferença
-das médias), 2.000 sequências em vez do default de 64, e `escolher_dispositivo` em
-vez de `torch.device` — a regressão do `dml`.
+Primária corrigida: a **diferença das diferenças** de `mlm_regiao` — (equação − prosa)
+do tratado menos (equação − prosa) do controle —, máscara UNIFORME de 15% nas mesmas
+posições, fatia disjunta tokenizada com E, 2.000 sequências, contexto 1.024, IC por
+bootstrap pareado por SEQUÊNCIA. Positiva → §2.3 sustentado a 0,6 B; negativa → o
+negativo que o DOC-07 manda publicar; IC cruzando zero → não decidido, e NÃO é o
+negativo. Checagens de manipulação: fração tratada ≥ 0,50, e o tratado vencer com
+máscara de equação inteira na prova.
+
+⚠️ **Antes de MEDIR (não antes de treinar)** faltam quatro coisas: o comparador dos
+dois braços com o bootstrap por sequência (o script mede um braço por vez), a fatia
+de avaliação da parte 22 tokenizada com E (`phienc_aval` é A), a prova com máscara de
+equação inteira, e passar 2.000 e 1.024 explicitamente (os defaults são 200 e 512).
 
 **Custo para lançar:** ~8 h 10 min de T4 (o controle levou 8 h 08), das 10 h 25 que
 restam.

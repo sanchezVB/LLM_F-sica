@@ -40,18 +40,23 @@ treino é idêntico a `fc1523a`, conferido por `git diff`.
 
 ## O que a avaliação ainda NÃO tem, e tem de ter antes de medir
 
-As três avaliações do §11.2 estão no branch do Mac (`claude/artigo-modelo-ia-
-fisica-ey4lbe`), não em `main`. Lidas contra esta REGRA, faltam três coisas no
-`eval/mlm.py` de lá:
+A primária é a de `eval/mlm_regiao.py` com `scripts/avaliar_phienc_mlm.py`, que mede
+UM braço por vez. Falta, e tem de estar pronto antes de medir — não antes de treinar:
 
-1. **A célula de mecanismo não tem teste.** `avaliar_ablacao` reporta só a
-   diferença das médias; o teste pareado de lá é de sinais sobre a perda GERAL da
-   sequência, que mistura prosa. A REGRA pede bootstrap pareado por sequência da
-   perda nos tokens de equação.
-2. **O default é 64 sequências.** A REGRA fixa 2.000 — a lição do T1f, onde um
-   default pequeno quase registrou um empate que era vitória.
-3. **`medir` usa `torch.device(dispositivo)`**, a regressão do `--dispositivo dml`
-   que `main` consertou em `c35eebb`.
+1. **O comparador dos dois braços**, com a diferença das diferenças e o IC por
+   bootstrap pareado por SEQUÊNCIA. O McNemar por token contaria como independentes
+   tokens da mesma sequência.
+2. **A fatia de avaliação tokenizada com E.** `phienc_aval` (parte 22) foi
+   tokenizada com A. A parte 22 também está fora do T2a, então a mesma parte com E e
+   `--excluir-de data/processed/t2a_A` serve.
+3. **A checagem de manipulação 2**, a prova com máscara de equação inteira. A ideia
+   veio do branch do Mac; `mlm_regiao` só mede a máscara uniforme.
+4. **2.000 sequências e contexto 1.024** passados explicitamente: os defaults do
+   script são 200 e 512.
+
+⚠️ A primeira versão desta seção listava lacunas do `eval/mlm.py` do branch do Mac.
+Ele não entrou em `main` (duplicava `mlm_regiao`), e a regra que o seguia foi
+corrigida — ver o aviso dentro dela.
 """
 from __future__ import annotations
 
@@ -66,44 +71,57 @@ REGRA_ABLACAO = r"""
   código fc1523a, p_equacao 0,0). TRATADO: esta célula, p_equacao 0,6. Mesma
   fatia, mesmo tokenizer, mesmo orçamento, mesma semente.
 
+  ⚠️ CORRIGIDA em 2026-09-16, com este braço já em treino e ANTES de qualquer
+     número dele. A primeira versão usava como primária a perda nos tokens de
+     equação e deixava a diferença das diferenças só para desempate. Estava
+     errada, e `eval/mlm_regiao.py` já dizia por quê desde 2026-09-10: token de
+     equação é MUITO mais fácil que prosa sem tratamento nenhum (+0,1286 de
+     acurácia no ModernBERT-base). Um tratado que melhorasse tudo por igual
+     sairia lido como evidência do §2.3, e não é.
+
   ⚠️ ESTE RUN NÃO É A ABLAÇÃO COMO PLANEJADA. Ela foi preparada a 2 B tokens
      (21 tokens/parâmetro); isto roda 0,6 B, 3,3x menos, porque o controle
      existe a 0,6 B e reaproveitá-lo é o que faz caber na cota.
 
   CHECAGENS DE MANIPULAÇÃO — reprovada qualquer uma, o run não testa o §2.3:
     1. fração tratada no treino >= 0,50. Medida antes nesta fatia: 0,549.
-    2. no regime de EQUAÇÃO, o tratado tem perda menor que o controle. É a
-       célula tautológica: se nem nela ele ganha, o tratamento não pegou.
+    2. com máscara de EQUAÇÃO INTEIRA na prova, o tratado vence o controle.
+       É a prova na política de treino dele: se nem aí ele ganha, o
+       tratamento não pegou.
 
-  MEDIDA PRIMÁRIA: a célula de MECANISMO — perda nos tokens de equação em
-  display (inteira na janela) sob mascaramento ALEATÓRIO, a tarefa do controle.
-    · conjunto DISJUNTO: partes que nem A nem E usaram no treino;
-    · 2.000 sequências, as MESMAS máscaras aplicadas aos dois braços;
-    · bootstrap pareado por SEQUÊNCIA da perda média nos tokens de equação,
-      IC de 95%. NÃO o teste de sinais sobre a perda geral, que mistura prosa.
+  MEDIDA PRIMÁRIA: a DIFERENÇA DAS DIFERENÇAS de `eval/mlm_regiao.py`
 
-  ⚠️ O viés da primária aponta para o CONTROLE: o regime aleatório é o
-     objetivo em que ele treinou, e o tratado gastou 1/3 dos exemplos noutra
-     coisa.
+      (acurácia em equação − acurácia em prosa)   do TRATADO
+    − (acurácia em equação − acurácia em prosa)   do CONTROLE
+
+    · máscara UNIFORME de 15% na prova, as MESMAS posições nos dois braços —
+      nenhum dos dois vê a própria política de treino;
+    · fatia DISJUNTA, tokenizada com E, sem as partes que A e E usaram;
+    · 2.000 sequências, contexto 1.024 (o do treino) — passados explicitamente:
+      os defaults do script são 200 e 512;
+    · IC de 95% por bootstrap pareado por SEQUÊNCIA. NÃO o McNemar por token:
+      tokens da mesma sequência não são independentes.
+
+  ⚠️ O viés da prova aponta para o CONTROLE: máscara uniforme é o objetivo em
+     que ele treinou. A diferença das diferenças cancela o custo geral de
+     distribuição, mas não prova que ele é igual nas duas regiões.
 
   Os desfechos:
 
-    TRATADO à frente  ->  robusto: venceu no objetivo do outro. A hipótese do
-                          §2.3 fica sustentada a 0,6 B.
+    DIFERENÇA > 0     ->  o tratado ganha em equação ALÉM do que ganha em
+    (IC exclui zero)      prosa, na prova que favorece o controle. A hipótese
+                          do §2.3 fica sustentada a 0,6 B.
 
-    CONTROLE à frente ->  ambíguo entre "não há mecanismo" e "custo geral de
-                          distribuição". Decide a diferença das diferenças,
-                          mesmo bootstrap: (tratado − controle) nos tokens de
-                          equação MENOS (tratado − controle) nos de prosa.
-                          Prejuízo em equação MAIOR que em prosa (IC exclui
-                          zero) -> é o negativo que o DOC-07 manda publicar.
-                          Senão -> custo geral, não refutação: não decidido.
+    DIFERENÇA < 0     ->  o tratamento piora equação relativamente à prosa. É
+    (IC exclui zero)      o negativo que o DOC-07 manda publicar, com a escala
+                          de 0,6 B declarada ao lado.
 
-    EMPATE            ->  ⚠️ NÃO é o negativo do DOC-07. É "a 0,6 B não dá
+    IC CRUZA ZERO     ->  ⚠️ NÃO é o negativo do DOC-07. É "a 0,6 B não dá
                           para ver", registrado como não decidido.
 
-  Secundárias: recuperação de Física e sonda tensorial, controle × tratado.
-  Não derrubam a primária; se discordarem, a discordância é o resultado.
+  Secundárias: recuperação de Física e sonda tensorial (`sonda_tensorial`),
+  controle × tratado. Não derrubam a primária; se discordarem, a discordância
+  é o resultado.
 
   ⚠️ O empate é o desfecho mais provável de um run subdimensionado, e o mais
      fácil de escrever como "tentamos, não funciona". O DOC-07 promete publicar
@@ -396,44 +414,57 @@ REGRA = r"""
   código fc1523a, p_equacao 0,0). TRATADO: esta célula, p_equacao 0,6. Mesma
   fatia, mesmo tokenizer, mesmo orçamento, mesma semente.
 
+  ⚠️ CORRIGIDA em 2026-09-16, com este braço já em treino e ANTES de qualquer
+     número dele. A primeira versão usava como primária a perda nos tokens de
+     equação e deixava a diferença das diferenças só para desempate. Estava
+     errada, e `eval/mlm_regiao.py` já dizia por quê desde 2026-09-10: token de
+     equação é MUITO mais fácil que prosa sem tratamento nenhum (+0,1286 de
+     acurácia no ModernBERT-base). Um tratado que melhorasse tudo por igual
+     sairia lido como evidência do §2.3, e não é.
+
   ⚠️ ESTE RUN NÃO É A ABLAÇÃO COMO PLANEJADA. Ela foi preparada a 2 B tokens
      (21 tokens/parâmetro); isto roda 0,6 B, 3,3x menos, porque o controle
      existe a 0,6 B e reaproveitá-lo é o que faz caber na cota.
 
   CHECAGENS DE MANIPULAÇÃO — reprovada qualquer uma, o run não testa o §2.3:
     1. fração tratada no treino >= 0,50. Medida antes nesta fatia: 0,549.
-    2. no regime de EQUAÇÃO, o tratado tem perda menor que o controle. É a
-       célula tautológica: se nem nela ele ganha, o tratamento não pegou.
+    2. com máscara de EQUAÇÃO INTEIRA na prova, o tratado vence o controle.
+       É a prova na política de treino dele: se nem aí ele ganha, o
+       tratamento não pegou.
 
-  MEDIDA PRIMÁRIA: a célula de MECANISMO — perda nos tokens de equação em
-  display (inteira na janela) sob mascaramento ALEATÓRIO, a tarefa do controle.
-    · conjunto DISJUNTO: partes que nem A nem E usaram no treino;
-    · 2.000 sequências, as MESMAS máscaras aplicadas aos dois braços;
-    · bootstrap pareado por SEQUÊNCIA da perda média nos tokens de equação,
-      IC de 95%. NÃO o teste de sinais sobre a perda geral, que mistura prosa.
+  MEDIDA PRIMÁRIA: a DIFERENÇA DAS DIFERENÇAS de `eval/mlm_regiao.py`
 
-  ⚠️ O viés da primária aponta para o CONTROLE: o regime aleatório é o
-     objetivo em que ele treinou, e o tratado gastou 1/3 dos exemplos noutra
-     coisa.
+      (acurácia em equação − acurácia em prosa)   do TRATADO
+    − (acurácia em equação − acurácia em prosa)   do CONTROLE
+
+    · máscara UNIFORME de 15% na prova, as MESMAS posições nos dois braços —
+      nenhum dos dois vê a própria política de treino;
+    · fatia DISJUNTA, tokenizada com E, sem as partes que A e E usaram;
+    · 2.000 sequências, contexto 1.024 (o do treino) — passados explicitamente:
+      os defaults do script são 200 e 512;
+    · IC de 95% por bootstrap pareado por SEQUÊNCIA. NÃO o McNemar por token:
+      tokens da mesma sequência não são independentes.
+
+  ⚠️ O viés da prova aponta para o CONTROLE: máscara uniforme é o objetivo em
+     que ele treinou. A diferença das diferenças cancela o custo geral de
+     distribuição, mas não prova que ele é igual nas duas regiões.
 
   Os desfechos:
 
-    TRATADO à frente  ->  robusto: venceu no objetivo do outro. A hipótese do
-                          §2.3 fica sustentada a 0,6 B.
+    DIFERENÇA > 0     ->  o tratado ganha em equação ALÉM do que ganha em
+    (IC exclui zero)      prosa, na prova que favorece o controle. A hipótese
+                          do §2.3 fica sustentada a 0,6 B.
 
-    CONTROLE à frente ->  ambíguo entre "não há mecanismo" e "custo geral de
-                          distribuição". Decide a diferença das diferenças,
-                          mesmo bootstrap: (tratado − controle) nos tokens de
-                          equação MENOS (tratado − controle) nos de prosa.
-                          Prejuízo em equação MAIOR que em prosa (IC exclui
-                          zero) -> é o negativo que o DOC-07 manda publicar.
-                          Senão -> custo geral, não refutação: não decidido.
+    DIFERENÇA < 0     ->  o tratamento piora equação relativamente à prosa. É
+    (IC exclui zero)      o negativo que o DOC-07 manda publicar, com a escala
+                          de 0,6 B declarada ao lado.
 
-    EMPATE            ->  ⚠️ NÃO é o negativo do DOC-07. É "a 0,6 B não dá
+    IC CRUZA ZERO     ->  ⚠️ NÃO é o negativo do DOC-07. É "a 0,6 B não dá
                           para ver", registrado como não decidido.
 
-  Secundárias: recuperação de Física e sonda tensorial, controle × tratado.
-  Não derrubam a primária; se discordarem, a discordância é o resultado.
+  Secundárias: recuperação de Física e sonda tensorial (`sonda_tensorial`),
+  controle × tratado. Não derrubam a primária; se discordarem, a discordância
+  é o resultado.
 
   ⚠️ O empate é o desfecho mais provável de um run subdimensionado, e o mais
      fácil de escrever como "tentamos, não funciona". O DOC-07 promete publicar

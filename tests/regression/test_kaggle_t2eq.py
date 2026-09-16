@@ -168,9 +168,10 @@ def test_o_registro_reusa_DADOS_e_CODIGO_do_controle():
 
 def test_a_regra_esta_escrita_ANTES_e_tem_o_que_decide():
     r = t2eq_tratado.REGRA_ABLACAO
-    for exigido in ("CHECAGENS DE MANIPULAÇÃO", "0,50", "2.000", "bootstrap pareado",
-                    "MECANISMO", "ALEATÓRIO", "diferença das diferenças",
-                    "O viés da primária aponta para o CONTROLE",
+    for exigido in ("CHECAGENS DE MANIPULAÇÃO", "0,50", "2.000", "contexto 1.024",
+                    "bootstrap pareado por SEQUÊNCIA", "NÃO o McNemar por token",
+                    "DIFERENÇA DAS DIFERENÇAS", "mlm_regiao", "UNIFORME",
+                    "O viés da prova aponta para o CONTROLE",
                     "NÃO é o negativo do DOC-07", "0,6 B"):
         assert exigido in r, exigido
     assert r in TRATADO, "a regra do módulo não é a que a célula imprime"
@@ -198,3 +199,17 @@ def test_toda_saida_de_subprocesso_do_publicador_e_decodificada_em_UTF8():
         if kws.get("text") == "True" and kws.get("encoding") != "'utf-8'":
             sem.append(no.lineno)
     assert not sem, f"subprocess com text=True sem encoding utf-8 nas linhas {sem}"
+
+
+def test_a_regra_declara_a_CORRECAO_e_por_que():
+    """⚠️ A primeira versão tinha a perda nos tokens de equação como primária. Token
+    de equação já é muito mais fácil que prosa SEM tratamento (+0,1286 no
+    ModernBERT-base, `mlm_regiao`), e um tratado que melhorasse tudo por igual sairia
+    lido como evidência. A correção entrou antes de qualquer número do tratado, e
+    tem de ficar DITA na regra — não só no histórico do git."""
+    r = t2eq_tratado.REGRA_ABLACAO
+    assert "CORRIGIDA em 2026-09-16" in r
+    assert "ANTES de qualquer" in " ".join(r.split())
+    assert "+0,1286" in r
+    # e a primária antiga não pode ter sobrado como primária
+    assert "MEDIDA PRIMÁRIA: a célula de MECANISMO" not in r
