@@ -395,7 +395,11 @@ def test_o_reranker_carrega_em_fp32_explicito():
     Ficou invisível porque MiniLM e PhysBERT são fp32. Custou um braço do T1c.
     """
     fonte = (RAIZ / "src/phifm/training/rerank.py").read_text(encoding="utf-8")
-    assert "dtype=torch.float32" in fonte, (
+    # ⚠️ `**kwargs_fp32()` e não `dtype=torch.float32` literal desde 2026-09-16: o
+    # nome do argumento mudou entre versões do transformers (ver
+    # `phifm.training.versao_transformers`). A guarda completa está em
+    # `test_dtype_fp32.py`.
+    assert "**kwargs_fp32()" in fonte, (
         "o carregamento voltou a herdar o dtype do checkpoint — qualquer base fp16 "
         "morre no primeiro passo do AMP")
     assert "unscale FP16" in fonte, (
