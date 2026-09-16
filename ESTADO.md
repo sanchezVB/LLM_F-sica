@@ -37,7 +37,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15 |
-| **§2.3** · mascarar equações inteiras | 🔴 **negativo, a 0,6 B** | o tratamento PEGOU (equação inteira escondida: 7% → 20%) e não transferiu: diferença das diferenças **−0,0040** [−0,0058; −0,0022] pela regra pré-registrada. ⚠️ Cai na direção de um viés que a regra nomeou antes. Ver a seção de 2026-09-16 |
+| **§2.3** · mascarar equações inteiras | 🟡 **dividido, a 0,6 B** | primária NEGATIVA pela regra (diferença das diferenças **−0,0040**), e a secundária de recuperação DISCORDA: nDCG@10 **0,017 → 0,139** (8×), e não é geometria. O tratamento pegou (equação inteira: 7% → 20%). Reavaliação do ΦEnc do zero proposta no [ADR-0003](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
@@ -51,7 +51,7 @@ Os que dependem de torch rodam na venv de treino:
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
 
-## §2.3 — pela regra, o NEGATIVO: o tratamento pegou e não transferiu (2026-09-16)
+## §2.3 — negativo pela regra, 8× na recuperação: o resultado é a discordância (2026-09-16)
 
 A ablação do mascaramento de equações inteiras, a 0,6 B, lida pela regra de
 `kaggle/t2eq_tratado.py` (corrigida antes de qualquer número). Fatia `phienc_aval_E`
@@ -99,12 +99,34 @@ notação.
 - **As secundárias não rodaram** (recuperação e sonda tensorial). Pela regra, não
   derrubam a primária.
 
+### ⚠️ As secundárias DISCORDAM, e a discordância é o resultado
+
+| secundária | controle | tratado | pareado |
+|---|---|---|---|
+| recuperação · nDCG@10 (pool do G1, 2.000) | 0,0171 | **0,1391** | +0,122 [+0,109; +0,135] |
+| recuperação · recall@1 | 0,0055 | 0,0785 | McNemar p = 3,6×10⁻³⁶ |
+| sonda tensorial (72 itens) | 0,333 | 0,375 | 12 × 15, p = 0,70 |
+
+Um fator de 8 entre dois modelos que diferem só em `p_equacao` pedia que a explicação
+barata caísse primeiro. **Não é geometria** (diagnóstico exploratório): a anisotropia
+dos dois braços é igual — cosseno médio 0,972 e 0,971 —, centrar os vetores não fecha a
+diferença (0,021 contra 0,143), e o braço A do T2a, também com `p_equacao` 0, fica em
+0,030. **O tratamento não ensina a prever melhor token de equação, e muda muito o que
+a representação agregada codifica.** Se isso sobrevive ao ajuste contrastivo do ΦEmb
+não foi medido — e é o que decide se importa para a busca.
+
+Exploratória: o negativo da primária mora nas equações em display (−0,0055) e não nas
+inline (−0,0015, IC cruza zero).
+
 ### Consequência
 
 O DOC-07 §2.3 diz: *"Se não ajudar, é descartado e o negativo é publicado."* O
 docstring de `mascaramento.py` chama esta adição de *"a razão científica de treinar o
-ΦEnc do zero em vez de ajustar um modelo existente"*. A 0,6 B, essa razão não se
-sustentou. A decisão sobre o que isso muda no plano do ΦEnc não está tomada.
+ΦEnc do zero em vez de ajustar um modelo existente"*. A 0,6 B o resultado é
+dividido, e ele não favorece treinar do zero: as marcas de equação saem de offsets de
+caractere e servem a um pré-treino continuado de qualquer base. Reavaliação proposta,
+**não decidida**: [ADR-0003](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) — primeiro ajustar
+os dois braços como ΦEmb e ver se o ganho de recuperação sobrevive.
 
 Artefatos: `data/processed/avaliacao/t2eq_*.json` e `t2eq_ablacao.json`.
 

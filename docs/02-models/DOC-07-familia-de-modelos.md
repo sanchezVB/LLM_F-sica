@@ -99,6 +99,42 @@ MLM com taxa de mascaramento de **30%** (o ModernBERT mostra que 15%, do BERT or
 >
 > Hipótese: ensina a relação entre a descrição verbal de um fenômeno e sua expressão formal — exatamente a competência que a recuperação de Física exige. Custo da ablação: **~US$ 5** na escala de 50 M. Se não ajudar, é descartado e o negativo é publicado.
 
+### 2.3-medido O resultado da ablação, a 0,6 B: negativo na primária, 8× na recuperação (2026-09-16)
+
+Proxy de 48 M, tokenizer E, 0,6 B tokens por braço; controle `p_equacao` 0,0 (o braço
+E do T2a) e tratado `p_equacao` 0,6. Regra pré-registrada em `kaggle/t2eq_tratado.py`,
+corrigida antes de qualquer número do tratado. Fatia de avaliação disjunta
+(`phienc_aval_E`), 2.000 sequências sorteadas, as mesmas nos dois braços.
+
+**Checagens de manipulação — as duas aprovadas.** Fração tratada 0,5381. Com uma
+equação inteira escondida, o tratado reconstrói **19,8%** dos tokens contra **7,0%** do
+controle (+0,128 [+0,122; +0,134]): o tratamento pegou.
+
+**Primária — negativa.** Diferença das diferenças de acurácia (equação − prosa, com
+máscara uniforme): **−0,0040 [−0,0058; −0,0022]**. Pela regra, é o negativo que esta
+seção manda publicar. Exploratória, feita depois: o efeito mora nas equações em
+display (−0,0055) e não nas inline (−0,0015, IC cruza zero).
+
+⚠️ Ressalva nomeada ANTES do número: a prova uniforme é o objetivo do controle, e a
+diferença das diferenças não prova que o custo de distribuição é igual nas duas
+regiões. O tratado viu token de display mascarado sobretudo em bloco; a prova esconde
+token isolado.
+
+**Secundária de recuperação — discorda, e por muito.** Pool do G1, 2.000 pares de
+citação: nDCG@10 **0,0171 → 0,1391**, recall@1 0,0055 → 0,0785 (McNemar p = 3,6×10⁻³⁶).
+Diagnóstico exploratório: não é geometria — anisotropia igual nos dois braços (cosseno
+médio 0,972 e 0,971), e centrar os vetores não fecha a diferença; o braço A do T2a,
+também com `p_equacao` 0, fica em 0,030.
+
+**Secundária de estrutura — sem diferença.** Sonda tensorial: 0,333 → 0,375, p = 0,70.
+
+**Leitura.** Pela regra, as secundárias não derrubam a primária, e *"se discordarem, a
+discordância é o resultado"*. Esta é: **o tratamento não ensina a prever melhor token de
+equação, e muda muito o que a representação agregada codifica** — justamente na
+competência que a hipótese acima nomeia. Se isso sobrevive ao ajuste contrastivo do
+ΦEmb não foi medido, e é o que decide se importa para o sistema. Ver
+[ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md).
+
 ### 2.4 Custo
 
 `C = 6 × 1,5e8 × 3e10 ≈ 2,7e19` FLOPs → ~17 h numa H100 ou ~129 h numa RTX 4090 → **US$ 25–90**.
@@ -317,6 +353,12 @@ Reavaliação com os números medidos, não com os estimados do DOC-00.
 **Condição de reabertura, no Stage-Gate 4:** corpus acima de **250 B tokens** (só alcançável com licenciamento de editoras somado a geração sintética verificada em escala massiva) **e** orçamento acima de 10⁵ GPU-horas.
 
 > **A evidência que o ΦEnc vai produzir.** O ΦEnc **é** treinado do zero, com tokenizer nativo de Física e contexto de 8.192. Se ele superar amplamente encoders gerais adaptados, isso é evidência de que o viés indutivo nativo importa — e informa diretamente a decisão do Stage-Gate 4. Se o ganho for marginal, é evidência contra, e economiza uma aposta cara mais adiante. **De qualquer forma, a questão fica respondida por medição, por US$ 25–90.**
+>
+> ⚠️ **2026-09-16: dois dos três ingredientes nativos foram testados num proxy de 48 M a
+> 0,6 B.** A regra de LaTeX do tokenizer custou (DOC-05 §8-medido). O mascaramento de
+> equações deu negativo na primária e 8× na recuperação (§2.3-medido) — e ele não exige
+> treino do zero: as marcas saem de offsets de caractere. O que sobra para o treino do
+> zero é o dissenso em si. Reavaliação proposta, não decidida: [ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md).
 
 ---
 
