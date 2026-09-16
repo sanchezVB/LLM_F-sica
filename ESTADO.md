@@ -50,6 +50,44 @@ Os que dependem de torch rodam na venv de treino:
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
 
+## A junção do branch do Mac foi SELETIVA, e ela mesma achou quatro defeitos (2026-09-16)
+
+O branch `claude/artigo-modelo-ia-fisica-ey4lbe` — 6 commits de 2026-09-07 e
+2026-09-14, feitos numa sessão no Mac — saiu de `8cc7a48` (2026-09-06), **74 commits
+atrás de `main`**. Ele foi registrado como juntado, mas não entrou inteiro.
+
+| | o quê | por quê |
+|---|---|---|
+| ✅ entrou | artigo do programa v0.2 (`docs/papers/rascunho-artigo-recuperacao-fisica.md`), `scripts/artigo_pdf.py` e 11 testes | é único: `main` tem outro artigo, o das armadilhas da recuperação por citação |
+| ✅ entrou | `binomial_exata_bicaudal` em `eval/statistics/proporcao.py`, e o `mcnemar_em` passa a usá-la | havia duas cópias da mesma conta |
+| ❌ não entrou | `eval/mlm.py`, `eval/phienc.py`, `eval/tensorial.py`, os três scripts e 49 testes | **duplicavam** as três avaliações do §11.2 que `main` já tinha — `mlm_regiao` (2026-09-10), `sonda_tensorial` (2026-09-08) e a corrente exportador → avaliador do G1 (2026-09-08) —, que já rodaram em modelos reais e estão calibradas. O Mac as escreveu a partir de uma base em que `eval/` estava vazio. Tudo continua no branch remoto |
+
+### Os quatro defeitos que a junção expôs
+
+1. **A regressão do `--dispositivo dml` voltou em CINCO lugares** — `avaliar_carregado`,
+   `avaliar_um`, `mlm.medir`, `phienc` e `tensorial` —, porque o código do Mac nasceu
+   antes de `c35eebb`. **O teste de `main` passaria**: ele fixava o NOME `avaliar_um`.
+   Teste novo, sobre comportamento: nenhum `torch.device(<variável>)` em `eval/`.
+2. **`--excluir-de` existia duas vezes, com semânticas diferentes** — diretório em
+   `main`, arquivo de manifesto no Mac. O bloco do Mac entrou **sem marcar conflito** e
+   rodava ANTES do de `main`: toda preparação com a bandeira quebraria. Um merge
+   "limpo" que quebra.
+3. **A binomial exata ficou duplicada** porque os dois lados fizeram a MESMA limpeza em
+   lugares diferentes, os dois com o comentário "não duplicar". Teste novo:
+   `math.comb` só em `proporcao.py`.
+4. **A regra do braço tratado do §2.3, escrita hoje de manhã, seguia o desenho do
+   `mlm.py` do Mac**, e não o de `mlm_regiao` — que já tinha medido que token de
+   equação é muito mais fácil que prosa SEM tratamento. Corrigida antes de qualquer
+   número do tratado; ver a seção do §2.3.
+
+⚠️ **O artigo v0.2 está defasado**: cita a cadeia de hashes sobre 21,79 GB (hoje 52,40
+GB), diz que a remedição do G1 "está em curso" (foi concluída), e não conhece T1f,
+T2a, a fatia `math`+`cs` nem o PB-Formula.
+
+**Uma ideia do Mac que fica para depois:** a checagem no regime de EQUAÇÃO — o tratado
+tem de vencer quando a própria política de treino dele é a da prova. Não testa a
+hipótese; testa se o tratamento pegou. `mlm_regiao` só mede o regime neutro.
+
 ## §2.3 — o braço tratado está montado, e é o controle com UMA troca (2026-09-16)
 
 A ablação do mascaramento de equações (DOC-07 §2.3) cabe na cota porque o
@@ -1662,7 +1700,13 @@ DOC-08 §4 para preferir WSD a cosseno.
 Agora `passos_warmup` é absoluto, derivado uma vez por `plano_wsd()` e guardado no
 checkpoint. A tentação era ajustar o número esperado no teste.
 
-### O que NÃO existe, e é o gargalo agora
+### ~~O que NÃO existe, e é o gargalo agora~~ — resolvido entre 2026-09-08 e 2026-09-10
+
+> **As três avaliações existem em `main`**: `eval/sonda_tensorial.py` (2026-09-08),
+> a corrente exportador → avaliador do G1 (2026-09-08) e `eval/mlm_regiao.py`
+> (2026-09-10). Uma segunda versão das três, escrita no Mac em 2026-09-14 a partir de
+> uma base anterior, NÃO entrou — ver a junção de 2026-09-16. A frase abaixo fica
+> porque a segunda metade dela continua valendo: perda baixa não é veredito.
 
 **Avaliação.** O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em
 equações e uma sonda de estrutura tensorial. Um `phienc.json` com perda baixa **não
@@ -2836,17 +2880,34 @@ mesmos itens, e só os **discordantes** informam sobre a diferença. Placar de 3
    distribuição de domínios. **peS2o não iniciado** (42,7 h medidas).
 4. ~~**Medir se `stat` é vizinho próximo**~~ — ✅ **não é** (1,0×). A suspeita era
    minha, o documento estava certo. `math` segue o pior (42,1% de FP).
-5. **Decidir sobre o bulk pago do arXiv** — US$ 100–180. A medição está fechada
-   (16,6%, IC [12,9%–20,8%]); a decisão é de orçamento, não técnica.
+5. ~~**Decidir sobre o bulk pago do arXiv** — US$ 100–180.~~ — ⚠️ **vencido pelo
+   [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md).** Duas coisas
+   estavam erradas: não é pré-requisito (o RedPajama-arXiv tem ambiente de equação
+   em 84,9% e estava no disco), e a cotação nunca foi US$ 100–180 — o bucket é
+   *requester pays* e o fonte inteiro para fora da AWS passa de **US$ 400**. A
+   medição de degradação (16,6%, IC [12,9%–20,8%]) continua válida e é o que
+   justificaria comprar; a decisão segue aberta, com o preço certo — e filtrar
+   dentro da AWS, baixando só o `.tex`, custaria dezenas de dólares (ADR-0002).
 6. ~~**4b · RedPajama filtrado pelo spine**~~ — ✅ 835.379 documentos,
    42.145.866.036 caracteres = **10,54 B tokens** (contagem exata; o estimado era
    10,56 B ±4%). Com o OpenWebMath, o corpus é **13,15 B tokens**.
 7. **Fechar o G1.2** — ⚠️ as duas rotas baratas estão **descartadas por medição**:
    lote maior piorou (0,4486) e mais dados empataram (0,4520), ver §"As duas
    alavancas de escala são planas". O que resta pede dinheiro: base maior
-   (ΦEnc-150M, US$ 25–90 alugado) ou supervisão diferente do par de citação. A
+   (ΦEnc-150M, US$ 25–90 alugado) ou supervisão diferente do par de citação. ~~A
    decisão é do dono do projeto, e é a primeira do projeto que não tem versão de
-   custo zero.
+   custo zero.~~
+
+   ⚠️ **Essa última frase deixou de valer em 2026-09-06**, e vale registrar por
+   quê: a auditoria de amostragem abriu uma rota de custo zero que era invisível
+   antes — treinar com os MESMOS 400 mil pares, sorteados, dá 191.300 documentos
+   citados distintos em vez de 17.844. Mesma GPU, mesmo tempo, 10,7× mais
+   diversidade. Foi feito: ver as seções da T1a com pares sorteados, a partir de
+   2026-09-07.
+
+   Duas rotas caras foram descartadas por medição, e isso foi lido como "não há
+   rota barata" quando o certo era "não há rota barata **entre as que eu havia
+   pensado**". A terceira apareceu de um defeito, não de uma ideia.
 8. ~~**Fechar o G1.5**~~ — 🟡 metade fechada, ver §"G1.5 — o corpus por um hash".
    O que falta é capturar parâmetros na execução em vez de reconstruí-los, e isso
    se resolve etapa por etapa, de graça, quando cada uma rodar de novo.

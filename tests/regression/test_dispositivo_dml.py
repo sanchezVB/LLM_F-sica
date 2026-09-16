@@ -60,3 +60,34 @@ def test_a_CLI_oferece_dml_e_por_isso_ele_tem_de_funcionar():
                 escolhas = ast.literal_eval(kw.value)
     assert escolhas is not None, "--dispositivo perdeu as `choices`"
     assert set(escolhas) <= {"cpu", "dml", "cuda", "auto"}, escolhas
+
+
+def test_NENHUMA_avaliacao_constroi_o_device_de_uma_variavel():
+    """⚠️ O teste acima fixava o NOME `avaliar_um`, e por isso não viu a regressão
+    voltar. Na junção com o branch do Mac (2026-09-16), `avaliar_carregado` — o
+    novo caminho único da métrica — e as três avaliações do §11.2 nasceram de uma
+    base anterior a `c35eebb` e traziam `torch.device(dispositivo)` em CINCO
+    lugares, com a suíte verde.
+
+    Agora a guarda é sobre o comportamento, em todo `eval/`: `torch.device(...)`
+    só com literal. Uma string vinda da CLI passa pelo resolvedor."""
+    ofensores = []
+    for arq in sorted((RAIZ / "src/phifm/eval").rglob("*.py")):
+        for no in ast.walk(ast.parse(arq.read_text(encoding="utf-8"))):
+            if (isinstance(no, ast.Call) and ast.unparse(no.func) == "torch.device"
+                    and no.args and not isinstance(no.args[0], ast.Constant)):
+                ofensores.append(f"{arq.relative_to(RAIZ).as_posix()}:{no.lineno}")
+    assert not ofensores, (
+        f"torch.device(<variável>) em {ofensores}: `dml` quebra assim. Use "
+        "`phifm.training.embedding.escolher_dispositivo`.")
+
+
+def test_ha_UMA_binomial_exata_so():
+    """Os dois lados da junção limparam a mesma duplicação em lugares diferentes —
+    `main` no `mcnemar_em`, o Mac em `statistics.proporcao` —, e juntos deixariam
+    duas cópias. A conta mora em `proporcao`."""
+    copias = []
+    for arq in sorted((RAIZ / "src").rglob("*.py")):
+        if "math.comb(" in arq.read_text(encoding="utf-8"):
+            copias.append(arq.relative_to(RAIZ).as_posix())
+    assert copias == ["src/phifm/eval/statistics/proporcao.py"], copias

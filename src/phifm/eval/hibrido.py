@@ -46,6 +46,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import scipy.sparse as sp
 
+from phifm.eval.statistics.proporcao import binomial_exata_bicaudal
+
 log = logging.getLogger(__name__)
 
 # Tokenização. ⚠️ Mantém `\command`, dígitos e hífen interno, porque em texto de
@@ -247,9 +249,10 @@ def mcnemar_em(posicoes_a: list[int | None], posicoes_b: list[int | None],
                 "discordantes": 0, "p": 1.0,
                 "veredito": f"idênticos consulta a consulta no top-{k}"}
 
-    k_menor = min(ganha_a, ganha_b)
-    cauda = sum(math.comb(disc, i) for i in range(k_menor + 1)) / 2 ** disc
-    p = min(1.0, 2 * cauda)
+    # ⚠️ A conta mora em `eval.statistics.proporcao`. Até a junção com o branch do
+    # Mac (2026-09-16) havia DUAS cópias dela — aqui e lá —, cada lado tendo feito
+    # a mesma limpeza num lugar diferente, os dois com o comentário "não duplicar".
+    p = binomial_exata_bicaudal(ganha_a, ganha_b)["p"]
     vencedor = nome_a if ganha_a > ganha_b else nome_b
 
     if p < 0.05:
