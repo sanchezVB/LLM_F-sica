@@ -105,9 +105,11 @@ def _sha_publicavel(repo: str) -> str:
     exatamente a divergência silenciosa que este caminho existe para eliminar.
     """
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=RAIZ, capture_output=True,
-                         text=True, check=True).stdout.strip()
+                         text=True, encoding="utf-8",
+                           errors="replace", check=True).stdout.strip()
     sujo = subprocess.run(["git", "status", "--porcelain"], cwd=RAIZ,
-                          capture_output=True, text=True, check=True).stdout.strip()
+                          capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", check=True).stdout.strip()
     if sujo:
         raise SystemExit(
             f"a árvore tem {len(sujo.splitlines())} mudanças não commitadas. O "
@@ -115,7 +117,8 @@ def _sha_publicavel(repo: str) -> str:
             "roda lá deixaria de ser o que está aqui.\n\nCommite e empurre antes "
             "de publicar.")
     remotos = subprocess.run(["git", "branch", "-r", "--contains", sha], cwd=RAIZ,
-                             capture_output=True, text=True).stdout.strip()
+                             capture_output=True, text=True, encoding="utf-8",
+                           errors="replace").stdout.strip()
     if not remotos:
         raise SystemExit(
             f"o commit {sha[:7]} não está em nenhum branch remoto. O notebook baixa "
@@ -167,7 +170,8 @@ def _usuario_da_sessao() -> str | None:
     """
     try:
         r = subprocess.run([sys.executable, "-m", "kaggle", "config", "view"],
-                           capture_output=True, text=True, timeout=60)
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=60)
     except Exception:
         return None
     m = re.search(r"^-\s*username:\s*(\S+)\s*$", r.stdout, re.M)
@@ -247,10 +251,15 @@ def _dataset_existe(id_dados: str) -> bool:
     try:
         r = subprocess.run([sys.executable, "-m", "kaggle", "datasets", "list",
                             "--user", dono, "--search", slug],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120)
     except Exception:
         return False
-    return id_dados in r.stdout
+    # ⚠️ `stdout` pode vir None: se a thread que lê a saída levanta ao decodificar,
+    # `subprocess.run` devolve assim mesmo, e `in None` derrubava a publicação
+    # ANTES de enviar — medido em 2026-09-16, com o travessão do título do
+    # dataset decodificado como cp1252.
+    return id_dados in (r.stdout or "")
 
 
 def _limite_de_espera(bytes_totais: int) -> int:
@@ -287,7 +296,8 @@ def _esperar_dataset(id_dados: str, limite_s: int = 900) -> bool:
     while time.monotonic() - inicio < limite_s:
         try:
             r = subprocess.run([sys.executable, "-m", "kaggle", "datasets", "status",
-                                id_dados], capture_output=True, text=True, timeout=120)
+                                id_dados], capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120)
         except Exception as exc:
             print(f"  (status indisponível: {exc}; tentando de novo)")
             time.sleep(15)

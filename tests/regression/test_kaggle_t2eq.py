@@ -179,3 +179,22 @@ def test_a_regra_esta_escrita_ANTES_e_tem_o_que_decide():
 def test_a_regra_do_T2a_NAO_vazou_para_o_tratado():
     assert "a §8 vale alguma coisa" not in TRATADO
     assert "MEDIDA PRIMÁRIA: bits por byte" not in TRATADO
+
+
+# ── o publicador, que quebrou no lançamento deste braço ─────────────────────
+
+def test_toda_saida_de_subprocesso_do_publicador_e_decodificada_em_UTF8():
+    """⚠️ Medido em 2026-09-16, no primeiro `--enviar` deste braço: `datasets list`
+    devolveu o título "PhiFM T2a — fatias…", o Windows decodificou em cp1252, a
+    thread de leitura levantou no travessão, `stdout` veio None, e a publicação
+    caiu ANTES de enviar. Seis das sete chamadas com `text=True` não declaravam
+    encoding; só a do envio declarava."""
+    fonte = (RAIZ / "scripts" / "publicar_kaggle.py").read_text(encoding="utf-8")
+    sem = []
+    for no in ast.walk(ast.parse(fonte)):
+        if not (isinstance(no, ast.Call) and ast.unparse(no.func).startswith("subprocess.")):
+            continue
+        kws = {k.arg: ast.unparse(k.value) for k in no.keywords}
+        if kws.get("text") == "True" and kws.get("encoding") != "'utf-8'":
+            sem.append(no.lineno)
+    assert not sem, f"subprocess com text=True sem encoding utf-8 nas linhas {sem}"
