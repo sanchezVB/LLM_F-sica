@@ -505,6 +505,49 @@ T2EQ_TRATADO = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# ⚠️ T2eq-emb — ADR-0003, opção C: o ganho de recuperação do §2.3 sobrevive ao ajuste?
+#
+# Dois braços, um dataset: os pares são os MESMOS bytes do pacote do T1a (o montador
+# confere o blake3 contra o manifesto dele), e os dois checkpoints de 48 M sobem
+# num zip. O `max_pares` de 200 mil é identidade do experimento — metade da receita,
+# decidida porque os dois braços a 400 mil não cabiam na cota restante.
+_T2EQ_EMB_ARQUIVOS = ("pares_treino.parquet", "pares_validacao.parquet",
+                      "modelos.zip.bin")
+_T2EQ_EMB_MODELOS = ("models/phienc-t2a-E", "models/phienc-t2eq-E-tratado")
+
+T2EQ_EMB_CONTROLE = Experimento(
+    nome="t2eq_emb_controle",
+    titulo_dados="PhiFM T2eq Emb pares do T1a e dois PhiEnc",
+    slug_dados="phifm-t2eq-emb",
+    titulo_notebook="PhiFM T2eq Emb Controle",
+    slug_notebook="phifm-t2eq-emb-controle",
+    pacote="data/processed/kaggle_t2eq_emb",
+    fonte_celula="kaggle/t2eq_emb.py",
+    arquivos=_T2EQ_EMB_ARQUIVOS,
+    scripts=("train_embedding.py",),
+    modelos=_T2EQ_EMB_MODELOS,
+    max_pares=200_000,
+    variante="controle",
+    repo="sanchezVB/LLM_F-sica",
+)
+
+T2EQ_EMB_TRATADO = Experimento(
+    nome="t2eq_emb_tratado",
+    reusa_dados_de="t2eq_emb_controle",
+    titulo_dados="PhiFM T2eq Emb pares do T1a e dois PhiEnc",
+    slug_dados="phifm-t2eq-emb",
+    titulo_notebook="PhiFM T2eq Emb Tratado",
+    slug_notebook="phifm-t2eq-emb-tratado",
+    pacote="data/processed/kaggle_t2eq_emb",
+    fonte_celula="kaggle/t2eq_emb.py",
+    arquivos=_T2EQ_EMB_ARQUIVOS,
+    scripts=("train_embedding.py",),
+    modelos=_T2EQ_EMB_MODELOS,
+    max_pares=200_000,
+    variante="tratado",
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
@@ -517,7 +560,8 @@ BRACOS_DO_T2A = ("t2a_a", "t2a_e")
 
 EXPERIMENTOS: dict[str, Experimento] = {
     e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
-                        T2A_A, T2A_E, T2EQ_TRATADO)}
+                        T2A_A, T2A_E, T2EQ_TRATADO,
+                        T2EQ_EMB_CONTROLE, T2EQ_EMB_TRATADO)}
 
 
 def obter(nome: str) -> Experimento:

@@ -358,10 +358,38 @@ def _montar_t2a(exp: Experimento, raiz: Path, out: Path, a) -> dict:
 # do `max_pares` do experimento.
 # O t1d usa o MESMO montador do t1c: a diferença é o arquivo de negativos, e
 # ele vem da identidade do experimento — não de uma bandeira que se esquece.
+def _montar_t2eq_emb(exp: Experimento, raiz: Path, out: Path, a) -> dict:
+    """ADR-0003, opção C: os pares do T1a, BYTE A BYTE, e os dois ΦEnc de 48 M.
+
+    ⚠️ Os pares são COPIADOS do pacote do T1a e conferidos por blake3 contra o
+    manifesto dele — não re-sorteados. Re-sortear com a mesma semente deveria dar o
+    mesmo arquivo, e "deveria" é exatamente o que um manifesto existe para trocar
+    por "confere". O `max_pares` do experimento (200 mil) é aplicado pelo
+    `train_embedding.py` no Kaggle, igual nos dois braços.
+    """
+    origem = raiz / "data/processed/kaggle_t1a"
+    man_t1a = json.loads((origem / "MANIFESTO.json").read_text(encoding="utf-8"))
+    for nome in ("pares_treino.parquet", "pares_validacao.parquet"):
+        shutil.copy2(origem / nome, out / nome)
+        obtido = hash_arquivo(out / nome)
+        if obtido != man_t1a["arquivos"][nome]["blake3"]:
+            raise SystemExit(
+                f"{nome} copiado do pacote do T1a não confere com o manifesto dele "
+                f"({obtido[:12]} contra {man_t1a['arquivos'][nome]['blake3'][:12]}). "
+                "O pacote do T1a mudou no disco desde que foi publicado.")
+    n_mod = _zipar_modelos(raiz, out / f"modelos{SUFIXO_ZIP}", exp.modelos)
+    return {"pares_de": "t1a", "pares_iguais_ao_t1a": True,
+            "linhas_treino": man_t1a["linhas_treino"],
+            "max_pares_no_treino": exp.max_pares,
+            "arquivos_de_modelo": n_mod, "modelos": list(exp.modelos),
+            "codigo_de": exp.repo or "dataset"}
+
+
 MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
               "t1a3m": _montar_t1a, "t1a6m": _montar_t1a,
               "t1b2": _montar_t1b2, "t1c": _montar_rerank,
-              "t1d": _montar_rerank, "t2a_a": _montar_t2a}
+              "t1d": _montar_rerank, "t2a_a": _montar_t2a,
+              "t2eq_emb_controle": _montar_t2eq_emb}
 
 
 def main() -> int:
