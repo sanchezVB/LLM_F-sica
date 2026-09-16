@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-15
+# Estado do projeto — 2026-09-16
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -49,6 +49,51 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## §2.3 — o braço tratado está montado, e é o controle com UMA troca (2026-09-16)
+
+A ablação do mascaramento de equações (DOC-07 §2.3) cabe na cota porque o
+**controle já treinou**: é o braço E do T2a, `p_equacao` 0,0, no tokenizer que
+venceu. Falta só o tratado — `kaggle/t2eq_tratado.py`, experimento `t2eq_tratado`,
+notebook `phifm-t2-equacoes-tratado`. **Montado e preparado; NÃO enviado.**
+
+**A célula não é escrita: é `derivar(célula do T2a)`**, com as trocas declaradas no
+módulo e cada âncora exigida exatamente uma vez. 14 testes, os centrais pela AST: a
+chamada ao `train_phienc.py` difere SÓ em `("0.0", "P_EQUACAO")`, as seis constantes
+de orçamento são idênticas, e nenhum texto removido pelas trocas contém orçamento,
+semente, fatia, blake3, assinatura ou SHA.
+
+Conferido no notebook preparado, contra o do controle:
+
+| | controle (`t2a_e`) | tratado |
+|---|---|---|
+| assinatura dos dados | `2ac16870cd62372d` | `2ac16870cd62372d` |
+| variante | E | E (travada) |
+| `p_equacao` | 0,0 | **0,6** |
+| código | `fc1523a` | `fd485b3` — o caminho de treino difere só na correção do corte no fim, que não muda o controle (há teste) |
+| metadado do kernel | — | difere só em id, título e arquivo |
+
+⚠️ **Resíduos que não dá para controlar, declarados antes:**
+- a imagem Docker é `latest` nos dois, e pode ter mudado desde 2026-09-11. O
+  controle não registrou a versão do torch; registrou `transformers` 5.0.0 no config
+  exportado. Conferir a do tratado quando ele voltar;
+- 0,6 B contra os 2 B para os quais a ablação foi preparada.
+
+**A regra está na célula**, impressa antes de treinar. Primária: perda nos tokens de
+equação sob mascaramento ALEATÓRIO (a célula de mecanismo), 2.000 sequências
+disjuntas, mesmas máscaras, bootstrap pareado por sequência — viés a favor do
+controle, então vitória do tratado é robusta. Duas checagens de manipulação: fração
+tratada ≥ 0,50 no treino, e o tratado vencer no regime de equação. Controle à frente
+só é o negativo do DOC-07 se o prejuízo em equação exceder o de prosa; empate NÃO é
+o negativo.
+
+⚠️ **Antes de MEDIR (não antes de treinar)**, o `eval/mlm.py` do branch do Mac
+precisa de três coisas: teste na célula de mecanismo (hoje só reporta a diferença
+das médias), 2.000 sequências em vez do default de 64, e `escolher_dispositivo` em
+vez de `torch.device` — a regressão do `dml`.
+
+**Custo para lançar:** ~8 h 10 min de T4 (o controle levou 8 h 08), das 10 h 25 que
+restam.
 
 ## T2a — E vence, e só o terceiro instrumento podia dizer isso (2026-09-15)
 
