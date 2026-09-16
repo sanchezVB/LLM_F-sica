@@ -1,0 +1,84 @@
+{
+  "exploratoria": true,
+  "aviso": "Análise feita DEPOIS da primária. Não altera o desfecho da regra; responde onde o efeito mora.",
+  "tokens": {
+    "display": 68042,
+    "inline": 40346,
+    "matematica_toda": 108388,
+    "prosa": 199474
+  },
+  "regioes": {
+    "display": {
+      "quantidade": "(acc_eq − acc_prosa) do tratado − (acc_eq − acc_prosa) do controle",
+      "diferenca_das_diferencas": -0.00548,
+      "ic95": [
+        -0.0076,
+        -0.00336
+      ],
+      "cruza_zero": false,
+      "controle": {
+        "acuracia_equacao": 0.88467,
+        "acuracia_prosa": 0.69444,
+        "vantagem_em_equacao": 0.19024
+      },
+      "tratado": {
+        "acuracia_equacao": 0.8781,
+        "acuracia_prosa": 0.69335,
+        "vantagem_em_equacao": 0.18476
+      },
+      "sequencias": 2000,
+      "tokens_equacao": 68042,
+      "tokens_prosa": 199474,
+      "reamostras": 10000,
+      "teste": "bootstrap pareado por SEQUÊNCIA, as mesmas reamostras nos dois braços"
+    },
+    "inline": {
+      "quantidade": "(acc_eq − acc_prosa) do tratado − (acc_eq − acc_prosa) do controle",
+      "diferenca_das_diferencas": -0.00149,
+      "ic95": [
+        -0.00411,
+        0.00112
+      ],
+      "cruza_zero": true,
+      "controle": {
+        "acuracia_equacao": 0.84365,
+        "acuracia_prosa": 0.69444,
+        "vantagem_em_equacao": 0.14922
+      },
+      "tratado": {
+        "acuracia_equacao": 0.84107,
+        "acuracia_prosa": 0.69335,
+        "vantagem_em_equacao": 0.14773
+      },
+      "sequencias": 2000,
+      "tokens_equacao": 40346,
+      "tokens_prosa": 199474,
+      "reamostras": 10000,
+      "teste": "bootstrap pareado por SEQUÊNCIA, as mesmas reamostras nos dois braços"
+    },
+    "matematica_toda": {
+      "quantidade": "(acc_eq − acc_prosa) do tratado − (acc_eq − acc_prosa) do controle",
+      "diferenca_das_diferencas": -0.004,
+      "ic95": [
+        -0.00581,
+        -0.00216
+      ],
+      "cruza_zero": false,
+      "controle": {
+        "acuracia_equacao": 0.8694,
+        "acuracia_prosa": 0.69444,
+        "vantagem_em_equacao": 0.17497
+      },
+      "tratado": {
+        "acuracia_equacao": 0.86432,
+        "acuracia_prosa": 0.69335,
+        "vantagem_em_equacao": 0.17097
+      },
+      "sequencias": 2000,
+      "tokens_equacao": 108388,
+      "tokens_prosa": 199474,
+      "reamostras": 10000,
+      "teste": "bootstrap pareado por SEQUÊNCIA, as mesmas reamostras nos dois braços"
+    }
+  }
+}

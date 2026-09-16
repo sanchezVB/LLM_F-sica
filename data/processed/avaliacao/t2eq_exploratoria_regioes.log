@@ -1,0 +1,12 @@
+
+==============================================================================
+  EXPLORATÓRIA · §2.3 · diferença das diferenças por região (prova uniforme)
+  ⚠️ feita depois da primária; não altera o desfecho
+==============================================================================
+  região             tokens   controle   tratado    tratado − controle
+  display            68,042     0.8847    0.8781   -0.00548 [-0.0076, -0.00336]
+  inline             40,346     0.8437    0.8411   -0.00149 [-0.00411, 0.00112]
+  matematica_toda   108,388     0.8694    0.8643   -0.00400 [-0.00581, -0.00216]
+  prosa             199,474     0.6944    0.6934
+==============================================================================
+  -> data\processed\avaliacao\t2eq_exploratoria_regioes.json
