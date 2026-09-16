@@ -61,8 +61,10 @@ from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.eval.mlm_regiao import (  # noqa: E402
     FRACAO_MASCARA,
     Contagem,
+    equacao_da_prova,
     fracao_de_equacao,
     posicoes_mascaradas,
+    sequencias_sorteadas,
 )
 from phifm.training.embedding import escolher_dispositivo  # noqa: E402
 from phifm.training.pretrain.dados import (  # noqa: E402
@@ -70,6 +72,7 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     NOME_MANIFESTO,
     ConfigDados,
     Fluxo,
+    hash_de_tokenizer,
 )
 
 # ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
@@ -121,28 +124,41 @@ def exigir_disjunto(dados: Path) -> dict:
 
 
 def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
-            fracao: float, id_mask: int,
-            ids_especiais: set[int]) -> tuple[Contagem, dict]:
-    """Uma passagem por `n_seq` sequências. Devolve a contagem e o diagnóstico."""
+            fracao: float, id_mask: int, ids_especiais: set[int],
+            prova: str = "uniforme") -> tuple[Contagem, dict, list[int]]:
+    """Uma passagem por `n_seq` sequências SORTEADAS. Devolve contagem, diagnóstico e índices.
+
+    ⚠️ Sorteadas, e não `range(n_seq)` — ver `mlm_regiao.sequencias_sorteadas`.
+
+    `prova`:
+      - `uniforme` — a primária da regra do §2.3: 15% de posições uniformes,
+        ignorando as marcas. Nenhum braço vê a própria política de treino.
+      - `equacao` — a checagem de manipulação 2: UMA equação em display inteira
+        escondida, escolhida como o treino do braço tratado escolhe. Todo token
+        avaliado é de equação; a contagem fica toda na região `equacao`.
+    """
+    if prova not in ("uniforme", "equacao"):
+        raise ValueError(f"prova {prova!r}: conhecidas são uniforme e equacao")
     c = Contagem()
     lista_especiais = sorted(ids_especiais)
+    indices = sequencias_sorteadas(fluxo.n_seq, n_seq, semente).tolist()
     eq_vistas, t0 = [], time.perf_counter()
-    for indice in range(n_seq):
-        ids = np.asarray(fluxo.tokens[indice * fluxo.cfg.contexto:
-                                      (indice + 1) * fluxo.cfg.contexto],
-                         dtype=np.int64)
-        marcas = np.asarray(fluxo.marcas[indice * fluxo.cfg.contexto:
-                                         (indice + 1) * fluxo.cfg.contexto])
-        if ids.size < fluxo.cfg.contexto:
-            log.warning("sequência %d incompleta (%d tokens) — fim do fluxo",
-                        indice, ids.size)
-            break
+    for k, indice in enumerate(indices):
+        a_, b_ = indice * fluxo.cfg.contexto, (indice + 1) * fluxo.cfg.contexto
+        ids = np.asarray(fluxo.tokens[a_:b_], dtype=np.int64)
+        marcas = np.asarray(fluxo.marcas[a_:b_])
         eq_vistas.append(fracao_de_equacao(marcas, BIT_MATH))
 
-        proibidas = np.flatnonzero(
-            np.isin(ids, lista_especiais)).astype(np.int64)
-        pos = posicoes_mascaradas(ids.size, semente=semente, indice=indice,
-                                  fracao=fracao, proibidas=proibidas)
+        if prova == "uniforme":
+            proibidas = np.flatnonzero(
+                np.isin(ids, lista_especiais)).astype(np.int64)
+            pos = posicoes_mascaradas(ids.size, semente=semente, indice=indice,
+                                      fracao=fracao, proibidas=proibidas)
+        else:
+            # `Fluxo.sequencia` e não as marcas cruas: é ela que descarta a
+            # equação cortada nas DUAS pontas da janela.
+            _, ide, disp = fluxo.sequencia(indice)
+            pos = equacao_da_prova(ide, disp, ids, ids_especiais, semente, indice)
         if pos.size == 0:
             continue
 
@@ -158,21 +174,25 @@ def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
         # ⚠️ `marcas[pos]`, e não as marcas inteiras: `certo` e `em_equacao` têm
         # de estar na MESMA ordem, ou o acerto vai para a região errada. A
         # `Contagem.somar` levanta se as formas divergirem.
-        em_eq = ((marcas[pos] & BIT_MATH) != 0).astype(np.int64)
-        c.somar(certo, em_eq)
+        if prova == "uniforme":
+            em_eq = ((marcas[pos] & BIT_MATH) != 0).astype(np.int64)
+        else:
+            em_eq = np.ones_like(certo)
+        c.somar(certo, em_eq, indice=indice)
 
-        if indice and indice % 50 == 0:
-            taxa = (indice + 1) / (time.perf_counter() - t0)
+        if k and k % 50 == 0:
+            taxa = (k + 1) / (time.perf_counter() - t0)
             log.info("  %d/%d sequências · %.2f/s · faltam %.0f min",
-                     indice + 1, n_seq, taxa, (n_seq - indice) / taxa / 60)
+                     k + 1, len(indices), taxa, (len(indices) - k) / taxa / 60)
 
     diag = {
-        "sequencias_avaliadas": len(eq_vistas),
+        "sequencias_sorteadas": len(indices),
+        "sequencias_com_mascara": len(c.por_sequencia),
         "fracao_de_equacao_media": (round(float(np.mean(eq_vistas)), 4)
                                     if eq_vistas else None),
         "segundos": round(time.perf_counter() - t0, 1),
     }
-    return c, diag
+    return c, diag, indices
 
 
 def main() -> int:
@@ -197,6 +217,9 @@ def main() -> int:
     p.add_argument("--semente", type=int, default=17,
                    help="a MESMA nos dois braços, ou o pareado não é pareado")
     p.add_argument("--dispositivo", default="auto")
+    p.add_argument("--prova", choices=("uniforme", "equacao"), default="uniforme",
+                   help="uniforme: a primária da regra do §2.3. equacao: a "
+                        "checagem de manipulação 2, uma equação inteira escondida")
     a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, stream=sys.stdout,
@@ -237,23 +260,28 @@ def main() -> int:
     # avaliação é tokenizada pela variante, e medir a variante A sobre tokens da
     # C daria ids que significam outra coisa — sem levantar, se a C for menor.
     if man_dados.get("tokenizer_sha"):
-        # ⚠️ Só um caminho local tem proveniência; um id do Hub não tem, e
-        # nesse caso a conferência de tokenizer não se aplica — a guarda que
-        # vale ali é a dos ids especiais, feita acima.
-        prov = Path(a.modelo) / "phienc_exportado.json"
-        if prov.exists():
-            esperado = json.loads(prov.read_text(encoding="utf-8")).get(
-                "tokenizer_sha")
-            if esperado and esperado != man_dados["tokenizer_sha"]:
+        # ⚠️ O hash do tokenizer que o MODELO carrega, na convenção da FATIA.
+        #
+        # Até 2026-09-16 isto comparava o `tokenizer_sha` do `phienc_exportado.json`
+        # (BLAKE3, 64 caracteres) com o do manifesto da fatia (SHA-256, 16): dois
+        # hashes do mesmo arquivo nunca batem, e a guarda recusaria todo ΦEnc
+        # exportado. Ver `dados.hash_de_tokenizer`.
+        #
+        # Só um diretório local tem `tokenizer.json`; um id do Hub não tem, e nele a
+        # guarda que vale é a dos ids especiais, feita acima.
+        tok_modelo = Path(a.modelo) / "tokenizer.json"
+        if tok_modelo.exists():
+            do_modelo = hash_de_tokenizer(tok_modelo)
+            if do_modelo != man_dados["tokenizer_sha"]:
                 raise SystemExit(
-                    f"o modelo foi treinado com o tokenizer {esperado} e esta "
-                    f"fatia foi tokenizada com {man_dados['tokenizer_sha']}.\n"
+                    f"o tokenizer do modelo ({do_modelo}) não é o desta fatia "
+                    f"({man_dados['tokenizer_sha']}), na mesma convenção de hash.\n"
                     "Os ids significam coisas diferentes; o número sairia com a "
                     "cara de uma medição. Prepare a fatia com o tokenizer da "
                     "variante.")
 
-    c, diag = avaliar(modelo, fluxo, a.n_sequencias, a.semente, dev, a.fracao,
-                      id_mask, ids_especiais)
+    c, diag, indices = avaliar(modelo, fluxo, a.n_sequencias, a.semente, dev,
+                               a.fracao, id_mask, ids_especiais, a.prova)
     d = c.como_dict()
 
     if not d["tokens_equacao"]:
@@ -271,7 +299,8 @@ def main() -> int:
         # ⚠️ O protocolo vai junto. Duas variantes comparadas com contexto,
         # fração ou semente diferentes são duas tarefas diferentes, e o
         # comparador precisa poder RECUSAR em vez de subtrair.
-        "protocolo": {"contexto": a.contexto, "fracao_mascara": a.fracao,
+        "protocolo": {"prova": a.prova, "amostragem": "sorteada",
+                      "contexto": a.contexto, "fracao_mascara": a.fracao,
                       "semente": a.semente,
                       "n_sequencias_pedidas": a.n_sequencias,
                       "id_mascara": id_mask,
@@ -282,6 +311,10 @@ def main() -> int:
         # comparação de dois braços vira duas proporções soltas.
         "acertos_por_token": c.acertos,
         "e_equacao_por_token": c.e_equacao,
+        # ⚠️ O que o bootstrap por SEQUÊNCIA consome, e os índices sorteados,
+        # para o comparador conferir que os dois braços viram as MESMAS.
+        "indices_sorteados": indices,
+        "por_sequencia": c.por_sequencia,
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(resultado, indent=2, ensure_ascii=False),
@@ -289,15 +322,20 @@ def main() -> int:
 
     print()
     print("=" * 74)
-    print(f"  MLM por região · {a.modelo} · contexto {a.contexto} · "
-          f"{diag['sequencias_avaliadas']} sequências")
+    print(f"  MLM · prova {a.prova.upper()} · {a.modelo} · contexto {a.contexto} · "
+          f"{diag['sequencias_com_mascara']} de {diag['sequencias_sorteadas']} "
+          "sequências sorteadas")
     print("=" * 74)
     print(f"  equação  {d['acuracia_equacao']:.4f}  "
           f"({d['tokens_equacao']:,} tokens)")
-    print(f"  prosa    {d['acuracia_prosa']:.4f}  "
-          f"({d['tokens_prosa']:,} tokens)")
-    print(f"  total    {d['acuracia_total']:.4f}")
-    print(f"  VANTAGEM EM EQUAÇÃO: {d['vantagem_em_equacao']:+.4f}")
+    if a.prova == "uniforme":
+        print(f"  prosa    {d['acuracia_prosa']:.4f}  "
+              f"({d['tokens_prosa']:,} tokens)")
+        print(f"  total    {d['acuracia_total']:.4f}")
+        print(f"  VANTAGEM EM EQUAÇÃO: {d['vantagem_em_equacao']:+.4f}")
+    else:
+        print("  (prova de equação inteira: todo token avaliado é de equação — é a "
+              "checagem de manipulação 2, não a primária)")
     print()
     print(f"  fração de equação na fatia: {diag['fracao_de_equacao_media']}")
     print(f"  {d['nota']}")

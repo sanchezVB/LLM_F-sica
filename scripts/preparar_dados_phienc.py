@@ -62,7 +62,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import glob
-import hashlib
 import json
 import logging
 import random
@@ -81,6 +80,7 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     NOME_MANIFESTO,
     NOME_MARCAS,
     NOME_TOKENS,
+    hash_de_tokenizer,
     marcas_de,
 )
 from phifm.training.pretrain.mascaramento import marcar_equacoes  # noqa: E402
@@ -134,14 +134,6 @@ def especiais_de(tok, derivar: bool) -> tuple[int, int]:
                 "errado poria um token qualquer nas bordas de cada sequência.")
         achados.append(ident)
     return achados[0], achados[1]
-
-
-def _hash(p: Path) -> str:
-    h = hashlib.sha256()
-    with open(p, "rb") as f:
-        while b := f.read(1 << 20):
-            h.update(b)
-    return h.hexdigest()[:16]
 
 
 def main() -> int:
@@ -226,7 +218,7 @@ def main() -> int:
                 "fatia disjunta possível neste corpus")
 
     a.out.mkdir(parents=True, exist_ok=True)
-    h_tok = _hash(a.tokenizer)
+    h_tok = hash_de_tokenizer(a.tokenizer)
     prog_p = a.out / NOME_PROGRESSO
     feitas: list[str] = []
     if a.recomecar:

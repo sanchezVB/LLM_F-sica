@@ -59,6 +59,7 @@ conteúdo se o tokenizer mudasse.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,6 +74,28 @@ BIT_INICIO = 4
 NOME_TOKENS = "tokens.u16.bin"
 NOME_MARCAS = "marcas.u8.bin"
 NOME_MANIFESTO = "MANIFESTO_DADOS.json"
+
+
+def hash_de_tokenizer(caminho: Path) -> str:
+    """O `tokenizer_sha` que os manifestos de fatia gravam: SHA-256, 16 caracteres.
+
+    ⚠️ HÁ DUAS convenções no projeto, e esta função existe para a guarda de
+    tokenizer usar a certa. O exportador do ΦEnc grava `tokenizer_sha` com
+    `reprodutibilidade.hash_arquivo` — BLAKE3, 64 caracteres. O preparador de
+    fatias sempre gravou SHA-256 truncado em 16. Comparar um com o outro dá
+    "tokenizers diferentes" para o MESMO arquivo, byte a byte.
+
+    Foi o que o `avaliar_phienc_mlm.py` fazia, medido em 2026-09-16: a guarda
+    recusaria TODO ΦEnc exportado. O teste dela não viu porque sobrescrevia o
+    hash do exportador por um valor combinado com o da fatia. Mudar a convenção
+    do preparador invalidaria os manifestos já gravados; então as duas ficam, e
+    quem compara com uma fatia usa ESTA.
+    """
+    h = hashlib.sha256()
+    with open(caminho, "rb") as f:
+        while b := f.read(1 << 20):
+            h.update(b)
+    return h.hexdigest()[:16]
 
 
 def marcas_de(id_equacao: np.ndarray, e_display: np.ndarray) -> np.ndarray:

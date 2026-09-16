@@ -1,0 +1,9 @@
+18:35:18 excluindo 4 partes do treino em data\processed\t2a_A: sobram 40 de 44
+18:36:25 part-00003.parquet · 51,124,906 tokens · 3,072 docs · 758 mil tok/s
+18:36:25 teto de 50,000,000 tokens atingido
+
+======================================================================
+  51,124,906 tokens · 1/40 partes · 0.2 GB
+  tokenizer variante_E.json · sha 1e1b49380deb8514
+  -> data\processed\phienc_aval_E
+======================================================================

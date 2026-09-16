@@ -35,6 +35,7 @@ pytest.importorskip("transformers")
 
 from tokenizers import Tokenizer, models  # noqa: E402
 
+from phifm.eval.mlm_regiao import sequencias_sorteadas  # noqa: E402
 from phifm.models.encoder.config import ConfigEnc  # noqa: E402
 from phifm.models.encoder.modelo import construir  # noqa: E402
 from phifm.training.pretrain.dados import (  # noqa: E402
@@ -42,6 +43,8 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     NOME_MANIFESTO,
     NOME_MARCAS,
     NOME_TOKENS,
+    hash_de_tokenizer,
+    marcas_de,
 )
 from phifm.training.pretrain.laco import NOME_ESTADO, NOME_METRICAS  # noqa: E402
 
@@ -53,7 +56,11 @@ MINI = ConfigEnc(nome="mini-mlm", camadas=2, d_model=64, cabecas=4, ffn=96,
 EXPORTADOR = RAIZ / "scripts" / "exportar_phienc.py"
 AVALIADOR = RAIZ / "scripts" / "avaliar_phienc_mlm.py"
 
-SHA_TOK = "0" * 16
+# ⚠️ Não há mais um hash combinado entre fixture e fatia. Até 2026-09-16 o
+# `_modelo` sobrescrevia o `tokenizer_sha` do exportador por "0" * 16 e a fatia
+# declarava o mesmo — e foi isso que escondeu que o exportador grava BLAKE3 e a
+# fatia SHA-256 truncado: a guarda recusaria TODO ΦEnc de verdade. Agora a fatia
+# declara o hash do `tokenizer.json` que o modelo exportado carrega.
 
 
 def _modelo(tmp: Path) -> Path:
@@ -81,18 +88,20 @@ def _modelo(tmp: Path) -> Path:
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         cwd=str(RAIZ))
     assert r.returncode == 0, r.stdout + r.stderr
-    # O exportador grava o sha real do tokenizer; para o teste de casamento de
-    # tokenizer o valor exato não importa, só que os dois lados batam.
-    prov = para / "phienc_exportado.json"
-    d = json.loads(prov.read_text(encoding="utf-8"))
-    d["tokenizer_sha"] = SHA_TOK
-    prov.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
     return para
 
 
 def _fatia(tmp: Path, *, disjunto: bool = True, com_equacao: bool = True,
-           sha_tok: str = SHA_TOK, n_seq: int = 6) -> Path:
-    """Um binário de tokens/marcas com uma fração de equação conhecida."""
+           sha_tok: str | None = None, n_seq: int = 6,
+           display: bool = False) -> Path:
+    """Um binário de tokens/marcas com uma fração de equação conhecida.
+
+    `display=True` grava as marcas completas (matemática, display, início) de
+    uma equação de 30 tokens por sequência — cabe no orçamento de 30% de 128 e
+    passa do piso de 20, então a prova de equação inteira tem o que escolher.
+    """
+    if sha_tok is None:
+        sha_tok = hash_de_tokenizer(tmp / "phienc-mini" / "tokenizer.json")
     d = tmp / "fatia"
     d.mkdir(parents=True, exist_ok=True)
     n = CONTEXTO_AVAL * n_seq
@@ -100,7 +109,15 @@ def _fatia(tmp: Path, *, disjunto: bool = True, com_equacao: bool = True,
     # Todo id >= 5 para nada cair em posição proibida por ser especial.
     ids = rng.integers(5, VOCAB, size=n, dtype=np.uint16)
     marcas = np.zeros(n, dtype=np.uint8)
-    if com_equacao:
+    if com_equacao and display:
+        ide = np.full(n, -1, dtype=np.int32)
+        disp = np.zeros(n, dtype=bool)
+        for i in range(n_seq):
+            a = i * CONTEXTO_AVAL
+            ide[a + 40:a + 70] = i
+            disp[a + 40:a + 70] = True
+        marcas = marcas_de(ide, disp)
+    elif com_equacao:
         # 40% de cada sequência é equação, em bloco — como uma equação de verdade.
         for i in range(n_seq):
             a = i * CONTEXTO_AVAL
@@ -194,8 +211,12 @@ def test_o_PROTOCOLO_vai_gravado(tmp_path):
     out = tmp_path / "mlm.json"
     assert _rodar(modelo, fatia, out, "--semente", "23").returncode == 0
     p = json.loads(out.read_text(encoding="utf-8"))["protocolo"]
-    assert p == {"contexto": CONTEXTO_AVAL, "fracao_mascara": 0.15,
-                 "semente": 23, "n_sequencias_pedidas": 4}
+    assert {k: p[k] for k in ("prova", "amostragem", "contexto",
+                              "fracao_mascara", "semente",
+                              "n_sequencias_pedidas")} == {
+        "prova": "uniforme", "amostragem": "sorteada",
+        "contexto": CONTEXTO_AVAL, "fracao_mascara": 0.15, "semente": 23,
+        "n_sequencias_pedidas": 4}
 
 
 def test_a_MESMA_semente_da_as_MESMAS_posicoes_entre_execucoes(tmp_path):
@@ -214,3 +235,48 @@ def test_a_MESMA_semente_da_as_MESMAS_posicoes_entre_execucoes(tmp_path):
     assert da["acertos_por_token"] == db["acertos_por_token"]
     assert da["e_equacao_por_token"] != dc["e_equacao_por_token"], (
         "sementes diferentes deram as mesmas posições")
+
+
+# ── 2026-09-16: a ablação do §2.3 ───────────────────────────────────────────
+
+def test_a_guarda_de_tokenizer_ACEITA_o_export_REAL(tmp_path):
+    """⚠️ O defeito que o `SHA_TOK` combinado escondia. O exportador grava BLAKE3
+    (64 caracteres) e a fatia SHA-256 truncado (16): comparados direto, o MESMO
+    arquivo sai como "tokenizer diferente", e a guarda recusava todo ΦEnc."""
+    modelo, fatia = _modelo(tmp_path), _fatia(tmp_path)
+    exportado = json.loads((modelo / "phienc_exportado.json").read_text(encoding="utf-8"))
+    manifesto = json.loads((fatia / NOME_MANIFESTO).read_text(encoding="utf-8"))
+    assert exportado["tokenizer_sha"] != manifesto["tokenizer_sha"], (
+        "as duas convenções de hash deveriam divergir — é o caso que a guarda "
+        "tem de atravessar")
+    r = _rodar(modelo, fatia, tmp_path / "mlm.json")
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_as_sequencias_sao_SORTEADAS_e_gravadas(tmp_path):
+    """⚠️ `range(n)` media o começo da fatia. Os índices vão gravados, e o
+    comparador recusa dois braços que não viram as mesmas."""
+    modelo, fatia = _modelo(tmp_path), _fatia(tmp_path)
+    out = tmp_path / "mlm.json"
+    assert _rodar(modelo, fatia, out).returncode == 0
+    d = json.loads(out.read_text(encoding="utf-8"))
+    assert d["indices_sorteados"] == sequencias_sorteadas(6, 4, 17).tolist()
+    assert {linha[0] for linha in d["por_sequencia"]} <= set(d["indices_sorteados"])
+    # a soma por sequência é o total da região
+    assert sum(linha[2] for linha in d["por_sequencia"]) == d["tokens_equacao"]
+    assert sum(linha[4] for linha in d["por_sequencia"]) == d["tokens_prosa"]
+
+
+def test_a_prova_de_EQUACAO_esconde_uma_equacao_inteira(tmp_path):
+    """A checagem de manipulação 2: uma equação em display inteira, escolhida como
+    o treino do braço tratado escolhe. Todo token avaliado é dela."""
+    modelo, fatia = _modelo(tmp_path), _fatia(tmp_path, display=True)
+    out = tmp_path / "eq.json"
+    r = _rodar(modelo, fatia, out, "--prova", "equacao")
+    assert r.returncode == 0, r.stdout + r.stderr
+    d = json.loads(out.read_text(encoding="utf-8"))
+    assert d["protocolo"]["prova"] == "equacao"
+    assert d["tokens_prosa"] == 0
+    assert d["por_sequencia"], "nenhuma sequência teve equação escolhida"
+    for linha in d["por_sequencia"]:
+        assert linha[2] == 30, linha  # a equação INTEIRA, os 30 tokens

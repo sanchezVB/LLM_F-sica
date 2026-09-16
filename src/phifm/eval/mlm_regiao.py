@@ -117,8 +117,13 @@ class Contagem:
     # ser comparados como proporções soltas, que é muito menos sensível.
     acertos: list[int] = field(default_factory=list)
     e_equacao: list[int] = field(default_factory=list)
+    # `[indice, acertos_eq, total_eq, acertos_prosa, total_prosa]` por sequência,
+    # quando o chamador diz qual sequência é. É o que o bootstrap por SEQUÊNCIA da
+    # ablação consome — ver `diferenca_das_diferencas`.
+    por_sequencia: list[list[int]] = field(default_factory=list)
 
-    def somar(self, certo: np.ndarray, em_equacao: np.ndarray) -> None:
+    def somar(self, certo: np.ndarray, em_equacao: np.ndarray,
+              indice: int | None = None) -> None:
         if certo.shape != em_equacao.shape:
             raise ValueError(
                 f"certo tem {certo.shape} e em_equacao tem {em_equacao.shape}; "
@@ -130,6 +135,10 @@ class Contagem:
         self.total_prosa += int((~eq).sum())
         self.acertos.extend(int(x) for x in certo.astype(int))
         self.e_equacao.extend(int(x) for x in eq.astype(int))
+        if indice is not None:
+            self.por_sequencia.append([
+                int(indice), int(certo[eq].sum()), int(eq.sum()),
+                int(certo[~eq].sum()), int((~eq).sum())])
 
     def como_dict(self) -> dict:
         def taxa(a: int, t: int) -> float | None:
@@ -176,3 +185,209 @@ def fracao_de_equacao(marcas: np.ndarray, bit_math: int) -> float:
     if marcas.size == 0:
         return 0.0
     return float(((marcas & bit_math) != 0).mean())
+
+
+# ── a ablação do DOC-07 §2.3: dois braços, a regra da célula `t2eq_tratado` ──
+#
+# Acrescentado em 2026-09-16, com os dois braços treinados e ANTES de medir. A
+# regra da célula (`kaggle/t2eq_tratado.py`) fixa a primária — a diferença das
+# diferenças — e o teste: bootstrap pareado por SEQUÊNCIA. Este módulo guardava
+# os acertos por token, e o McNemar sobre eles contaria como independentes tokens
+# da mesma sequência, que compartilham contexto, notação e tópico. É a Falha 2 do
+# artigo das armadilhas, e ela deu lá um intervalo 11x estreito demais.
+
+def sequencias_sorteadas(n_disponiveis: int, n: int, semente: int) -> np.ndarray:
+    """Índices de sequência SORTEADOS, em ordem crescente. NÃO um prefixo.
+
+    ⚠️ O avaliador media `range(n)` até 2026-09-16. Numa fatia de uma parte só, as
+    2.000 primeiras sequências são os ~4% primeiros documentos dela, na ordem de
+    ingestão: uma amostra por conglomerado com cara de amostra aleatória — a
+    armadilha de amostragem por posição que o projeto já catalogou seis vezes. A
+    versão das avaliações escrita no Mac evitava isto; a de `main` não.
+
+    Os dois braços recebem os MESMOS índices, porque o sorteio depende só de
+    `(n_disponiveis, n, semente)`.
+    """
+    if n > n_disponiveis:
+        raise ValueError(
+            f"pedidas {n} sequências e a fatia tem {n_disponiveis}. Medir menos do "
+            "que se pede muda o protocolo em silêncio — reduza `n` explicitamente.")
+    if n <= 0:
+        raise ValueError(f"n={n}: nada a medir")
+    rng = np.random.default_rng((semente, 0x5E9))
+    return np.sort(rng.choice(n_disponiveis, size=n, replace=False)).astype(np.int64)
+
+
+def equacao_da_prova(ide: np.ndarray, disp: np.ndarray, ids: np.ndarray,
+                     ids_especiais, semente: int, indice: int,
+                     taxa: float = 0.30) -> np.ndarray:
+    """As posições de UMA equação em display inteira, escolhida como o treino escolhe.
+
+    É a checagem de manipulação 2 da regra: a prova na política de treino do braço
+    tratado. Usa `_escolher_equacao` do próprio mascaramento — mesmo piso de
+    `MIN_TOKENS_TRATAMENTO`, mesmo orçamento, mesma recusa de equação cortada pela
+    janela —, e não uma reimplementação dele.
+
+    Vazio quando a sequência não tem equação elegível. Determinístico em
+    `(semente, indice)`, igual nos dois braços.
+    """
+    from phifm.training.pretrain.mascaramento import _escolher_equacao
+
+    mascaravel = ~np.isin(ids, np.asarray(sorted(ids_especiais)))
+    n_alvo = int(round(taxa * int(mascaravel.sum())))
+    if n_alvo == 0:
+        return np.empty(0, dtype=np.int64)
+    rng = np.random.default_rng((semente, indice, 3))
+    return np.sort(_escolher_equacao(ide, disp, mascaravel, n_alvo, rng, None))
+
+
+def _somas_bootstrap(tabela: np.ndarray, semente: int, n_boot: int,
+                     lote: int = 500) -> np.ndarray:
+    """Somas das colunas de `tabela` sob `n_boot` reamostras de LINHAS (sequências).
+
+    As MESMAS reamostras para quem chamar com a mesma `semente` e o mesmo número de
+    linhas: é o que torna o bootstrap PAREADO entre os braços.
+    """
+    n = tabela.shape[0]
+    rng = np.random.default_rng((semente, 0xB007))
+    saidas = []
+    for inicio in range(0, n_boot, lote):
+        k = min(lote, n_boot - inicio)
+        pesos = rng.multinomial(n, np.full(n, 1.0 / n), size=k)
+        saidas.append(pesos @ tabela)
+    return np.vstack(saidas)
+
+
+def _tabela(por_sequencia: list, colunas: int) -> tuple[np.ndarray, np.ndarray]:
+    arr = np.asarray(por_sequencia, dtype=np.float64)
+    if arr.ndim != 2 or arr.shape[1] != colunas + 1:
+        raise ValueError(
+            f"esperava linhas [indice, {colunas} contagens], recebi forma {arr.shape}")
+    return arr[:, 0].astype(np.int64), arr[:, 1:]
+
+
+def _mesmas_sequencias(ic: np.ndarray, it: np.ndarray) -> None:
+    if ic.shape != it.shape or not np.array_equal(ic, it):
+        raise ValueError(
+            "controle e tratado não foram medidos nas MESMAS sequências, na mesma "
+            "ordem. O pareamento compararia textos diferentes, e o número sairia "
+            "com a cara de uma comparação.")
+
+
+def diferenca_das_diferencas(controle: list, tratado: list, *, semente: int = 17,
+                             n_boot: int = 10_000) -> dict:
+    """A primária da regra do §2.3, com IC de 95% por bootstrap pareado por sequência.
+
+    Cada entrada é uma lista de `[indice, acertos_eq, total_eq, acertos_prosa,
+    total_prosa]` por sequência. A quantidade é
+
+        (acc_eq − acc_prosa) do TRATADO  −  (acc_eq − acc_prosa) do CONTROLE
+
+    com as acurácias AGREGADAS sobre os tokens (a mesma conta de
+    `Contagem.como_dict`), e não a média das acurácias por sequência — uma sequência
+    com 3 tokens de equação pesaria o mesmo que uma com 300.
+
+    ⚠️ Por que diferença de diferenças: token de equação já é +0,1286 mais fácil que
+    prosa SEM tratamento nenhum. Um tratado que melhora tudo por igual tem diferença
+    das diferenças ZERO, e é exatamente isso que ele deve ter — melhorar tudo não é
+    a hipótese do §2.3.
+    """
+    ic, cc = _tabela(controle, 4)
+    it, ct = _tabela(tratado, 4)
+    _mesmas_sequencias(ic, it)
+    if cc[:, 1].sum() == 0 or cc[:, 3].sum() == 0:
+        raise ValueError("sem token de equação ou sem token de prosa mascarado: a "
+                         "diferença entre regiões não existe")
+
+    def did(sc: np.ndarray, st: np.ndarray) -> np.ndarray:
+        van_c = sc[..., 0] / sc[..., 1] - sc[..., 2] / sc[..., 3]
+        van_t = st[..., 0] / st[..., 1] - st[..., 2] / st[..., 3]
+        return van_t - van_c
+
+    ponto = float(did(cc.sum(0), ct.sum(0)))
+    # O mesmo `semente` e o mesmo número de linhas: as MESMAS reamostras nos dois.
+    bc = _somas_bootstrap(cc, semente, n_boot)
+    bt = _somas_bootstrap(ct, semente, n_boot)
+    dist = did(bc, bt)
+    lo, hi = (float(x) for x in np.percentile(dist, [2.5, 97.5]))
+    sc, st = cc.sum(0), ct.sum(0)
+    return {
+        "quantidade": "(acc_eq − acc_prosa) do tratado − (acc_eq − acc_prosa) do controle",
+        "diferenca_das_diferencas": round(ponto, 5),
+        "ic95": [round(lo, 5), round(hi, 5)],
+        "cruza_zero": bool(lo <= 0.0 <= hi),
+        "controle": {"acuracia_equacao": round(sc[0] / sc[1], 5),
+                     "acuracia_prosa": round(sc[2] / sc[3], 5),
+                     "vantagem_em_equacao": round(sc[0] / sc[1] - sc[2] / sc[3], 5)},
+        "tratado": {"acuracia_equacao": round(st[0] / st[1], 5),
+                    "acuracia_prosa": round(st[2] / st[3], 5),
+                    "vantagem_em_equacao": round(st[0] / st[1] - st[2] / st[3], 5)},
+        "sequencias": int(ic.size),
+        "tokens_equacao": int(sc[1]),
+        "tokens_prosa": int(sc[3]),
+        "reamostras": n_boot,
+        "teste": "bootstrap pareado por SEQUÊNCIA, as mesmas reamostras nos dois braços",
+    }
+
+
+def diferenca_de_acuracia(controle: list, tratado: list, *, semente: int = 17,
+                          n_boot: int = 10_000) -> dict:
+    """`acc_tratado − acc_controle`, agregada, com IC por bootstrap pareado por sequência.
+
+    Entradas: `[indice, acertos, total]` por sequência. É a conta da checagem de
+    manipulação 2 — a prova com a equação inteira escondida.
+    """
+    ic, cc = _tabela(controle, 2)
+    it, ct = _tabela(tratado, 2)
+    _mesmas_sequencias(ic, it)
+    if cc[:, 1].sum() == 0:
+        raise ValueError("nenhum token avaliado")
+    ponto = float(ct[:, 0].sum() / ct[:, 1].sum() - cc[:, 0].sum() / cc[:, 1].sum())
+    bc = _somas_bootstrap(cc, semente, n_boot)
+    bt = _somas_bootstrap(ct, semente, n_boot)
+    dist = bt[:, 0] / bt[:, 1] - bc[:, 0] / bc[:, 1]
+    lo, hi = (float(x) for x in np.percentile(dist, [2.5, 97.5]))
+    return {
+        "diferenca": round(ponto, 5),
+        "ic95": [round(lo, 5), round(hi, 5)],
+        "cruza_zero": bool(lo <= 0.0 <= hi),
+        "acuracia_controle": round(float(cc[:, 0].sum() / cc[:, 1].sum()), 5),
+        "acuracia_tratado": round(float(ct[:, 0].sum() / ct[:, 1].sum()), 5),
+        "sequencias": int(ic.size),
+        "tokens": int(cc[:, 1].sum()),
+        "reamostras": n_boot,
+    }
+
+
+def ler_pela_regra(primaria: dict, checagem_2: dict, fracao_tratada: float) -> dict:
+    """A leitura da regra de `kaggle/t2eq_tratado.py`, e nada além dela.
+
+    As checagens de manipulação vêm ANTES: reprovada qualquer uma, a primária não
+    se lê. "O tratado vence" na checagem 2 é o IC da diferença inteiro acima de
+    zero — fixado aqui, antes de medir.
+    """
+    checagens = {
+        "1_fracao_tratada": {"valor": fracao_tratada, "minimo": 0.50,
+                             "aprovada": bool(fracao_tratada >= 0.50)},
+        "2_prova_com_equacao_inteira": {
+            "diferenca": checagem_2["diferenca"], "ic95": checagem_2["ic95"],
+            "aprovada": bool(checagem_2["ic95"][0] > 0.0)},
+    }
+    if not all(c["aprovada"] for c in checagens.values()):
+        return {"checagens": checagens, "desfecho": "RUN INVÁLIDO",
+                "leitura": ("uma checagem de manipulação reprovou: o run não testa o "
+                            "DOC-07 §2.3, e a primária NÃO se lê.")}
+    lo, hi = primaria["ic95"]
+    if lo > 0:
+        desfecho, leitura = "TRATADO À FRENTE", (
+            "o tratado ganha em equação ALÉM do que ganha em prosa, na prova que "
+            "favorece o controle. A hipótese do §2.3 fica sustentada a 0,6 B.")
+    elif hi < 0:
+        desfecho, leitura = "CONTROLE À FRENTE", (
+            "o tratamento piora equação relativamente à prosa. É o negativo que o "
+            "DOC-07 manda publicar, com a escala de 0,6 B declarada ao lado.")
+    else:
+        desfecho, leitura = "NÃO DECIDIDO", (
+            "o IC cruza zero. NÃO é o negativo do DOC-07: é 'a 0,6 B não dá para "
+            "ver', registrado como não decidido.")
+    return {"checagens": checagens, "desfecho": desfecho, "leitura": leitura}
