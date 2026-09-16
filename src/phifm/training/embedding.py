@@ -67,6 +67,7 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoTokenizer
 
 from phifm.training.amostragem import amostrar_por_documento, preparar_pool
+from phifm.training.versao_transformers import kwargs_fp32
 
 log = logging.getLogger(__name__)
 
@@ -372,7 +373,7 @@ class TreinadorEmb:
         # qualquer checkpoint fp16 quebraria.
         self.mod = AutoModel.from_pretrained(
             cfg.base, attn_implementation=self.atencao,
-            dtype=torch.float32).to(self.dev)
+            **kwargs_fp32()).to(self.dev)
         # AMP só faz sentido onde há suporte de verdade. O DirectML não expõe
         # `GradScaler` utilizável, e ligar autocast lá deu queda silenciosa no
         # backward — então a decisão é pelo dispositivo, não por bandeira do

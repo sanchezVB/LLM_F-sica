@@ -33,8 +33,13 @@ MODULOS = ("src/phifm/training/embedding.py", "src/phifm/training/rerank.py")
 
 @pytest.mark.parametrize("rel", MODULOS)
 def test_o_modelo_e_carregado_em_fp32_explicito(rel):
-    """Sem `dtype=torch.float32`, uma base fp16 derruba o treino no primeiro
-    passo de otimizador — depois de a sessão já ter sido alocada."""
+    """Sem fp32 explícito, uma base fp16 derruba o treino no primeiro passo de
+    otimizador — depois de a sessão já ter sido alocada.
+
+    ⚠️ Pelo `**kwargs_fp32()`, e não por `dtype=torch.float32` literal: o nome do
+    argumento mudou entre versões do `transformers`, e o literal quebrava a
+    `.venv-treino` local (4.48.3) com o ModernBERT — ver `versao_transformers`.
+    """
     fonte = (RAIZ / rel).read_text(encoding="utf-8")
     chamadas = [n for n in ast.walk(ast.parse(fonte))
                 if isinstance(n, ast.Call)
@@ -42,14 +47,27 @@ def test_o_modelo_e_carregado_em_fp32_explicito(rel):
                 and "Tokenizer" not in ast.unparse(n.func)]
     assert chamadas, f"{rel} não carrega modelo nenhum"
     for c in chamadas:
-        dtypes = [k for k in c.keywords if k.arg == "dtype"]
-        assert dtypes, (
-            f"{rel}: `{ast.unparse(c.func)}` sem `dtype`. Uma base fp16 "
+        estrelas = [k for k in c.keywords if k.arg is None]
+        assert any(ast.unparse(k.value) == "kwargs_fp32()" for k in estrelas), (
+            f"{rel}: `{ast.unparse(c.func)}` sem `**kwargs_fp32()`. Uma base fp16 "
             "(thenlper/gte-base é uma) quebraria em "
             "`Attempting to unscale FP16 gradients`.")
-        assert ast.unparse(dtypes[0].value) == "torch.float32", (
-            f"{rel}: dtype é {ast.unparse(dtypes[0].value)}, e o AMP exige "
-            "pesos-mestres em fp32")
+        literais = [k for k in c.keywords if k.arg in ("dtype", "torch_dtype")]
+        assert not literais, (
+            f"{rel}: `{literais[0].arg}=` literal — ele vale numa versão do "
+            "transformers e quebra na outra")
+
+
+def test_o_nome_do_argumento_segue_a_VERSAO():
+    """Os dois lados usados neste projeto, conferidos: 4.48.3 local, 5.0.0 no Kaggle."""
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "src"))
+    from phifm.training.versao_transformers import nome_do_argumento_de_dtype
+
+    assert nome_do_argumento_de_dtype("4.48.3") == "torch_dtype"
+    assert nome_do_argumento_de_dtype("5.0.0") == "dtype"
+    assert nome_do_argumento_de_dtype("4.56.0") == "dtype"
 
 
 @pytest.mark.parametrize("rel", MODULOS)

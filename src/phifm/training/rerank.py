@@ -54,6 +54,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from phifm.training.amostragem import amostrar_por_documento
 from phifm.training.embedding import _agora, _vram_mb, escolher_dispositivo
+from phifm.training.versao_transformers import kwargs_fp32
 
 log = logging.getLogger(__name__)
 
@@ -194,7 +195,7 @@ class TreinadorRank:
         # experimento.
         self.mod = AutoModelForSequenceClassification.from_pretrained(
             cfg.base, num_labels=1, attn_implementation=atencao,
-            dtype=torch.float32).to(self.dev)
+            **kwargs_fp32()).to(self.dev)
         if cfg.checkpointing:
             self.mod.gradient_checkpointing_enable()
             self.mod.config.use_cache = False
