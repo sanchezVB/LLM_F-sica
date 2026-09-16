@@ -127,9 +127,19 @@ Medido antes de desenhar o 2: unidades de mais de 8 tokens são 6% das unidades 
 - ⚠️ **Inconsistência no código, a decidir antes do braço tratado.** `desempacotar`
   descarta a equação que a janela corta no COMEÇO ("truncada, não pode ser tratada
   como inteira"), mas a cortada no FIM mantém o id e é mascarada como se estivesse
-  inteira: **9,5% das escolhidas**. Corrigir alinha o código à regra que ele mesmo
-  declara, e não toca o controle (com `p_equacao=0` a seleção nem é chamada). O custo
-  é a fração tratada cair para ~0,51, colada no aviso de 0,5.
+  inteira: **9,5% das escolhidas**.
+
+  ✅ **Corrigido em 2026-09-16** (`dados.desempacotar(continua_depois=)`, que o
+  `Fluxo` preenche olhando a marca do token seguinte). Nas mesmas 20.000 janelas de
+  E: atravessam o fim **0**, e a fração tratada vai de 0,5645 para **0,5489** — caiu
+  1,6 ponto, não os ~5 que eu estimei, porque sem a cortada a seleção escolhe outra
+  equação inteira da mesma janela quando há. Um teste trava que o CONTROLE já
+  treinado não muda: com `p_equacao=0`, a mesma janela dá a mesma máscara byte a
+  byte com e sem a correção.
+
+  **Braço tratado: `--p-equacao 0.6`**, decidido antes de ele existir. Com a fração
+  medida, dá ~33% dos exemplos com equação inteira — a estimativa errada acima
+  apontava ~30%. 0,5 daria ~27%, a intensidade original.
 - **O caminho de treino não mudou** desde `fc1523a`, o commit que treinou E: o braço
   tratado pode rodar sobre o mesmo código e diferir só no `--p-equacao`.
 - A §8 e a §11 do DOC-05 foram reescritas com este resultado (§8-medido, §11.2-medido), e o critério E1 de fertilidade ficou marcado em tensão com ele.

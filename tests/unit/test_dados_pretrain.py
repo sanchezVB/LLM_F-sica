@@ -247,3 +247,97 @@ def test_como_dict_carrega_a_proveniencia_da_preparacao(tmp_path):
     assert d["preparacao"] == "abc1234"
     assert d["tokenizer"] == "variante_A.json"
     assert d["tokens_por_micro_passo"] == 8192
+
+
+# ─── o corte no FIM da janela (2026-09-16) ───────────────────────────────────
+
+
+def test_equacao_cortada_no_FIM_fica_fora_do_tratamento():
+    """⚠️ O caso que escapava: a última equação da janela tem o bit de início e
+    recebia id válido. Medido a 1.024 de contexto, 9,5% das escolhidas."""
+    ide = np.full(20, -1, dtype=np.int32)
+    disp = np.zeros(20, dtype=bool)
+    ide[2:6], disp[2:6] = 0, True      # inteira
+    ide[15:20], disp[15:20] = 1, True  # vai além da janela
+    marcas = marcas_de(ide, disp)
+
+    cortado, disp_c = desempacotar(marcas, continua_depois=True)
+    assert (cortado[15:20] == -1).all(), "a equação cortada no fim entraria como inteira"
+    assert (cortado[2:6] == 0).all(), "a correção não pode tocar a equação inteira"
+    # as marcas de display continuam, para a estatística não mentir
+    assert disp_c[15:20].all()
+
+    sem_corte, _ = desempacotar(marcas, continua_depois=False)
+    assert (sem_corte[15:20] == 1).all()
+
+
+def test_continua_depois_nao_faz_nada_se_a_janela_termina_em_PROSA():
+    ide = np.full(10, -1, dtype=np.int32)
+    ide[2:5] = 0
+    ide2, _ = desempacotar(marcas_de(ide, np.zeros(10, dtype=bool)),
+                           continua_depois=True)
+    assert (ide2[2:5] == 0).all()
+
+
+def _corpus_com_equacao_na_fronteira(tmp_path: Path, seguinte_comeca_outra: bool) -> Path:
+    raiz = tmp_path / "fronteira"
+    raiz.mkdir()
+    n = 64
+    ids = np.arange(5, 5 + n, dtype=np.uint16)
+    ide = np.full(n, -1, dtype=np.int32)
+    disp = np.zeros(n, dtype=bool)
+    if seguinte_comeca_outra:
+        ide[28:32], disp[28:32] = 0, True   # termina exatamente na fronteira
+        ide[32:36], disp[32:36] = 1, True   # e outra começa logo depois
+    else:
+        ide[28:36], disp[28:36] = 0, True   # atravessa a fronteira em 32
+    (raiz / NOME_TOKENS).write_bytes(ids.tobytes())
+    (raiz / NOME_MARCAS).write_bytes(marcas_de(ide, disp).tobytes())
+    (raiz / NOME_MANIFESTO).write_text(json.dumps({"tokens": n}), encoding="utf-8")
+    return raiz
+
+
+def test_o_Fluxo_ve_a_equacao_que_ATRAVESSA_a_fronteira(tmp_path):
+    f = Fluxo(ConfigDados(raiz=_corpus_com_equacao_na_fronteira(tmp_path, False),
+                          contexto=32))
+    _, ide, _ = f.sequencia(0)
+    assert (ide[28:32] == -1).all()
+    # e a janela seguinte já a descartava pelo corte no começo
+    _, ide1, _ = f.sequencia(1)
+    assert (ide1[0:4] == -1).all()
+
+
+def test_o_Fluxo_NAO_descarta_equacao_que_termina_na_fronteira(tmp_path):
+    """Terminar exatamente no fim da janela, com outra equação começando no token
+    seguinte, é equação inteira. Descartá-la seria jogar tratamento fora."""
+    f = Fluxo(ConfigDados(raiz=_corpus_com_equacao_na_fronteira(tmp_path, True),
+                          contexto=32))
+    _, ide, _ = f.sequencia(0)
+    assert (ide[28:32] == 0).all()
+    _, ide1, _ = f.sequencia(1)
+    assert (ide1[0:4] == 0).all()
+
+
+def test_o_CONTROLE_nao_muda_com_a_correcao():
+    """⚠️ O braço de controle (E) já foi treinado com o código antigo. Com
+    `p_equacao=0` a seleção nem é chamada e o gerador não é consumido: a mesma
+    janela tem de dar a MESMA máscara com e sem a correção, byte a byte."""
+    from phifm.training.pretrain.mascaramento import ConfigMascara, mascarar
+
+    rng_dados = np.random.default_rng(3)
+    for caso in range(50):
+        n = 256
+        ids = rng_dados.integers(5, 40960, size=n).astype(np.int64)
+        ide = np.full(n, -1, dtype=np.int32)
+        disp = np.zeros(n, dtype=bool)
+        ide[200:256], disp[200:256] = 0, True
+        marcas = marcas_de(ide, disp)
+        saidas = []
+        for continua in (False, True):
+            ide_w, disp_w = desempacotar(marcas, continua_depois=continua)
+            saidas.append(mascarar(
+                ids, ide_w, disp_w, cfg=ConfigMascara(p_equacao=0.0),
+                rng=np.random.default_rng((17, caso)), id_mask=4, n_vocab=40960,
+                ids_especiais=frozenset(range(5))))
+        assert (saidas[0][0] == saidas[1][0]).all()
+        assert (saidas[0][1] == saidas[1][1]).all()

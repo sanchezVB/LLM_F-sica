@@ -13,9 +13,10 @@ cota no braço tratado:
 - **por que recaiu**: sem display na janela, só equações curtas, só grandes demais;
 - **o tamanho da equação escolhida** em tokens E em caracteres — em caracteres porque
   é o único jeito de comparar tokenizers diferentes;
-- ⚠️ **quantas escolhidas estão cortadas no FIM da janela.** `desempacotar` descarta a
-  equação que a janela corta no começo ("truncada, não pode ser tratada como
-  inteira"), mas a cortada no fim mantém o id e entra como se estivesse inteira.
+- ⚠️ **quantas escolhidas ATRAVESSAM o fim da janela** — continuam no token
+  seguinte e foram mascaradas como inteiras sem estar. Até 2026-09-16 eram 9,5%
+  (`desempacotar` só descartava o corte no começo); com `continua_depois` têm de
+  ser zero, e esta sonda é o que confere isso nos dados reais.
 
 ## Por que existe (2026-09-15)
 
@@ -42,7 +43,12 @@ utf8()
 
 from tokenizers import Tokenizer  # noqa: E402
 
-from phifm.training.pretrain.dados import ConfigDados, Fluxo  # noqa: E402
+from phifm.training.pretrain.dados import (  # noqa: E402
+    BIT_INICIO,
+    BIT_MATH,
+    ConfigDados,
+    Fluxo,
+)
 from phifm.training.pretrain.mascaramento import (  # noqa: E402
     MIN_TOKENS_TRATAMENTO,
     ConfigMascara,
@@ -79,7 +85,13 @@ def sondar(raiz: Path, contexto: int, n: int, taxa: float, semente: int) -> dict
             tam_tok.append(int(esc.size))
             if len(tam_chr) < 3000:
                 tam_chr.append(len(tok.decode(ids[esc].tolist())))
-            if ide[-1] == ide[esc[0]]:
+            # Atravessa se chega à última posição E o token seguinte continua a
+            # mesma equação — matemática sem bit de início. Terminar exatamente na
+            # fronteira é equação inteira e não conta.
+            b = (i + 1) * contexto
+            seguinte = int(fl.marcas[b]) if b < fl.marcas.size else 0
+            if (ide[-1] == ide[esc[0]] and seguinte & BIT_MATH
+                    and not seguinte & BIT_INICIO):
                 corte_fim += 1
     d = cont.como_dict()
     t, c = np.array(tam_tok), np.array(tam_chr)
@@ -93,8 +105,8 @@ def sondar(raiz: Path, contexto: int, n: int, taxa: float, semente: int) -> dict
             d["tokens_de_equacao_mascarados"] / max(d["tokens_mascarados"], 1), 4),
         "escolhida_tokens_p10_p50_p90": pct(t),
         "escolhida_caracteres_p10_p50_p90": pct(c),
-        "escolhidas_cortadas_no_fim": corte_fim,
-        "fracao_cortadas_no_fim": round(corte_fim / max(t.size, 1), 4),
+        "escolhidas_que_atravessam_o_fim": corte_fim,
+        "fracao_que_atravessa_o_fim": round(corte_fim / max(t.size, 1), 4),
     })
     return d
 
@@ -120,8 +132,8 @@ def main() -> int:
         print(f"  equação nos mascarados  {d['fracao_de_equacao_nos_mascarados']:.3f}")
         print(f"  escolhida: tokens {d['escolhida_tokens_p10_p50_p90']} · "
               f"caracteres {d['escolhida_caracteres_p10_p50_p90']} (p10/p50/p90)")
-        print(f"  ⚠️ cortadas no FIM da janela: {d['escolhidas_cortadas_no_fim']:,} "
-              f"({100 * d['fracao_cortadas_no_fim']:.1f}%)")
+        print(f"  ⚠️ atravessam o FIM da janela: {d['escolhidas_que_atravessam_o_fim']:,} "
+              f"({100 * d['fracao_que_atravessa_o_fim']:.1f}%)")
     return 0
 
 

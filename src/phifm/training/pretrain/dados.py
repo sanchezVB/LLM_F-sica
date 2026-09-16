@@ -37,10 +37,17 @@ janela. Isso resolve dois problemas de uma vez:
 
 1. **ids únicos dentro da sequência** sem guardar um contador global de 4 bytes por
    token (que custaria 42 GB);
-2. ⚠️ **uma equação cortada pela fronteira da janela fica FORA do tratamento**, de
-   graça: se a janela começa no meio de uma equação, aquele trecho não tem o bit 2 e
-   o `cumsum` o deixa com id −1. Mascarar "a equação inteira" quando só metade dela
+2. ⚠️ **uma equação cortada pela fronteira da janela fica FORA do tratamento**: se
+   a janela começa no meio de uma equação, aquele trecho não tem o bit 2 e o
+   `cumsum` o deixa com id −1. Mascarar "a equação inteira" quando só metade dela
    está na janela seria mascarar metade e chamar de inteira.
+
+   ⚠️ **Isto valia só para o corte no COMEÇO até 2026-09-16.** O corte no FIM não
+   sai de graça: a última equação da janela tem o bit 2 e recebia id válido. Medido
+   a 1.024 de contexto, eram **9,5% das equações escolhidas** para tratamento —
+   mascaradas como inteiras sem estar. O `cumsum` não tem como ver o que vem depois
+   da janela; quem vê é o `Fluxo`, que olha a marca do token SEGUINTE e passa
+   `continua_depois` para `desempacotar`.
 
 ## O que este módulo NÃO faz
 
@@ -91,11 +98,17 @@ def marcas_de(id_equacao: np.ndarray, e_display: np.ndarray) -> np.ndarray:
     return m
 
 
-def desempacotar(marcas: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def desempacotar(marcas: np.ndarray, continua_depois: bool = False,
+                 ) -> tuple[np.ndarray, np.ndarray]:
     """`(id_equacao, e_display)` a partir das marcas de UMA janela.
 
     ⚠️ Uma equação sem o bit de início dentro da janela — porque a janela a cortou
     pela metade — recebe id −1 e fica fora do tratamento. Ver a docstring do módulo.
+
+    ⚠️ `continua_depois`: a última equação da janela prossegue além dela. Ela também
+    recebe −1, pelo mesmo motivo — só quem conhece o token seguinte sabe disso, e é
+    o `Fluxo.sequencia` quem passa. As marcas de matemática e display NÃO mudam: as
+    avaliações leem os bits, e um trecho truncado continua sendo matemática.
 
     >>> import numpy as np
     >>> m = np.array([0, 7, 3, 0, 5, 1], dtype=np.uint8)
@@ -112,6 +125,9 @@ def desempacotar(marcas: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     # E o trecho antes do primeiro início fica −1 mesmo sendo matemática: é a
     # equação truncada, que não pode ser tratada como inteira.
     ide[math & (ide < 0)] = -1
+    # E a equação cortada no FIM: todos os tokens com o id da última posição.
+    if continua_depois and ide.size and ide[-1] >= 0:
+        ide[ide == ide[-1]] = -1
     return ide.astype(np.int32), (marcas & BIT_DISPLAY).astype(bool)
 
 
@@ -208,7 +224,11 @@ class Fluxo:
         c = self.cfg.contexto
         a, b = indice * c, (indice + 1) * c
         ids = np.asarray(self.tokens[a:b], dtype=np.int64)
-        ide, disp = desempacotar(np.asarray(self.marcas[a:b]))
+        # A equação continua depois da janela se o token seguinte é matemática e NÃO
+        # começa uma equação nova. Na última janela do arquivo não há seguinte.
+        seguinte = int(self.marcas[b]) if b < self.marcas.size else 0
+        continua = bool(seguinte & BIT_MATH) and not bool(seguinte & BIT_INICIO)
+        ide, disp = desempacotar(np.asarray(self.marcas[a:b]), continua_depois=continua)
         return ids, ide, disp
 
     def lote(self, passo: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

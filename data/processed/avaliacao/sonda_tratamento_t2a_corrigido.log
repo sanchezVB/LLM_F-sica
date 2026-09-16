@@ -1,0 +1,9 @@
+
+=== E · 20,000 janelas de 1024 ===
+  fração tratada        0.5489   (10,978 de 20,000)
+  recaída sem display   8,771
+  recaída só curtas     58   (< 20 tokens)
+  recaída só grandes    193
+  equação nos mascarados  0.165
+  escolhida: tokens [39, 76, 177] · caracteres [81, 162, 360] (p10/p50/p90)
+  ⚠️ atravessam o FIM da janela: 0 (0.0%)

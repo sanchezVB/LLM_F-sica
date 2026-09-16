@@ -2,14 +2,28 @@
 """Pré-treina o ΦEnc. DOC-07 §2 e DOC-08 §4.
 
     .venv-treino\\Scripts\\python.exe scripts\\train_phienc.py \\
-        --config proxy-bakeoff --total-passos 2000 --p-equacao 0.5
+        --config proxy-bakeoff --total-passos 2000 --p-equacao 0.6
 
 ## As duas execuções que este script existe para permitir
 
 **A ablação do DOC-07 §2.3**, que é a razão de o ΦEnc ser treinado do zero:
 
     --p-equacao 0.0    controle  (MLM padrão, nada de Física no objetivo)
-    --p-equacao 0.5    tratado   (metade dos exemplos mascara uma equação inteira)
+    --p-equacao 0.6    tratado   (60% dos exemplos TENTAM mascarar uma equação inteira)
+
+⚠️ **0,6 e não 0,5, decidido em 2026-09-16, antes de o braço tratado existir.** O
+valor multiplica a fração tratada, e ela depende do contexto: medida pelo
+`scripts/sondar_tratamento_equacoes.py` com o tokenizer E, é **0,883 a 8.192** mas
+**~0,56 a 1.024** — 42% das janelas curtas não têm display começando nelas. E a
+correção do corte no FIM da janela (`dados.desempacotar`, `continua_depois`) tirou
+as 9,5% das escolhidas que eram mascaradas como inteiras sem estar.
+
+⚠️ A conta que escolheu 0,6 supunha a fração caindo para ~0,51 com a correção.
+**Medida, caiu só para 0,5489** (de 0,5645, nas mesmas 20.000 janelas): sem a
+equação cortada, a seleção escolhe outra inteira da mesma janela quando há. Então
+0,6 × 0,549 ≈ **33%** dos exemplos com equação inteira, um pouco mais intenso que os
+~28% que 0,5 dava antes da correção. Mantido em 0,6 por decisão do dono do projeto;
+0,5 × 0,549 ≈ 27% seria a intensidade original.
 
 Tudo o mais idêntico — mesma semente, mesmo fluxo, mesmos hiperparâmetros. O
 orçamento de máscara é igual nos dois braços por construção (ver
