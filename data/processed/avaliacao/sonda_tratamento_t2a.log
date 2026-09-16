@@ -1,0 +1,18 @@
+
+=== E · 20,000 janelas de 1024 ===
+  fração tratada        0.5645   (11,291 de 20,000)
+  recaída sem display   8,354
+  recaída só curtas     111   (< 20 tokens)
+  recaída só grandes    244
+  equação nos mascarados  0.168
+  escolhida: tokens [37, 75, 176] · caracteres [78, 160, 363] (p10/p50/p90)
+  ⚠️ cortadas no FIM da janela: 1,068 (9.5%)
+
+=== A · 20,000 janelas de 1024 ===
+  fração tratada        0.5815   (11,630 de 20,000)
+  recaída sem display   7,994
+  recaída só curtas     116   (< 20 tokens)
+  recaída só grandes    260
+  equação nos mascarados  0.172
+  escolhida: tokens [36, 73, 173] · caracteres [78, 156, 349] (p10/p50/p90)
+  ⚠️ cortadas no FIM da janela: 1,115 (9.6%)

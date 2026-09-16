@@ -104,10 +104,35 @@ Medido antes de desenhar o 2: unidades de mais de 8 tokens são 6% das unidades 
 ### O que isto muda
 
 - **O controle da ablação do §2.3 passa a ser o braço E**, e o braço tratado tem de
-  usar o tokenizer E. ⚠️ A célula do T2a avisava que com E `\frac` está estilhaçado e
-  o mascaramento por span se comporta de outro jeito — conferir isso ANTES de gastar
-  as 10 h 25 de cota que restam.
-- A §8 e a §11 do DOC-05 precisam ser reescritas com este resultado.
+  usar o tokenizer E. A célula do T2a avisava que com E `\frac` fica estilhaçado e o
+  mascaramento por span "se comportaria de outro jeito". **Medido, e não se comporta**
+  (`scripts/sondar_tratamento_equacoes.py`, 20.000 janelas de 1.024 por fatia,
+  `p_equacao=1`):
+
+  | | fração tratada | sem display | só curtas | só grandes | equação escolhida (tokens / caracteres, p50) | cortadas no fim |
+  |---|---|---|---|---|---|---|
+  | E | 0,5645 | 8.354 | 111 | 244 | 75 / 160 | 9,5% |
+  | A | 0,5815 | 7.994 | 116 | 260 | 73 / 156 | 9,6% |
+
+  Dentro das equações em display, A e E gastam praticamente os mesmos tokens. As
+  fatias diferem em documentos (E usou 3 partes, A 4), então a diferença de 0,017 não
+  é atribuível ao tokenizer.
+- ⚠️ **O que a sonda achou vale para os DOIS tokenizers, e é sobre o contexto.** A
+  fração tratada documentada, 0,883, foi medida a 8.192. A 1.024 ela cai para
+  **~0,56**, porque 42% das janelas não têm nenhuma display começando nelas. Mas a
+  intensidade SOBE: uma equação de ~75 tokens num orçamento de 307 é ~17% dos
+  mascarados, contra ~3% a 8.192 (estimado pela mediana de 79 tokens num orçamento de 2.457). Com o `--p-equacao 0.5` planejado, ~28% dos
+  exemplos mascaram uma equação inteira. `train_phienc.py` avisa abaixo de 0,5 de
+  fração tratada; 0,56 passa, perto.
+- ⚠️ **Inconsistência no código, a decidir antes do braço tratado.** `desempacotar`
+  descarta a equação que a janela corta no COMEÇO ("truncada, não pode ser tratada
+  como inteira"), mas a cortada no FIM mantém o id e é mascarada como se estivesse
+  inteira: **9,5% das escolhidas**. Corrigir alinha o código à regra que ele mesmo
+  declara, e não toca o controle (com `p_equacao=0` a seleção nem é chamada). O custo
+  é a fração tratada cair para ~0,51, colada no aviso de 0,5.
+- **O caminho de treino não mudou** desde `fc1523a`, o commit que treinou E: o braço
+  tratado pode rodar sobre o mesmo código e diferir só no `--p-equacao`.
+- A §8 e a §11 do DOC-05 foram reescritas com este resultado (§8-medido, §11.2-medido), e o critério E1 de fertilidade ficou marcado em tensão com ele.
 - Pausa no meio da l2r: o processo foi suspenso (`NtSuspendProcess`) para liberar a
   GPU e retomado 38 min depois, sem erro — a conferência do atalho da cabeça e a de
   bytes idênticos passaram no fim.

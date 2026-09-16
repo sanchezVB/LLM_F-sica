@@ -243,6 +243,43 @@ Sem isso, **nenhuma quantidade de treino de BPE produz tokens LaTeX atômicos** 
 
 Para o **ΦGen**, o regex do Qwen3 é herdado; a extensão adiciona as regras acima como pré-passo. Ganho menor que no ΦEnc, mas positivo.
 
+### 8-medido ⚠️ A regra, medida num modelo, CUSTOU (2026-09-15)
+
+O bake-off A×E rodou (§11.2-medido). A e E são o mesmo tokenizer — BPE, V = 40.960,
+mesma arquitetura, mesmo orçamento de 0,6 B tokens — e diferem **só** nesta regra.
+Medida primária pré-registrada, bits por byte em texto que nenhum dos dois viu:
+
+    A (com a regra)   0,89688 bits/byte
+    E (sem a regra)   0,85004 bits/byte          A − E = +0,047 [+0,043; +0,050]
+
+**O modelo sem a regra reconstrói o mesmo texto com ~5% menos bits.** A frase acima —
+*"é a decisão mais consequente e menos visível deste documento"* — continua certa
+sobre a consequência e errada sobre o sinal: a 0,6 B, a regra piora o modelo.
+
+O que o resultado **não** diz, e que tem de acompanhá-lo:
+
+- **É a 0,6 B, num proxy de 48 M com 43,7% dos parâmetros na embedding**, uma
+  semente por braço. O §11.2 pede 5 B.
+- **A teve um spike com rollback** (~3,3% do orçamento descartado, 500 passos com LR
+  pela metade) e E não. Assimetria a favor de E, estimada pequena, não medida.
+- **Só a medida primária rodou.** A sonda tensorial e a recuperação, que a regra do
+  T2a chama de secundárias, ainda não foram aplicadas a A e E. Pela mesma regra, elas
+  não podem derrubar a primária; se discordarem, a discordância é o resultado.
+- **O mecanismo não foi medido.** Uma explicação candidata, só isso: com `\frac`
+  atômico, cada sequência de controle é uma linha própria da embedding e vê menos
+  gradiente; partida em pedaços que outros comandos compartilham, cada pedaço treina
+  mais. A 48 M com a embedding dominando e a 0,6 B tokens, a linha rara pode
+  simplesmente não ter treinado. Se for isso, **o sinal pode inverter com escala** —
+  que é exatamente o que 0,6 B não permite ver.
+
+A e E fecham uma pergunta que a §11.1 parecia ter fechado no sentido oposto: A gasta
+13,6% menos tokens por documento, logo vê mais texto pelo mesmo orçamento, e perdeu
+mesmo assim. **Menos tokens não é modelo melhor**, e a fertilidade é proxy do custo,
+não da qualidade.
+
+Consequência imediata: a ablação do DOC-07 §2.3 passa a usar **E**. O parágrafo do
+ΦGen acima fica sem sustentação — ele supunha o ganho da regra.
+
 ---
 
 ## 9. Extensão de vocabulário para o CPT
@@ -361,6 +398,10 @@ Round-trip 100% e `1.5` consistente nas seis. 35 subáreas medidas, pior razão
    numa T4 seriam ~47 h por braço contra 30 h de cota semanal. Um empate lá não
    refuta a §8; registra que a 0,8 B não dá para ver.
 
+   ⚠️ **Rodou em 2026-09-15, a 0,6 B — e E VENCEU** (§11.2-medido). O proxy não
+   errou só a magnitude: errou o SENTIDO. A variante com mais tokens é o modelo
+   melhor.
+
 2. **BPE bate Unigram em LaTeX** — a evidência que a §3.3 dizia não existir, com
    mecanismo observável. Ver a nota da §3.3.
 
@@ -399,13 +440,16 @@ Podemos responder isso empiricamente, e é barato:
 
 A variante E é a mais importante: isola o efeito do regex de pré-tokenização, que é a decisão que a §8 afirma ser a mais consequente e menos visível. Se E empatar com A, a §8 está errada e o documento precisa ser revisado.
 
-> **O que a §11.1-medido já resolveu, e o que ela não pode resolver.** As métricas intrínsecas já rodaram nas seis variantes: E ficou 27% pior que A, então a §8 sobrevive ao seu próprio teste, e B (Unigram) ficou atrás de A nas duas fertilidades. Isso **não** dispensa o §11.2 para nenhuma das duas — fertilidade é proxy, e a hipótese de que menos tokens produz melhor modelo é exatamente o que falta medir.
+> ⚠️ **2026-09-15: E não empatou — venceu**, por 0,047 bit/byte a 0,6 B. Ver §11.2-medido;
+> a revisão que esta frase pede está na §8-medido.
+
+> **O que a §11.1-medido já resolveu, e o que ela não pode resolver.** As métricas intrínsecas já rodaram nas seis variantes: E ficou 27% pior que A, então a §8 sobrevive ao seu próprio teste *(⚠️ não sobreviveu ao bake-off: §11.2-medido)*, e B (Unigram) ficou atrás de A nas duas fertilidades. Isso **não** dispensa o §11.2 para nenhuma das duas — fertilidade é proxy, e a hipótese de que menos tokens produz melhor modelo é exatamente o que falta medir.
 >
 > Duas consequências para o desenho: **(i) a variante D não pode ser cortada** por economia. Ela ganhou nas três métricas intrínsecas, e é a única forma de descobrir se os ~8 pontos percentuais extras de embedding (§7.2) compram ou custam desempenho. **(ii)** Se o orçamento apertar, o corte menos danoso é B, porque o Unigram já perdeu por margem grande *e* com mecanismo explicado — e esse é o único corte que a §11.1-medido justifica.
 >
 > ⚠️ **E quanto o proxy erra, medido.** Nas fatias de treino de verdade (0,9 B tokens de fonte LaTeX do RedPajama-arXiv, 2026-09-11), E gasta **13,6%** mais tokens por documento que A — não os 37,7% da razão de fertilidade. A §11.1 mediu resumos, onde a matemática é *inline* e curta, e o corpus de treino é fonte plena: o proxy **exagera a vantagem por 3×**. É este 13,6% que a expectativa do bake-off deve usar, e é ele que diz quanto o experimento tem de poder para encontrar.
 
-### 11.2-montado O par A×E, pronto e ainda não rodado (2026-09-11)
+### 11.2-montado O par A×E, como foi montado (2026-09-11)
 
 O par que esta seção chama de mais importante está montado em `kaggle/t2a_tokenizer.py`,
 com os dois braços registrados em `phifm.core.kaggle` e o dado empacotado (5,4 GB, as
@@ -415,15 +459,54 @@ duas fatias num dataset só, para uma assinatura só).
 
 | esta seção pede | o que vai rodar | por quê |
 |---|---|---|
-| 5 B tokens por variante | **0,8 B** | 5 B numa T4 são ~47 h por braço; a cota semanal é 30 h |
+| 5 B tokens por variante | **0,6 B** | 5 B numa T4 são ~47 h por braço; a cota semanal é 30 h. Montado a 0,8 B; a guarda de sessão mediu a vazão real, projetou 9,9 h contra o teto de 8,5 h, e o orçamento desceu para 0,6 B antes de treinar |
 | as seis variantes | **só A e E** | C e D têm contagem de parâmetros diferente de A — a 48 M a embedding é 43,7% —, então A×C e A×D carregam confundidor de capacidade. A e E compartilham vocabulário e arquitetura, e são o único par limpo |
 | "recuperação, MLM, sonda" | **bits por byte**, sonda, recuperação | acurácia de MLM não compara vocabulários: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta contra a hipótese. Ver `phifm.eval.bits_por_byte` |
 
 A regra de leitura está pré-registrada na célula, e a parte dela que importa é a
-assimetria: **empate a 0,8 B não refuta a §8**, porque o desfecho mais provável de um
+assimetria: **empate a 0,6 B não refuta a §8**, porque o desfecho mais provável de um
 run subdimensionado por 6× é justamente o empate. Ele se registra como *não decidido*.
 
 > **Não há evidência publicada comparando algoritmos de tokenização em texto de Física e LaTeX.** Por US$ 15 e alguns dias, produzimos essa evidência. É a primeira contribuição científica original do programa, e ela cabe inteira no degrau T0 do DOC-17A §8.2.
+
+### 11.2-medido E vence, e só o terceiro instrumento podia dizer isso (2026-09-15)
+
+Os dois braços rodaram no Kaggle (A 8 h 16 min, E 8 h 08 min) e foram exportados pelo
+**mesmo exportador, localmente** — o Kaggle grava o config no formato do
+`transformers` 5.0, e a medida roda na 4.48.3, que ignora chave desconhecida e usaria
+defaults. Configs de A e E idênticos byte a byte.
+
+Bits por byte, 40 das 44 partes (as 4 do treino excluídas pelo manifesto), cada
+instrumento com a regra commitada **antes** do próprio número:
+
+| instrumento | docs | viés favorece | A | E | A − E |
+|---|---|---|---|---|---|
+| 1 · 15% dos tokens | 2.000 | E | 0,66534 | 0,58780 | +0,078 [+0,074; +0,083] |
+| 2 · unidades comuns inteiras | 2.000 | A | 1,30962 | 1,36795 | −0,051 [−0,056; −0,046] |
+| 3 · **PLL-word-l2r** | 1.000 | resíduo leve para A | 0,89688 | 0,85004 | **+0,047 [+0,043; +0,050]** |
+
+**Por que três.** O instrumento 1 era o pré-registrado, e a regra dele já dizia que
+"E vence" é ambíguo: esconder 15% dos tokens de E esconde pedaços menores, cercados
+de fragmentos visíveis da mesma palavra. O desempate escrito era a
+pseudo-verossimilhança original, que tem o mesmo viés mais forte (Kauf & Ivanova,
+ACL 2023) — corrigido antes de rodar. O 2 esconde trechos que nenhum tokenizer corta
+ao meio, com os mesmos bytes e o mesmo contexto nos dois braços, e seu viés aponta
+para A. **Os dois se anularam**, cada um a favor do braço que favorece. O 3 usa as
+mesmas unidades e o mesmo contexto do 2, mas pontua pela regra da cadeia dentro de
+cada unidade, o que remove a folga que enviesava o 2.
+
+O 3 cai **dentro** do intervalo que 1 e 2 cercam, e a queda de 2 para 3 é maior em E
+(−0,52) que em A (−0,41) — E pagava mais a folga entre marginais e conjunta, que é o
+mecanismo nomeado. Unidades de mais de 8 tokens são 6% das unidades e **53% dos
+bytes**: a diferença entre os tokenizers mora no LaTeX longo sem espaço.
+
+**Leitura pela regra do T2a: E vence, e a §8 cai** — ver §8-medido para o que
+acompanha o número. Artefatos em `data/processed/avaliacao/t2a_bits_por_byte_AxE*.json`;
+os três instrumentos em `phifm.eval.bits_por_byte`.
+
+> **A evidência que a caixa acima dizia não existir foi produzida**, e saiu contra a
+> expectativa deste documento. Custo: ~16,5 h de T4 da cota gratuita e ~3 h da GPU
+> local, US$ 0.
 
 ---
 
@@ -443,10 +526,13 @@ run subdimensionado por 6× é justamente o empate. Ele se registra como *não d
 ## 13. Critérios de aceite do Stage-Gate 4
 
 - [ ] **E1** — Fertilidade ≤ 0,80× do Qwen3 em texto de Física; ≤ 0,65× em equações
+  - ⚠️ **Em tensão com o E5.** E é a única variante que falha a meta de texto (0,929) e é o
+    modelo melhor a 0,6 B. Um critério de aceite que reprova o tokenizer que venceu o
+    bake-off mede custo, não qualidade. Não foi removido: decidir isto é do Stage-Gate 4
 - [ ] **E2** — Round-trip 100% fiel em suíte golden de 500 expressões LaTeX reais
 - [ ] **E3** — Nenhuma subárea com fertilidade > 1,25× da mediana
 - [ ] **E4** — Bake-off das seis variantes concluído; escolha justificada por medição, não por preferência
-- [ ] **E5** — Variante E avaliada; efeito do regex de pré-tokenização quantificado
+- [ ] **E5** — Variante E avaliada; efeito do regex de pré-tokenização quantificado — 🟡 **a 0,6 B, pela medida primária**: A − E = +0,047 bit/byte, contra a regra (§11.2-medido). Faltam as secundárias e a escala
 - [ ] **E6** — Extensão do Qwen3 passa no teste de perplexidade (§9.4) com desvio desprezível
 - [ ] **E7** — Tokenizer congelado, versionado por hash de conteúdo e registrado no manifesto
 - [ ] **E8** — Contagens de tokens do DOC-04 §7 reafirmadas no tokenizer definitivo
