@@ -117,6 +117,27 @@ Conferido no notebook preparado, contra o do controle:
   exportado. Conferir a do tratado quando ele voltar;
 - 0,6 B contra os 2 B para os quais a ablação foi preparada.
 
+### O braço tratado TREINOU (2026-09-16: lançado às 10:04, COMPLETE às 18:24)
+
+| | controle (E, `p_equacao` 0,0) | tratado (E, `p_equacao` 0,6) |
+|---|---|---|
+| treino | 8 h 08 min | 8 h 11 min (29.435 s) |
+| vazão | 20.478 tok/s | 20.972 tok/s |
+| fração tratada | — | **0,5381** (sonda previu 0,549) → checagem 1 ✅ |
+| exemplos com equação inteira | 0 | 189.413 de 585.920 (32,3%) |
+| tokens de equação nos mascarados | 0 | 9,7% |
+| spikes | 0 | **1**, no passo 8.075 |
+| `transformers` da imagem | 5.0.0 | 5.0.0 |
+| exportação local | `models/phienc-t2a-E` | `models/phienc-t2eq-E-tratado` — logits 0, config e tokenizer idênticos ao controle |
+
+⚠️ **A perda final (1,4005 contra 1,2613) NÃO compara os braços**: o tratado resolve
+uma tarefa mais difícil em um terço dos exemplos. Quem compara é a regra abaixo.
+
+⚠️ **Assimetria, desta vez CONTRA o tratado**: o spike no passo 8.075 voltou ao
+checkpoint 8.000, descartou 76 lotes (~0,8% do orçamento) e reduziu a LR pela metade
+até o passo 8.575 — em cima do início do decaimento (passo ~8.240). O controle rodou
+limpo. Entra na leitura como ressalva nomeada, junto do número.
+
 **A regra está na célula, e foi CORRIGIDA antes de qualquer número do tratado.** A
 primeira versão, publicada com o braço, usava como primária a perda nos tokens de
 equação e deixava a diferença das diferenças só para desempate. Ela seguia o desenho
