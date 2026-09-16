@@ -1,0 +1,17 @@
+
+==============================================================================
+  §2.3 · SECUNDÁRIAS · controle × tratado (não derrubam a primária)
+==============================================================================
+  recuperação · pool 2000
+    controle  recall@1 0.0055 · recall@10 0.0330 · MRR 0.0182 · nDCG@10 0.0171
+    tratado   recall@1 0.0785 · recall@10 0.2175 · MRR 0.1254 · nDCG@10 0.1391
+    recall@1 pareado: tratado vence em recall@1 (p=0.0000) (p=3.5593456271429425e-36)
+    nDCG@10 tratado − controle: +0.12200 [0.10938, 0.13532]
+  sonda tensorial · 72 itens · acaso 0,5 · piso de superfície 0.0
+    controle 0.3333 · tratado 0.3750 · discordantes 12 × 15 · p=0.7011
+      contracao                    0.056 → 0.056  (1×1, p=1.0, descritivo)
+      operador_contra_campo        0.500 → 0.278  (7×3, p=0.3438, descritivo)
+      posicao_do_indice            0.389 → 0.389  (2×2, p=1.0, descritivo)
+      valencia                     0.389 → 0.778  (2×9, p=0.0654, descritivo)
+==============================================================================
+  -> data\processed\avaliacao\t2eq_secundarias.json
