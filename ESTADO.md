@@ -38,6 +38,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
+| **Caminho B** · pronto para lançar | 🟡 **espera cota e publicação** | o laço aprendeu CPT (`--base`, com guarda do id de máscara — que o preparador NUNCA gravava, e isso fechava o caminho), célula em 2 T4 com a regra escrita antes, e as duas fatias no tokenizer do ModernBERT: **423 M** de treino (partes 35 e 14) e **62 M** de avaliação (parte 3, a mesma do §2.3). Pacote de **1,27 GB** montado |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. Falta medir a vazão real |
 | **PB-Formula** · montado | 🟡 **374.739 itens, e só 7,8% notacionais** | corpus inteiro, teto 1,0, remontagem byte a byte idêntica. 53,1% dos itens têm a grafia idêntica e 37,0% só diferem em marcação; 36,3% ligam documentos quase iguais. Proposta (não decidida): primário = notacional sem quase igual, **24.508 itens**. E o corpus tem **6.778 `arxiv_id` repetidos** (sem vazamento no ΦEnc; guarda por documento no preparador) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
@@ -54,6 +55,72 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Caminho B: o laço aprendeu CPT, e as duas fatias estão empacotadas (2026-09-17)
+
+O ADR-0003 aponta para pré-treino continuado do ModernBERT-base com `p_equacao` 0,6, e
+faltavam três coisas: o laço só sabia construir modelo do zero, não havia fatia com o
+tokenizer da base, e a célula não existia. As três estão feitas; falta publicar e
+esperar cota.
+
+### O que o laço ganhou
+
+- `modelo.carregar_base()`: pesos e arquitetura de uma base pronta, em fp32 explícito
+  (a armadilha do `GradScaler` que já custou um braço do T1c e dois minutos do T1f), e
+  `config_de()` para o laço ter vocabulário, contexto e os FLOPs da MFU. A conferência
+  analítica do DOC-07 NÃO se aplica a uma base de fora, e isso está escrito.
+- `train_phienc.py --base`: `conferir_base_contra_fatia()` **recusa** se o id de máscara
+  da fatia não for o do tokenizer da base, ou se faltar um especial na lista.
+- ⚠️ **E o preparador NUNCA gravava `id_mascara`**, que o `especiais_da_fatia` exige
+  desde 2026-09-10: **nenhuma fatia tokenizada com um tokenizer de fora podia treinar**.
+  O caminho estava fechado por uma incompatibilidade entre dois arquivos, e ninguém
+  tinha passado por ele. Agora o preparador deriva e grava.
+- Fumaça de ponta a ponta: 10 passos de CPT do ModernBERT-base, perda inicial **1,4005**
+  — e não os ~10,8 de um modelo do zero, que é o sinal de que os pesos vieram mesmo.
+
+### As duas fatias, e por que a de avaliação é a parte 3
+
+| | tokens | partes | tamanho |
+|---|---|---|---|
+| treino | **422.981.018** | 35 e 14 | 1,2 GB |
+| avaliação | **62.475.395** | **3** | 179 MB |
+
+As duas com o tokenizer do ModernBERT (`id_mascara` 50284) e a de avaliação declarando
+disjunção **por documento**, não só por parte.
+
+⚠️ A de avaliação saiu no sorteio e caiu na `part-00002` — que os braços de 48 M do §2.3
+usaram no TREINO. Não contaminaria o caminho B, mas mediria as duas famílias em textos
+DIFERENTES, e a diferença entre elas carregaria a diferença entre as fatias. Daí o
+`--partes`, que torna a escolha explícita e a grava no manifesto (`partes_escolhidas`):
+a parte 3 é a mesma que o §2.3 já usa, e é livre para as duas famílias.
+
+### O pacote
+
+`data/processed/kaggle_t2eq_cpt`, 1.268,9 MB: `tokens_MB.u16.bin` (846,0 MB),
+`marcas_MB.u8.bin` (423,0 MB) e o manifesto da fatia. Experimentos
+`t2eq_cpt_controle` (dono do dataset) e `t2eq_cpt_tratado` (reusa), com
+`tokens_minimos=400_000_000` na identidade — o montador recusa fatia menor, porque
+treinar com menos daria mais de uma época sobre o mesmo texto e nada no log diria isso.
+Os binários entram por hardlink, então o pacote não custa 1,2 GB a mais no disco.
+
+### A célula, com a regra escrita antes
+
+`kaggle/t2eq_cpt.py`, uma célula para os dois braços (`VARIANTE`), 9 testes pela AST:
+
+- `torchrun --nproc_per_node 2`, e **aborta se não houver duas placas**: um braço em
+  duas e o outro em uma daria uma diferença não declarada entre eles;
+- `SEQUENCIAS × ACUMULACAO` = 64 sequências por passo, o lote lógico dos proxies;
+- **0,4 B tokens** (~7,1 h nas duas placas) porque 0,6 B projeta ~10,7 h contra o teto
+  de 9 h da sessão, e `--limite-horas 8.0` confere contra a vazão MEDIDA;
+- **LR 1e-4**, de pré-treino continuado: 1e-3 apagaria o que a base sabe;
+- primária = diferença das diferenças de `mlm_regiao`, com a linha de base de +0,1286 ao
+  lado, e checagens de manipulação que INVALIDAM o run se falharem.
+
+### Falta
+
+1. **Publicar** o dataset (1,2 GB) e os dois notebooks — conta do dono.
+2. **Cota**: ~7 h por braço, e o passo 1 decide antes se vale gastá-la.
+3. **Medir a vazão real em duas T4** na primeira janela de log do primeiro braço.
 
 ## Pré-treino em duas GPUs: pronto, e igual a uma pelos pesos (2026-09-17)
 
