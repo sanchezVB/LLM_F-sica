@@ -44,6 +44,10 @@ from phifm.core.console import utf8  # noqa: E402
 
 utf8()
 
+from phifm import cache_hf_no_hd  # noqa: E402
+
+cache_hf_no_hd()  # ⚠️ ANTES do transformers: o huggingface_hub lê o caminho do cache no import
+
 import polars as pl  # noqa: E402
 import torch  # noqa: E402
 from transformers import AutoModel, AutoTokenizer  # noqa: E402

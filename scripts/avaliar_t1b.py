@@ -52,6 +52,11 @@ import polars as pl
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
+
+from phifm import cache_hf_no_hd  # noqa: E402
+
+cache_hf_no_hd()  # ⚠️ ANTES do transformers: o huggingface_hub lê o caminho do cache no import
+
 from transformers import (  # noqa: E402
     AutoModel,
     AutoModelForSequenceClassification,

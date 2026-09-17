@@ -48,6 +48,11 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
+
+from phifm import cache_hf_no_hd  # noqa: E402
+
+cache_hf_no_hd()  # ⚠️ ANTES do transformers: o huggingface_hub lê o caminho do cache no import
+
 from transformers import AutoModel, AutoTokenizer  # noqa: E402
 
 from phifm.core.console import utf8 as console_utf8  # noqa: E402
