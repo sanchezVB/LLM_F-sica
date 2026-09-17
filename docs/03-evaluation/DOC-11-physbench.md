@@ -168,6 +168,28 @@ Dada uma equação, recuperar os documentos do corpus que a contêm — sob vari
 
 Mede diretamente a capacidade que recuperação densa costuma perder: casamento simbólico exato.
 
+> **§6.3-medido (2026-09-17) — montado sobre o corpus inteiro, e a maior parte dos itens NÃO exige variação notacional.**
+>
+> `scripts/montar_pb_formula.py` sobre as 44 partes do RedPajama de Física (835.379 linhas, 828.601 `arxiv_id`): 202.365.265 equações, 27.185.523 formas canônicas de conteúdo (relação e ≥ 40 caracteres), **374.739 itens** de 198.301 documentos de consulta, pool de 314.161 documentos, teto 1,0. Remontado do disco: `itens.parquet` idêntico byte a byte. Resumo em `data/processed/avaliacao/pb_formula_montagem.json`.
+>
+> `scripts/diagnosticar_pb_formula.py` (exploratório, não muda itens) mediu o que cada item exige:
+>
+> | grafia dos alvos contra a da consulta | itens | fração | com alvo quase igual (≥ 5 equações em comum) |
+> |---|---|---|---|
+> | idêntica, byte a byte | 198.873 | 53,1% | 84.384 |
+> | superficial — só espaço, `\label`/`\tag`, `\nonumber`, `&`, `\,` e pontuação final | 138.571 | 37,0% | 45.785 |
+> | mista | 7.948 | 2,1% | 1.136 |
+> | **notacional** — nenhum alvo coincide | **29.347** | **7,8%** | 4.839 |
+>
+> Duas consequências:
+>
+> 1. **"Sob variação notacional" descreve 7,8% dos itens.** Em nove de cada dez, casar a string (a menos de marcação) resolve. A média sobre o benchmark inteiro premiaria um casador de string, que é o contrário do que a tarefa existe para medir.
+> 2. **36,3% dos itens ligam a consulta a um documento com quem ela divide 5+ equações**, e 1.490 pares de documentos dividem 50+ — a mesma obra em dois registros, ou trabalhos companheiros. Nesses itens o que se recupera é o documento parecido.
+>
+> **Proposta, não decidida, e escrita antes de qualquer modelo ser medido aqui:** o conjunto primário do PB-Formula passa a ser o estrato `notacional` sem alvo quase igual — **24.508 itens**, 24× o mínimo da §8.2 —, com `identica`+`superficial` reportados ao lado como controle de casamento de string. O limiar de 5 equações é arbitrário; a distribuição inteira está no artefato (`pb_formula_diagnostico.json`) para quem quiser outro.
+>
+> Dois defeitos achados no caminho: o contador de "falhas de canonização" dava 0 **por construção** (`canonicalizar` é total, e a docstring alegava que ele media as equações perdidas pelo RedPajama); e o corpus tem **6.778 `arxiv_id` repetidos** — cópias byte a byte entre as partes 32/33 e 34 —, que o benchmark trata como um documento só.
+
 ---
 
 ## 7. A propriedade que torna esta suíte diferente: renovabilidade

@@ -157,7 +157,7 @@ A fração redistribuível é a única estimativa de planejamento refutada, e a 
 | peS2o [16] | 5.526.331 de 38.972.211 (14,18%) | 14,60 × 10⁹ |
 | Total | 7.222.231 | 27,75 × 10⁹ |
 
-O total situa-se na metade superior da faixa de 15 a 30 bilhões de tokens estimada como necessária, a custo monetário nulo. A Seção 4.3 mostra que o volume, entretanto, não é o fator limitante.
+O total situa-se na metade superior da faixa de 15 a 30 bilhões de tokens estimada como necessária, a custo monetário nulo. A Seção 4.3 mostra que o volume, entretanto, não é o fator limitante. Os 835.379 documentos da fatia RedPajama são linhas: 6.778 identificadores aparecem duas vezes, em cópias idênticas byte a byte distribuídas entre partições diferentes da coleta, e os documentos distintos são 828.601. A estimativa de tokens da fatia está inflada na mesma proporção, 0,8%. Nenhuma das partições envolvidas foi usada nos treinamentos da Seção 4.9.
 
 Uma fatia adicional, de matemática e ciência da computação da mesma fonte RedPajama, foi coletada e mantida separada: 687.907 documentos, 44,9 bilhões de caracteres e cerca de 11,2 bilhões de tokens, sem duplicação interna e sem sobreposição com a fatia de Física — os 179.441 documentos com listagem cruzada em Física já pertenciam a ela e foram excluídos. Uma sonda sobre 5 de 100 fragmentos sorteados havia previsto esses volumes com erro inferior a 2%. A fatia dobra o LaTeX íntegro disponível, de 42,15 para 87,0 bilhões de caracteres, mas mais da metade desse total passaria a vir de fora do domínio. Nenhuma medição deste trabalho avalia esse compromisso, e por isso as fatias não são misturadas.
 

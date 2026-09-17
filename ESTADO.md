@@ -38,6 +38,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
+| **PB-Formula** · montado | 🟡 **374.739 itens, e só 7,8% notacionais** | corpus inteiro, teto 1,0, remontagem byte a byte idêntica. 53,1% dos itens têm a grafia idêntica e 37,0% só diferem em marcação; 36,3% ligam documentos quase iguais. Proposta (não decidida): primário = notacional sem quase igual, **24.508 itens**. E o corpus tem **6.778 `arxiv_id` repetidos** (sem vazamento no ΦEnc; guarda por documento no preparador) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, e embeddings **bit a bit iguais** à 4.48 em ModernBERT, MiniLM e GTE (CPU e DirectML). Falta um passo de treino na DirectML. Trocar a venv padrão é decisão do dono |
 | **Artigo do programa** | 🟢 **v0.3** (2026-09-17) | remedição do G1, base × volume, o ΦRank sai, T2a e a ablação do §2.3; seções novas sobre instrumentos pré-registrados inválidos e ΦEnc do zero × CPT. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
@@ -52,6 +53,71 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## PB-Formula montado no corpus inteiro — e só 7,8% dos itens exigem variação notacional (2026-09-17)
+
+`scripts/montar_pb_formula.py` nas 44 partes do RedPajama de Física, 4 processos, ~1 h
+de extração e segundos de montagem:
+
+| | |
+|---|---|
+| linhas · `arxiv_id` distintos | 835.379 · **828.601** |
+| equações extraídas | 202.365.265 |
+| formas canônicas de conteúdo | 27.185.523 (26.389.057 em um documento só) |
+| descartadas: comuns demais (> 20 docs) · teto de 3 por documento | 513 · 421.214 |
+| **itens** | **374.739**, de 198.301 documentos de consulta |
+| pool | 314.161 documentos, teto **1,0** |
+
+Remontado do disco com `--so-montar`: `itens.parquet` **byte a byte idêntico** (sha256
+`adb9aec6…`). Resumo versionado em `data/processed/avaliacao/pb_formula_montagem.json`.
+
+### ⚠️ O que os itens exigem de fato
+
+O nome promete "sob variação notacional". `scripts/diagnosticar_pb_formula.py`
+(exploratório, não muda itens) classificou cada item pela grafia dos alvos contra a da
+consulta, e pelo quanto o documento da consulta se parece com o alvo:
+
+| grafia | itens | | com alvo quase igual (≥ 5 equações em comum) |
+|---|---|---|---|
+| idêntica, byte a byte | 198.873 | 53,1% | 84.384 |
+| superficial — espaço, `\label`/`\tag`, `\nonumber`, `&`, `\,`, ponto final | 138.571 | 37,0% | 45.785 |
+| mista | 7.948 | 2,1% | 1.136 |
+| **notacional** | **29.347** | **7,8%** | 4.839 |
+
+**Nove de cada dez itens se resolvem casando a string** a menos de marcação. E **36,3%**
+ligam a consulta a um documento com quem ela divide 5+ equações; 1.490 pares de
+documentos dividem 50+ (a mesma obra duas vezes, ou trabalhos companheiros).
+
+O estrato "superficial" não nasceu pronto: a primeira versão só tirava espaço, e uma
+amostra do que sobrava como "notacional" era `\label{eq:x}` contra `\label{eq:y}`, `&=`
+contra `=` e ponto final. Os notacionais de agora são `\le`/`\leq`,
+`\gamma_{\mu}`/`\gamma_\mu`, `\left\Vert`/`\Vert`.
+
+**Proposta, NÃO decidida, escrita antes de qualquer modelo medido:** o conjunto primário
+passa a ser `notacional` sem alvo quase igual — **24.508 itens** —, com
+`identica`+`superficial` ao lado como controle de casamento de string. O limiar de 5 é
+arbitrário e a distribuição inteira está em `pb_formula_diagnostico.json`. Registrado no
+DOC-11 §6.3-medido.
+
+### ⚠️ Dois defeitos que a montagem expôs
+
+- **O contador de "falhas de canonização" deu 0 por construção.** `canonicalizar` é
+  total — nenhum `raise`. A docstring dizia que ele media as equações que o RedPajama
+  perde (S3b); não mede, e o teste que "provava" a contagem forçava a exceção com
+  monkeypatch. Docstring e resumo corrigidos; o contador fica só para exceção inesperada.
+- **O corpus de Física tem 6.778 `arxiv_id` em duas linhas**, cópias byte a byte, TODAS em
+  partes diferentes: 6.161 entre `part-00033` e `part-00034`, 617 entre `part-00032` e
+  `part-00034` — um terço da 34. Provável retomada de coleta. Consequências:
+  - os "835.379 documentos" da S3 são linhas; distintos são **828.601**, e os 10,54 B
+    tokens estão inflados em 0,8%;
+  - **nenhum vazamento no ΦEnc**: os treinos do T2a e do §2.3 usaram as partes 02, 09, 14
+    e 35, e as fatias de avaliação a 03 e a 22 — nenhuma de 32, 33, 34;
+  - mas o preparador de fatias excluía só PARTES do treino. Guarda nova:
+    `dados.recusar_documentos_do_treino` confere o `arxiv_id` de cada parte contra os do
+    treino antes de ler o texto, e **recusa** (não filtra em silêncio); o manifesto ganha
+    `disjunto_por_documento`. 4 testes, um pela AST.
+  - o diagnóstico do PB-Formula tropeçou nelas primeiro: filtrava formas por LINHAS até
+    20, e 5 itens ficaram sem ocorrência — a guarda dele pegou.
 
 ## Alinhar o `transformers` local ao do Kaggle é viável — medido, NÃO trocado (2026-09-17)
 
