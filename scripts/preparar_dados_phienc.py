@@ -164,6 +164,11 @@ def mascara_de(tok, derivar: bool) -> int:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--corpus", type=Path, default=CORPUS)
+    p.add_argument("--partes", nargs="+", default=None, metavar="NOME",
+                   help="usa EXATAMENTE estas partes, na ordem dada, em vez do "
+                        "sorteio. Serve para montar uma fatia de avaliação sobre os "
+                        "MESMOS documentos de outra (ex.: --partes part-00003.parquet "
+                        "reproduz a fatia do §2.3 com outro tokenizer)")
     p.add_argument("--tokenizer", type=Path, default=TOKENIZER)
     p.add_argument("--out", type=Path, default=SAIDA)
     p.add_argument("--max-tokens", type=int, default=2_000_000_000,
@@ -208,9 +213,25 @@ def main() -> int:
     partes = sorted(glob.glob(str(a.corpus / "part-*.parquet")))
     if not partes:
         raise SystemExit(f"nenhum part-*.parquet em {a.corpus}")
+    if a.partes:
+        # ⚠️ Escolha EXPLÍCITA, e ela não dispensa a guarda de disjunção: pedir uma
+        # parte que o treino usou continua sendo recusado por `--excluir-de`.
+        #
+        # Existe para uma coisa só: montar uma fatia de avaliação sobre os MESMOS
+        # documentos de outra, com outro tokenizer. Sem isto, duas famílias de
+        # modelo seriam medidas em textos diferentes, e a diferença entre elas
+        # carregaria a diferença entre as fatias.
+        por_nome = {Path(p).name: p for p in partes}
+        faltando = [n for n in a.partes if n not in por_nome]
+        if faltando:
+            raise SystemExit(
+                f"{faltando} não estão em {a.corpus}. Presentes: "
+                f"{sorted(por_nome)[:4]}… ({len(por_nome)} partes)")
+        partes = [por_nome[n] for n in a.partes]
+        log.info("partes ESCOLHIDAS: %s", ", ".join(a.partes))
     # ⚠️ Sorteia. Com `--max-tokens` abaixo do corpus inteiro, só uma fração das
     # partes é lida, e as partes não são intercambiáveis — ver a docstring.
-    if not a.em_ordem:
+    elif not a.em_ordem:
         random.Random(a.semente).shuffle(partes)
     if not a.tokenizer.exists():
         raise SystemExit(
@@ -347,6 +368,9 @@ def main() -> int:
         "partes_usadas": list(feitas),
         "semente_do_sorteio": a.semente,
         "em_ordem": a.em_ordem,
+        # ⚠️ Quando as partes foram ESCOLHIDAS, a semente não descreve a seleção —
+        # e um manifesto que só traz a semente sugeriria um sorteio que não houve.
+        "partes_escolhidas": list(a.partes) if a.partes else None,
         # ⚠️ O que foi EXCLUIDO vai no manifesto. Sem isto, um artefato de
         # avaliação não prova ser disjunto do treino, e "avaliei em dado
         # separado" passa a ser afirmação em vez de fato verificável.

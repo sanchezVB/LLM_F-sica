@@ -192,3 +192,27 @@ def test_os_binarios_tem_o_mesmo_numero_de_tokens_e_marcas(tmp_path):
     assert n_tok == n_mar
     man = json.loads((out / NOME_MANIFESTO).read_text(encoding="utf-8"))
     assert man["tokens"] == n_tok
+
+
+def test_partes_ESCOLHIDAS_vencem_o_sorteio_e_ficam_no_manifesto(tmp_path):
+    """Uma fatia de avaliação tem de poder cair nos MESMOS documentos de outra.
+
+    ⚠️ Sem isto a fatia do caminho B caiu na `part-00002`, que os braços de 48 M do
+    §2.3 usaram no treino: as duas famílias seriam medidas em textos diferentes, e a
+    diferença entre elas carregaria a diferença entre as fatias.
+    """
+    corpus = _corpus(tmp_path, n_partes=8)
+    r = _rodar(corpus, tmp_path / "s", "--partes", "part-00005.parquet",
+               "part-00001.parquet", "--recomecar")
+    assert r.returncode == 0, r.stdout + r.stderr
+    man = json.loads((tmp_path / "s" / NOME_MANIFESTO).read_text(encoding="utf-8"))
+    assert man["partes_usadas"] == ["part-00005.parquet", "part-00001.parquet"]
+    # ⚠️ No manifesto: só a semente sugeriria um sorteio que não houve.
+    assert man["partes_escolhidas"] == ["part-00005.parquet", "part-00001.parquet"]
+
+
+def test_parte_escolhida_que_NAO_existe_LEVANTA(tmp_path):
+    corpus = _corpus(tmp_path, n_partes=4)
+    r = _rodar(corpus, tmp_path / "s", "--partes", "part-09999.parquet", "--recomecar")
+    assert r.returncode != 0
+    assert "não estão em" in (r.stdout + r.stderr)
