@@ -68,8 +68,8 @@ Montada uma venv PARALELA, `.venv-treino-tf5` (a original não foi tocada), e me
 | suíte inteira (menos 3 arquivos que pedem `sklearn`) | 1.007 ✅ · 11 saltados · 8 ❌ | **idêntica**: as mesmas 8 falhas |
 | checkpoint do Kaggle (`phiemb-t2eq-tratado-200k-melhor`) | **não abre** (`TokenizersBackend`) | abre direto, 0 chaves faltando, 0 inesperadas |
 
-As 8 falhas são de AMBIENTE e iguais nas duas: a venv de treino não tem `reportlab` nem o
-`antlr4` do parser de LaTeX do sympy. Nenhuma toca o `transformers`.
+As 8 falhas são de AMBIENTE e iguais nas duas: a venv de treino não tem `reportlab` (2),
+`sklearn` (1) nem o `antlr4` do parser de LaTeX do sympy (5). Nenhuma toca o `transformers`.
 
 E o teste que decide — 256 âncoras sorteadas do pool, embutidas por média, fp32:
 
