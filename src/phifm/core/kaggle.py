@@ -548,6 +548,25 @@ T2EQ_EMB_TRATADO = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# ⚠️ O terceiro braço do T2eq-emb: o ModernBERT-base SEM pré-treino, a barra do caminho B
+# do ADR-0003. Mesmo dataset e mesma célula; a base vem do Hub, não do zip.
+T2EQ_EMB_MODERNBERT = Experimento(
+    nome="t2eq_emb_modernbert",
+    reusa_dados_de="t2eq_emb_controle",
+    titulo_dados="PhiFM T2eq Emb pares do T1a e dois PhiEnc",
+    slug_dados="phifm-t2eq-emb",
+    titulo_notebook="PhiFM T2eq Emb ModernBERT",
+    slug_notebook="phifm-t2eq-emb-modernbert",
+    pacote="data/processed/kaggle_t2eq_emb",
+    fonte_celula="kaggle/t2eq_emb.py",
+    arquivos=_T2EQ_EMB_ARQUIVOS,
+    scripts=("train_embedding.py",),
+    modelos=_T2EQ_EMB_MODELOS,
+    max_pares=200_000,
+    variante="modernbert",
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ Os experimentos de VOLUME da T1a. A lista existe para o teste conferir que
 # eles só diferem no volume e nos slugs — três entradas quase idênticas divergem
 # em silêncio, e foi para não duplicar lição paga que este módulo nasceu.
@@ -561,7 +580,8 @@ BRACOS_DO_T2A = ("t2a_a", "t2a_e")
 EXPERIMENTOS: dict[str, Experimento] = {
     e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
                         T2A_A, T2A_E, T2EQ_TRATADO,
-                        T2EQ_EMB_CONTROLE, T2EQ_EMB_TRATADO)}
+                        T2EQ_EMB_CONTROLE, T2EQ_EMB_TRATADO,
+                        T2EQ_EMB_MODERNBERT)}
 
 
 def obter(nome: str) -> Experimento:

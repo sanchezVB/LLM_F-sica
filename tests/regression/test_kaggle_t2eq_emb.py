@@ -53,7 +53,8 @@ def test_a_variante_escolhe_a_base_e_nada_mais():
     bases = [ast.literal_eval(n.value) for n in ast.walk(arvore)
              if isinstance(n, ast.Assign) and len(n.targets) == 1
              and isinstance(n.targets[0], ast.Name) and n.targets[0].id == "BASES"]
-    assert bases == [{"controle": "phienc-t2a-E", "tratado": "phienc-t2eq-E-tratado"}]
+    assert bases == [{"controle": "phienc-t2a-E", "tratado": "phienc-t2eq-E-tratado",
+                      "modernbert": "answerdotai/ModernBERT-base"}]
     assert "assert VARIANTE in BASES" in CELULA
 
 
@@ -86,3 +87,29 @@ def test_a_regra_esta_escrita_ANTES_e_liga_ao_ADR():
                     "bootstrap pareado por ITEM", "TRATADO À FRENTE", "EMPATE",
                     "CONTROLE À FRENTE", "200 mil", "NÃO se compara"):
         assert exigido in CELULA, exigido
+
+
+# ── o terceiro braço: a barra do caminho B (2026-09-17) ─────────────────────
+
+def test_o_braco_modernbert_vem_do_HUB_e_os_outros_do_zip():
+    assert 'if VARIANTE == "modernbert":\n    BASE = BASES[VARIANTE]' in CELULA
+    assert "BASE = MODELOS / BASES[VARIANTE]" in CELULA
+
+
+def test_o_braco_modernbert_compartilha_dados_codigo_e_hiperparametros():
+    m, c = obter("t2eq_emb_modernbert"), obter("t2eq_emb_controle")
+    for campo in ("titulo_dados", "slug_dados", "pacote", "fonte_celula", "arquivos",
+                  "scripts", "max_pares", "repo"):
+        assert getattr(m, campo) == getattr(c, campo), campo
+    assert m.reusa_dados_de == "t2eq_emb_controle"
+    assert m.variante == "modernbert"
+    m.conferir()
+
+
+def test_a_regra_do_modernbert_esta_escrita_ANTES_e_diz_que_nao_e_ablacao():
+    r = " ".join(t2eq_emb.CELULA.split())  # a regra quebra linhas no meio das frases
+    for exigido in ("REGRA do braço modernbert, escrita ANTES", "MODERNBERT À FRENTE",
+                    "É a barra do produto, não uma ablação", "0,4712",
+                    "NÃO entra sem nova decisão"):
+        assert exigido in r, exigido
+    assert 'REGRA = REGRA_MODERNBERT if VARIANTE == "modernbert" else REGRA_BRACOS' in t2eq_emb.CELULA

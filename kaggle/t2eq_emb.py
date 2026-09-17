@@ -1,7 +1,16 @@
 """T2eq-emb — o ganho de recuperação do §2.3 sobrevive ao ajuste contrastivo?
 
-Este arquivo é o CONTEÚDO de uma célula do Kaggle. A mesma célula roda os dois
-braços; o que muda é `VARIANTE` ("controle" ou "tratado"), injetada na publicação.
+Este arquivo é o CONTEÚDO de uma célula do Kaggle. A mesma célula roda os TRÊS
+braços; o que muda é `VARIANTE` ("controle", "tratado" ou "modernbert"), injetada
+na publicação.
+
+## ⚠️ O terceiro braço: a BARRA do caminho B (2026-09-17)
+
+Acrescentado depois de controle e tratado rodarem (tratado à frente, nDCG@10 0,4712
+contra 0,3872), e ANTES de o braço existir. O ADR-0003 aponta para um pré-treino
+continuado do ModernBERT-base; antes de gastar ~22 h de T4 nele, a pergunta é quanto
+o ModernBERT-base faz SEM pré-treino nenhum, nos mesmos pares e hiperparâmetros. Ele
+baixa do Hub (`answerdotai/ModernBERT-base`), não do zip.
 
 ## A pergunta (ADR-0003, opção C)
 
@@ -40,8 +49,9 @@ from pathlib import Path
 ENTRADA = Path("/kaggle/input")
 TRABALHO = Path("/kaggle/working")
 
-VARIANTE = "__VARIANTE__"          # "controle" ou "tratado", injetado na publicação
-BASES = {"controle": "phienc-t2a-E", "tratado": "phienc-t2eq-E-tratado"}
+VARIANTE = "__VARIANTE__"          # "controle", "tratado" ou "modernbert"
+BASES = {"controle": "phienc-t2a-E", "tratado": "phienc-t2eq-E-tratado",
+         "modernbert": "answerdotai/ModernBERT-base"}
 assert VARIANTE in BASES, VARIANTE
 
 # ── 1. Achar o dataset ──────────────────────────────────────────────────────
@@ -119,9 +129,13 @@ print(f"✅ assinatura do bundle confere: {_obtida}")
 MODELOS = TRABALHO / "modelos"
 with zipfile.ZipFile(DADOS / "modelos.zip.bin") as z:
     z.extractall(MODELOS)
-BASE = MODELOS / BASES[VARIANTE]
-assert (BASE / "config.json").exists() and (BASE / "model.safetensors").exists(), (
-    f"{BASE} não tem config e pesos — o zip de modelos não é o esperado")
+# ⚠️ O braço `modernbert` baixa a base do Hub; os outros dois a tiram do zip.
+if VARIANTE == "modernbert":
+    BASE = BASES[VARIANTE]
+else:
+    BASE = MODELOS / BASES[VARIANTE]
+    assert (BASE / "config.json").exists() and (BASE / "model.safetensors").exists(), (
+        f"{BASE} não tem config e pesos — o zip de modelos não é o esperado")
 
 import torch
 _gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "sem GPU"
@@ -140,7 +154,7 @@ PASSOS_AVAL = 200
 # braços não cabiam na cota a 400 mil. O MESMO nos dois braços.
 MAX_PARES = 200_000
 
-REGRA = r"""
+REGRA_BRACOS = r"""
   ── A REGRA, escrita ANTES ────────────────────────────────────────────────
 
   A PERGUNTA (ADR-0003, opção C): o ganho de recuperação do braço tratado do
@@ -169,11 +183,48 @@ REGRA = r"""
      absoluto NÃO se compara com o MiniLM@400k nem com o GTE-base@400k do T1f.
 """
 
+REGRA_MODERNBERT = r"""
+  ── A REGRA do braço modernbert, escrita ANTES (2026-09-17) ───────────────
+
+  A PERGUNTA (ADR-0003, passo 1 do caminho B): quanto um encoder GERAL de
+  150 M, sem pré-treino nenhum em Física, faz nos MESMOS 200 mil pares e com os
+  MESMOS hiperparâmetros dos braços do §2.3? É a barra que um pré-treino
+  continuado do ModernBERT-base teria de superar.
+
+  MEDIDA PRIMÁRIA: nDCG@10 no protocolo do G1, LOCAL, na mesma sessão que o
+  tratado@200k (0,4712) e o controle@200k (0,3872); IC por bootstrap pareado
+  por ITEM contra o tratado.
+
+  Os desfechos:
+
+    MODERNBERT À FRENTE ->  a base geral de 150 M já supera o nosso 48 M
+    do tratado              tratado. O pré-treino continuado só se justifica
+    (IC exclui zero)        se puder superar ESTE número; a distância entre os
+                            dois vai junto, e a decisão do passo 2 é do dono.
+
+    EMPATE                ->  um 48 M do zero, com mascaramento de equações, a
+    (IC cruza zero)           0,6 B tokens, iguala um 150 M geral treinado em
+                              2 T. Forte a favor do caminho B.
+
+    TRATADO À FRENTE      ->  idem, mais forte.
+    (IC exclui zero)
+
+  ⚠️ Não é uma comparação limpa de uma variável: o ModernBERT tem 3x os
+     parâmetros, outro tokenizer e 2 T tokens de pré-treino geral. É a barra
+     do produto, não uma ablação.
+
+  ⚠️ Memória: lote 128 sem GradCache, como nos outros braços. Se estourar na
+     T4, a falha aparece nos primeiros passos. O plano B (`--sub-lote` com
+     `--sem-amp`) muda a numérica e o tempo, e NÃO entra sem nova decisão.
+"""
+
+REGRA = REGRA_MODERNBERT if VARIANTE == "modernbert" else REGRA_BRACOS
+
 print(f"""
 {'=' * 74}
 T2eq-emb — o ganho de recuperação do §2.3 sobrevive ao ajuste?  ·  braço {VARIANTE}
 
-  base {BASES[VARIANTE]} (48 M, tokenizer E, 0,6 B tokens)
+  base {BASES[VARIANTE]}
   lote {LOTE} ({LOTE - 1} negativos) · max_tokens {MAX_TOKENS} · semente {SEMENTE}
   {MAX_PARES:,} pares sorteados dos MESMOS bytes do T1a
 
