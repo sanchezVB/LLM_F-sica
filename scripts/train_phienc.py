@@ -72,6 +72,7 @@ import torch  # noqa: E402
 from phifm.core.console import utf8 as console_utf8  # noqa: E402
 from phifm.core.sistema import impedir_suspensao, liberar_suspensao  # noqa: E402
 from phifm.models.encoder.config import CONFIGS, obter  # noqa: E402
+from phifm.models.encoder.modelo import carregar_base  # noqa: E402
 from phifm.training.pretrain.dados import (  # noqa: E402
     NOME_MANIFESTO,
     ConfigDados,
@@ -121,9 +122,45 @@ def especiais_da_fatia(dados: Path) -> tuple[int, tuple[int, ...]]:
     return int(man.get("id_mascara", padrao.id_mask)), tuple(int(x) for x in ids)
 
 
+def conferir_base_contra_fatia(base: str, dados: Path, id_mask: int,
+                               ids_especiais: tuple[int, ...]) -> None:
+    """A fatia tem de estar tokenizada COM a base do pré-treino continuado.
+
+    ⚠️ Treinar com o id de máscara de outro tokenizer não levanta erro: o modelo
+    aprende a prever ruído numa fração das posições e **a perda desce normalmente**.
+    A mesma armadilha que `especiais_da_fatia` documenta, agora do outro lado — lá o
+    risco é a fatia; aqui é a base não casar com ela.
+    """
+    from transformers import AutoTokenizer
+
+    tok = AutoTokenizer.from_pretrained(base)
+    man = json.loads((dados / NOME_MANIFESTO).read_text(encoding="utf-8"))
+    if not man.get("especiais_do_tokenizer"):
+        raise SystemExit(
+            f"{dados} foi preparada com os especiais do PROJETO, e o pré-treino "
+            f"continuado de {base} precisa da fatia tokenizada com o tokenizer DELE "
+            "(`preparar_dados_phienc.py --tokenizer ... --especiais-do-tokenizer`).")
+    if tok.mask_token_id != id_mask:
+        raise SystemExit(
+            f"o id de máscara de {base} é {tok.mask_token_id} e a fatia declara "
+            f"{id_mask}. Treinar assim mascararia com um token qualquer, a perda "
+            "desceria normalmente, e o defeito só apareceria na avaliação.")
+    faltando = {tok.cls_token_id, tok.sep_token_id, tok.pad_token_id,
+                tok.mask_token_id} - set(ids_especiais)
+    if faltando:
+        raise SystemExit(
+            f"os ids especiais {sorted(faltando)} de {base} não estão na lista da "
+            f"fatia ({sorted(ids_especiais)}): posições especiais seriam mascaradas.")
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="proxy-bakeoff", choices=sorted(CONFIGS))
+    p.add_argument("--base", default=None,
+                   help="pré-treino CONTINUADO a partir desta base (ADR-0003, caminho "
+                        "B): a arquitetura e os pesos vêm dela, e `--config` só entra "
+                        "se ela for omitida. A fatia tem de estar tokenizada com o "
+                        "tokenizer da base")
     p.add_argument("--dados", type=Path, default=Path("data/processed/phienc_dados"))
     p.add_argument("--out", type=Path, default=None,
                    help="por omissão, models/phienc-<config>-eq<p_equacao>")
@@ -174,11 +211,21 @@ def main() -> int:
 def _treinar(a: argparse.Namespace, distribuicao, dev: torch.device) -> int:
     principal = distribuicao.principal
 
-    cfg_enc = obter(a.config)
-    fluxo = Fluxo(ConfigDados(
-        raiz=a.dados, contexto=a.contexto or cfg_enc.contexto,
-        sequencias=a.sequencias, semente=a.semente))
     id_mask, ids_especiais = especiais_da_fatia(a.dados)
+    modelo = None
+    if a.base:
+        conferir_base_contra_fatia(a.base, a.dados, id_mask, ids_especiais)
+        modelo, cfg_enc = carregar_base(a.base, dev)
+    else:
+        cfg_enc = obter(a.config)
+    contexto = a.contexto or cfg_enc.contexto
+    if contexto > cfg_enc.contexto:
+        raise SystemExit(
+            f"--contexto {contexto} passa do máximo da base ({cfg_enc.contexto}): "
+            "as posições além dele não têm embedding treinado.")
+    fluxo = Fluxo(ConfigDados(
+        raiz=a.dados, contexto=contexto,
+        sequencias=a.sequencias, semente=a.semente))
     cfg = ConfigTreino(
         total_passos=a.total_passos, acumulacao=a.acumulacao, lr_pico=a.lr_pico,
         amp=not a.sem_amp, passos_log=a.passos_log,
@@ -194,13 +241,17 @@ def _treinar(a: argparse.Namespace, distribuicao, dev: torch.device) -> int:
         logging.warning("sem CUDA — em CPU isto serve para fumaça, não para treino")
 
     t = Treinador(cfg_enc, cfg, cfg_mascara, fluxo, ConfigSpike(), dev,
-                  distribuicao=distribuicao)
+                  distribuicao=distribuicao, modelo=modelo)
     r = t.resumo()
     if principal:
         print()
         print("=" * 74)
-        print(f"  {cfg_enc.nome} · {r['parametros'] / 1e6:.1f} M parâmetros "
-              f"({100 * cfg_enc.fracao_de_embedding():.1f}% embedding)")
+        # Os parâmetros REAIS do modelo: a contagem analítica descreve a arquitetura
+        # do DOC-07, e numa base de fora ela é só aproximação.
+        n_par = sum(p.numel() for p in t._nucleo().parameters())
+        print(f"  {cfg_enc.nome} · {n_par / 1e6:.1f} M parâmetros"
+              + (f" ({100 * cfg_enc.fracao_de_embedding():.1f}% embedding)"
+                 if not a.base else ""))
         print(f"  {a.total_passos:,} passos × {r['tokens_por_passo']:,} tokens = "
               f"{r['tokens_totais'] / 1e9:.3f} B tokens · {r['epocas']:.2f} épocas")
         print(f"  FLOPs {r['flops']:.3e} · máscara {a.taxa_mascara:.0%} · "
@@ -212,7 +263,8 @@ def _treinar(a: argparse.Namespace, distribuicao, dev: torch.device) -> int:
     if a.so_resumo:
         return 0
 
-    saida = a.out or Path(f"models/phienc-{a.config}-eq{a.p_equacao}")
+    nome = a.base.replace("/", "-") if a.base else a.config
+    saida = a.out or Path(f"models/phienc-{nome}-eq{a.p_equacao}")
     impedir_suspensao()
     try:
         m = t.treinar(saida)

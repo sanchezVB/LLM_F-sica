@@ -94,3 +94,48 @@ def construir(cfg: ConfigEnc, dev: torch.device | None = None,
              cfg.nome, f"{real:,}", real / 1e6,
              100 * cfg.fracao_de_embedding(), atencao, dev)
     return modelo
+
+
+def config_de(hf, nome: str) -> ConfigEnc:
+    """`ConfigEnc` a partir de um `ModernBertConfig` JÁ EXISTENTE.
+
+    Serve ao pré-treino CONTINUADO, onde a arquitetura vem da base e não do DOC-07:
+    o laço ainda precisa de `vocab` (para o token aleatório do mascaramento),
+    `contexto` e a contagem de FLOPs da MFU. A contagem analítica NÃO é conferida
+    aqui — ela descreve a arquitetura do DOC-07, e uma base de fora pode ter bias,
+    outra razão de FFN ou pesos atados de outro jeito.
+    """
+    return ConfigEnc(
+        nome=nome, camadas=hf.num_hidden_layers, d_model=hf.hidden_size,
+        cabecas=hf.num_attention_heads, ffn=hf.intermediate_size,
+        vocab=hf.vocab_size, contexto=hf.max_position_embeddings,
+        janela_local=hf.local_attention, global_a_cada=hf.global_attn_every_n_layers)
+
+
+def carregar_base(base: str, dev: torch.device | None = None,
+                  atencao: str | None = None,
+                  ) -> tuple[ModernBertForMaskedLM, ConfigEnc]:
+    """Carrega pesos de uma base pronta, para PRÉ-TREINO CONTINUADO (ADR-0003, B).
+
+    ⚠️ O contrário de `construir`: aqui a arquitetura e os pesos vêm de fora, e a
+    conferência analítica do DOC-07 não se aplica. O que se confere é o que faz o
+    treino ser silenciosamente errado se divergir — o vocabulário e o contexto, que
+    o chamador compara com a fatia de dados.
+
+    ⚠️ `dtype` explícito: o `from_pretrained` novo carrega no dtype do checkpoint, e
+    um checkpoint fp16 quebra o `GradScaler` ("Attempting to unscale FP16 gradients").
+    Já custou um braço inteiro do T1c e dois minutos do T1f.
+    """
+    from phifm.training.versao_transformers import kwargs_fp32
+
+    modelo = ModernBertForMaskedLM.from_pretrained(base, **kwargs_fp32())
+    cfg = config_de(modelo.config, nome=f"CPT:{base}")
+    dev = dev or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    atencao = atencao or escolher_atencao(dev)
+    modelo.config._attn_implementation = atencao
+    modelo = modelo.to(dev)
+    real = sum(p.numel() for p in modelo.parameters())
+    log.info("CPT de %s · %s parâmetros (%.1f M) · vocab %s · contexto %s · atenção "
+             "%s · %s", base, f"{real:,}", real / 1e6, f"{cfg.vocab:,}",
+             f"{cfg.contexto:,}", atencao, dev)
+    return modelo, cfg

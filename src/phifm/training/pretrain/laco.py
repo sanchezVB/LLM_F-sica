@@ -196,7 +196,8 @@ class Treinador:
                  cfg_spike: ConfigSpike | None = None,
                  dev: torch.device | None = None,
                  pico_flops: float = 65e12,
-                 distribuicao: Distribuicao | None = None) -> None:
+                 distribuicao: Distribuicao | None = None,
+                 modelo: torch.nn.Module | None = None) -> None:
         self.cfg_enc, self.cfg, self.cfg_mascara, self.fluxo = (
             cfg_enc, cfg, cfg_mascara, fluxo)
         self.dev = dev or torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -213,7 +214,9 @@ class Treinador:
         self.pico_flops = pico_flops
 
         torch.manual_seed(cfg_mascara.semente)
-        self.modelo = construir(cfg_enc, self.dev)
+        # `modelo` vindo de fora é o pré-treino CONTINUADO (ADR-0003, caminho B): os
+        # pesos são de uma base pronta e a arquitetura é a dela. Do zero, `construir`.
+        self.modelo = modelo if modelo is not None else construir(cfg_enc, self.dev)
         if self.dist.mundo > 1:
             from torch.nn.parallel import DistributedDataParallel
             self.modelo = DistributedDataParallel(

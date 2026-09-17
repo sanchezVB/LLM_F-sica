@@ -111,6 +111,9 @@ ID_CLS, ID_SEP = 2, 3
 # estilo BERT, de `[CLS]`/`[SEP]`.
 NOMES_INICIO = ("[CLS]", "<s>", "<|endoftext|>")
 NOMES_FIM = ("[SEP]", "</s>", "<|endoftext|>")
+NOMES_MASCARA = ("[MASK]", "<mask>")
+# O id de máscara das NOSSAS variantes (`config.ESPECIAIS["mask"]`).
+ID_MASCARA = 4
 
 
 def especiais_de(tok, derivar: bool) -> tuple[int, int]:
@@ -136,6 +139,25 @@ def especiais_de(tok, derivar: bool) -> tuple[int, int]:
                 "errado poria um token qualquer nas bordas de cada sequência.")
         achados.append(ident)
     return achados[0], achados[1]
+
+
+def mascara_de(tok, derivar: bool) -> int:
+    """O id de `[MASK]` — o nosso, ou o do tokenizer.
+
+    ⚠️ É o id mais consequente da fatia e o único que nenhum sintoma denuncia:
+    mascarar com um token qualquer faz o modelo aprender a prever ruído numa fração
+    das posições, **e a perda desce normalmente**. Só aparece na avaliação.
+    """
+    if not derivar:
+        return ID_MASCARA
+    ident = next((tok.token_to_id(n) for n in NOMES_MASCARA
+                  if tok.token_to_id(n) is not None), None)
+    if ident is None:
+        raise SystemExit(
+            f"--especiais-do-tokenizer: não achei o token de máscara (tentei "
+            f"{list(NOMES_MASCARA)}). Sem ele a fatia não serve para treinar: o "
+            "mascaramento usaria um id qualquer e a perda desceria assim mesmo.")
+    return ident
 
 
 def main() -> int:
@@ -252,6 +274,7 @@ def main() -> int:
 
     tok = Tokenizer.from_file(str(a.tokenizer))
     id_inicio, id_fim = especiais_de(tok, a.especiais_do_tokenizer)
+    id_mascara = mascara_de(tok, a.especiais_do_tokenizer)
     if a.especiais_do_tokenizer:
         log.info("especiais DO TOKENIZER: início=%d (%s) · fim=%d (%s)",
                  id_inicio, tok.id_to_token(id_inicio),
@@ -327,6 +350,11 @@ def main() -> int:
         "disjunto_por_documento": bool(ids_do_treino),
         "max_tokens": a.max_tokens,
         "id_cls": id_inicio, "id_sep": id_fim,
+        # ⚠️ O id de MÁSCARA, e ele faltava: `train_phienc.especiais_da_fatia` exige
+        # este campo quando a fatia usa o tokenizer de fora, e o preparador nunca o
+        # gravava — nenhuma fatia de modelo externo podia treinar. Treinar com o id
+        # errado mascara com um token qualquer e a perda desce igual.
+        "id_mascara": id_mascara,
         # ⚠️ TODOS os ids especiais do tokenizer, para o avaliador de MLM saber
         # quais posições não pode mascarar. Ele assumia `id < 5`, que é a
         # convenção das nossas variantes e falsa para qualquer outro tokenizer.

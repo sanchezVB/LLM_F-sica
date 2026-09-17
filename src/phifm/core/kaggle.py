@@ -103,6 +103,11 @@ class Experimento:
     # t1a15` sem a bandeira montaria 400 mil pares sob o nome do de 1,5 M, e o
     # manifesto atestaria o número errado com a cara certa.
     max_pares: int = 400_000
+    # ⚠️ Tokens que a fatia TEM de ter, para um experimento de pré-treino. É o
+    # orçamento declarado na célula: empacotar menos faria o treino dar mais de uma
+    # época sobre o mesmo texto, e nada no log diria isso. Pertence à identidade do
+    # experimento pelo mesmo motivo que `max_pares`.
+    tokens_minimos: int = 0
     # ⚠️ O arquivo de NEGATIVOS pertence à identidade, pelo mesmo motivo do
     # `max_pares` acima.
     #
@@ -577,11 +582,58 @@ VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 # teste confere que tudo o mais é igual — orçamento, dataset, célula e código.
 BRACOS_DO_T2A = ("t2a_a", "t2a_e")
 
+# ⚠️ Caminho B do ADR-0003 — pré-treino CONTINUADO do ModernBERT-base, em DUAS T4.
+#
+# Uma fatia, dois braços: a variável é `p_equacao`. O dataset é próprio (a fatia é
+# tokenizada com o tokenizer da BASE, e não com as nossas variantes), e o braço
+# tratado o reusa — um dataset, uma assinatura.
+#
+# `tokens_minimos` é o orçamento da célula (0,4 B, o que cabe numa sessão de 9 h em
+# duas placas). O empacotador recusa fatia menor.
+_T2EQ_CPT_ARQUIVOS = ("tokens_MB.u16.bin", "marcas_MB.u8.bin", "MANIFESTO_MB.json")
+_T2EQ_CPT_SCRIPTS = ("train_phienc.py", "exportar_phienc.py")
+
+T2EQ_CPT_CONTROLE = Experimento(
+    nome="t2eq_cpt_controle",
+    titulo_dados="PhiFM CPT — fatia no tokenizer do ModernBERT",
+    slug_dados="phifm-t2eq-cpt-fatia",
+    titulo_notebook="PhiFM T2eq CPT Controle",
+    slug_notebook="phifm-t2eq-cpt-controle",
+    pacote="data/processed/kaggle_t2eq_cpt",
+    fonte_celula="kaggle/t2eq_cpt.py",
+    arquivos=_T2EQ_CPT_ARQUIVOS,
+    scripts=_T2EQ_CPT_SCRIPTS,
+    variante="controle",
+    tokens_minimos=400_000_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
+T2EQ_CPT_TRATADO = Experimento(
+    nome="t2eq_cpt_tratado",
+    reusa_dados_de="t2eq_cpt_controle",
+    titulo_dados="PhiFM CPT — fatia no tokenizer do ModernBERT",
+    slug_dados="phifm-t2eq-cpt-fatia",
+    titulo_notebook="PhiFM T2eq CPT Tratado",
+    slug_notebook="phifm-t2eq-cpt-tratado",
+    pacote="data/processed/kaggle_t2eq_cpt",
+    fonte_celula="kaggle/t2eq_cpt.py",
+    arquivos=_T2EQ_CPT_ARQUIVOS,
+    scripts=_T2EQ_CPT_SCRIPTS,
+    variante="tratado",
+    tokens_minimos=400_000_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
+# ⚠️ Os dois braços do caminho B: como no T2a, o ÚNICO campo que pode divergir é o
+# que identifica o braço.
+BRACOS_DO_CPT = ("t2eq_cpt_controle", "t2eq_cpt_tratado")
+
 EXPERIMENTOS: dict[str, Experimento] = {
     e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
                         T2A_A, T2A_E, T2EQ_TRATADO,
                         T2EQ_EMB_CONTROLE, T2EQ_EMB_TRATADO,
-                        T2EQ_EMB_MODERNBERT)}
+                        T2EQ_EMB_MODERNBERT,
+                        T2EQ_CPT_CONTROLE, T2EQ_CPT_TRATADO)}
 
 
 def obter(nome: str) -> Experimento:

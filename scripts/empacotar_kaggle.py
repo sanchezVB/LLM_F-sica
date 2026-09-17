@@ -385,11 +385,57 @@ def _montar_t2eq_emb(exp: Experimento, raiz: Path, out: Path, a) -> dict:
             "codigo_de": exp.repo or "dataset"}
 
 
+def _montar_t2eq_cpt(exp: Experimento, raiz: Path, out: Path, a) -> dict:
+    """Caminho B — a fatia de Física tokenizada com o tokenizer da BASE.
+
+    Uma fatia só, e os dois braços a reusam: a variável do experimento é
+    `p_equacao`, e dois preparos separados poriam uma segunda diferença sem nome
+    dentro do resultado.
+
+    ⚠️ As guardas aqui são todas contra defeitos que a perda não denuncia:
+    tokenizar com o tokenizer errado (o id de máscara vira um token qualquer e a
+    perda desce igual), e empacotar menos tokens do que o orçamento pede (o treino
+    daria mais de uma época sem ninguém ver).
+    """
+    fatia = a.fatia or (raiz / "data/processed/phienc_dados_modernbert")
+    if not (fatia / NOME_MANIFESTO).exists():
+        raise SystemExit(
+            f"{fatia / NOME_MANIFESTO} não existe. Prepare a fatia com o tokenizer "
+            "da base:\n  scripts/preparar_dados_phienc.py --tokenizer "
+            "<...>/ModernBERT-base/tokenizer.json --especiais-do-tokenizer "
+            f"--max-tokens {exp.tokens_minimos} --out {fatia}")
+    man = json.loads((fatia / NOME_MANIFESTO).read_text(encoding="utf-8"))
+    if not man.get("especiais_do_tokenizer") or "id_mascara" not in man:
+        raise SystemExit(
+            f"{fatia} não foi preparada com `--especiais-do-tokenizer` (ou é anterior "
+            "ao campo `id_mascara`). O pré-treino continuado mascararia com o id de "
+            "outro tokenizer, e a perda desceria normalmente.")
+    if man["tokens"] < exp.tokens_minimos:
+        raise SystemExit(
+            f"a fatia tem {man['tokens']:,} tokens e o orçamento do experimento pede "
+            f"{exp.tokens_minimos:,}. Treinar assim daria mais de uma época sobre o "
+            "mesmo texto, e o run não seria o que a célula declara.")
+    _ligar(fatia / NOME_TOKENS, out / "tokens_MB.u16.bin")
+    _ligar(fatia / NOME_MARCAS, out / "marcas_MB.u8.bin")
+    shutil.copy2(fatia / NOME_MANIFESTO, out / "MANIFESTO_MB.json")
+    return {
+        "codigo_de": exp.repo or "dataset",
+        "fatia": {k: man.get(k) for k in
+                  ("tokens", "documentos_nesta_execucao", "tokenizer", "tokenizer_sha",
+                   "id_mascara", "ids_especiais", "partes_usadas", "corpus",
+                   "semente_do_sorteio", "git_sha")},
+        "tokens_minimos": exp.tokens_minimos,
+        "nota": ("Fatia tokenizada com o tokenizer da base do CPT (ADR-0003, caminho "
+                 "B). Os dois braços usam ESTE pacote; a variável é `p_equacao`."),
+    }
+
+
 MONTADORES = {"t1a": _montar_t1a, "t1a15": _montar_t1a,
               "t1a3m": _montar_t1a, "t1a6m": _montar_t1a,
               "t1b2": _montar_t1b2, "t1c": _montar_rerank,
               "t1d": _montar_rerank, "t2a_a": _montar_t2a,
-              "t2eq_emb_controle": _montar_t2eq_emb}
+              "t2eq_emb_controle": _montar_t2eq_emb,
+              "t2eq_cpt_controle": _montar_t2eq_cpt}
 
 
 def main() -> int:
@@ -412,6 +458,9 @@ def main() -> int:
     # `phifm.core.kaggle` — com um default fixo aqui, montar o `t1d` sem a
     # bandeira empacotaria os negativos da FUSÃO sob o nome do experimento que
     # existe justamente para testar os do DENSO.
+    p.add_argument("--fatia", type=Path, default=None,
+                   help="fatia tokenizada para um experimento de pré-treino; por "
+                        "omissão, data/processed/phienc_dados_modernbert")
     p.add_argument("--negativos", type=Path, default=None,
                    help="sobrepõe o arquivo declarado pelo experimento; já tem de "
                         "estar sem co-citados")
