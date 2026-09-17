@@ -38,6 +38,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
+| **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, e embeddings **bit a bit iguais** à 4.48 em ModernBERT, MiniLM e GTE (CPU e DirectML). Falta um passo de treino na DirectML. Trocar a venv padrão é decisão do dono |
+| **Artigo do programa** | 🟢 **v0.3** (2026-09-17) | remedição do G1, base × volume, o ΦRank sai, T2a e a ablação do §2.3; seções novas sobre instrumentos pré-registrados inválidos e ΦEnc do zero × CPT. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
@@ -50,6 +52,46 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Alinhar o `transformers` local ao do Kaggle é viável — medido, NÃO trocado (2026-09-17)
+
+Duas vezes a diferença de versão custou trabalho: o Kaggle roda `transformers` 5.0.0 e a
+`.venv-treino` local 4.48.3, então checkpoint gravado lá não abria aqui (`TokenizersBackend`,
+`config.json` da 5.x) e teve de ser recomposto. O bloqueio suposto era o
+`torch-directml`, que prende o torch em 2.4.1 — e a 5.0 aceita torch ≥ 2.2.
+
+Montada uma venv PARALELA, `.venv-treino-tf5` (a original não foi tocada), e medido:
+
+| | 4.48.3 (`.venv-treino`) | 5.0.0 (`.venv-treino-tf5`) |
+|---|---|---|
+| torch · DirectML | 2.4.1 · RX 7600 | 2.4.1 · RX 7600 |
+| suíte inteira (menos 3 arquivos que pedem `sklearn`) | 1.007 ✅ · 11 saltados · 8 ❌ | **idêntica**: as mesmas 8 falhas |
+| checkpoint do Kaggle (`phiemb-t2eq-tratado-200k-melhor`) | **não abre** (`TokenizersBackend`) | abre direto, 0 chaves faltando, 0 inesperadas |
+
+As 8 falhas são de AMBIENTE e iguais nas duas: a venv de treino não tem `reportlab` nem o
+`antlr4` do parser de LaTeX do sympy. Nenhuma toca o `transformers`.
+
+E o teste que decide — 256 âncoras sorteadas do pool, embutidas por média, fp32:
+
+| modelo | comparação | max \|diferença\| |
+|---|---|---|
+| ΦEmb tratado (ModernBERT) | pesos do Kaggle na 5.0 × recomposto na 4.48, CPU | **0,0** |
+| idem | recomposto (formato 4.48) aberto na 5.0 × na 4.48, CPU | **0,0** |
+| idem | 5.0 × 4.48 na DirectML | **0,0** (e 4,6×10⁻⁷ da CPU, nas duas) |
+| `phiemb-do-sistema` (MiniLM) | 5.0 × 4.48, CPU | **0,0** |
+| `phiemb-gte-base-400k-melhor` | 5.0 × 4.48, CPU | **0,0** |
+
+**Bit a bit.** Os números já medidos na 4.48 valem na 5.0 para as três famílias do projeto, e
+a 5.0 lê os dois formatos de checkpoint. Trocar eliminaria a recomposição.
+
+⚠️ **O que NÃO foi medido**: um passo de TREINO na 5.0 local (DirectML), a exportação do
+ΦEnc pela 5.0, e vazão — os tempos das duas suítes (10 contra 23 min) rodaram disputando
+CPU com a montagem do PB-Formula e não comparam nada.
+
+**A troca da venv padrão é decisão do dono.** Se aceita: apontar os comandos do SETUP e do
+ESTADO para `.venv-treino-tf5` (ou recriar `.venv-treino` com 5.0), e rodar um passo de
+treino na DirectML antes de apagar a 4.48. Sonda em `scratchpad`, não versionada; nada no
+repositório mudou por isto.
 
 ## Caminho B do ADR-0003: o custo medido, e o passo 1 montado (2026-09-17)
 
