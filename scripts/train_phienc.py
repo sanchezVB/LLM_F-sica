@@ -39,6 +39,18 @@ resultado.** Se ela estiver baixa, o braço tratado recaiu em MLM aleatório e o
 registrada em `phifm.models.encoder.config`: a 50 M a embedding domina, e o
 `proxy-bakeoff` fixa o corpo por isso.
 
+## Duas GPUs (a sessão "T4 x2" do Kaggle)
+
+    torchrun --standalone --nproc_per_node 2 scripts/train_phienc.py \\
+        --config proxy-bakeoff --sequencias 8 --acumulacao 8 ...
+
+**É o MESMO experimento que em uma GPU com os mesmos argumentos**: `--acumulacao` é a
+do passo inteiro e se divide entre os processos (4 em cada), `--sequencias` é por
+processo, e a máscara sai de `(semente, micro-passo)`. Os dois processos juntos veem os
+mesmos dados e as mesmas máscaras que um — `tests/regression/test_laco_ddp.py` prova
+pelos pesos. O que muda é a vazão, quase o dobro por hora de cota. `--acumulacao` tem de
+ser múltiplo do número de processos.
+
 ## O que este script NÃO faz
 
 Não avalia. O DOC-05 §11.2 pede recuperação de Física, MLM em texto denso em
@@ -68,6 +80,7 @@ from phifm.training.pretrain.dados import (  # noqa: E402
 from phifm.training.pretrain.laco import (  # noqa: E402
     ConfigTreino,
     Treinador,
+    iniciar_distribuicao,
 )
 from phifm.training.pretrain.mascaramento import ConfigMascara  # noqa: E402
 from phifm.training.pretrain.spike import ConfigSpike  # noqa: E402
@@ -116,9 +129,10 @@ def main() -> int:
                    help="por omissão, models/phienc-<config>-eq<p_equacao>")
     p.add_argument("--total-passos", type=int, required=True)
     p.add_argument("--sequencias", type=int, default=1,
-                   help="sequências por micro-passo; o que couber na VRAM")
+                   help="sequências por micro-passo, POR PROCESSO; o que couber na VRAM")
     p.add_argument("--acumulacao", type=int, default=1,
-                   help="micro-passos por passo de otimizador. Os ~2 M tokens por "
+                   help="micro-passos por passo de otimizador, do passo INTEIRO: com "
+                        "torchrun se divide entre os processos. Os ~2 M tokens por "
                         "passo do DOC-08 §4 vêm daqui, não de um lote gigante")
     p.add_argument("--contexto", type=int, default=None,
                    help="por omissão, o da config (8.192 no ΦEnc)")
@@ -146,6 +160,19 @@ def main() -> int:
     for fluxo in (sys.stdout, sys.stderr):
         with contextlib.suppress(Exception):
             fluxo.reconfigure(encoding="utf-8", errors="replace")
+    # Com torchrun, cada processo inicia o grupo aqui; sem ele, (0, 1) e nada muda.
+    distribuicao, dev = iniciar_distribuicao()
+    if not distribuicao.principal:
+        logging.getLogger().setLevel(logging.WARNING)
+    try:
+        return _treinar(a, distribuicao, dev)
+    finally:
+        if distribuicao.mundo > 1:
+            torch.distributed.destroy_process_group()
+
+
+def _treinar(a: argparse.Namespace, distribuicao, dev: torch.device) -> int:
+    principal = distribuicao.principal
 
     cfg_enc = obter(a.config)
     fluxo = Fluxo(ConfigDados(
@@ -160,26 +187,28 @@ def main() -> int:
     cfg_mascara = ConfigMascara(taxa=a.taxa_mascara, p_equacao=a.p_equacao,
                                 semente=a.semente)
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if dev.type != "cuda":
+    if dev.type != "cuda" and principal:
         # Não é erro: o teste de fumaça roda em CPU de propósito. Mas um treino de
         # verdade em CPU levaria meses, e dizer isso alto é mais barato que
         # descobrir depois de duas horas.
         logging.warning("sem CUDA — em CPU isto serve para fumaça, não para treino")
 
-    t = Treinador(cfg_enc, cfg, cfg_mascara, fluxo, ConfigSpike(), dev)
+    t = Treinador(cfg_enc, cfg, cfg_mascara, fluxo, ConfigSpike(), dev,
+                  distribuicao=distribuicao)
     r = t.resumo()
-    print()
-    print("=" * 74)
-    print(f"  {cfg_enc.nome} · {r['parametros'] / 1e6:.1f} M parâmetros "
-          f"({100 * cfg_enc.fracao_de_embedding():.1f}% embedding)")
-    print(f"  {a.total_passos:,} passos × {r['tokens_por_passo']:,} tokens = "
-          f"{r['tokens_totais'] / 1e9:.3f} B tokens · {r['epocas']:.2f} épocas")
-    print(f"  FLOPs {r['flops']:.3e} · máscara {a.taxa_mascara:.0%} · "
-          f"p_equacao {a.p_equacao}")
-    print(f"  {'TRATADO' if a.p_equacao > 0 else 'CONTROLE'} da ablação do "
-          f"DOC-07 §2.3")
-    print("=" * 74)
+    if principal:
+        print()
+        print("=" * 74)
+        print(f"  {cfg_enc.nome} · {r['parametros'] / 1e6:.1f} M parâmetros "
+              f"({100 * cfg_enc.fracao_de_embedding():.1f}% embedding)")
+        print(f"  {a.total_passos:,} passos × {r['tokens_por_passo']:,} tokens = "
+              f"{r['tokens_totais'] / 1e9:.3f} B tokens · {r['epocas']:.2f} épocas")
+        print(f"  FLOPs {r['flops']:.3e} · máscara {a.taxa_mascara:.0%} · "
+              f"p_equacao {a.p_equacao}")
+        print(f"  {'TRATADO' if a.p_equacao > 0 else 'CONTROLE'} da ablação do "
+              f"DOC-07 §2.3 · {distribuicao.mundo} processo(s), acumulação "
+              f"{t.acum_local} em cada")
+        print("=" * 74)
     if a.so_resumo:
         return 0
 
@@ -190,14 +219,18 @@ def main() -> int:
     finally:
         liberar_suspensao()
 
+    # Coletivo: todos os processos passam por aqui, e só o principal imprime.
+    contadores = t.contadores_globais()
+    if not principal:
+        return 0
     print()
     print(f"  passo {m.passo:,} · perda {m.perda:.4f} · {m.tokens_por_s:.0f} tok/s")
-    print(f"  fração tratada {t.contadores.fracao_tratada():.3f} · "
-          f"taxa efetiva {t.contadores.taxa_efetiva():.4f}")
+    print(f"  fração tratada {contadores.fracao_tratada():.3f} · "
+          f"taxa efetiva {contadores.taxa_efetiva():.4f}")
     print(f"  rollbacks {m.rollbacks} · passos pulados pelo scaler "
           f"{m.passos_pulados_pelo_scaler}")
     print(f"  -> {saida}")
-    if a.p_equacao > 0 and t.contadores.fracao_tratada() < 0.5:
+    if a.p_equacao > 0 and contadores.fracao_tratada() < 0.5:
         print()
         print("  ⚠️ fração tratada abaixo de 0,5: o braço tratado recaiu em MLM "
               "aleatório na maioria\n     dos exemplos, e a ablação do §2.3 não "

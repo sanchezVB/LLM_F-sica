@@ -42,14 +42,44 @@ O §4 pede **~2 M tokens por passo**. Com contexto 8.192 isso é 244 sequências
 não caberiam em 16 GB — vêm de acumulação de gradiente:
 `sequencias_por_micro_passo × acumulacao`. O laço registra os dois e o produto, para
 que uma comparação entre execuções não confunda "lote maior" com "acumulou mais".
+
+## Duas GPUs, e por que o resultado tem de ser o MESMO de uma
+
+A cota do Kaggle conta horas de sessão, e a sessão "T4 x2" tem duas placas. Rodar em
+`torchrun --nproc_per_node 2` quase dobra os tokens por hora de cota. O que não pode
+mudar é o experimento: um braço treinado em duas GPUs tem de ver os mesmos dados, as
+mesmas máscaras e o mesmo gradiente que em uma — senão uma comparação entre braços
+rodados de jeitos diferentes mede o jeito de rodar.
+
+- `acumulacao` continua sendo a do passo INTEIRO. Cada processo faz
+  `acumulacao / processos` micro-passos, e o processo `r` pega os micro-passos
+  `r·(acumulacao/processos) + j` do passo: os dois juntos cobrem exatamente os índices
+  que um processo só cobriria.
+- A máscara sai de `(semente, índice do micro-passo)`, e não de um gerador que avança
+  a cada chamada. ⚠️ **Mudou em 2026-09-17**: até ali era um `default_rng(semente)`
+  único, cujo estado dependia de quantas máscaras já tinham sido sorteadas. Com dois
+  processos isso daria a MESMA sequência de sorteios nos dois, e uma retomada de
+  checkpoint já sorteava máscaras diferentes das de uma execução contínua. A
+  distribuição das máscaras não muda; a realização muda, então os braços já treinados
+  (T2a, §2.3) não se reproduzem sorteio a sorteio com o código novo.
+- A perda e a norma do gradiente que o detector de spike vê são a MÉDIA entre os
+  processos, e a vazão que decide abortar por tempo também: uma decisão que um
+  processo toma e o outro não é um processo esperando para sempre.
+- Só o processo 0 grava. Os contadores do mascaramento são SOMADOS entre os processos
+  antes de ir ao JSON — senão `fracao_tratada` descreveria metade do treino.
+
+`tests/regression/test_laco_ddp.py` prova por equivalência: dois processos em CPU
+(`gloo`) terminam com os mesmos pesos que um.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 import numpy as np
@@ -74,6 +104,36 @@ log = logging.getLogger(__name__)
 
 NOME_ESTADO = "estado_pretreino.pt"
 NOME_METRICAS = "phienc.json"
+
+
+@dataclass(frozen=True)
+class Distribuicao:
+    """Em que processo este treinador roda, e de quantos. `(0, 1)` é um processo só."""
+
+    rank: int = 0
+    mundo: int = 1
+
+    @property
+    def principal(self) -> bool:
+        return self.rank == 0
+
+
+def iniciar_distribuicao() -> tuple[Distribuicao, torch.device]:
+    """Lê o ambiente do `torchrun` e inicia o grupo de processos.
+
+    Sem `WORLD_SIZE` > 1, devolve `(0, 1)` e o dispositivo de sempre, sem iniciar nada.
+    """
+    mundo = int(os.environ.get("WORLD_SIZE", "1"))
+    if mundo <= 1:
+        return Distribuicao(), torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    rank, local = int(os.environ["RANK"]), int(os.environ.get("LOCAL_RANK", "0"))
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local)
+        dev, backend = torch.device("cuda", local), "nccl"
+    else:
+        dev, backend = torch.device("cpu"), "gloo"
+    torch.distributed.init_process_group(backend)
+    return Distribuicao(rank, mundo), dev
 
 
 @dataclass(frozen=True)
@@ -135,10 +195,18 @@ class Treinador:
                  cfg_mascara: ConfigMascara, fluxo: Fluxo,
                  cfg_spike: ConfigSpike | None = None,
                  dev: torch.device | None = None,
-                 pico_flops: float = 65e12) -> None:
+                 pico_flops: float = 65e12,
+                 distribuicao: Distribuicao | None = None) -> None:
         self.cfg_enc, self.cfg, self.cfg_mascara, self.fluxo = (
             cfg_enc, cfg, cfg_mascara, fluxo)
         self.dev = dev or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.dist = distribuicao or Distribuicao()
+        if cfg.acumulacao % self.dist.mundo:
+            raise ValueError(
+                f"acumulação {cfg.acumulacao} não se divide por {self.dist.mundo} "
+                "processos. Ela é a do passo inteiro; cada processo faz uma fração "
+                "dela, e uma fração que não é inteira mudaria o lote do experimento.")
+        self.acum_local = cfg.acumulacao // self.dist.mundo
         # `pico_flops`: 65 TFLOPS é o fp16 nominal da T4. Serve só para a MFU do
         # §9.3 — nominal, não medido, e a MFU relativa a um número nominal é um
         # limite superior otimista. Está aqui para o log dizer de onde saiu.
@@ -146,6 +214,11 @@ class Treinador:
 
         torch.manual_seed(cfg_mascara.semente)
         self.modelo = construir(cfg_enc, self.dev)
+        if self.dist.mundo > 1:
+            from torch.nn.parallel import DistributedDataParallel
+            self.modelo = DistributedDataParallel(
+                self.modelo,
+                device_ids=[self.dev.index] if self.dev.type == "cuda" else None)
         self.opt = torch.optim.AdamW(
             self._grupos(), lr=cfg.lr_pico, betas=(cfg.beta1, cfg.beta2),
             eps=cfg.eps)
@@ -157,7 +230,6 @@ class Treinador:
         self.passos_warmup, self.passos_decay = plano_wsd(
             cfg.total_passos, cfg.frac_warmup, cfg.frac_decay)
         self.contadores = Contadores()
-        self.rng = np.random.default_rng(cfg_mascara.semente)
         log.info("WSD: warmup %d · platô %d · decay %d · pico %.1e",
                  self.passos_warmup,
                  cfg.total_passos - self.passos_warmup - self.passos_decay,
@@ -173,7 +245,7 @@ class Treinador:
         pior de um jeito que nenhuma métrica aponta.
         """
         com, sem = [], []
-        for nome, p in self.modelo.named_parameters():
+        for nome, p in self._nucleo().named_parameters():
             if not p.requires_grad:
                 continue
             (sem if p.ndim <= 1 or nome.endswith(".bias") else com).append(p)
@@ -183,12 +255,19 @@ class Treinador:
 
     # ── um micro-passo ──────────────────────────────────────────────────────
 
-    def _mascarar_lote(self, passo: int) -> tuple[torch.Tensor, torch.Tensor]:
-        ids, ide, disp = self.fluxo.lote(passo)
+    def _mascarar_lote(self, indice: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """O micro-passo `indice`, mascarado. Função de `(semente, indice)` só.
+
+        ⚠️ O gerador é criado AQUI, por micro-passo — ver "Duas GPUs" na docstring do
+        módulo. Um gerador único do treinador fazia a máscara depender de quantas
+        tinham sido sorteadas antes.
+        """
+        ids, ide, disp = self.fluxo.lote(indice)
+        rng = np.random.default_rng((self.cfg_mascara.semente, indice))
         entradas, alvos = [], []
         for s in range(ids.shape[0]):
             e, a = mascarar(
-                ids[s], ide[s], disp[s], cfg=self.cfg_mascara, rng=self.rng,
+                ids[s], ide[s], disp[s], cfg=self.cfg_mascara, rng=rng,
                 id_mask=self.cfg.id_mask, n_vocab=self.cfg_enc.vocab,
                 ids_especiais=frozenset(self.cfg.ids_especiais),
                 contadores=self.contadores)
@@ -205,17 +284,24 @@ class Treinador:
         """
         self.opt.zero_grad(set_to_none=True)
         perda_total = 0.0
-        for micro in range(self.cfg.acumulacao):
+        for micro in range(self.acum_local):
+            # O processo `r` cobre a sua fatia dos micro-passos do passo inteiro.
             entrada, alvos = self._mascarar_lote(
-                passo * self.cfg.acumulacao + micro)
-            with torch.autocast("cuda", dtype=torch.float16, enabled=self.amp):
-                saida = self.modelo(input_ids=entrada, labels=alvos)
-                perda = saida.loss / self.cfg.acumulacao
-            if self.escala is not None:
-                self.escala.scale(perda).backward()
-            else:
-                perda.backward()
-            perda_total += float(perda.detach()) * self.cfg.acumulacao
+                passo * self.cfg.acumulacao + self.dist.rank * self.acum_local + micro)
+            # Sincronizar os gradientes só no último micro-passo: nos outros o DDP
+            # faria um all-reduce por micro-passo para jogar fora.
+            ultimo = micro == self.acum_local - 1
+            sem_sync = (self.modelo.no_sync() if self.dist.mundo > 1 and not ultimo
+                        else contextlib.nullcontext())
+            with sem_sync:
+                with torch.autocast("cuda", dtype=torch.float16, enabled=self.amp):
+                    saida = self.modelo(input_ids=entrada, labels=alvos)
+                    perda = saida.loss / self.acum_local
+                if self.escala is not None:
+                    self.escala.scale(perda).backward()
+                else:
+                    perda.backward()
+            perda_total += float(perda.detach()) * self.acum_local
 
         lr = lr_wsd(passo, self.cfg.total_passos, pico=self.cfg.lr_pico,
                     passos_warmup=self.passos_warmup,
@@ -227,7 +313,7 @@ class Treinador:
         if self.escala is not None:
             self.escala.unscale_(self.opt)
         norma = float(torch.nn.utils.clip_grad_norm_(
-            self.modelo.parameters(), self.cfg.clip))
+            self._nucleo().parameters(), self.cfg.clip))
         if self.escala is not None:
             antes = self.escala.get_scale()
             self.escala.step(self.opt)
@@ -238,7 +324,37 @@ class Treinador:
         else:
             self.opt.step()
             aconteceu = True
-        return perda_total / self.cfg.acumulacao, norma, aconteceu
+        # A MÉDIA entre processos: é o que o detector de spike vê, e os processos têm
+        # de tomar a mesma decisão de rollback.
+        return (self._media_entre_processos(perda_total / self.acum_local),
+                self._media_entre_processos(norma), aconteceu)
+
+    # ── os coletivos, que num processo só não fazem nada ────────────────────
+
+    def _nucleo(self) -> torch.nn.Module:
+        """O modelo sem o invólucro do DDP: é ele que grava e retoma."""
+        return self.modelo.module if self.dist.mundo > 1 else self.modelo
+
+    def _media_entre_processos(self, valor: float) -> float:
+        if self.dist.mundo == 1:
+            return valor
+        t = torch.tensor([valor], dtype=torch.float64, device=self.dev)
+        torch.distributed.all_reduce(t)
+        return float(t.item()) / self.dist.mundo
+
+    def contadores_globais(self) -> Contadores:
+        """Os contadores do mascaramento SOMADOS entre os processos."""
+        if self.dist.mundo == 1:
+            return self.contadores
+        nomes = [f.name for f in fields(Contadores) if not f.name.startswith("_")]
+        t = torch.tensor([getattr(self.contadores, n) for n in nomes],
+                         dtype=torch.int64, device=self.dev)
+        torch.distributed.all_reduce(t)
+        return Contadores(**dict(zip(nomes, (int(x) for x in t.tolist()), strict=True)))
+
+    def _barreira(self) -> None:
+        if self.dist.mundo > 1:
+            torch.distributed.barrier()
 
     # ── o laço ──────────────────────────────────────────────────────────────
 
@@ -274,15 +390,21 @@ class Treinador:
 
             if passo % self.cfg.passos_log == 0:
                 dt = time.perf_counter() - t0
-                m.tokens_por_s = tokens_desde_log / max(dt, 1e-9)
+                # Média entre processos: é esta vazão que decide abortar por tempo,
+                # e a decisão tem de ser a mesma em todos.
+                m.tokens_por_s = self._media_entre_processos(
+                    tokens_desde_log / max(dt, 1e-9))
+                # Os tokens são do passo inteiro, e o pico é de UMA placa.
                 m.mfu = (flops_de_treino(self.cfg_enc, m.tokens_por_s)
-                         / self.pico_flops)
+                         / (self.pico_flops * self.dist.mundo))
                 m.passo, m.perda, m.lr, m.norma_grad = passo, perda, self.opt.param_groups[0]["lr"], norma
                 m.epoca = self.fluxo.epoca_do_passo(passo * self.cfg.acumulacao)
-                log.info("passo %d | perda %.4f | lr %.2e | |g| %.3f | %.0f tok/s "
-                         "| MFU %.1f%% | época %.3f | tratada %.3f",
-                         passo, perda, m.lr, norma, m.tokens_por_s, 100 * m.mfu,
-                         m.epoca, self.contadores.fracao_tratada())
+                tratada = self.contadores_globais().fracao_tratada()
+                if self.dist.principal:
+                    log.info("passo %d | perda %.4f | lr %.2e | |g| %.3f | %.0f tok/s "
+                             "| MFU %.1f%% | época %.3f | tratada %.3f",
+                             passo, perda, m.lr, norma, m.tokens_por_s, 100 * m.mfu,
+                             m.epoca, tratada)
                 m.historico.append({k: v for k, v in asdict(m).items()
                                     if k != "historico"})
                 self._conferir_orcamento_de_sessao(m, saida, passo)
@@ -301,9 +423,18 @@ class Treinador:
 
     def _gravar(self, saida: Path, passo: int, m: Metricas,
                 concluido: bool = False, motivo: str = "") -> None:
+        """Grava o estado. Chamado em TODOS os processos; só o 0 escreve.
+
+        ⚠️ Os contadores globais são um coletivo, então todos têm de passar por aqui;
+        e a barreira no fim impede um processo de retomar de um arquivo pela metade.
+        """
+        contadores = self.contadores_globais()
+        if not self.dist.principal:
+            self._barreira()
+            return
         torch.save({
             "passo": passo,
-            "modelo": self.modelo.state_dict(),
+            "modelo": self._nucleo().state_dict(),
             "opt": self.opt.state_dict(),
             "escala": self.escala.state_dict() if self.escala else None,
             # ⚠️ O plano WSD vai no checkpoint. Recalculá-lo das frações numa
@@ -322,24 +453,30 @@ class Treinador:
             # ⚠️ Os contadores do mascaramento vão no JSON do treino, e não só no
             # log: `fracao_tratada` baixa invalida a ablação do DOC-07 §2.3, e um
             # resultado nulo sem esse número é indistinguível de tratamento ausente.
-            "mascaramento": self.contadores.como_dict(),
+            "mascaramento": contadores.como_dict(),
             "metricas": {k: v for k, v in asdict(m).items() if k != "historico"},
             "historico": m.historico,
             "concluido": concluido,
             "motivo_da_parada": motivo,
             "amp": self.amp,
             "dispositivo": str(self.dev),
+            "distribuicao": {
+                "processos": self.dist.mundo,
+                "acumulacao_por_processo": self.acum_local,
+                "mascara": "(semente, índice do micro-passo) — desde 2026-09-17",
+            },
             "ressalva_mfu": (f"MFU contra {self.pico_flops:.1e} FLOPS NOMINAIS; sem "
                              "FA-2 (a T4 é SM 7.5) o teto prático é bem menor, "
                              "então esta MFU é um limite superior otimista"),
         }, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        self._barreira()
 
     def retomar(self, saida: Path) -> int:
         p = saida / NOME_ESTADO
         if not p.exists():
             return 0
         est = torch.load(p, map_location=self.dev, weights_only=False)
-        self.modelo.load_state_dict(est["modelo"])
+        self._nucleo().load_state_dict(est["modelo"])
         self.opt.load_state_dict(est["opt"])
         if self.escala is not None and est.get("escala"):
             self.escala.load_state_dict(est["escala"])
