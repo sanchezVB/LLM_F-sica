@@ -38,6 +38,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
+| **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
 | **Caminho B** · pronto para lançar | 🟡 **espera cota e publicação** | o laço aprendeu CPT (`--base`, com guarda do id de máscara — que o preparador NUNCA gravava, e isso fechava o caminho), célula em 2 T4 com a regra escrita antes, e as duas fatias no tokenizer do ModernBERT: **423 M** de treino (partes 35 e 14) e **62 M** de avaliação (parte 3, a mesma do §2.3). Pacote de **1,27 GB** montado |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. Falta medir a vazão real |
 | **PB-Formula** · montado | 🟡 **374.739 itens, e só 7,8% notacionais** | corpus inteiro, teto 1,0, remontagem byte a byte idêntica. 53,1% dos itens têm a grafia idêntica e 37,0% só diferem em marcação; 36,3% ligam documentos quase iguais. Proposta (não decidida): primário = notacional sem quase igual, **24.508 itens**. E o corpus tem **6.778 `arxiv_id` repetidos** (sem vazamento no ΦEnc; guarda por documento no preparador) |
@@ -55,6 +56,60 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Passo 1 do caminho B: o ModernBERT-base CRU supera o nosso tratado (2026-09-17)
+
+Antes de gastar ~7 h de acelerador por braço, a pergunta que faltava: quanto uma base
+geral de 150 M faz **sem pré-treino nenhum em Física**, nos mesmos 200 mil pares e com
+os mesmos hiperparâmetros? Rodou no **Colab** (T4, 2,56 h), fora da cota do Kaggle.
+
+Os três braços medidos LOCAL, na mesma sessão, na mesma GPU, pelo protocolo do G1
+(pool de 2.000 desduplicado):
+
+| braço | parâmetros | recall@1 | recall@10 | MRR | nDCG@10 |
+|---|---|---|---|---|---|
+| controle (do zero, `p_equacao` 0,0) | 48 M | 0,2215 | 0,5890 | 0,3391 | 0,3872 |
+| tratado (do zero, `p_equacao` 0,6) | 48 M | 0,2985 | 0,6740 | 0,4203 | 0,4712 |
+| **ModernBERT-base, sem Física** | **150 M** | **0,3540** | **0,7200** | **0,4774** | **0,5270** |
+
+Dois desfechos, os dois pela regra escrita antes (`kaggle/t2eq_emb.py`):
+
+- **TRATADO À FRENTE** do controle: **+0,084** [+0,071; +0,097]. O ganho do §2.3
+  sobrevive ao ajuste — confirmado, e idêntico ao de ontem.
+- **MODERNBERT À FRENTE** do tratado: **+0,056** [+0,043; +0,069], bootstrap pareado por
+  item.
+
+### O que isso muda
+
+- **Não desfaz o §2.3.** O mascaramento de equações ajuda; só não basta para um 48 M a
+  0,6 B alcançar um 150 M treinado em 2 T.
+- **Fecha o caminho A na prática.** Um ΦEnc-150M do zero teria de cobrir três ordens de
+  desvantagem — tokens, parâmetros e agora +0,056 medidos.
+- **Dá ao caminho B um alvo: 0,5270**, e uma pergunta mais limpa, porque os dois braços
+  do CPT partem DESTA base — uma variável (`p_equacao`) em vez de atravessar tamanho,
+  tokenizer e volume de pré-treino.
+- ⚠️ A comparação com o ModernBERT **não é ablação de uma variável**, e a regra dizia
+  isso antes. É a barra do produto.
+- ⚠️ E é de recuperação, a secundária. A primária do §2.3 — previsão de token de equação
+  — segue negativa a 0,6 B (−0,0040).
+
+### Dois brindes da execução
+
+- **O checkpoint do Colab veio em `transformers` 5.16 e NÃO abre na 4.48.** Só pôde ser
+  medido porque o venv paralelo com 5.0 existia. É um caso concreto a favor da troca.
+- **Os braços de 48 M reproduziram 0,3872 e 0,4712 ao milésimo**, e ontem eles foram
+  medidos na 4.48. Confirmação, no nível da MÉTRICA, de que a versão não muda resultado.
+
+### A decisão do dono, agora com número
+
+1. **Seguir com B**: os dois braços de CPT (~7 h de T4 cada, em duas placas), para ver se
+   `p_equacao` 0,6 tira o encoder de 0,5270 para cima. Pacote e célula prontos.
+2. **Parar aqui** e usar o ModernBERT-base ajustado como recuperador: 0,5270, de graça.
+3. **Ir para base ainda mais forte**, na direção do T1f (GTE-base@400k dá 0,6094).
+   ⚠️ Esse número **não se compara** com esta tabela: 400 mil pares contra 200 mil.
+
+Artefato: `data/processed/avaliacao/t2eq_emb_comparacao.json`. Detalhe no
+[ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md).
 
 ## Caminho B: o laço aprendeu CPT, e as duas fatias estão empacotadas (2026-09-17)
 

@@ -52,10 +52,34 @@ def ler_pela_regra(nd: dict) -> tuple[str, str]:
         "poderia mudar.")
 
 
+def ler_a_barra(nd: dict) -> tuple[str, str]:
+    """A regra do braço `modernbert` (`kaggle/t2eq_emb.py` · REGRA_MODERNBERT).
+
+    `nd` é `modernbert − tratado`, pelo mesmo bootstrap pareado por item.
+    """
+    lo, hi = nd["ic95"]
+    if lo > 0:
+        return "MODERNBERT À FRENTE", (
+            "a base geral de 150 M já supera o nosso 48 M tratado. O pré-treino "
+            "continuado só se justifica se puder superar ESTE número, e a distância "
+            "entre os dois é o que ele teria de cobrir. A decisão do passo 2 é do dono.")
+    if hi < 0:
+        return "TRATADO À FRENTE", (
+            "um 48 M do zero, com mascaramento de equações, a 0,6 B tokens, SUPERA um "
+            "150 M geral treinado em 2 T. Forte a favor do caminho B.")
+    return "EMPATE", (
+        "um 48 M do zero, com mascaramento de equações, a 0,6 B tokens, iguala um "
+        "150 M geral treinado em 2 T. Forte a favor do caminho B.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--controle", required=True)
     ap.add_argument("--tratado", required=True)
+    ap.add_argument("--modernbert", default=None,
+                    help="o passo 1 do caminho B: o ModernBERT-base ajustado nos MESMOS "
+                         "pares, sem pré-treino nenhum em Física. É a BARRA que um "
+                         "pré-treino continuado teria de superar (regra própria)")
     ap.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
     ap.add_argument("--n", type=int, default=2000)
     ap.add_argument("--dispositivo", default="dml")
@@ -73,6 +97,25 @@ def main() -> int:
     nd = bootstrap_pareado_itens(ndcg_por_item(rc.posicoes), ndcg_por_item(rt.posicoes))
     desfecho, leitura = ler_pela_regra(nd)
 
+    # ⚠️ O terceiro braço, se houver, é medido NESTA sessão também: comparar com um
+    # número histórico mediria a deriva do avaliador junto com a diferença de base.
+    rm = barra = None
+    if a.modernbert:
+        rm = avaliar_um(a.modernbert, "modernbert", val, n=a.n,
+                        dispositivo=a.dispositivo, semente=SEMENTE_POOL)
+        if rm.erro:
+            raise SystemExit(f"modernbert: {rm.erro}")
+        nd_barra = bootstrap_pareado_itens(ndcg_por_item(rt.posicoes),
+                                           ndcg_por_item(rm.posicoes))
+        d_barra, l_barra = ler_a_barra(nd_barra)
+        barra = {"regra": "kaggle/t2eq_emb.py · REGRA_MODERNBERT",
+                 "ndcg_10_modernbert_menos_tratado": nd_barra,
+                 "diagnostico_recall_1_mcnemar": comparar_pareado(rt, rm),
+                 "desfecho": d_barra, "leitura": l_barra,
+                 "ressalva": ("não é ablação de uma variável: 3× os parâmetros, outro "
+                              "tokenizer e 2 T tokens de pré-treino geral. É a barra "
+                              "do produto.")}
+
     def resumo(r):
         return {"caminho": r.caminho, "recall_1": round(r.recall_1, 4),
                 "recall_10": round(r.recall_10, 4), "mrr": round(r.mrr, 4),
@@ -84,6 +127,7 @@ def main() -> int:
         "protocolo": {"n": a.n, "semente": SEMENTE_POOL, "max_tokens": 192,
                       "pares_de_treino": 200_000},
         "controle": resumo(rc), "tratado": resumo(rt),
+        **({"modernbert": resumo(rm), "barra_do_caminho_b": barra} if rm else {}),
         "primaria_ndcg_10_bootstrap_por_item": nd,
         "diagnostico_recall_1_mcnemar": comparar_pareado(rc, rt),
         "desfecho": desfecho, "leitura": leitura,
@@ -109,11 +153,22 @@ def main() -> int:
                          ("tratado", resultado["tratado"], 0.1391)):
         print(f"  {nome:<10} {r['recall_1']:>9.4f} {r['recall_10']:>10.4f} "
               f"{r['mrr']:>7.4f} {r['ndcg_10']:>9.4f}   ({cru:.4f})")
+    if rm:
+        r = resultado["modernbert"]
+        print(f"  {'modernbert':<10} {r['recall_1']:>9.4f} {r['recall_10']:>10.4f} "
+              f"{r['mrr']:>7.4f} {r['ndcg_10']:>9.4f}   (sem pré-treino em Física)")
     print(f"  nDCG@10 tratado − controle: {nd['diferenca']:+.5f} {nd['ic95']}")
     print(f"  recall@1 pareado (diagnóstico): {mc.get('veredito')}")
     print()
     print(f"  DESFECHO: {desfecho}")
     print(f"  {leitura}")
+    if barra:
+        b = barra["ndcg_10_modernbert_menos_tratado"]
+        print()
+        print(f"  BARRA do caminho B · nDCG@10 modernbert − tratado: "
+              f"{b['diferenca']:+.5f} {b['ic95']}")
+        print(f"  DESFECHO: {barra['desfecho']}")
+        print(f"  {barra['leitura']}")
     print("=" * 78)
     print(f"  -> {a.out}")
     return 0

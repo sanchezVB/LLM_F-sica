@@ -1,6 +1,6 @@
 # ADR-0003 — O ΦEnc ainda deve ser treinado do zero?
 
-**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**. A opção C foi executada no mesmo dia; ver §7.
+**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**. A opção C foi executada no mesmo dia (§7) e o passo 1 do caminho B em 2026-09-17: a barra é **0,5270** (§8).
 **Contexto:** [DOC-07 §2](../02-models/DOC-07-familia-de-modelos.md) (ΦEnc) e §14 (OQ-4), [DOC-00 D-01](../00-foundations/DOC-00-project-charter.md) (o dissenso registrado), [DOC-05 §8 e §11.2](../01-data/DOC-05-tokenizer.md)
 **Não substitui nada ainda.** Se aceito, revisa a linha "Physics Encoder — treino do zero" da tabela de decisões do DOC-07.
 
@@ -120,3 +120,70 @@ do ModernBERT-base no corpus de Física, com `p_equacao` 0,6.
 
 ⚠️ Uma semente por braço, 48 M, 0,6 B, metade da receita de pares. O que mudaria isto
 continua escrito na §5.
+
+---
+
+## 8. O passo 1 do caminho B, medido (2026-09-17): a barra é 0,5270
+
+Antes de gastar ~7 h de acelerador por braço num pré-treino continuado, a pergunta que
+faltava: **quanto o ModernBERT-base faz SEM pré-treino nenhum em Física?** Mesmo ajuste,
+mesmos 200 mil pares (blake3 conferido contra o pacote do T1a), mesmos hiperparâmetros,
+e os três braços medidos na mesma sessão, na mesma GPU, pelo protocolo do G1.
+
+| braço | parâmetros | recall@1 | recall@10 | MRR | nDCG@10 |
+|---|---|---|---|---|---|
+| controle (ΦEnc do zero, `p_equacao` 0,0) | 48 M | 0,2215 | 0,5890 | 0,3391 | 0,3872 |
+| tratado (ΦEnc do zero, `p_equacao` 0,6) | 48 M | 0,2985 | 0,6740 | 0,4203 | 0,4712 |
+| **ModernBERT-base, sem Física** | **150 M** | **0,3540** | **0,7200** | **0,4774** | **0,5270** |
+
+**Desfecho pela regra (`kaggle/t2eq_emb.py` · REGRA_MODERNBERT): MODERNBERT À FRENTE**,
++0,0558 [+0,0426; +0,0685] sobre o tratado, por bootstrap pareado por item.
+
+### O que isto muda, e o que não muda
+
+**Não desfaz o §2.3.** O tratado continua à frente do controle por +0,084 [+0,071;
++0,097], na mesma medição. O mascaramento de equações ajuda — só que ajudar um encoder
+de 48 M treinado em 0,6 B tokens não basta para alcançar uma base geral de 150 M
+treinada em 2 T.
+
+**Fecha o caminho A, na prática.** Um ΦEnc-150M do zero teria de superar, com o nosso
+corpus e o nosso orçamento, um modelo que já está pronto e de graça. Nada aqui sugere
+que isso aconteça: a distância que o treino do zero teria de cobrir é a soma de três
+ordens (tokens, parâmetros, e agora +0,056 de desvantagem medida).
+
+**Dá ao caminho B um alvo numérico e uma pergunta mais limpa.** A barra é **0,5270** no
+protocolo do G1, e os dois braços do CPT partem DESTA base — então a comparação passa a
+ser dentro da família, com uma variável (`p_equacao`), em vez de atravessar tamanho,
+tokenizer e volume de pré-treino.
+
+⚠️ **A comparação com o ModernBERT NÃO é ablação de uma variável**, e a regra dizia isso
+antes: 3× os parâmetros, outro tokenizer, 2 T tokens de pré-treino geral. É a barra do
+produto.
+
+⚠️ E ela é de recuperação, que é a secundária do §2.3. A primária — previsão de token de
+equação — segue negativa a 0,6 B (−0,0040).
+
+### Execução
+
+Rodou no **Google Colab** (T4, 2,56 h), fora da cota do Kaggle, com o notebook
+`colab/t2eq_emb_modernbert.ipynb` gerado do fonte versionado. O checkpoint veio no
+formato do `transformers` 5.16 e **não abre na 4.48** — foi medido no venv paralelo com
+5.0. Os dois braços de 48 M reproduziram exatamente os números de 2026-09-16 (0,3872 e
+0,4712), que foram medidos na 4.48: confirmação, no nível da métrica, de que a troca de
+versão não muda resultado.
+
+Artefato: `data/processed/avaliacao/t2eq_emb_comparacao.json`.
+
+### A decisão do dono, agora com número
+
+1. **Seguir com B** — os dois braços de CPT do ModernBERT-base (~7 h de T4 cada, em duas
+   placas), e ver se o `p_equacao` 0,6 tira o encoder de 0,5270 para cima. O pacote de
+   dados e a célula estão prontos.
+2. **Parar aqui** e usar o ModernBERT-base ajustado como recuperador, aceitando 0,5270 —
+   que já supera tudo o que temos em 48 M, e é de graça.
+3. **Nem B nem parar:** ir para uma base ainda mais forte, na direção do T1f (GTE-base
+   ajustado dá 0,6094 no mesmo protocolo, com 400 mil pares).
+
+⚠️ A opção 3 tem o melhor número da tabela e **não é comparável a estas três linhas**:
+400 mil pares contra 200 mil. Comparar exigiria rodar o GTE-base a 200 mil, ou os três a
+400 mil.

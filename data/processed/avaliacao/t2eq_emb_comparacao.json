@@ -21,6 +21,37 @@
     "mrr": 0.4203,
     "ndcg_10": 0.4712
   },
+  "modernbert": {
+    "caminho": "models/phiemb-t2eq-modernbert-200k-melhor",
+    "recall_1": 0.354,
+    "recall_10": 0.72,
+    "mrr": 0.4774,
+    "ndcg_10": 0.527
+  },
+  "barra_do_caminho_b": {
+    "regra": "kaggle/t2eq_emb.py · REGRA_MODERNBERT",
+    "ndcg_10_modernbert_menos_tratado": {
+      "diferenca": 0.05579,
+      "ic95": [
+        0.04264,
+        0.06854
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    },
+    "diagnostico_recall_1_mcnemar": {
+      "a": "tratado",
+      "b": "modernbert",
+      "ganha_a": 136,
+      "ganha_b": 247,
+      "discordantes": 383,
+      "p": 1.5197858964453716e-08,
+      "veredito": "modernbert vence em recall@1 (p=0.0000)"
+    },
+    "desfecho": "MODERNBERT À FRENTE",
+    "leitura": "a base geral de 150 M já supera o nosso 48 M tratado. O pré-treino continuado só se justifica se puder superar ESTE número, e a distância entre os dois é o que ele teria de cobrir. A decisão do passo 2 é do dono.",
+    "ressalva": "não é ablação de uma variável: 3× os parâmetros, outro tokenizer e 2 T tokens de pré-treino geral. É a barra do produto."
+  },
   "primaria_ndcg_10_bootstrap_por_item": {
     "diferenca": 0.08397,
     "ic95": [
