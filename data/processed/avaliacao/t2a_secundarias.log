@@ -1,0 +1,10 @@
+
+==============================================================================
+  T2a · SECUNDÁRIAS · A × E (não derrubam a primária: E à frente em bits/byte)
+==============================================================================
+  recuperação A: recall@1 0.0145 · recall@10 0.0490 · nDCG@10 0.0296
+  recuperação E: recall@1 0.0055 · recall@10 0.0330 · nDCG@10 0.0171
+  nDCG@10 E − A: -0.01251 [-0.02005, -0.0052] · recall@1: A vence em recall@1 (p=0.0039)
+  sonda: A 0.4167 · E 0.3333 · discordantes 19 × 13 · p=0.3771
+==============================================================================
+  -> data\processed\avaliacao\t2a_secundarias.json

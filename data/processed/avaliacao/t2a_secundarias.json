@@ -1,0 +1,82 @@
+{
+  "secundarias": true,
+  "regra": "kaggle/t2a_tokenizer.py: não derrubam a primária (E à frente em bits por byte); se contrariarem, é o resultado a reportar",
+  "recuperacao": {
+    "protocolo": {
+      "n": 2000,
+      "semente": 17,
+      "max_tokens": 192
+    },
+    "A": {
+      "recall_1": 0.0145,
+      "recall_10": 0.049,
+      "mrr": 0.0301,
+      "ndcg_10": 0.0296
+    },
+    "E": {
+      "recall_1": 0.0055,
+      "recall_10": 0.033,
+      "mrr": 0.0182,
+      "ndcg_10": 0.0171
+    },
+    "ndcg_10_E_menos_A_bootstrap_por_item": {
+      "diferenca": -0.01251,
+      "ic95": [
+        -0.02005,
+        -0.0052
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    },
+    "recall_1_mcnemar": {
+      "a": "A",
+      "b": "E",
+      "ganha_a": 27,
+      "ganha_b": 9,
+      "discordantes": 36,
+      "p": 0.00393317302223295,
+      "veredito": "A vence em recall@1 (p=0.0039)"
+    }
+  },
+  "sonda_tensorial": {
+    "itens": 72,
+    "acaso": 0.5,
+    "piso_de_superficie": {
+      "itens": 72,
+      "taxa": 0.0,
+      "margem_media": -0.0784,
+      "por_familia": {
+        "contracao": {
+          "itens": 18,
+          "taxa": 0.0,
+          "margem_media": -0.1517,
+          "margem_de_superficie": -0.1517
+        },
+        "operador_contra_campo": {
+          "itens": 18,
+          "taxa": 0.0,
+          "margem_media": -0.0775,
+          "margem_de_superficie": -0.0775
+        },
+        "posicao_do_indice": {
+          "itens": 18,
+          "taxa": 0.0,
+          "margem_media": -0.0388,
+          "margem_de_superficie": -0.0388
+        },
+        "valencia": {
+          "itens": 18,
+          "taxa": 0.0,
+          "margem_media": -0.0455,
+          "margem_de_superficie": -0.0455
+        }
+      },
+      "nota": "PISO: semelhança de trigramas de caractere, sem modelo. Um encoder que não supere isto não está medindo estrutura."
+    },
+    "taxa_A": 0.4167,
+    "taxa_E": 0.3333,
+    "A_melhor": 19,
+    "E_melhor": 13,
+    "p": 0.3771
+  }
+}

@@ -1,0 +1,20 @@
+02:25:51 INFO    72 itens × 3 expressões = 216 textos
+02:25:52 INFO    dispositivo: AMD Radeon RX 7600 (DirectML)
+02:25:52 INFO    piso de superfície: taxa 0.0000 · margem -0.0784
+02:26:14 INFO    A                            taxa 0.4167 (-0.0833 do acaso) · margem -0.0138 · superfície
+02:26:17 INFO    E                            taxa 0.3333 (-0.1667 do acaso) · margem -0.0042 · superfície
+
+==============================================================================
+  SONDA DE ESTRUTURA TENSORIAL · 72 itens
+==============================================================================
+  modelo                          taxa   do acaso    margem  lado
+  (piso: só superfície)         0.0000    -0.5000   -0.0784  superfície
+  A                             0.4167    -0.0833   -0.0138  superfície
+  E                             0.3333    -0.1667   -0.0042  superfície
+
+  por família:
+  modelo                               contracao  operador_contra_  posicao_do_indic          valencia
+  A                                       0.2222            0.5556            0.2222            0.6667
+  E                                       0.0556            0.5000            0.3889            0.3889
+==============================================================================
+  -> data\processed\avaliacao\t2a_sonda_tensorial.json

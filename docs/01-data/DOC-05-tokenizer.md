@@ -504,6 +504,23 @@ bytes**: a diferença entre os tokenizers mora no LaTeX longo sem espaço.
 acompanha o número. Artefatos em `data/processed/avaliacao/t2a_bits_por_byte_AxE*.json`;
 os três instrumentos em `phifm.eval.bits_por_byte`.
 
+**As secundárias, rodadas em 2026-09-17 — e a de recuperação CONTRARIA a primária.**
+Pela regra do T2a elas não derrubam a primária; *"se contrariarem, isso é o resultado a
+reportar"*.
+
+| secundária | A (com a §8) | E (sem a §8) | pareado |
+|---|---|---|---|
+| recuperação · nDCG@10 (pool do G1, 2.000) | **0,0296** | 0,0171 | E − A = −0,0125 [−0,020; −0,005] |
+| recuperação · recall@1 | 0,0145 | 0,0055 | A vence, McNemar p = 0,004 |
+| sonda tensorial (72 itens) | 0,417 | 0,333 | 19 × 13, p = 0,38 — sem diferença |
+
+⚠️ Os dois braços estão perto do PISO na recuperação — MLM cru agregado por média, nDCG
+abaixo de 0,03 —, e a diferença não foi medida depois de um ajuste contrastivo, que no
+§2.3 do DOC-07 foi onde a recuperação passou a importar. A leitura fica: **E reconstrói
+texto melhor; A recupera um pouco melhor, cru.** Nenhuma das duas entra na escolha do
+caminho B do ADR-0003, que usa o tokenizer do ModernBERT. Artefatos:
+`data/processed/avaliacao/t2a_secundarias.json` e `t2a_sonda_tensorial.json`.
+
 > **A evidência que a caixa acima dizia não existir foi produzida**, e saiu contra a
 > expectativa deste documento. Custo: ~16,5 h de T4 da cota gratuita e ~3 h da GPU
 > local, US$ 0.
