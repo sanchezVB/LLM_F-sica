@@ -84,6 +84,7 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     ids_de,
     marcas_de,
     recusar_documentos_do_treino,
+    truncar_ao_progresso,
 )
 from phifm.training.pretrain.mascaramento import marcar_equacoes  # noqa: E402
 
@@ -270,6 +271,13 @@ def main() -> int:
                 "continua a mesma preparação — use --recomecar, ou volte os "
                 "parâmetros.")
         feitas = prog.get("partes_feitas", [])
+        # ⚠️ Uma parte interrompida deixa bytes no binário e é REFEITA na retomada:
+        # os mesmos documentos entrariam duas vezes, em silêncio. Ver
+        # `dados.truncar_ao_progresso`.
+        descartados = truncar_ao_progresso(a.out, int(prog.get("tokens", 0)))
+        if descartados:
+            log.warning("parte interrompida: %s bytes depois do último progresso "
+                        "foram descartados", f"{descartados:,}")
         log.info("retomando: %d de %d partes já feitas", len(feitas), len(partes))
 
     tok = Tokenizer.from_file(str(a.tokenizer))

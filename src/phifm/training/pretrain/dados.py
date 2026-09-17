@@ -98,6 +98,33 @@ def hash_de_tokenizer(caminho: Path) -> str:
     return h.hexdigest()[:16]
 
 
+def truncar_ao_progresso(raiz: Path, tokens_registrados: int) -> int:
+    """Corta os binários no último ponto REGISTRADO. Devolve os bytes descartados.
+
+    ⚠️ O progresso é gravado ao FIM de cada parte, e os binários são abertos em modo
+    append. Se a preparação morre no meio de uma parte — sessão fechada, máquina
+    reiniciada, um Ctrl-C —, os bytes dessa parte ficam no arquivo e a retomada a
+    refaz inteira: os mesmos documentos entram DUAS vezes. Nada acusa. A contagem de
+    tokens continua "certa", o treino roda, e uma fração do corpus aparece repetida
+    numa fatia que o manifesto descreve como sorteada.
+
+    O tamanho vem do progresso, e não do arquivo: é o único número que corresponde a
+    partes inteiras.
+    """
+    descartados = 0
+    for nome, largura in ((NOME_TOKENS, 2), (NOME_MARCAS, 1)):
+        caminho = raiz / nome
+        if not caminho.exists():
+            continue
+        alvo = tokens_registrados * largura
+        excesso = caminho.stat().st_size - alvo
+        if excesso > 0:
+            with open(caminho, "r+b") as f:
+                f.truncate(alvo)
+            descartados += excesso
+    return descartados
+
+
 def ids_de(partes: list[Path]) -> set[str]:
     """Os `arxiv_id` de um conjunto de partes do corpus, lendo só essa coluna."""
     import polars as pl

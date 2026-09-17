@@ -341,3 +341,36 @@ def test_o_CONTROLE_nao_muda_com_a_correcao():
                 ids_especiais=frozenset(range(5))))
         assert (saidas[0][0] == saidas[1][0]).all()
         assert (saidas[0][1] == saidas[1][1]).all()
+
+
+# ── retomada: a parte interrompida não pode entrar duas vezes ───────────────
+
+def test_truncar_ao_progresso_corta_a_parte_interrompida(tmp_path):
+    """⚠️ O progresso é gravado ao fim de cada parte e o binário é aberto em append.
+    Morrer no meio de uma parte deixa bytes que a retomada REFAZ: os mesmos
+    documentos entrariam duas vezes, e nada acusaria."""
+    from phifm.training.pretrain.dados import (
+        NOME_MARCAS,
+        NOME_TOKENS,
+        truncar_ao_progresso,
+    )
+
+    (tmp_path / NOME_TOKENS).write_bytes(b"\x01\x00" * 100)   # 100 tokens
+    (tmp_path / NOME_MARCAS).write_bytes(b"\x00" * 100)
+    descartados = truncar_ao_progresso(tmp_path, 60)
+    assert descartados == 40 * 2 + 40
+    assert (tmp_path / NOME_TOKENS).stat().st_size == 120
+    assert (tmp_path / NOME_MARCAS).stat().st_size == 60
+
+
+def test_truncar_ao_progresso_nao_mexe_quando_esta_em_dia(tmp_path):
+    from phifm.training.pretrain.dados import (
+        NOME_MARCAS,
+        NOME_TOKENS,
+        truncar_ao_progresso,
+    )
+
+    (tmp_path / NOME_TOKENS).write_bytes(b"\x01\x00" * 50)
+    (tmp_path / NOME_MARCAS).write_bytes(b"\x00" * 50)
+    assert truncar_ao_progresso(tmp_path, 50) == 0
+    assert truncar_ao_progresso(tmp_path / "vazio", 50) == 0
