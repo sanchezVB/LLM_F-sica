@@ -75,15 +75,27 @@ notebook `phifm-t2eq-emb-modernbert` preparado sobre o mesmo dataset (assinatura
 `f8d965b66ff9cb62`). Estimativa de ~1,2–1,8 h de T4; restavam ~40 min de cota, então
 ele espera a renovação. Regra escrita antes, na célula.
 
-### O cache do HuggingFace estava no SSD
+### ⚠️ O "cache no SSD" era uma junction — diagnóstico errado, corrigido antes do estrago
 
-6,8 GB no cache padrão do usuário, no C:: o `.env` declara `HF_HOME` no HD e nada o
-carregava. `phifm/__init__.py` passa a lê-lo, e os nove scripts que importam o
-HuggingFace chamam `cache_hf_no_hd()` antes do `transformers` — a primeira versão, só um
-import, foi desfeita pelo `ruff --fix` com a suíte verde. A cópia do ModernBERT no SSD
-(1,2 GB) foi apagada com autorização; **restam ~5,6 GB de duplicatas no SSD**
-(gte-large, SciBERT, PhysBERT, bert-base, MiniLM, tokenizers do Qwen), todas também em
-`D:/LLMFísica/cache/huggingface`, aguardando decisão.
+Eu reportei 6,8 GB de modelos do HuggingFace no SSD, "quase todos duplicatas do HD",
+e pedi para apagá-los. **Era falso.** `C:\Users\User\.cache\huggingface` é uma
+JUNCTION para `D:\LLMFísica\cache\huggingface`: os mesmos arquivos vistos por dois
+caminhos, com o mesmo ID. Descoberto ao conferir modelo a modelo antes de apagar — os
+"duplicados" batiam com o HD até nos dois modelos que eu tinha acabado de mover para lá.
+Apagar teria destruído os únicos exemplares.
+
+O que já tinha sido apagado: uma cópia de 1,2 GB do ModernBERT-base, pelo caminho do C:
+— ela estava no HD. Sem perda de função: o ModernBERT-base carrega offline da cópia que
+veio de `.hf_cache` (149,7 M, config, pesos e tokenizer completos). **O SSD não tinha
+nada a liberar.**
+
+O código fica: `phifm/__init__.py` lê o `HF_HOME` do `.env`, e os nove scripts chamam
+`cache_hf_no_hd()` antes do `transformers`. Aponta para o mesmo lugar que a junction, e
+deixa de depender dela. A lição sobre o `ruff --fix` desfazer a ordem dos imports
+continua valendo.
+
+**A lição deste erro:** um tamanho igual nos dois lados é o sintoma de um link, não de
+uma duplicata. Antes de apagar "cópias", conferir se são arquivos diferentes.
 
 ## §2.3 — o ganho de recuperação SOBREVIVE ao ajuste: tratado à frente (2026-09-16)
 

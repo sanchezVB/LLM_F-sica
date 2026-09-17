@@ -1,9 +1,12 @@
-"""O cache do HuggingFace vai para o HD, e isso depende da ORDEM dos imports.
+"""O cache do HuggingFace é definido pelo `.env`, e isso depende da ORDEM dos imports.
 
-Medido em 2026-09-17: 6,8 GB de modelos no SSD, em `C:\\Users\\User\\.cache\\huggingface`.
-O `.env` declarava `HF_HOME` no HD e nada o carregava. Agora `phifm/__init__.py` o
-carrega — mas o `huggingface_hub` lê o caminho no import, então `phifm` tem de vir
-ANTES de `transformers` em todo script. Oito não vinham.
+O `.env` declara `HF_HOME` no HD e nada o carregava; nesta máquina uma junction
+(`C:\\Users\\User\\.cache\\huggingface` -> `D:\\LLMFísica\\cache\\huggingface`) escondia
+isso. ⚠️ A primeira versão desta nota falava em "6,8 GB no SSD": errado, era a junction
+— ver `phifm/__init__.py`.
+
+O `huggingface_hub` lê o caminho no import, então a chamada a `cache_hf_no_hd()` tem de
+vir ANTES de `transformers` em todo script. Oito não vinham.
 
 Por AST: a suíte rápida roda sem torch nem transformers.
 """
