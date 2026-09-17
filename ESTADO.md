@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-16
+# Estado do projeto — 2026-09-17
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -50,6 +50,40 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Caminho B do ADR-0003: o custo medido, e o passo 1 montado (2026-09-17)
+
+O ADR-0003 aponta para um pré-treino continuado do ModernBERT-base com `p_equacao` 0,6.
+Antes de construir, o custo foi medido — e ele não é o do ADR:
+
+| | medido / estimado |
+|---|---|
+| custo por passo, ModernBERT-base (149,7 M) contra o proxy de 48 M | **2,64×** (CPU, contexto 1.024) |
+| vazão estimada na T4 | ~7.800 tok/s |
+| 0,6 B tokens (o orçamento da ablação) | **~21,5 h de T4 por braço**, ~0,7 semana de cota |
+| 3 B tokens (a conta do ADR, em US$ 3–9) | ~107 h — só com GPU alugada, que é decisão do dono |
+
+E o laço não está pronto para isso: ele constrói o modelo do zero (`construir`), e a
+guarda de horas ABORTA um run que não cabe numa sessão de 9 h em vez de gravar e parar
+— sessões encadeadas precisariam de outra política. **Decisão do dono: só o passo 1
+primeiro.**
+
+**Passo 1, montado e NÃO lançado**: o ModernBERT-base SEM pré-treino, ajustado como
+ΦEmb nos mesmos 200 mil pares e hiperparâmetros dos braços do §2.3 — a barra que um
+pré-treino continuado teria de superar. Terceira variante de `kaggle/t2eq_emb.py`,
+notebook `phifm-t2eq-emb-modernbert` preparado sobre o mesmo dataset (assinatura
+`f8d965b66ff9cb62`). Estimativa de ~1,2–1,8 h de T4; restavam ~40 min de cota, então
+ele espera a renovação. Regra escrita antes, na célula.
+
+### O cache do HuggingFace estava no SSD
+
+6,8 GB no cache padrão do usuário, no C:: o `.env` declara `HF_HOME` no HD e nada o
+carregava. `phifm/__init__.py` passa a lê-lo, e os nove scripts que importam o
+HuggingFace chamam `cache_hf_no_hd()` antes do `transformers` — a primeira versão, só um
+import, foi desfeita pelo `ruff --fix` com a suíte verde. A cópia do ModernBERT no SSD
+(1,2 GB) foi apagada com autorização; **restam ~5,6 GB de duplicatas no SSD**
+(gte-large, SciBERT, PhysBERT, bert-base, MiniLM, tokenizers do Qwen), todas também em
+`D:/LLMFísica/cache/huggingface`, aguardando decisão.
 
 ## §2.3 — o ganho de recuperação SOBREVIVE ao ajuste: tratado à frente (2026-09-16)
 
