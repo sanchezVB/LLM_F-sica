@@ -1000,6 +1000,13 @@ sozinho. Mais o bootstrap, que também não. Mais a direção negativa dentro do
 fica em `models/` como ponto da curva do T1c — é a evidência de que pré-treino em
 Física é a base certa para um cross-encoder —, mas não está na cadeia.
 
+⚠️ **Onde ficou o ΦRank retreinado do T1d** (corrigido em 2026-09-17): `phirank-denso` e
+`phirank-denso-melhor` (2,1 GB) só existiam no scratchpad temporário da sessão, no SSD —
+fora da regra "tudo no HD" e a um `Temp` limpo de sumir. Movidos para `models/` com
+conferência por hash; os logs e JSON de saída do T1d e do T1e, para
+`data/processed/t1d_saida` e `t1e_saida`. O que sobrou no scratchpad era cópia conferida
+de `models/` e snapshots de código de commits que o git tem, e foi apagado (4,4 GB → 2 MB).
+
 ⚠️ **Nota de reprodutibilidade:** o @100 do T1e deu **141 × 168** em k=10, idêntico
 ao braço antigo do T1d medido no dia anterior, noutra sessão. A lição do T1b2 —
 medir os braços na mesma sessão — é sobre **deriva de código e protocolo**, não sobre
