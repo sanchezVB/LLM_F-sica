@@ -262,3 +262,38 @@ class Resultado:
                 "gabarito costuma ter 1 a 3 alvos, então recall@k satura rápido — "
                 "compare k pequeno."),
         }
+
+
+def ocorrencias_do_documento(texto: str, min_caracteres: int = MIN_CARACTERES,
+                             ) -> tuple[dict[str, str], dict[str, int]]:
+    """As equações de CONTEÚDO de um documento: `{forma: grafia mais curta}`, e contagens.
+
+    Canoniza cada equação UMA vez (`canonical.forma` devolve a forma canônica e o hash
+    juntos, com a mesma definição de `hash_canonico`). Dentro do documento fica só a
+    grafia mais curta de cada forma, com desempate pelo texto: `montar_itens` escolhe a
+    consulta pela grafia mais curta ENTRE documentos, e as repetições dentro de um
+    documento só inflariam a memória da montagem no corpus inteiro.
+
+    Uma equação que a canonização não aceita é CONTADA e pulada, não silenciada — o
+    RedPajama perde 16,6% das equações (S3b), e o número de falhas diz quanto do corpus
+    o benchmark não enxerga.
+    """
+    from phifm.core.latex import canonical
+    from phifm.core.latex.extrair import extrair_equacoes
+
+    formas: dict[str, str] = {}
+    cont = {"equacoes": 0, "falhas_canonizacao": 0, "de_conteudo": 0}
+    for e in extrair_equacoes(texto):
+        cont["equacoes"] += 1
+        try:
+            f = canonical.forma(e)
+        except Exception:
+            cont["falhas_canonizacao"] += 1
+            continue
+        if not e_conteudo(f.canonica, min_caracteres):
+            continue
+        cont["de_conteudo"] += 1
+        atual = formas.get(f.hash)
+        if atual is None or (len(e), e) < (len(atual), atual):
+            formas[f.hash] = e
+    return formas, cont

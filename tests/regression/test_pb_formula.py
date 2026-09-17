@@ -191,3 +191,48 @@ def test_a_nota_REGISTRA_a_licao_da_amostra_pequena():
     assert "0,040%" in nota and "0,244%" in nota
     assert "duas pontas na amostra" in nota
     assert "quadraticamente" in nota
+
+
+# ── a extração por documento, que alimenta a montagem no corpus inteiro ─────
+
+def test_a_extracao_fica_com_a_grafia_MAIS_CURTA_de_cada_forma():
+    """Duas grafias da MESMA equação, que diferem só em espaço — a canonização as
+    colapsa (conferido: `E = mc^2` e `E=mc^{2}`). Fica a mais curta."""
+    from phifm.core.latex.canonical import hash_canonico
+    from phifm.eval.benchmarks.formula import ocorrencias_do_documento
+
+    # ≥ 40 caracteres na forma CANÔNICA, senão o filtro de conteúdo a descarta.
+    longa = " + ".join("abcdefghijklmnopqrstu").replace("a + ", "a = ", 1)
+    curta = longa.replace(" ", "")
+    assert hash_canonico(longa) == hash_canonico(curta)
+    formas, cont = ocorrencias_do_documento(f"$$ {longa} $$ texto no meio $$ {curta} $$")
+    assert cont["equacoes"] == 2 and cont["de_conteudo"] == 2
+    assert formas == {hash_canonico(curta): curta}
+
+
+def test_o_hash_da_extracao_e_o_hash_canonico():
+    from phifm.core.latex.canonical import hash_canonico
+    from phifm.eval.benchmarks.formula import ocorrencias_do_documento
+
+    formas, _ = ocorrencias_do_documento(f"$$ {EQ} $$")
+    assert list(formas) == [hash_canonico(EQ)]
+
+
+def test_simbolo_solto_nao_vira_ocorrencia_mas_e_contado_como_equacao():
+    from phifm.eval.benchmarks.formula import ocorrencias_do_documento
+
+    formas, cont = ocorrencias_do_documento(r"a letra $\alpha$ e a $\beta$")
+    assert formas == {}
+    assert cont["equacoes"] == 2 and cont["de_conteudo"] == 0
+
+
+def test_falha_de_canonizacao_e_CONTADA_e_nao_silenciada(monkeypatch):
+    from phifm.core.latex import canonical
+    from phifm.eval.benchmarks.formula import ocorrencias_do_documento
+
+    def quebra(latex):
+        raise ValueError("canonização recusou")
+
+    monkeypatch.setattr(canonical, "forma", quebra)
+    formas, cont = ocorrencias_do_documento(f"$$ {EQ} $$")
+    assert formas == {} and cont["falhas_canonizacao"] == 1
