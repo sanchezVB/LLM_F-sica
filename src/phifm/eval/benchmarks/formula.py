@@ -237,11 +237,11 @@ def estrato_de_grafia(consulta: str, grafias_dos_alvos: list[str]) -> str:
     - `mista`: algum alvo coincide nesse sentido, e algum não;
     - `notacional`: nenhum alvo coincide.
 
-    ⚠️ Existe porque o nome do benchmark promete "sob variação notacional", e o ensaio
-    de 20.000 documentos (2026-09-17) mediu outra coisa: em **69%** dos itens todos os
-    alvos repetem a grafia da consulta a menos de espaços. Um casador de string sairia
-    bem nesses itens sem saber nada de notação, e a média sobre o benchmark inteiro
-    esconderia isso. O recall tem de sair POR ESTRATO.
+    ⚠️ Existe porque o nome do benchmark promete "sob variação notacional", e o corpus
+    inteiro (2026-09-17, 374.739 itens) mediu outra coisa: **53,1%** `identica`, **37,0%**
+    `superficial`, 2,1% `mista` e só **7,8%** `notacional`. Um casador de string sairia
+    bem em nove de cada dez itens sem saber nada de notação, e a média sobre o benchmark
+    inteiro esconderia isso. O recall tem de sair POR ESTRATO.
 
     ⚠️ E espaço não bastava: numa amostra do estrato que sobrava, a diferença de vários
     itens era só o texto do `\\label`, um `&=` no lugar de `=` ou o ponto final. Isso é
@@ -324,9 +324,15 @@ def ocorrencias_do_documento(texto: str, min_caracteres: int = MIN_CARACTERES,
     consulta pela grafia mais curta ENTRE documentos, e as repetições dentro de um
     documento só inflariam a memória da montagem no corpus inteiro.
 
-    Uma equação que a canonização não aceita é CONTADA e pulada, não silenciada — o
-    RedPajama perde 16,6% das equações (S3b), e o número de falhas diz quanto do corpus
-    o benchmark não enxerga.
+    Uma exceção da canonização é CONTADA e pulada, não silenciada.
+
+    ⚠️ **Mas o contador não mede perda, e esta docstring dizia que media.** A versão
+    anterior ligava as falhas aos 16,6% de equações que o RedPajama perde (S3b), como se
+    o número dissesse quanto do corpus o benchmark não enxerga. Não diz: `canonicalizar`
+    é TOTAL — não tem nenhum `raise`, e devolve uma forma para qualquer cadeia. No corpus
+    inteiro (202.365.265 equações, 2026-09-17) o contador deu 0, e deu 0 por
+    construção. Ele só acusaria uma exceção inesperada de código. As equações que o
+    RedPajama perdeu não chegam a `extrair_equacoes`, e nenhum contador daqui as vê.
     """
     from phifm.core.latex import canonical
     from phifm.core.latex.extrair import extrair_equacoes

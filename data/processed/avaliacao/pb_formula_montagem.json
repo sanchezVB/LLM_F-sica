@@ -1,0 +1,39 @@
+{
+  "benchmark": "PB-Formula (DOC-11 §6.3)",
+  "corpus": "data/processed/redpajama_fisica",
+  "partes": 44,
+  "parametros": {
+    "min_caracteres": 40,
+    "max_documentos": 20,
+    "max_por_documento": 3
+  },
+  "extracao": {
+    "documentos": 835379,
+    "equacoes": 202365265,
+    "falhas_canonizacao": 0,
+    "de_conteudo": 29279808,
+    "ocorrencias": 28432527
+  },
+  "estatisticas": {
+    "ocorrencias": 28432527,
+    "formas": 27185523,
+    "descartadas_sem_conteudo": 0,
+    "descartadas_um_documento_so": 26389057,
+    "descartadas_comuns_demais": 513,
+    "descartadas_teto_por_documento": 421214,
+    "itens": 374739,
+    "documentos_de_consulta": 198301,
+    "nota": "⚠️ `descartadas_um_documento_so` é o número GRANDE e é esperado: equações de conteúdo são quase únicas. Medido, a repetição cresce com o corpus — 2.000 documentos dão 0,040% e 20.000 dão 0,244%, porque uma colisão exige as duas pontas na amostra. Calibrar este filtro em amostra pequena subestima quadraticamente."
+  },
+  "pool_documentos": 314161,
+  "teto_do_pool": 1.0,
+  "alvos_por_item": {
+    "media": 1.298,
+    "max": 19
+  },
+  "ids_distintos_no_corpus": 828601,
+  "notas": [
+    "falhas_canonizacao é 0 POR CONSTRUÇÃO: `canonicalizar` é total e não recusa entrada. O contador só acusaria exceção inesperada; não mede as equações que o RedPajama perdeu (S3b).",
+    "`extracao.documentos` conta LINHAS do corpus. O documento do benchmark é o arxiv_id, e há ids repetidos: uma forma nas duas cópias de um mesmo id conta como um documento só, e entra em `descartadas_um_documento_so`."
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "benchmark": "PB-Formula (DOC-11 §6.3) — diagnóstico, não muda os itens",
+  "exploratorio": true,
+  "itens": 374739,
+  "grafia": {
+    "identica": {
+      "itens": 198873,
+      "fracao": 0.5307
+    },
+    "superficial": {
+      "itens": 138571,
+      "fracao": 0.3698
+    },
+    "mista": {
+      "itens": 7948,
+      "fracao": 0.0212
+    },
+    "notacional": {
+      "itens": 29347,
+      "fracao": 0.0783
+    }
+  },
+  "documento_quase_igual": {
+    "definicao": "max_formas_em_comum: formas de conteúdo que o documento da consulta divide com o alvo mais parecido",
+    "itens_com_ao_menos": {
+      "2": {
+        "itens": 270603,
+        "fracao": 0.7221
+      },
+      "3": {
+        "itens": 212298,
+        "fracao": 0.5665
+      },
+      "5": {
+        "itens": 136144,
+        "fracao": 0.3633
+      },
+      "10": {
+        "itens": 61671,
+        "fracao": 0.1646
+      },
+      "20": {
+        "itens": 23317,
+        "fracao": 0.0622
+      },
+      "50": {
+        "itens": 5357,
+        "fracao": 0.0143
+      }
+    },
+    "pares_de_documentos": 567826,
+    "pares_com_ao_menos": {
+      "2": 171885,
+      "3": 104892,
+      "5": 55039,
+      "10": 20689,
+      "20": 7017,
+      "50": 1490
+    }
+  },
+  "grafia_x_quase_igual_5": [
+    {
+      "grafia": "identica",
+      "quase_igual": false,
+      "itens": 114489
+    },
+    {
+      "grafia": "identica",
+      "quase_igual": true,
+      "itens": 84384
+    },
+    {
+      "grafia": "mista",
+      "quase_igual": false,
+      "itens": 6812
+    },
+    {
+      "grafia": "mista",
+      "quase_igual": true,
+      "itens": 1136
+    },
+    {
+      "grafia": "notacional",
+      "quase_igual": false,
+      "itens": 24508
+    },
+    {
+      "grafia": "notacional",
+      "quase_igual": true,
+      "itens": 4839
+    },
+    {
+      "grafia": "superficial",
+      "quase_igual": false,
+      "itens": 92786
+    },
+    {
+      "grafia": "superficial",
+      "quase_igual": true,
+      "itens": 45785
+    }
+  ],
+  "nota": "A grafia de cada documento é a mais curta que ele usa para a forma: `identica` e `so_espacos` são pisos. Recall no PB-Formula tem de sair por estrato de grafia, e com e sem os itens de documento quase igual."
+}

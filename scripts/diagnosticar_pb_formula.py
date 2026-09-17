@@ -10,19 +10,22 @@ linha por item, pela `forma` — e um resumo versionado.
 
 ## Por que existe
 
-O ensaio de 20.000 documentos (2026-09-17) mostrou duas coisas que a montagem não mede:
+Um ensaio de 2 partes (26.292 documentos) e depois o corpus inteiro (2026-09-17,
+374.739 itens) mostraram duas coisas que a montagem não mede:
 
-1. **Grafia.** Em 69% dos itens todos os alvos escrevem a equação como a consulta, a
-   menos de espaços; a menos de rótulo, alinhamento e pontuação final, em 85%. Só 11%
+1. **Grafia.** 53,1% dos itens têm todos os alvos com a grafia da consulta byte a byte,
+   e mais 37,0% só diferem em espaço, rótulo, alinhamento ou pontuação final. Só **7,8%**
    exigem variação notacional em todos os alvos. O DOC-11 §6.3 promete "sob variação
-   notacional"; na maior parte dos itens um casador de string basta.
+   notacional"; em nove de cada dez itens um casador de string basta.
    `formula.estrato_de_grafia` classifica cada item, e a avaliação tem de reportar
    recall por estrato.
-2. **Documentos quase iguais.** 29% dos itens ligam a consulta a um alvo com o qual ela
-   divide 5 ou mais equações de conteúdo, e há pares que dividem mais de 50 — a mesma
-   obra em dois registros. Nesses itens o que se recupera é o documento duplicado, não
-   a equação. `max_formas_em_comum` é, para cada item, o número de formas que o
-   documento da consulta divide com o alvo MAIS parecido.
+2. **Documentos quase iguais.** 36,3% dos itens ligam a consulta a um alvo com o qual
+   ela divide 5 ou mais equações de conteúdo, e 1.490 pares de documentos dividem 50 ou
+   mais — a mesma obra em dois registros. Nesses itens o que se recupera é o documento
+   parecido, não a equação. `max_formas_em_comum` é, para cada item, o número de formas
+   que o documento da consulta divide com o alvo MAIS parecido.
+
+Notacional e sem alvo quase igual (< 5 formas em comum) sobram **24.508** itens.
 
 A contagem de pares usa TODAS as formas em 2 a `max_documentos` documentos, inclusive
 as que o teto por documento descartou: é a semelhança entre os documentos que se quer,
@@ -67,16 +70,27 @@ def main() -> int:
     # A mesma chave de 64 bits da montagem: contar ~28 milhões de formas pelo texto do
     # hash não cabe em 8 GB.
     chave = pl.col("forma").str.slice(0, 16).str.to_integer(base=16, dtype=pl.UInt64)
-    contagem = (lf.select(chave.alias("k")).group_by("k").agg(pl.len().alias("docs"))
-                .filter(pl.col("docs").is_between(2, a.max_documentos))
-                .collect(engine="streaming"))
+    # ⚠️ A contagem é de LINHAS, sem teto superior. O corpus tem arxiv_id repetido
+    # (6.778 ids em duas linhas), então uma forma em 21 linhas pode estar em 20
+    # documentos e virar item. Filtrar por linhas até `max_documentos`, como a primeira
+    # versão fazia, deixou 5 itens com alvo sem ocorrência — a guarda abaixo pegou.
+    contagem = (lf.select(chave.alias("k")).group_by("k").agg(pl.len().alias("linhas"))
+                .filter(pl.col("linhas") >= 2).collect(engine="streaming"))
     occ = (lf.with_columns(chave.alias("k"))
            .filter(pl.col("k").is_in(contagem["k"].implode()))
            .select("forma", "documento", "latex").collect(engine="streaming"))
     del contagem
+    # Um documento por (forma, id), com a grafia mais curta — a mesma regra de
+    # `ocorrencias_do_documento`. Sem isto as duas cópias de um id contariam os pares
+    # em dobro.
+    occ = (occ.sort(pl.col("latex").str.len_bytes(), "latex")
+           .unique(subset=["forma", "documento"], keep="first", maintain_order=True))
+    docs_por_forma = occ.group_by("forma").agg(pl.len().alias("docs"))
 
     # ── pares de documentos e quantas formas dividem ────────────────────────
-    d = occ.select("forma", "documento")
+    d = (occ.join(docs_por_forma.filter(pl.col("docs").is_between(2, a.max_documentos)),
+                  on="forma", how="semi")
+         .select("forma", "documento"))
     pares = (d.join(d, on="forma", suffix="_b")
              .filter(pl.col("documento") < pl.col("documento_b"))
              .group_by("documento", "documento_b").agg(pl.len().alias("comuns")))

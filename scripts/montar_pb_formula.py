@@ -127,6 +127,9 @@ def fase_montagem(partes: list[Path], dir_oc: Path, out: Path, a) -> dict:
                 for k in ("documentos", "equacoes", "falhas_canonizacao", "de_conteudo",
                           "ocorrencias")}
 
+    ids_distintos = (pl.scan_parquet([str(p) for p in partes]).select(
+        pl.col("arxiv_id").n_unique()).collect().item())
+
     lf = pl.scan_parquet([str(s) for s in shards])
     chave = pl.col("forma").str.slice(0, 16).str.to_integer(base=16, dtype=pl.UInt64)
     t0 = time.perf_counter()
@@ -179,6 +182,15 @@ def fase_montagem(partes: list[Path], dir_oc: Path, out: Path, a) -> dict:
         "alvos_por_item": {
             "media": round(sum(len(i.alvos) for i in itens) / max(len(itens), 1), 3),
             "max": max((len(i.alvos) for i in itens), default=0)},
+        "ids_distintos_no_corpus": ids_distintos,
+        "notas": [
+            "falhas_canonizacao é 0 POR CONSTRUÇÃO: `canonicalizar` é total e não recusa "
+            "entrada. O contador só acusaria exceção inesperada; não mede as equações que "
+            "o RedPajama perdeu (S3b).",
+            "`extracao.documentos` conta LINHAS do corpus. O documento do benchmark é o "
+            "arxiv_id, e há ids repetidos: uma forma nas duas cópias de um mesmo id conta "
+            "como um documento só, e entra em `descartadas_um_documento_so`.",
+        ],
     }
     (out / "pb_formula.json").write_text(json.dumps(resumo, indent=2, ensure_ascii=False),
                                          encoding="utf-8")
@@ -226,10 +238,12 @@ def main() -> int:
     e = resumo["estatisticas"]
     print()
     print("=" * 74)
-    print(f"  PB-Formula · {resumo['partes']} partes · {resumo['extracao']['documentos']:,} documentos")
+    print(f"  PB-Formula · {resumo['partes']} partes · {resumo['extracao']['documentos']:,} "
+          f"linhas · {resumo['ids_distintos_no_corpus']:,} ids")
     print("=" * 74)
     print(f"  equações extraídas       {resumo['extracao']['equacoes']:>12,}")
-    print(f"  falhas de canonização    {resumo['extracao']['falhas_canonizacao']:>12,}")
+    print(f"  exceções na canonização  {resumo['extracao']['falhas_canonizacao']:>12,}"
+          "  (0 por construção: a canonização é total)")
     print(f"  formas de conteúdo       {e['formas']:>12,}")
     print(f"  em 1 documento só        {e['descartadas_um_documento_so']:>12,}")
     print(f"  comuns demais (>{a.max_documentos})       {e['descartadas_comuns_demais']:>12,}")
