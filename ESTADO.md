@@ -38,9 +38,9 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
-| **ΦEnc** · duas GPUs | 🟢 **pronto, igual a uma pelos pesos** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. Falta: saber se o Kaggle já entrega duas T4 (conferível de graça) e medir a vazão real |
+| **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. Falta medir a vazão real |
 | **PB-Formula** · montado | 🟡 **374.739 itens, e só 7,8% notacionais** | corpus inteiro, teto 1,0, remontagem byte a byte idêntica. 53,1% dos itens têm a grafia idêntica e 37,0% só diferem em marcação; 36,3% ligam documentos quase iguais. Proposta (não decidida): primário = notacional sem quase igual, **24.508 itens**. E o corpus tem **6.778 `arxiv_id` repetidos** (sem vazamento no ΦEnc; guarda por documento no preparador) |
-| **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, e embeddings **bit a bit iguais** à 4.48 em ModernBERT, MiniLM e GTE (CPU e DirectML). Falta um passo de treino na DirectML. Trocar a venv padrão é decisão do dono |
+| **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
 | **Artigo do programa** | 🟢 **v0.3** (2026-09-17) | remedição do G1, base × volume, o ΦRank sai, T2a e a ablação do §2.3; seções novas sobre instrumentos pré-registrados inválidos e ΦEnc do zero × CPT. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
@@ -93,13 +93,14 @@ Duas armadilhas desta máquina, registradas no teste:
 
 ### ⚠️ O que falta, e é barato
 
-- **Saber quantas GPUs o Kaggle já entrega.** O SDK só documenta `machine_shape:
-  NvidiaTeslaT4` (sem opção "x2"), e na interface a única T4 hoje é a "T4 x2". Os logs
-  antigos imprimem só `get_device_name(0)`. Pode ser que **todos os runs até aqui
-  tenham recebido duas T4 e usado uma**. Conferível de graça na interface (configuração
-  de sessão de um notebook já rodado); ou com `torch.cuda.device_count()` na próxima
-  célula.
-- **Medir a vazão real em duas T4** antes de refazer contas de cota.
+- ✅ **CONFERIDO pelo dono em 2026-09-17: os notebooks estão todos em "GPU T4 x2".** O
+  SDK só documenta `machine_shape: NvidiaTeslaT4` e na interface a única T4 hoje é a de
+  duas placas — então **todo run do projeto até aqui recebeu duas T4 e usou uma**. A
+  outra placa estava parada dentro da mesma hora de cota. Os logs não pegavam isso
+  porque as células imprimem só `get_device_name(0)`; a próxima célula deve imprimir
+  `torch.cuda.device_count()`.
+- **Medir a vazão real em duas T4** antes de refazer contas de cota — o "quase o dobro"
+  é expectativa, não medida.
 - O ajuste contrastivo do ΦEmb (`train_embedding.py`) **não** ganhou isto: lá os
   negativos são do lote, e dividir o lote entre GPUs muda a tarefa a menos de juntar os
   vetores entre processos. O passo 1 do caminho B (~1,2–1,8 h) cabe numa placa.
@@ -200,9 +201,37 @@ E o teste que decide — 256 âncoras sorteadas do pool, embutidas por média, f
 **Bit a bit.** Os números já medidos na 4.48 valem na 5.0 para as três famílias do projeto, e
 a 5.0 lê os dois formatos de checkpoint. Trocar eliminaria a recomposição.
 
-⚠️ **O que NÃO foi medido**: um passo de TREINO na 5.0 local (DirectML), a exportação do
-ΦEnc pela 5.0, e vazão — os tempos das duas suítes (10 contra 23 min) rodaram disputando
-CPU com a montagem do PB-Formula e não comparam nada.
+### O que faltava foi medido (2026-09-17)
+
+**Exportação do ΦEnc pela 5.0**, do mesmo checkpoint (`t2a_run_E`, passo 9.155):
+
+| | |
+|---|---|
+| `model.safetensors` | **idêntico byte a byte** ao da 4.48 |
+| ida e volta de logits, na própria exportação | 0,0 nas duas |
+| tokenização de textos de teste, 4.48 × 5.0 | **idêntica** |
+| logits das duas exportações, lidas pela 5.0 | **0,0** |
+| `config.json` | difere: `rope_parameters` × `global/local_rope_theta`, `dtype` × `torch_dtype`, `layer_types`, `tie_word_embeddings`, `reference_compile` |
+| `tokenizer_config.json` + `tokenizer.json` | diferem; a 5.0 não grava `special_tokens_map.json` |
+| a 4.48 abrindo a exportação da 5.0 | **modelo sim, tokenizer NÃO** (`TokenizersBackend`) |
+
+**Um passo de treino na DirectML** (`train_embedding.py`, base MiniLM do sistema, 20
+passos, mesma semente, mesmos pares): os pesos batem dentro de **2,2×10⁻⁵** — não é bit a
+bit como na inferência, e não deveria ser: na GPU a ordem de redução varia.
+
+⚠️ **E um susto que não era**: a 5.0 grava LayerNorm de modelos BERT como
+`gamma`/`beta` em vez de `weight`/`bias`. Se a 4.48 ignorasse essas chaves, o modelo
+carregaria com a normalização NÃO treinada e nada acusaria. Medido: ela renomeia na
+carga — **0 faltando, 0 inesperadas**, e a LayerNorm vem com os valores treinados (média
+0,61, contra 1,0 de não treinada).
+
+**O veredito:** a 5.0 lê os artefatos da 4.48 e a 4.48 lê os PESOS da 5.0. O que não
+volta é o tokenizer (e o `config.json` do ModernBERT, que a 4.48 aceitaria ignorando
+chaves — a armadilha já conhecida). Trocar é seguro e elimina a recomposição; voltar
+exigiria reexportar tokenizers.
+
+⚠️ **O que continua NÃO medido**: vazão. Os tempos das duas suítes (10 contra 23 min)
+rodaram disputando CPU com a montagem do PB-Formula e não comparam nada.
 
 **A troca da venv padrão é decisão do dono.** Se aceita: apontar os comandos do SETUP e do
 ESTADO para `.venv-treino-tf5` (ou recriar `.venv-treino` com 5.0), e rodar um passo de
