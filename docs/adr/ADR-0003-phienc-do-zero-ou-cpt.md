@@ -1,6 +1,6 @@
 # ADR-0003 — O ΦEnc ainda deve ser treinado do zero?
 
-**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**
+**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**. A opção C foi executada no mesmo dia; ver §7.
 **Contexto:** [DOC-07 §2](../02-models/DOC-07-familia-de-modelos.md) (ΦEnc) e §14 (OQ-4), [DOC-00 D-01](../00-foundations/DOC-00-project-charter.md) (o dissenso registrado), [DOC-05 §8 e §11.2](../01-data/DOC-05-tokenizer.md)
 **Não substitui nada ainda.** Se aceito, revisa a linha "Physics Encoder — treino do zero" da tabela de decisões do DOC-07.
 
@@ -98,3 +98,25 @@ O DOC-07 §2.3 promete publicar o negativo. Os dois lados vão no §2.3-medido: 
 da primária **e** a discordância da recuperação, com as ressalvas de cada um. Publicar
 só o negativo seria esconder a metade que mais importa para a busca; publicar só o
 ganho seria esconder a regra.
+
+---
+
+## 7. A opção C, executada (2026-09-16)
+
+| | controle (`p_equacao` 0,0) | tratado (`p_equacao` 0,6) | tratado − controle |
+|---|---|---|---|
+| nDCG@10 **antes** do ajuste (MLM cru) | 0,0171 | 0,1391 | +0,122 |
+| **nDCG@10 depois** do ajuste | 0,3872 | **0,4712** | **+0,084 [+0,071; +0,097]** |
+| recall@1 depois | 0,2215 | 0,2985 | 106 × 260 discordantes, McNemar p = 4,7×10⁻¹⁶ |
+| recall@10 depois | 0,5890 | 0,6740 | |
+
+Os dois braços de 48 M ajustados como ΦEmb com os hiperparâmetros do T1f, 200 mil
+pares sorteados dos mesmos bytes do T1a, medidos na mesma sessão pelo protocolo do G1.
+Regra escrita antes em `kaggle/t2eq_emb.py`.
+
+**Tratado à frente: o ganho sobrevive ao ajuste.** Encolhe de +0,122 para +0,084, e
+fica grande. Pela recomendação da §5, o próximo passo é **B** — pré-treino continuado
+do ModernBERT-base no corpus de Física, com `p_equacao` 0,6.
+
+⚠️ Uma semente por braço, 48 M, 0,6 B, metade da receita de pares. O que mudaria isto
+continua escrito na §5.

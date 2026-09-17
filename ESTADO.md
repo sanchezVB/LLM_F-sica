@@ -37,7 +37,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15 |
-| **§2.3** · mascarar equações inteiras | 🟡 **dividido, a 0,6 B** | primária NEGATIVA pela regra (diferença das diferenças **−0,0040**), e a secundária de recuperação DISCORDA: nDCG@10 **0,017 → 0,139** (8×), e não é geometria. O tratamento pegou (equação inteira: 7% → 20%). Reavaliação do ΦEnc do zero proposta no [ADR-0003](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
+| **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
@@ -50,6 +50,51 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## §2.3 — o ganho de recuperação SOBREVIVE ao ajuste: tratado à frente (2026-09-16)
+
+ADR-0003, opção C. Os dois braços de 48 M do §2.3 ajustados como ΦEmb no Kaggle, em
+paralelo (controle 47,6 min, tratado 40,5 min), com os hiperparâmetros do T1f
+conferidos por AST e 200 mil pares sorteados dos MESMOS bytes do T1a — o mesmo
+sorteio nos dois (120.002 documentos citados). Medidos LOCAL, na mesma sessão, pelo
+protocolo do G1 (pool de 2.000). Regra escrita antes, em `kaggle/t2eq_emb.py`.
+
+| | controle (`p_equacao` 0,0) | tratado (`p_equacao` 0,6) | tratado − controle |
+|---|---|---|---|
+| nDCG@10 **antes** do ajuste (MLM cru) | 0,0171 | 0,1391 | +0,122 |
+| **nDCG@10 depois** do ajuste | 0,3872 | **0,4712** | **+0,084 [+0,071; +0,097]** |
+| recall@1 depois | 0,2215 | 0,2985 | 106 × 260 discordantes, McNemar p = 4,7×10⁻¹⁶ |
+| recall@10 depois | 0,5890 | 0,6740 | |
+
+**Desfecho pela regra: TRATADO À FRENTE.** O ganho encolhe com o ajuste, mas fica
+grande — +22% em nDCG@10. Pelo ADR-0003, o caminho é B: pré-treino continuado do
+ModernBERT-base com `p_equacao` 0,6. A decisão continua sendo do dono do projeto.
+
+### O que acompanha o número
+
+- **Uma semente por braço**, bases de 48 M a 0,6 B, 200 mil pares — metade da receita.
+  O absoluto não se compara com o MiniLM@400k (0,5462) nem com o GTE-base@400k
+  (0,6094) do T1f.
+- **O spike foi contra o tratado** no pré-treino, e ele venceu mesmo assim.
+- **O §2.3 fica assim**: o tratamento não melhora a previsão de token de equação
+  (primária negativa) e melhora a base de recuperação antes E depois do ajuste.
+
+### ⚠️ Dois defeitos do caminho, os dois consertados antes de medir
+
+- **O conserto do fp16 só valia no Kaggle.** `dtype=` é o nome do argumento no
+  `transformers` 5.0; a 4.48.3 local só conhece `torch_dtype`, e o ModernBERT recusava
+  o nome desconhecido. `versao_transformers.kwargs_fp32()` escolhe pela versão.
+- **Checkpoint gravado no Kaggle não abre na 4.48 local**: `tokenizer_config` com a
+  classe `TokenizersBackend` e `config.json` no formato da 5.x. Os checkpoints foram
+  recompostos em `models/phiemb-t2eq-{controle,tratado}-200k-melhor` — pesos do
+  Kaggle, config e tokenizer da exportação local da base — depois de conferir: config
+  com os mesmos valores, vocabulário igual, e 0 de 4.000 textos do pool tokenizados
+  diferente (o `tokenizer.json` regravado só carrega padding e truncagem fixos em 192).
+  Cada diretório leva um `proveniencia.json`. É a segunda vez que a diferença de versão
+  entre o Kaggle e a máquina local custa trabalho; alinhar as duas é uma decisão em
+  aberto.
+
+Artefatos: `data/processed/avaliacao/t2eq_emb_comparacao.json`.
 
 ## §2.3 — negativo pela regra, 8× na recuperação: o resultado é a discordância (2026-09-16)
 

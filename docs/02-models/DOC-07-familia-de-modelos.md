@@ -131,9 +131,12 @@ também com `p_equacao` 0, fica em 0,030.
 **Leitura.** Pela regra, as secundárias não derrubam a primária, e *"se discordarem, a
 discordância é o resultado"*. Esta é: **o tratamento não ensina a prever melhor token de
 equação, e muda muito o que a representação agregada codifica** — justamente na
-competência que a hipótese acima nomeia. Se isso sobrevive ao ajuste contrastivo do
-ΦEmb não foi medido, e é o que decide se importa para o sistema. Ver
-[ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md).
+competência que a hipótese acima nomeia.
+
+**E sobrevive ao ajuste contrastivo** (ADR-0003, opção C, mesmo dia). Os dois braços
+ajustados como ΦEmb — hiperparâmetros do T1f, 200 mil pares do T1a — dão nDCG@10
+**0,3872 contra 0,4712**, +0,084 [+0,071; +0,097] no protocolo do G1. Uma semente por
+braço. Ver [ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md).
 
 ### 2.4 Custo
 
