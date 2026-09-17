@@ -38,6 +38,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · avaliação | 🟢 **as três medidas rodaram em modelo real** | recuperação em 6 encoders, sonda tensorial em 4, e o MLM por região no ModernBERT-base: **+0,1286 de vantagem em equação SEM tratamento**, o que muda como a medida se lê. Falta o ΦEnc |
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
+| **ΦEnc** · duas GPUs | 🟢 **pronto, igual a uma pelos pesos** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. Falta: saber se o Kaggle já entrega duas T4 (conferível de graça) e medir a vazão real |
 | **PB-Formula** · montado | 🟡 **374.739 itens, e só 7,8% notacionais** | corpus inteiro, teto 1,0, remontagem byte a byte idêntica. 53,1% dos itens têm a grafia idêntica e 37,0% só diferem em marcação; 36,3% ligam documentos quase iguais. Proposta (não decidida): primário = notacional sem quase igual, **24.508 itens**. E o corpus tem **6.778 `arxiv_id` repetidos** (sem vazamento no ΦEnc; guarda por documento no preparador) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, e embeddings **bit a bit iguais** à 4.48 em ModernBERT, MiniLM e GTE (CPU e DirectML). Falta um passo de treino na DirectML. Trocar a venv padrão é decisão do dono |
 | **Artigo do programa** | 🟢 **v0.3** (2026-09-17) | remedição do G1, base × volume, o ΦRank sai, T2a e a ablação do §2.3; seções novas sobre instrumentos pré-registrados inválidos e ΦEnc do zero × CPT. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
@@ -53,6 +54,55 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Pré-treino em duas GPUs: pronto, e igual a uma pelos pesos (2026-09-17)
+
+A cota do Kaggle conta horas de SESSÃO, e o laço do ΦEnc usava uma placa só. Com
+`torchrun --standalone --nproc_per_node 2 scripts/train_phienc.py` e **os mesmos
+argumentos** de antes, o experimento é o mesmo e a vazão quase dobra — o caminho B do
+ADR-0003 cairia de ~21,5 h para perto de ~12 h de T4 por braço (estimativa: falta medir
+a vazão real em duas T4).
+
+O que foi preciso para "o mesmo experimento" ser verdade, e não aproximação:
+
+- `--acumulacao` é a do passo inteiro; cada processo faz a sua fração dos micro-passos,
+  e juntos cobrem exatamente os índices que um processo cobriria.
+- ⚠️ **A máscara passou a sair de `(semente, índice do micro-passo)`.** Antes era um
+  gerador único cujo estado dependia de quantas máscaras já tinham sido sorteadas: dois
+  processos sorteariam a MESMA sequência, e uma retomada de checkpoint já não reproduzia
+  a execução contínua. A distribuição das máscaras não muda; a realização muda, então o
+  T2a e o §2.3 não se reproduzem sorteio a sorteio com o código novo.
+- Perda, norma do gradiente e vazão são a MÉDIA entre processos — o detector de spike e
+  o aborto por tempo decidem igual em todos, senão um processo espera o outro para
+  sempre. Os contadores do mascaramento são SOMADOS antes do JSON. Só o processo 0
+  grava, com barreira, e o checkpoint não leva o prefixo `module.`.
+
+**Provado por equivalência** (`tests/regression/test_laco_ddp.py`, 3 testes): dois
+processos `gloo` em CPU terminam com os mesmos pesos que um (< 10⁻⁵), contadores de
+máscara idênticos e as mesmas perdas. Uma mutação — os dois processos pegando os mesmos
+micro-passos — faz os pesos divergirem 3,9×10⁻³ e o teste reprova. E o script inteiro
+por `torchrun`, `proxy-bakeoff` de 48 M, 10 passos: pesos iguais a 1,2×10⁻⁷, perdas
+idênticas passo a passo.
+
+Duas armadilhas desta máquina, registradas no teste:
+- o `init_process_group` do gloo **trava sem erro**: o nome do host resolve primeiro
+  para um IPv6 link-local e para o IP do adaptador **"Topaz Loopback"** (módulo de
+  segurança de banco). `GLOO_SOCKET_IFNAME="Loopback Pseudo-Interface 1"` resolve, só
+  no processo. No Kaggle (Linux, NCCL) isto não se aplica;
+- o `FileStore` não decodifica a URI, e `LLMFísica` vira `%C3%AD`.
+
+### ⚠️ O que falta, e é barato
+
+- **Saber quantas GPUs o Kaggle já entrega.** O SDK só documenta `machine_shape:
+  NvidiaTeslaT4` (sem opção "x2"), e na interface a única T4 hoje é a "T4 x2". Os logs
+  antigos imprimem só `get_device_name(0)`. Pode ser que **todos os runs até aqui
+  tenham recebido duas T4 e usado uma**. Conferível de graça na interface (configuração
+  de sessão de um notebook já rodado); ou com `torch.cuda.device_count()` na próxima
+  célula.
+- **Medir a vazão real em duas T4** antes de refazer contas de cota.
+- O ajuste contrastivo do ΦEmb (`train_embedding.py`) **não** ganhou isto: lá os
+  negativos são do lote, e dividir o lote entre GPUs muda a tarefa a menos de juntar os
+  vetores entre processos. O passo 1 do caminho B (~1,2–1,8 h) cabe numa placa.
 
 ## PB-Formula montado no corpus inteiro — e só 7,8% dos itens exigem variação notacional (2026-09-17)
 
