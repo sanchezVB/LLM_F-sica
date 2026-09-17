@@ -236,3 +236,50 @@ def test_falha_de_canonizacao_e_CONTADA_e_nao_silenciada(monkeypatch):
     monkeypatch.setattr(canonical, "forma", quebra)
     formas, cont = ocorrencias_do_documento(f"$$ {EQ} $$")
     assert formas == {} and cont["falhas_canonizacao"] == 1
+
+
+# ── o estrato de grafia: quanto de variação notacional o item exige ─────────
+
+def test_estrato_IDENTICA_quando_todo_alvo_repete_a_grafia():
+    from phifm.eval.benchmarks.formula import estrato_de_grafia
+
+    assert estrato_de_grafia(EQ, [EQ, EQ]) == "identica"
+
+
+def test_estrato_SUPERFICIAL_espaco_nao_e_variacao_notacional():
+    from phifm.eval.benchmarks.formula import estrato_de_grafia
+
+    com_espacos = EQ.replace("=", " = ")
+    assert estrato_de_grafia(EQ, [com_espacos, EQ]) == "superficial"
+
+
+def test_estrato_SUPERFICIAL_rotulo_alinhamento_e_ponto_final_tambem_nao():
+    """Os três casos saíram de uma amostra do estrato notacional do ensaio."""
+    from phifm.eval.benchmarks.formula import estrato_de_grafia
+
+    marcada = "\\label{eq:campo}\n" + EQ.replace("=", "&=") + r"\nonumber\,."
+    assert estrato_de_grafia(EQ, [marcada]) == "superficial"
+    assert estrato_de_grafia("\\label{a4}\n" + EQ, ["\\tag{A4}\n" + EQ]) == "superficial"
+
+
+def test_estrato_LEFT_RIGHT_continua_notacional():
+    from phifm.eval.benchmarks.formula import estrato_de_grafia
+
+    consulta = r"\sin(x)=\frac{a}{b}+c"
+    alvo = r"\sin\left(x\right)=\frac{a}{b}+c"
+    assert estrato_de_grafia(consulta, [alvo]) == "notacional"
+
+
+def test_estrato_MISTA_e_NOTACIONAL():
+    from phifm.eval.benchmarks.formula import estrato_de_grafia
+
+    outra = r"F^{\mu\nu}=\partial^\mu A^\nu-\partial^\nu A^\mu"
+    assert estrato_de_grafia(EQ, [EQ.replace("=", " = "), outra]) == "mista"
+    assert estrato_de_grafia(EQ, [outra]) == "notacional"
+
+
+def test_estrato_RECUSA_item_sem_alvo():
+    from phifm.eval.benchmarks.formula import estrato_de_grafia
+
+    with pytest.raises(ValueError):
+        estrato_de_grafia(EQ, [])

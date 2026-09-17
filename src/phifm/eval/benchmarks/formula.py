@@ -214,6 +214,56 @@ def montar_itens(
     return itens, est
 
 
+ESTRATOS_DE_GRAFIA = ("identica", "superficial", "mista", "notacional")
+
+# O que muda a STRING sem mudar a notação: espaço, rótulo, numeração, alinhamento,
+# espaçamento fino e a pontuação que fecha a equação na frase.
+_SUPERFICIAL = re.compile(
+    r"\\(?:label|tag\*?)\{[^{}]*\}|\\nonumber\b|\\notag\b|\\[,;:!]|&|\s+")
+_PONTUACAO_FINAL = re.compile(r"[.,;]+$")
+
+
+def _sem_superficie(latex: str) -> str:
+    return _PONTUACAO_FINAL.sub("", _SUPERFICIAL.sub("", latex))
+
+
+def estrato_de_grafia(consulta: str, grafias_dos_alvos: list[str]) -> str:
+    """Quanto da variação notacional um item EXIGE, pela grafia dos alvos.
+
+    - `identica`: todo alvo escreve a equação byte a byte como a consulta;
+    - `superficial`: todo alvo coincide com ela a menos de espaço, `\\label{…}`,
+      `\\tag{…}`, `\\nonumber`/`\\notag`, `&` de alinhamento, espaçamento fino (`\\,` `\\;` `\\:`
+      `\\!`) e pontuação final;
+    - `mista`: algum alvo coincide nesse sentido, e algum não;
+    - `notacional`: nenhum alvo coincide.
+
+    ⚠️ Existe porque o nome do benchmark promete "sob variação notacional", e o ensaio
+    de 20.000 documentos (2026-09-17) mediu outra coisa: em **69%** dos itens todos os
+    alvos repetem a grafia da consulta a menos de espaços. Um casador de string sairia
+    bem nesses itens sem saber nada de notação, e a média sobre o benchmark inteiro
+    esconderia isso. O recall tem de sair POR ESTRATO.
+
+    ⚠️ E espaço não bastava: numa amostra do estrato que sobrava, a diferença de vários
+    itens era só o texto do `\\label`, um `&=` no lugar de `=` ou o ponto final. Isso é
+    marcação, não notação. `\\left(` contra `(` fica como notacional: é uma das
+    variações que a canonização existe para colapsar.
+
+    A grafia de cada documento é a mais curta que ele usa para a forma
+    (`ocorrencias_do_documento`), então um alvo que também escreve a grafia da consulta,
+    mas tem outra mais curta, conta como diferente. É um piso da coincidência, não o
+    valor exato.
+    """
+    if not grafias_dos_alvos:
+        raise ValueError("item sem alvo não tem estrato")
+    if all(g == consulta for g in grafias_dos_alvos):
+        return "identica"
+    base = _sem_superficie(consulta)
+    coincide = [_sem_superficie(g) == base for g in grafias_dos_alvos]
+    if all(coincide):
+        return "superficial"
+    return "mista" if any(coincide) else "notacional"
+
+
 def teto_do_pool(itens: list[Item], documentos_do_pool: set[str]) -> float:
     """Recall@k de um modelo PERFEITO neste pool. Tem de ser 1,0.
 
