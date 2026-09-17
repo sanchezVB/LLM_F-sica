@@ -81,7 +81,9 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     NOME_MARCAS,
     NOME_TOKENS,
     hash_de_tokenizer,
+    ids_de,
     marcas_de,
+    recusar_documentos_do_treino,
 )
 from phifm.training.pretrain.mascaramento import marcar_equacoes  # noqa: E402
 
@@ -193,6 +195,7 @@ def main() -> int:
             "a variante A é a do DOC-05 §7.3 (BPE, V=40.960, pré-tokenização §8).")
 
     excluidas: set[str] = set()
+    ids_do_treino: set[str] = set()
     if a.excluir_de is not None:
         man_treino = a.excluir_de / NOME_MANIFESTO
         if not man_treino.exists():
@@ -208,6 +211,9 @@ def main() -> int:
                 f"{man_treino} não lista `partes_usadas`. Prosseguir prepararia "
                 "uma fatia que pode se sobrepor inteira ao treino.")
         excluidas = {str(x) for x in usadas}
+        corpus_do_treino = Path(json.loads(man_treino.read_text(encoding="utf-8")).get(
+            "corpus") or a.corpus)
+        ids_do_treino = ids_de([corpus_do_treino / n for n in sorted(excluidas)])
         antes = len(partes)
         partes = [x for x in partes if Path(x).name not in excluidas]
         log.info("excluindo %d partes do treino em %s: sobram %d de %d",
@@ -262,6 +268,11 @@ def main() -> int:
             if n_tokens >= a.max_tokens:
                 log.info("teto de %s tokens atingido", f"{a.max_tokens:,}")
                 break
+            if ids_do_treino:
+                try:
+                    recusar_documentos_do_treino(Path(parte), ids_do_treino)
+                except ValueError as e:
+                    raise SystemExit(str(e)) from None
             d = pl.read_parquet(parte, columns=["texto"])
             textos = [t for t in d["texto"].to_list() if t]
             for i in range(0, len(textos), a.por_lote):
@@ -312,6 +323,8 @@ def main() -> int:
                         if a.excluir_de else None),
         "partes_excluidas": sorted(excluidas),
         "disjunto_do_treino": bool(excluidas),
+        # Conferido documento a documento, pelo arxiv_id, e não só por parte.
+        "disjunto_por_documento": bool(ids_do_treino),
         "max_tokens": a.max_tokens,
         "id_cls": id_inicio, "id_sep": id_fim,
         # ⚠️ TODOS os ids especiais do tokenizer, para o avaliador de MLM saber

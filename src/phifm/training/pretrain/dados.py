@@ -98,6 +98,41 @@ def hash_de_tokenizer(caminho: Path) -> str:
     return h.hexdigest()[:16]
 
 
+def ids_de(partes: list[Path]) -> set[str]:
+    """Os `arxiv_id` de um conjunto de partes do corpus, lendo só essa coluna."""
+    import polars as pl
+
+    if not partes:
+        return set()
+    return set(pl.scan_parquet([str(p) for p in partes]).select("arxiv_id").unique()
+               .collect()["arxiv_id"].to_list())
+
+
+def recusar_documentos_do_treino(parte: Path, ids_do_treino: set[str]) -> None:
+    """Levanta se a parte tem algum documento que também está numa parte do treino.
+
+    ⚠️ Disjunção por PARTE não é disjunção por DOCUMENTO. Medido em 2026-09-17: o
+    RedPajama de Física tem **6.778 `arxiv_id` em duas linhas**, cópias byte a byte,
+    todas em partes DIFERENTES — 6.161 entre `part-00033` e `part-00034`, 617 entre
+    `part-00032` e `part-00034` (um terço da 34). Nenhuma fatia já preparada é
+    afetada: nenhuma dessas três partes está num treino. Mas uma avaliação na 33 com
+    a 34 no treino mediria memorização com a cara de generalização, e o manifesto
+    diria `disjunto_do_treino: true`.
+
+    Recusa em vez de filtrar: tirar documentos em silêncio mudaria a fatia sem que o
+    manifesto dissesse por quê.
+    """
+    import polars as pl
+
+    ids = set(pl.read_parquet(parte, columns=["arxiv_id"])["arxiv_id"].to_list())
+    comuns = ids & ids_do_treino
+    if comuns:
+        raise ValueError(
+            f"{Path(parte).name} tem {len(comuns)} documentos que também estão nas "
+            f"partes do treino (ex.: {sorted(comuns)[:3]}). A fatia não seria disjunta "
+            "do treino por documento. Escolha outra semente, ou deduplique o corpus.")
+
+
 def marcas_de(id_equacao: np.ndarray, e_display: np.ndarray) -> np.ndarray:
     """Empacota `(id_equacao, e_display)` nos três bits. Usado na preparação.
 
