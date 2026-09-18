@@ -1,0 +1,85 @@
+{
+  "benchmark": "PB-Formula (DOC-11 §6.3)",
+  "regra": "scripts/avaliar_pb_formula.py · docstring, escrita antes",
+  "protocolo": {
+    "estrato": "notacional",
+    "max_formas_em_comum": 5,
+    "itens": 2000,
+    "pool": 20000,
+    "equacoes_indexadas": 838198,
+    "semente": 17,
+    "max_tokens": 192,
+    "teto_do_pool": 1.0,
+    "escore_do_documento": "máximo sobre as equações dele",
+    "itens_no_estrato": 24508,
+    "itens_totais": 374739
+  },
+  "sistemas": {
+    "bm25": {
+      "recall_1": 0.7115,
+      "recall_10": 0.93,
+      "recall_50": 0.979,
+      "mrr": 0.7902,
+      "posto_mediano": 1.0
+    },
+    "phiemb-do-sistema": {
+      "recall_1": 0.8595,
+      "recall_10": 0.955,
+      "recall_50": 0.9765,
+      "mrr": 0.8966,
+      "posto_mediano": 1.0
+    },
+    "phiemb-gte-base-400k-melhor": {
+      "recall_1": 0.8005,
+      "recall_10": 0.92,
+      "recall_50": 0.9545,
+      "mrr": 0.845,
+      "posto_mediano": 1.0
+    },
+    "phiemb-t2eq-modernbert-200k-melhor": {
+      "recall_1": 0.8295,
+      "recall_10": 0.95,
+      "recall_50": 0.9695,
+      "mrr": 0.876,
+      "posto_mediano": 1.0
+    }
+  },
+  "recall_10_contra_bm25_bootstrap_por_item": {
+    "phiemb-do-sistema": {
+      "diferenca": 0.025,
+      "ic95": [
+        0.0115,
+        0.039
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    },
+    "phiemb-gte-base-400k-melhor": {
+      "diferenca": -0.01,
+      "ic95": [
+        -0.0245,
+        0.005
+      ],
+      "cruza_zero": true,
+      "itens": 2000
+    },
+    "phiemb-t2eq-modernbert-200k-melhor": {
+      "diferenca": 0.02,
+      "ic95": [
+        0.0065,
+        0.034
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    }
+  },
+  "melhor_denso": "phiemb-do-sistema",
+  "desfecho": "DENSO ACIMA DO BM25",
+  "leitura": "a premissa não vale para estes modelos: o denso já faz o que o §6.3 diz que ele perde, e a especificação precisa ser revista.",
+  "custo_segundos": {
+    "bm25": 37.8,
+    "phiemb-do-sistema": 1829.4,
+    "phiemb-gte-base-400k-melhor": 7730.8,
+    "phiemb-t2eq-modernbert-200k-melhor": 12329.6
+  }
+}

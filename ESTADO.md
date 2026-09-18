@@ -41,7 +41,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
 | **Caminho B** · pronto para lançar | 🟡 **espera cota e publicação** | o laço aprendeu CPT (`--base`, com guarda do id de máscara — que o preparador NUNCA gravava, e isso fechava o caminho), célula em 2 T4 com a regra escrita antes, e as duas fatias no tokenizer do ModernBERT: **423 M** de treino (partes 35 e 14) e **62 M** de avaliação (parte 3, a mesma do §2.3). Pacote de **1,27 GB** montado |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. Falta medir a vazão real |
-| **PB-Formula** · montado | 🟡 **374.739 itens, e só 7,8% notacionais** | corpus inteiro, teto 1,0, remontagem byte a byte idêntica. 53,1% dos itens têm a grafia idêntica e 37,0% só diferem em marcação; 36,3% ligam documentos quase iguais. Proposta (não decidida): primário = notacional sem quase igual, **24.508 itens**. E o corpus tem **6.778 `arxiv_id` repetidos** (sem vazamento no ΦEnc; guarda por documento no preparador) |
+| **PB-Formula** · MEDIDO | 🔴 **a premissa do §6.3 cai** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
 | **Artigo do programa** | 🟢 **v0.3** (2026-09-17) | remedição do G1, base × volume, o ΦRank sai, T2a e a ablação do §2.3; seções novas sobre instrumentos pré-registrados inválidos e ΦEnc do zero × CPT. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
@@ -56,6 +56,60 @@ Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## PB-Formula medido: o denso VENCE o BM25, e a premissa do DOC-11 §6.3 cai (2026-09-18)
+
+O §6.3 diz que este benchmark "mede diretamente a capacidade que recuperação densa
+costuma perder: casamento simbólico exato". Medido, com a regra escrita antes
+(`scripts/avaliar_pb_formula.py`), no estrato que EXIGE variação notacional — 2.000
+itens sorteados dos 24.508, pool de 20.000 documentos, 838.198 equações indexadas,
+teto 1,0:
+
+| sistema | r@1 | r@10 | r@50 | MRR | custo |
+|---|---|---|---|---|---|
+| **BM25** (controle lexical) | 0,7115 | 0,9300 | 0,9790 | 0,7902 | 38 s |
+| **ΦEmb do sistema** (MiniLM, 6 M pares) | **0,8595** | **0,9550** | 0,9765 | **0,8966** | 31 min |
+| ModernBERT@200k | 0,8295 | 0,9500 | 0,9695 | 0,8760 | 3 h 25 |
+| GTE-base@400k | 0,8005 | 0,9200 | 0,9545 | 0,8450 | 2 h 09 |
+
+Pareado por item em recall@10 contra o BM25: ΦEmb **+0,0250** [0,0115; 0,039];
+ModernBERT **+0,0200** [0,0065; 0,034]; GTE **−0,0100** [−0,0245; 0,005].
+
+**Desfecho pela regra: DENSO ACIMA DO BM25.** A premissa do §6.3 não vale para estes
+modelos, e no recall@1 a distância é bem maior — 0,8595 contra 0,7115, quase 15 pontos.
+O benchmark, como especificado, mede algo que o recuperador dense já faz.
+
+⚠️ **O BM25 lê a equação inteira e os densos leem 192 tokens** (a mediana é 81, mas 10%
+passam de 238). A assimetria é a favor do BM25, e o denso venceu assim mesmo.
+
+### ⚠️ O defeito que anulou a primeira execução, e o que ele ensina
+
+A primeira rodada (5 h) morreu sem memória de vídeo no terceiro modelo. O conserto —
+**um processo por modelo**, porque a DirectML não devolve a memória do anterior —
+expôs um defeito maior: cada processo montava um **pool diferente**, com 841.101,
+843.127, 836.422 e 831.048 equações. A lista de documentos vem de um `unique()` em
+streaming, cuja ORDEM muda entre execuções, e o sorteio dos distratores andava em cima
+dela. Os sistemas eram comparados por bootstrap **pareado** sem terem visto os mesmos
+distratores.
+
+**Nada acusava:** cada execução, sozinha, imprimia "teto 1,0" e números plausíveis. É a
+mesma família das ocorrências de amostragem catalogadas no artigo — invisível por
+construção, e dentro da faixa esperada.
+
+E há uma ironia útil: com tudo num processo só, os três primeiros teriam compartilhado
+o pool por acidente e o número sairia certo pelo motivo errado. Foi o conserto do
+estouro de memória que revelou o problema.
+
+O que ficou: `montar_pool` ordena antes de sortear, `equacoes_do_pool` ordena a saída
+do `unique()`, a assinatura do cache carrega `pool_sha` e o número de equações (um
+sistema medido contra outro pool é RECUSADO), e um teste monta o pool com a lista em
+duas ordens e exige o mesmo resultado. Mais o cache por sistema, que grava cada um no
+disco assim que termina — sem ele, a falha teria custado as 5 h de novo.
+
+⚠️ E dois erros meus de operação, no mesmo comando: mandei a saída por `grep | tail`,
+que **engoliu os números dos dois primeiros modelos** e ainda mascarou o código de saída
+do script (o `0` era do `tail`). A lição do `tail -1` já estava catalogada no projeto
+desde 2026-09-12; repeti.
 
 ## Passo 1 do caminho B: o ModernBERT-base CRU supera o nosso tratado (2026-09-17)
 
