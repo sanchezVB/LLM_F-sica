@@ -63,3 +63,31 @@ def test_item_sem_alvo_no_pool_LEVANTA():
     """É o teto do pool < 1,0 — a armadilha que o G1 pagou."""
     with pytest.raises(ValueError, match="sem alvo"):
         metricas_por_item(np.array([[0, 1]]), [set()])
+
+
+# ── o pool tem de ser o MESMO em todo processo ──────────────────────────────
+
+def test_o_pool_NAO_depende_da_ordem_em_que_os_documentos_chegam():
+    """⚠️ Em 2026-09-18 cada modelo foi medido contra um pool diferente.
+
+    A lista de documentos vem de um `unique()` em streaming, cuja ordem muda entre
+    execuções, e o sorteio dos distratores andava em cima dela. Com um processo por
+    modelo, os quatro pools tinham 841.101, 843.127, 836.422 e 831.048 equações — e o
+    bootstrap PAREADO por item comparava sistemas que não viram os mesmos distratores.
+    Nada acusava: cada execução, sozinha, parecia correta.
+    """
+    import polars as pl
+
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    from avaliar_pb_formula import montar_pool
+
+    itens = pl.DataFrame({
+        "alvos": [["a1", "a2"], ["a3"]],
+        "documento_da_consulta": ["c1", "c2"],
+    })
+    todos = [f"d{i:03d}" for i in range(50)] + ["a1", "a2", "a3", "c1", "c2"]
+    p1 = montar_pool(itens, np.array(todos, dtype=object), 20, 17)
+    p2 = montar_pool(itens, np.array(list(reversed(todos)), dtype=object), 20, 17)
+    assert p1 == p2, "o pool mudou com a ordem de entrada"
+    assert {"a1", "a2", "a3"} <= set(p1), "todo alvo tem de estar no pool"
+    assert not ({"c1", "c2"} & set(p1)), "documento de consulta não entra como extra"
