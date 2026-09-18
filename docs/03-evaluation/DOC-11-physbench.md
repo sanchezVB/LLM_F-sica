@@ -190,6 +190,45 @@ Mede diretamente a capacidade que recuperação densa costuma perder: casamento 
 >
 > Dois defeitos achados no caminho: o contador de "falhas de canonização" dava 0 **por construção** (`canonicalizar` é total, e a docstring alegava que ele media as equações perdidas pelo RedPajama); e o corpus tem **6.778 `arxiv_id` repetidos** — cópias byte a byte entre as partes 32/33 e 34 —, que o benchmark trata como um documento só.
 
+> **§6.3-medido, parte 2 (2026-09-18) — o benchmark foi RODADO, e a premissa desta seção cai.**
+>
+> A frase acima diz que o PB-Formula "mede diretamente a capacidade que recuperação densa costuma perder: casamento simbólico exato". Medido, com a regra escrita antes em `scripts/avaliar_pb_formula.py`, ela está errada para os modelos deste projeto.
+>
+> Protocolo: 2.000 itens sorteados do estrato **notacional** sem documento quase igual (24.508 itens), pool de 20.000 documentos, **838.198 equações indexadas**, teto 1,0, escore do documento = máximo sobre as equações dele, e os quatro sistemas no MESMO pool (`pool_sha 537cbd9f9294c673`).
+>
+> | sistema | r@1 | r@10 | r@50 | MRR | recall@10 − BM25 |
+> |---|---|---|---|---|---|
+> | BM25 (controle lexical) | 0,7115 | 0,9300 | 0,9790 | 0,7902 | — |
+> | **ΦEmb do sistema** (MiniLM, 6 M pares) | **0,8595** | **0,9550** | 0,9765 | **0,8966** | **+0,0250 [0,0115; 0,039]** |
+> | ModernBERT@200k | 0,8295 | 0,9500 | 0,9695 | 0,8760 | +0,0200 [0,0065; 0,034] |
+> | GTE-base@400k | 0,8005 | 0,9200 | 0,9545 | 0,8450 | −0,0100 [−0,0245; 0,005] |
+>
+> **Desfecho pela regra: DENSO ACIMA DO BM25.** E no recall@1 a distância é de quase 15 pontos.
+>
+> ⚠️ A assimetria do protocolo é CONTRA o denso: o BM25 lê a equação inteira e os modelos leem 192 tokens (mediana 81, mas 10% passam de 238). Ele venceu assim mesmo.
+>
+> **A secundária, prevista na regra, confirma que o corte por estrato mede o que promete** — 2.000 itens de cada estrato, BM25 e ΦEmb do sistema:
+>
+> | estrato | BM25 r@1 | ΦEmb r@1 | vantagem do denso em r@1 | recall@10 ΦEmb − BM25 |
+> |---|---|---|---|---|
+> | `identica` (114.489 itens) | 0,9465 | 0,9990 | +0,053 | +0,0020 [0,0005; 0,004] |
+> | `superficial` (92.786) | 0,8765 | 0,9410 | +0,065 | −0,0065 [−0,015; 0,0015] |
+> | **`notacional` (24.508)** | 0,7115 | 0,8595 | **+0,148** | +0,0250 [0,0115; 0,039] |
+>
+> A dificuldade cresce monotonicamente nos dois sistemas, e a vantagem do denso cresce COM a variação notacional. O corte por grafia separa o que diz separar — e é isso que torna o desfecho primário forte, em vez de artefato do conjunto.
+>
+> **O que isto muda na especificação, proposto e não decidido:**
+>
+> 1. **A justificativa do §6.3 não se sustenta como está.** Se o benchmark existe para medir o que o denso perde, ele precisa de itens que o denso perca. Estes não são.
+> 2. **Ele continua útil com outra leitura:** é uma medida de recuperação por equação em que o nosso recuperador de 23 M vence um BM25 que lê texto integral — resultado favorável ao sistema, e que vale reportar como tal, não como lacuna.
+> 3. **Se a intenção original for mantida**, a variação precisa ser mais dura que a que o corpus oferece naturalmente: formas canonicamente equivalentes e lexicamente distantes (`\frac{a}{b}` contra `a/b`, `\sum` contra produto expandido, troca de convenção de índices), que praticamente não aparecem em pares de artigos reais — teriam de ser GERADAS, e aí o benchmark deixa de ser gabarito gratuito e passa a ser sintético, com a renovabilidade da §7 e o custo de validação que ela implica.
+> 4. **E há uma leitura para o DOC-13:** o estágio de casamento simbólico que a busca híbrida prevê não se justifica por este número. Ele teria de se justificar por consultas que usuários realmente escrevem, que não são as equações verbatim de artigos.
+>
+> Artefatos: `data/processed/avaliacao/pb_formula_resultado.json`, `pb_formula_identica.json`, `pb_formula_superficial.json`.
+>
+> ⚠️ **A primeira execução foi ANULADA** e o motivo está no ESTADO: um processo por modelo (o conserto do estouro de memória de vídeo) fez cada sistema montar um pool diferente — 841.101, 843.127, 836.422 e 831.048 equações —, e o bootstrap pareado comparava sistemas que não viram os mesmos distratores. Nada acusava. O pool agora é função de `(semente, tamanho)`, a assinatura do cache carrega `pool_sha`, e um teste reprova a regressão.
+
+
 ---
 
 ## 7. A propriedade que torna esta suíte diferente: renovabilidade

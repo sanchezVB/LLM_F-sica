@@ -1,0 +1,51 @@
+{
+  "benchmark": "PB-Formula (DOC-11 §6.3)",
+  "regra": "scripts/avaliar_pb_formula.py · docstring, escrita antes",
+  "protocolo": {
+    "estrato": "superficial",
+    "max_formas_em_comum": 5,
+    "itens": 2000,
+    "pool": 20000,
+    "equacoes_indexadas": 799493,
+    "semente": 17,
+    "max_tokens": 192,
+    "teto_do_pool": 1.0,
+    "escore_do_documento": "máximo sobre as equações dele",
+    "itens_no_estrato": 92786,
+    "itens_totais": 374739
+  },
+  "sistemas": {
+    "bm25": {
+      "recall_1": 0.8765,
+      "recall_10": 0.984,
+      "recall_50": 0.998,
+      "mrr": 0.9164,
+      "posto_mediano": 1.0
+    },
+    "phiemb-do-sistema": {
+      "recall_1": 0.941,
+      "recall_10": 0.9775,
+      "recall_50": 0.9865,
+      "mrr": 0.9551,
+      "posto_mediano": 1.0
+    }
+  },
+  "recall_10_contra_bm25_bootstrap_por_item": {
+    "phiemb-do-sistema": {
+      "diferenca": -0.0065,
+      "ic95": [
+        -0.015,
+        0.0015
+      ],
+      "cruza_zero": true,
+      "itens": 2000
+    }
+  },
+  "melhor_denso": "phiemb-do-sistema",
+  "desfecho": "EMPATE",
+  "leitura": "não estabelecido nesta escala; fica reportado assim.",
+  "custo_segundos": {
+    "bm25": 35.5,
+    "phiemb-do-sistema": 1747.9
+  }
+}
