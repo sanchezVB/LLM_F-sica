@@ -70,6 +70,25 @@ rodados de jeitos diferentes mede o jeito de rodar.
 
 `tests/regression/test_laco_ddp.py` prova por equivalência: dois processos em CPU
 (`gloo`) terminam com os mesmos pesos que um.
+
+## ⚠️ O spike de PERDA é julgado nos alvos uniformes, não na perda de treino
+
+A perda de treino é a média sobre todos os alvos, e no braço tratado parte deles são
+equações INTEIRAS escondidas — alvos muito mais difíceis, cuja quantidade por lote
+varia com o sorteio do tratamento. A perda crua oscila com a composição do lote, e o
+critério "μ + 4σ" confunde isso com instabilidade.
+
+Medido em 2026-09-19, no CPT tratado do ModernBERT-base: o detector disparou nos
+passos 429, 1.699 e 4.489, sempre pelo critério de perda e nunca pelo de norma, e o
+run parou pela regra dos três spikes. Reproduzidos os lotes — o fluxo é função de
+`(semente, passo)` —, os três tinham de **+3,0σ a +4,1σ de tokens de equação
+inteira** contra 300 passos sorteados, e dois passavam do máximo da amostra.
+
+Então o detector recebe a perda dos alvos do sorteio UNIFORME
+(`mascarar_com_origem`), que é a mesma tarefa nos dois braços e tem composição
+estável. A perda de treino não muda, e o critério de norma continua sobre o
+gradiente inteiro. No braço controle os dois sinais coincidem: todo alvo é
+uniforme.
 """
 
 from __future__ import annotations
@@ -91,7 +110,7 @@ from phifm.training.pretrain.dados import Fluxo
 from phifm.training.pretrain.mascaramento import (
     ConfigMascara,
     Contadores,
-    mascarar,
+    mascarar_com_origem,
 )
 from phifm.training.pretrain.spike import (
     ConfigSpike,
@@ -258,8 +277,12 @@ class Treinador:
 
     # ── um micro-passo ──────────────────────────────────────────────────────
 
-    def _mascarar_lote(self, indice: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def _mascarar_lote(self, indice: int, com_origem: bool = False):
         """O micro-passo `indice`, mascarado. Função de `(semente, indice)` só.
+
+        Devolve `(entrada, alvos)`, e com `com_origem` também a máscara booleana dos
+        alvos que vieram da equação inteira — ver o § do spike de perda na
+        docstring do módulo.
 
         ⚠️ O gerador é criado AQUI, por micro-passo — ver "Duas GPUs" na docstring do
         módulo. Um gerador único do treinador fazia a máscara depender de quantas
@@ -267,30 +290,61 @@ class Treinador:
         """
         ids, ide, disp = self.fluxo.lote(indice)
         rng = np.random.default_rng((self.cfg_mascara.semente, indice))
-        entradas, alvos = [], []
+        entradas, alvos, origens = [], [], []
         for s in range(ids.shape[0]):
-            e, a = mascarar(
+            e, a, o = mascarar_com_origem(
                 ids[s], ide[s], disp[s], cfg=self.cfg_mascara, rng=rng,
                 id_mask=self.cfg.id_mask, n_vocab=self.cfg_enc.vocab,
                 ids_especiais=frozenset(self.cfg.ids_especiais),
                 contadores=self.contadores)
             entradas.append(e)
             alvos.append(a)
-        return (torch.from_numpy(np.stack(entradas)).to(self.dev),
-                torch.from_numpy(np.stack(alvos)).to(self.dev))
+            origens.append(o)
+        saida = (torch.from_numpy(np.stack(entradas)).to(self.dev),
+                 torch.from_numpy(np.stack(alvos)).to(self.dev))
+        if com_origem:
+            return (*saida, torch.from_numpy(np.stack(origens)).to(self.dev))
+        return saida
 
-    def _passo(self, passo: int) -> tuple[float, float, bool]:
+    @staticmethod
+    def _perda_uniforme(logits: torch.Tensor, alvos: torch.Tensor,
+                        de_equacao: torch.Tensor) -> tuple[float, int]:
+        """`(soma, n)` da entropia cruzada nos alvos UNIFORMES do micro-passo.
+
+        Sem gradiente: é o sinal do detector, não a perda de treino. Aceita os
+        logits densos `(lote, contexto, vocab)` e os esparsos do ModernBERT com
+        `sparse_prediction`, que só trazem as posições com alvo.
+        """
+        with torch.no_grad():
+            a, o = alvos.reshape(-1), de_equacao.reshape(-1)
+            lg = logits.reshape(-1, logits.shape[-1])
+            if lg.shape[0] != a.shape[0]:
+                com_alvo = a != -100
+                a, o = a[com_alvo], o[com_alvo]
+            sel = (a != -100) & ~o
+            n = int(sel.sum())
+            if n == 0:
+                return 0.0, 0
+            soma = torch.nn.functional.cross_entropy(
+                lg[sel].float(), a[sel], reduction="sum")
+            return float(soma), n
+
+    def _passo(self, passo: int) -> tuple[float, float, float, bool]:
         """Um passo de otimizador, com `acumulacao` micro-passos.
 
-        Devolve `(perda, norma_do_gradiente, o_passo_aconteceu)`. O terceiro é
-        `False` quando o `GradScaler` pulou — e um passo pulado **não é um spike**.
+        Devolve `(perda, perda_uniforme, norma_do_gradiente, o_passo_aconteceu)`. A
+        segunda é o que o detector julga — ver o § do spike de perda na docstring
+        do módulo. O quarto é `False` quando o `GradScaler` pulou — e um passo
+        pulado **não é um spike**.
         """
         self.opt.zero_grad(set_to_none=True)
         perda_total = 0.0
+        soma_unif, n_unif = 0.0, 0
         for micro in range(self.acum_local):
             # O processo `r` cobre a sua fatia dos micro-passos do passo inteiro.
-            entrada, alvos = self._mascarar_lote(
-                passo * self.cfg.acumulacao + self.dist.rank * self.acum_local + micro)
+            entrada, alvos, de_equacao = self._mascarar_lote(
+                passo * self.cfg.acumulacao + self.dist.rank * self.acum_local + micro,
+                com_origem=True)
             # Sincronizar os gradientes só no último micro-passo: nos outros o DDP
             # faria um all-reduce por micro-passo para jogar fora.
             ultimo = micro == self.acum_local - 1
@@ -305,6 +359,9 @@ class Treinador:
                 else:
                     perda.backward()
             perda_total += float(perda.detach()) * self.acum_local
+            s, n = self._perda_uniforme(saida.logits, alvos, de_equacao)
+            soma_unif += s
+            n_unif += n
 
         lr = lr_wsd(passo, self.cfg.total_passos, pico=self.cfg.lr_pico,
                     passos_warmup=self.passos_warmup,
@@ -328,8 +385,11 @@ class Treinador:
             self.opt.step()
             aconteceu = True
         # A MÉDIA entre processos: é o que o detector de spike vê, e os processos têm
-        # de tomar a mesma decisão de rollback.
+        # de tomar a mesma decisão de rollback. A uniforme é ponderada por alvo —
+        # soma e contagem somadas, e só então divididas.
+        soma_unif, n_unif = self._soma_entre_processos(soma_unif, n_unif)
         return (self._media_entre_processos(perda_total / self.acum_local),
+                soma_unif / n_unif if n_unif else perda_total / self.acum_local,
                 self._media_entre_processos(norma), aconteceu)
 
     # ── os coletivos, que num processo só não fazem nada ────────────────────
@@ -344,6 +404,13 @@ class Treinador:
         t = torch.tensor([valor], dtype=torch.float64, device=self.dev)
         torch.distributed.all_reduce(t)
         return float(t.item()) / self.dist.mundo
+
+    def _soma_entre_processos(self, soma: float, n: int) -> tuple[float, int]:
+        if self.dist.mundo == 1:
+            return soma, n
+        t = torch.tensor([soma, float(n)], dtype=torch.float64, device=self.dev)
+        torch.distributed.all_reduce(t)
+        return float(t[0].item()), int(t[1].item())
 
     def contadores_globais(self) -> Contadores:
         """Os contadores do mascaramento SOMADOS entre os processos."""
@@ -371,11 +438,11 @@ class Treinador:
         self.modelo.train()
 
         while passo < self.cfg.total_passos:
-            perda, norma, aconteceu = self._passo(passo)
+            perda, perda_uniforme, norma, aconteceu = self._passo(passo)
             tokens_desde_log += tokens_por_passo
 
             if aconteceu:
-                v = self.detector.observar(passo, perda, norma)
+                v = self.detector.observar(passo, perda_uniforme, norma)
                 if v.e_spike:
                     log.error("SPIKE no passo %d: %s", passo, v.motivo)
                     if v.exigir_humano:

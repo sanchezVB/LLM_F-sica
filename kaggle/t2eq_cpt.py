@@ -256,9 +256,20 @@ print(f"\ntreino terminou em {minutos:.1f} min · código {codigo_saida}")
 assert codigo_saida == 0, f"o treino falhou; veja {LOG}"
 
 # ── 7. Exportar, para o avaliador conseguir abrir ──────────────────────────
+# ⚠️ `--mesmo-assim`, e a lição já estava paga: o braço A do T2a terminou em ERROR
+# em 2026-09-11 depois de treinar inteiro, e as células do T2a e do §2.3 passaram a
+# levar a bandeira (ver `kaggle/t2eq_tratado.py`). Esta célula nasceu sem ela, e o
+# controle do caminho B repetiu o ERROR em 2026-09-19 — 441 min de treino completo,
+# 2 spikes de norma com rollback, e a exportação recusada no fim.
+#
+# A ressalva vai para o manifesto do artefato, que é onde a comparação local tem de
+# ler `spike.n_spikes` dos dois braços. Recusar aqui só produz um `.pt` que alguém
+# exporta à mão depois, com a mesma bandeira e nenhuma informação a mais.
 EXPORT = TRABALHO / f"phienc-cpt-{VARIANTE}-exportado"
 r = subprocess.run([sys.executable, str(CODIGO / "scripts/exportar_phienc.py"),
-                    "--run", str(SAIDA), "--para", str(EXPORT)],
+                    "--run", str(SAIDA), "--para", str(EXPORT), "--mesmo-assim",
+                    "--nota", f"caminho B · braço {VARIANTE} · p_equacao "
+                              f"{P_EQUACAO[VARIANTE]} · {PASSOS:,} passos"],
                    cwd=str(CODIGO), env=env, capture_output=True, text=True,
                    encoding="utf-8", errors="replace")
 print(r.stdout[-2000:] if r.stdout else "", r.stderr[-2000:] if r.returncode else "")

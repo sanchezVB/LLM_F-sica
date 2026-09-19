@@ -32,6 +32,7 @@ from phifm.training.pretrain.mascaramento import (  # noqa: E402
     Contadores,
     marcar_equacoes,
     mascarar,
+    mascarar_com_origem,
     spans_de_equacao,
 )
 
@@ -407,3 +408,52 @@ def test_tokens_sem_extensao_nas_duas_pontas_nao_quebram_a_busca():
     assert (m == m_ref).all(), (m.tolist(), m_ref.tolist())
     assert (d == d_ref).all()
     assert m[0] == -1 and m[-1] == -1
+
+
+# ─── a origem de cada alvo, para o detector de spike ─────────────────────────
+
+
+def test_a_origem_marca_EXATAMENTE_a_equacao_inteira():
+    """O detector julga spike de perda sem os alvos da equação inteira.
+
+    Se a origem marcasse a mais, alvos uniformes sairiam do sinal; a menos, a
+    composição do lote voltaria a mexer nele — e foi isso que parou o CPT tratado
+    de 2026-09-19 três vezes sem nada instável.
+    """
+    ids, marca, disp = _exemplo(n_eq=60, inicio_eq=100)
+    _, alvos, origem = mascarar_com_origem(
+        ids, marca, disp, cfg=ConfigMascara(p_equacao=1.0),
+        rng=np.random.default_rng(0), id_mask=ID_MASK, n_vocab=N_VOCAB,
+        ids_especiais=ESPECIAIS)
+    assert origem.dtype == bool and origem.shape == ids.shape
+    assert np.array_equal(np.flatnonzero(origem), np.arange(100, 160))
+    assert (alvos[origem] != -100).all()
+    # E sobra alvo uniforme: é ele que o detector vê.
+    assert ((alvos != -100) & ~origem).any()
+
+
+def test_sem_tratamento_NENHUM_alvo_e_da_equacao_inteira():
+    """No controle, o sinal do detector é a perda de treino: todo alvo é uniforme."""
+    ids, marca, disp = _exemplo()
+    _, alvos, origem = mascarar_com_origem(
+        ids, marca, disp, cfg=ConfigMascara(p_equacao=0.0),
+        rng=np.random.default_rng(0), id_mask=ID_MASK, n_vocab=N_VOCAB,
+        ids_especiais=ESPECIAIS)
+    assert not origem.any()
+    assert (alvos != -100).any()
+
+
+def test_mascarar_e_mascarar_com_origem_SORTEIAM_igual():
+    """`mascarar` é a mesma função sem a terceira saída.
+
+    Se as duas divergissem, o laço (que usa a com origem) treinaria com máscaras
+    diferentes das que os sondadores e os testes (que usam `mascarar`) conferem.
+    """
+    ids, marca, disp = _exemplo()
+    for p in (0.0, 0.6, 1.0):
+        cfg = ConfigMascara(p_equacao=p)
+        kw = dict(cfg=cfg, id_mask=ID_MASK, n_vocab=N_VOCAB, ids_especiais=ESPECIAIS)
+        e1, a1 = mascarar(ids, marca, disp, rng=np.random.default_rng(5), **kw)
+        e2, a2, _ = mascarar_com_origem(ids, marca, disp,
+                                        rng=np.random.default_rng(5), **kw)
+        assert np.array_equal(e1, e2) and np.array_equal(a1, a2)

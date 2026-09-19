@@ -31,7 +31,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **ΦEnc** · dado | 🟢 **destravado, US$ 0** | RedPajama-arXiv tem ambiente de equação em **84,9%** contra 0,0% do peS2o. ~10 B tokens de LaTeX íntegro no disco. A recomendação de comprar acesso ao arXiv estava errada — [ADR-0002](docs/adr/ADR-0002-fonte-latex-para-o-phienc.md) |
 | **LaTeX de `math`+`cs`** | 🟢 **COLETADO em 2026-09-12** | 100 shards · 93,8 GB · **~39 min** · 0 falhas → **687.907 docs, 44,9 G chars, 11,2 B tokens**. Duplicação **1,000×** e sobreposição **0** com a fatia de Física (os 179.441 cross-list saíram do filtro). A sonda de 4,62 GB previu com **<2% de erro** em tudo. O LaTeX íntegro do corpus **dobrou**: 42,15 → 87,0 G chars. ⚠️ A ressalva de composição segue de pé, e as fatias ficam SEPARADAS para permitir medi-la |
 | ~~LaTeX disponível e NÃO coletado~~ | 🟢 resolvido acima | sonda em 5 de 100 shards sorteados (4,62 GB, 1,8 min): a Física é **52,2%** do RedPajama; `math` **25,0%** e `cs` **20,1%** foram baixados e DESCARTADOS pelo filtro. Extrapolado ×20: **685.200 docs, 44,6 G chars, +106%** sobre os 42,15 G da Física. Régua: a Física extrapolada dá 794.100 contra 828.601 em disco (−4,2%). ⚠️ Mas isso é VOLUME; acrescentar põe **45% de não-Física** no corpus de um modelo de Física, e esse trade-off nenhum número daqui mediu. Custo de coletar: **92 GB de download, ~45 min, US$ 0** (o bruto não aterra; a saída são ~13 GB de parquet) |
-| **ΦEnc** · código | 🟢 **treinado três vezes do zero; o quarto, CPT, rodando** | mascaramento de equações, fluxo sem estado, detector de spike e laço WSD, todos exercidos em run real: **três encoders de 48 M a 0,6 B** no Kaggle — A e E do T2a e o tratado do §2.3 (E levou 8 h 08, o tratado 8 h 11, ~20,5 mil tok/s numa T4). O **detector de spike disparou em dois** e o run seguiu: A no passo 3.798 (volta ao 3.500, 299 lotes descartados) e o tratado no 8.075 (volta ao 8.000, 76 lotes, LR pela metade). Depois o laço ganhou **duas GPUs** (`torchrun`, pesos iguais a 1,2×10⁻⁷) e **CPT** (`--base`). Em curso desde 2026-09-18: o CPT do ModernBERT-base (150 M) nos dois braços do caminho B — a primeira vazão medida em duas placas. Fumaça original em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
+| **ΦEnc** · código | 🟢 **treinado três vezes do zero; o quarto, CPT, rodando** | mascaramento de equações, fluxo sem estado, detector de spike e laço WSD, todos exercidos em run real: **três encoders de 48 M a 0,6 B** no Kaggle — A e E do T2a e o tratado do §2.3 (E levou 8 h 08, o tratado 8 h 11, ~20,5 mil tok/s numa T4). O **detector de spike disparou em dois** e o run seguiu: A no passo 3.798 (volta ao 3.500, 299 lotes descartados) e o tratado no 8.075 (volta ao 8.000, 76 lotes, LR pela metade). Depois o laço ganhou **duas GPUs** (`torchrun`, pesos iguais a 1,2×10⁻⁷) e **CPT** (`--base`). O quarto, o CPT do ModernBERT-base (150 M), completou o braço controle em 2026-09-19 a 15,2 mil tok/s em duas T4; o tratado será refeito, com o detector corrigido. Fumaça original em CPU: perda inicial **10,7343** contra ln(40.960)=**10,6204** |
 | **ΦEnc** · fatia de avaliação | 🟢 **51,7 M tokens, DISJUNTA** | `part-00022` — uma das 35 partes que o treino não usou. O manifesto declara `disjunto_do_treino` e as 9 excluídas; o avaliador de MLM **recusa** fatia que não declare |
 | **ΦEnc** · dados | 🟢 **2,00 B tokens prontos** | 244.295 sequências de 8.192, 6,0 GB. Partes SORTEADAS. `fracao_tratada` **0,903**, taxa efetiva **0,3000** |
 | **Revisão do peS2o** | 🟡 amostra REFEITA, julgamento pendente | a amostra anterior cobria **0,67%** do corpus e era 100% resumo. A nova é estratificada: 200 resumo + 200 texto pleno, sorteio uniforme sobre os 277 parquets |
@@ -39,8 +39,8 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
-| **Caminho B** · os dois braços RODANDO | 🟡 **lançado 2026-09-18 22:40** | dataset `viaciclo/phifm-t2eq-cpt-fatia` (assinatura `9b11405899cd8858`), código em `a391fe0`, notebooks `phifm-t2eq-cpt-controle` e `-tratado` em `RUNNING`, cada um em T4 x2 (as 2 sessões simultâneas que o Kaggle permite). Previsto ~7 h cada. O laço aprendeu CPT (`--base`, com guarda do id de máscara — que o preparador NUNCA gravava, e isso fechava o caminho), célula em 2 T4 com a regra escrita antes, e as duas fatias no tokenizer do ModernBERT: **423 M** de treino (partes 35 e 14) e **62 M** de avaliação (parte 3, a mesma do §2.3). Pacote de **1,27 GB** montado |
-| **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. Falta medir a vazão real |
+| **Caminho B** · 1ª execução | 🟡 **controle PRONTO; tratado refazer** | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
+| **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. **Vazão medida em 2026-09-19**: mediana de **15,2–15,9 mil tok/s** no ModernBERT-base (150 M), contexto 1.024, contra 15,6 mil projetados |
 | **PB-Formula** · MEDIDO | 🔴 **a premissa do §6.3 cai** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
 | **Artigo do programa** | 🟢 **v0.3** (2026-09-17) | remedição do G1, base × volume, o ΦRank sai, T2a e a ablação do §2.3; seções novas sobre instrumentos pré-registrados inválidos e ΦEnc do zero × CPT. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
@@ -49,13 +49,119 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Teto de sessão** no laço | 🟢 **`horas_estimadas` existia e NINGUÉM a chamava** | o laço sabia projetar o custo e nunca fazia nada com a projeção. Dimensionar por FLOPs é supor MFU, e a 48 M isso é frouxo: 15% contra 25% é **8,9 h contra 5,9 h**, os dois lados de uma sessão de 9 h. `--limite-horas` compara com a vazão MEDIDA e aborta na SEGUNDA janela de log (a primeira carrega autotune do cuDNN). Custa ~2 min em vez de 9 h |
 | **Ensaio do T2a** | 🟢 **a cadeia inteira em miniatura, 7 min** | treinar 30 passos com A e com E, exportar, e rodar as três medidas — antes de gastar 15 h de T4. Pegou um bug real: `avaliar_encoders.py --dispositivo dml` morria no primeiro modelo, depois de carregar 133 mil pares e sortear o pool, porque `torch.device("dml")` levanta. Exportação com ida e volta de logits **0,0** |
 | **Termos** | 🟢 **"reranqueador" era neologismo meu** | 115 ocorrências → "reordenador"; "espinha" (tradução literal de *spine*) → "tabela mestra", 62. ⚠️ "espinha dorsal" fica (é *backbone*, outra metáfora) e os IDENTIFICADORES também — renomear `spine.parquet` invalidaria o que o hash raiz atesta. Nomes de datasets ficam como os donos publicam: `peS2o` é "Pretraining Efficiently on S2ORC" |
-Suíte: **813 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
+Suíte: **955 testes** na venv rápida (17 saltados) + **21 na venv de treino**, `PYTHONPATH=src .venv/Scripts/python.exe -m pytest tests/ -q`.
 Mais 9 do laço de pré-treino, que rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_laco_pretreino.py -q`
 Os que dependem de torch rodam na venv de treino:
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_g1_criterios.py tests/regression/test_comparacao_pareada.py tests/regression/test_melhor_checkpoint.py tests/regression/test_gradcache.py tests/regression/test_estado_progresso.py -q`
 E os do ΦEnc de ponta a ponta (exportador + corrente até o avaliador do G1):
 `.venv-treino/Scripts/python.exe -m pytest tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py -q`
+
+## Caminho B, primeira execução: o controle treinou inteiro, o tratado parou por três alarmes falsos — e o exportador teria envenenado a medida (2026-09-19)
+
+Os dois braços terminaram em ERROR no Kaggle, por motivos diferentes, e nenhum dos dois
+é um resultado. O que sai daqui é um encoder controle pronto, a vazão real em duas T4,
+e três defeitos corrigidos antes de qualquer número.
+
+| | controle (`p_equacao` 0,0) | tratado (`p_equacao` 0,6) |
+|---|---|---|
+| passos | **6.103 de 6.103** | **4.489 de 6.103** (73,5%) |
+| treino | 441 min (7 h 21) | 5 h 09 até parar |
+| vazão, mediana, duas T4 | **15.191 tok/s** (MFU 10,5%) | **15.932 tok/s** (MFU 11,0%) |
+| spikes | 2, de **norma** (passos 297 e 633: 7,2 e 7,7 contra mediana 0,64) | 3, de **perda** (429, 1.699, 4.489), norma normal |
+| rollbacks | 2 (48 + 134 lotes) | 2 (180 + 200 lotes), e a parada no terceiro |
+| perda final | 0,9135 | — |
+| por que ERROR | a exportação recusou o run com spike | a regra de três spikes em 5.000 passos |
+
+A vazão projetada era ~15,6 mil tok/s (os 20.478 tok/s do proxy numa T4, ÷ 2,64 do
+custo por passo do ModernBERT-base medido em CPU, × 2 placas): a medida caiu dos dois
+lados dela, e a projeção por custo relativo em CPU acertou a 3%. A
+diferença de ~5% entre os braços é de máquina, não de código — os dois rodaram o mesmo
+SHA.
+
+### 1. O controle: a lição que já estava paga e eu não levei
+
+O braço A do T2a terminou em ERROR em 2026-09-11 exatamente assim — treino completo,
+um spike com rollback, exportação recusada —, e as células do T2a e do §2.3 passaram a
+levar `--mesmo-assim`, com o motivo escrito. **A célula do CPT nasceu sem a bandeira.**
+Foram 7 h 21 de treino completo terminando em ERROR pelo mesmo motivo. Os pesos
+estavam salvos, e a exportação foi feita localmente; agora um teste exige a bandeira
+na célula.
+
+### 2. O exportador tinha um defeito que teria envenenado a medida primária
+
+Exportado localmente, o log dizia `mask_token=#`, `cls_token=!`, `pad_token=|||IP_ADDRESS|||`.
+O exportador sempre nomeou os especiais pelos ids 0–4 do `ESPECIAIS`, a convenção dos
+NOSSOS tokenizers — e no ModernBERT os ids 0–4 são tokens comuns; o `[MASK]` é o
+50284. O `config.json` saía com `pad/cls/sep` = 0/2/3 em vez de 50283/50281/50282.
+
+**Nada acusava.** Pesos idênticos, ida e volta com diferença de logits 0, `modelo(**tok(texto))`
+funcionando: toda conferência comparava o artefato com ele mesmo. E a regra do caminho
+B tem como primária a diferença das diferenças do **MLM por região** — que esconde
+tokens com o `[MASK]` do tokenizer. Os dois braços seriam medidos escondendo tokens com
+`#`, e a regra sairia com um número.
+
+A exportação no Kaggle, se tivesse passado, teria gravado o mesmo tokenizer errado:
+foi a trava do spike que fez a exportação acontecer aqui, onde o log foi lido.
+
+Corrigido: num CPT (`modelo.nome` = `CPT:<base>`), a arquitetura sai de
+`AutoConfig.from_pretrained(base)` (`construir_da_base`), os papéis dos especiais saem
+do tokenizer da base, e — nos dois caminhos — o `[MASK]` exportado é **conferido
+contra o `id_mask` com que o laço treinou**, e config e tokenizer têm de concordar em
+`pad/cls/sep`. Três testes novos, e os três **reprovam no código antigo** — inclusive
+um de arquitetura: com uma base cujo `global_rope_theta` difere do DOC-07, o caminho
+antigo dá 4,9e-05 de diferença de logits com os mesmos pesos. No ModernBERT-base os
+campos numéricos por acaso coincidem: o controle exportado pelo caminho antigo dava
+logits **0,0** contra a base carregada com os pesos treinados. Era sorte da base, não
+propriedade do caminho.
+
+`models/phienc-cpt-controle`: exportado de novo, `[MASK]`=50284, com a ressalva dos 2
+spikes de norma no manifesto.
+
+### 3. O tratado: o detector confundiu a COMPOSIÇÃO do lote com instabilidade
+
+Os três spikes do tratado foram pelo critério de perda, e por pouco: 1,6438 contra
+limiar 1,6231; 1,5748 contra 1,5675; 1,6165 contra 1,5526 — com a norma do gradiente
+normal nos três. O DOC-08 §6.1 manda, na parada, olhar os lotes; o fluxo é função de
+`(semente, passo)`, então eles saem de novo sem GPU
+(`scripts/diagnosticar_spikes_lotes.py`, 300 passos sorteados como referência):
+
+| passo | alvos de equação inteira | fração dos alvos | z | referência ≥ ele |
+|---|---|---|---|---|
+| referência (300 passos) | μ 1.894,7 · σ 405,7 · máx 3.127 | 0,0965 | — | — |
+| 429 | **3.407** | 0,1734 | **+3,73** | 0,000 |
+| 1.699 | **3.110** | 0,1583 | **+3,00** | 0,007 |
+| 4.489 | **3.553** | 0,1809 | **+4,09** | 0,000 |
+
+Os três lotes que dispararam são os que mais esconderam equações inteiras — e dois
+passam do máximo da amostra. Um alvo de equação inteira é muito mais difícil que um
+uniforme, e a quantidade dele por lote varia com o sorteio do tratamento: a perda crua
+do braço tratado oscila com a composição, e "μ + 4σ" lê isso como instabilidade.
+
+O desvio da perda registrada confirma: **σ 0,077 no tratado contra 0,037 no
+controle**, o dobro, sem cauda pesada (curtose 2,6).
+
+Corrigido: o detector julga spike de perda **só nos alvos uniformes**
+(`mascarar_com_origem` marca de onde veio cada alvo, e `Treinador._perda_uniforme`
+calcula a entropia cruzada deles sem gradiente). A perda de treino não muda, e o
+critério de norma continua sobre o gradiente inteiro. Testes: a conta com logits
+densos e esparsos, a costura (o detector recebe a uniforme — o teste **reprova** se
+ele voltar a receber a de treino) e a equivalência no controle.
+
+⚠️ **O controle não precisa rodar de novo por isso.** No controle todo alvo é
+uniforme, e os dois sinais são o mesmo número (a de treino é média por micro-passo, a
+uniforme é ponderada por alvo; com as contagens iguais medidas — 19.643 ± 2 por passo
+—, a diferença é de arredondamento). E os dois spikes dele foram de norma, que não
+mudou.
+
+⚠️ O spike do §2.3 a 48 M (passo 8.075) também foi pelo critério de perda — 2,0419
+contra 1,9361 — no braço tratado. O mecanismo é provavelmente o mesmo; **não foi
+verificado** pela composição do lote.
+
+### O que isto custou
+
+~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
+controle está aproveitado inteiro. O tratado precisa de outra execução.
 
 ## PB-Formula medido: o denso VENCE o BM25, e a premissa do DOC-11 §6.3 cai (2026-09-18)
 

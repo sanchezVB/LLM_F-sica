@@ -104,3 +104,20 @@ def test_a_regra_esta_escrita_e_a_primaria_e_a_DIFERENCA_DAS_DIFERENCAS():
         assert desfecho in CELULA, f"o desfecho {desfecho} não está escrito"
     assert "fracao_tratada" in CELULA and "INVÁLIDO" in CELULA
     assert "print(REGRA)" in CELULA, "a regra tem de sair no log do run"
+
+
+def test_a_exportacao_passa_mesmo_assim_e_o_run_com_spike_NAO_termina_em_ERROR():
+    """A lição de 2026-09-11 (braço A do T2a), que esta célula nasceu sem.
+
+    O controle do caminho B treinou os 6.103 passos em 441 min, teve 2 spikes de
+    norma com rollback, e terminou em ERROR porque o exportador recusou sem a
+    bandeira. A ressalva vai ao manifesto do artefato; recusar só troca um
+    artefato avaliável por um `.pt` que alguém exporta à mão depois.
+    """
+    arvore = _arvore("controle")
+    chamadas = [n for n in ast.walk(arvore) if isinstance(n, ast.List)
+                and any(isinstance(e, ast.Constant) and e.value == "--para"
+                        for e in n.elts)]
+    assert chamadas, "não achei a chamada do exportador na célula"
+    assert any(any(isinstance(e, ast.Constant) and e.value == "--mesmo-assim"
+                   for e in c.elts) for c in chamadas)

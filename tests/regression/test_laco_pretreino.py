@@ -97,7 +97,7 @@ def test_a_perda_inicial_e_ln_do_vocabulario(tmp_path):
     # `total=10` e nao 1: com um passo so, warmup + decay nao deixam plato e o
     # `plano_wsd` levanta — de proposito. Aqui so o passo 0 e executado.
     t = _treinador(tmp_path, total=10)
-    perda, _, _ = t._passo(0)
+    perda, _, _, _ = t._passo(0)
     assert perda == pytest.approx(math.log(VOCAB), rel=0.06), (
         f"perda inicial {perda:.4f} contra ln({VOCAB})={math.log(VOCAB):.4f}. "
         "O MLM não está prevendo uniforme no início — algo na cadeia de "
@@ -185,3 +185,63 @@ def test_config_de_treino_invalida_levanta():
     for kw in ({"total_passos": 0}, {"total_passos": 10, "acumulacao": 0}):
         with pytest.raises(ValueError, match="positivos"):
             ConfigTreino(**kw)
+
+
+# ── o sinal do detector: a perda dos alvos UNIFORMES ─────────────────────────
+
+
+def test_a_perda_uniforme_EXCLUI_os_alvos_da_equacao_inteira():
+    """A conta em si, com logits densos e com os esparsos do `sparse_prediction`."""
+    torch.manual_seed(0)
+    logits = torch.randn(2, 5, 7)
+    alvos = torch.tensor([[1, -100, 3, 4, -100], [-100, 2, 2, 6, 0]])
+    origem = torch.tensor([[False, False, True, True, False],
+                           [False, False, False, True, False]])
+    sel = (alvos != -100) & ~origem
+    esperado = torch.nn.functional.cross_entropy(
+        logits[sel], alvos[sel], reduction="sum")
+    soma, n = Treinador._perda_uniforme(logits, alvos, origem)
+    assert n == int(sel.sum()) == 4
+    assert soma == pytest.approx(float(esperado))
+    # Esparsos: só as linhas das posições com alvo, na ordem delas.
+    com_alvo = alvos != -100
+    soma_esp, n_esp = Treinador._perda_uniforme(logits[com_alvo], alvos, origem)
+    assert (soma_esp, n_esp) == pytest.approx((soma, n))
+
+
+def test_o_detector_recebe_a_perda_UNIFORME_e_nao_a_de_treino(tmp_path, monkeypatch):
+    """A costura: o valor que o detector julga é o dos alvos uniformes.
+
+    No CPT tratado de 2026-09-19 o detector julgava a perda de treino, que oscila
+    com quantas equações inteiras caem no lote, e parou o run três vezes sem nada
+    instável. Aqui a perda uniforme é trocada por um valor impossível, e ele tem
+    de ser o que chega ao detector.
+    """
+    monkeypatch.setattr(Treinador, "_perda_uniforme",
+                        staticmethod(lambda logits, alvos, origem: (7e6, 1)))
+    t = _treinador(tmp_path, total=10, p_eq=1.0)
+    vistos = []
+    original = t.detector.observar
+
+    def espia(passo, perda, norma):
+        vistos.append(perda)
+        return original(passo, perda, norma)
+
+    monkeypatch.setattr(t.detector, "observar", espia)
+    t.treinar(tmp_path / "saida")
+    # (7e6, 1) por micro-passo: soma e contagem acumuladas dão média 7e6.
+    assert vistos and all(v == pytest.approx(7e6) for v in vistos), vistos[:3]
+
+
+def test_no_CONTROLE_a_perda_uniforme_e_a_de_treino(tmp_path):
+    """Sem tratamento todo alvo é uniforme, e os dois sinais coincidem.
+
+    É o que deixa o braço controle do caminho B válido sem rodar de novo: o
+    detector dele teria visto o mesmo número. (A perda de treino é a média por
+    micro-passo e a uniforme é ponderada por alvo; com contagens iguais nos
+    micro-passos, a diferença é de arredondamento.)
+    """
+    torch.manual_seed(0)
+    t = _treinador(tmp_path, total=10, p_eq=0.0)
+    perda, uniforme, _, _ = t._passo(0)
+    assert uniforme == pytest.approx(perda, rel=1e-3)

@@ -285,10 +285,33 @@ def mascarar(ids: np.ndarray, id_equacao: np.ndarray, e_display: np.ndarray, *,
     `−100` é a convenção do `CrossEntropyLoss` do PyTorch e do `labels` do
     HuggingFace: posição ignorada. Usar 0 seria treinar o modelo a prever `[PAD]`.
     """
+    entrada, alvos, _ = mascarar_com_origem(
+        ids, id_equacao, e_display, cfg=cfg, rng=rng, id_mask=id_mask,
+        n_vocab=n_vocab, ids_especiais=ids_especiais, contadores=contadores)
+    return entrada, alvos
+
+
+def mascarar_com_origem(ids: np.ndarray, id_equacao: np.ndarray,
+                        e_display: np.ndarray, *, cfg: ConfigMascara,
+                        rng: np.random.Generator, id_mask: int, n_vocab: int,
+                        ids_especiais: frozenset[int],
+                        contadores: Contadores | None = None,
+                        ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """`mascarar`, mais DE ONDE veio cada alvo: `True` onde é da equação inteira.
+
+    ⚠️ Existe para o detector de spike, não para a perda. No braço tratado, a
+    dificuldade de um lote depende de quantas equações inteiras caíram nele, e a
+    perda crua oscila com isso sem nada estar instável. Medido em 2026-09-19 no CPT
+    do ModernBERT-base: os três lotes que dispararam o detector tinham de +3,0σ a
+    +4,1σ de tokens de equação inteira contra 300 lotes sorteados, e o run parou
+    pela regra dos três spikes. O laço julga spike de perda só nos alvos uniformes,
+    cuja composição não varia com o sorteio do tratamento. Ver `Treinador._passo`.
+    """
     if ids.shape != id_equacao.shape:
         raise ValueError(f"ids {ids.shape} e id_equacao {id_equacao.shape} diferem")
     entrada = ids.copy()
     alvos = np.full(ids.shape, -100, dtype=np.int64)
+    de_equacao = np.zeros(ids.shape, dtype=bool)
 
     # Especiais nunca entram: mascarar `[CLS]` ensina a prever `[CLS]`, e mascarar
     # `[PAD]` gasta orçamento de perda em posições sem informação.
@@ -298,11 +321,11 @@ def mascarar(ids: np.ndarray, id_equacao: np.ndarray, e_display: np.ndarray, *,
         contadores.exemplos += 1
         contadores.tokens_mascaraveis += int(indices.size)
     if indices.size == 0:
-        return entrada, alvos
+        return entrada, alvos, de_equacao
 
     n_alvo = int(round(cfg.taxa * indices.size))
     if n_alvo == 0:
-        return entrada, alvos
+        return entrada, alvos, de_equacao
 
     escolhidos_equacao: np.ndarray = np.empty(0, dtype=np.int64)
     tratar = cfg.p_equacao > 0.0 and rng.random() < cfg.p_equacao
@@ -328,6 +351,7 @@ def mascarar(ids: np.ndarray, id_equacao: np.ndarray, e_display: np.ndarray, *,
     # A equação inteira vira `[MASK]`, sem 80/10/10 — decisão 2 da docstring.
     if escolhidos_equacao.size:
         alvos[escolhidos_equacao] = ids[escolhidos_equacao]
+        de_equacao[escolhidos_equacao] = True
         entrada[escolhidos_equacao] = id_mask
 
     if aleatorios.size:
@@ -345,7 +369,7 @@ def mascarar(ids: np.ndarray, id_equacao: np.ndarray, e_display: np.ndarray, *,
     if contadores is not None:
         contadores.tokens_mascarados += int(escolhidos_equacao.size + aleatorios.size)
         contadores.tokens_de_equacao_mascarados += int(escolhidos_equacao.size)
-    return entrada, alvos
+    return entrada, alvos, de_equacao
 
 
 def _escolher_equacao(id_equacao: np.ndarray, e_display: np.ndarray,

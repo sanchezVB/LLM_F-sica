@@ -1,0 +1,48 @@
+{
+  "dados": "data\\processed\\phienc_dados_modernbert",
+  "p_equacao": 0.6,
+  "contexto": 1024,
+  "sequencias": 4,
+  "acumulacao": 16,
+  "semente": 17,
+  "referencia": {
+    "n": 300,
+    "faixa": [
+      250,
+      4489
+    ],
+    "media": 1894.6866666666667,
+    "desvio": 405.7451897668684,
+    "maximo": 3127.0,
+    "p99": 3005.7199999999993
+  },
+  "passos": [
+    {
+      "passo": 429,
+      "alvos": 19646,
+      "alvos_de_equacao_inteira": 3407,
+      "fracao_de_equacao_inteira": 0.17341952560317622,
+      "exemplos_tratados": 35,
+      "z": 3.727248951989481,
+      "fracao_da_referencia_maior_ou_igual": 0.0
+    },
+    {
+      "passo": 1699,
+      "alvos": 19643,
+      "alvos_de_equacao_inteira": 3110,
+      "fracao_de_equacao_inteira": 0.15832612126457263,
+      "exemplos_tratados": 28,
+      "z": 2.995262455314932,
+      "fracao_da_referencia_maior_ou_igual": 0.006666666666666667
+    },
+    {
+      "passo": 4489,
+      "alvos": 19643,
+      "alvos_de_equacao_inteira": 3553,
+      "fracao_de_equacao_inteira": 0.18087868451865804,
+      "exemplos_tratados": 29,
+      "z": 4.087080697829495,
+      "fracao_da_referencia_maior_ou_igual": 0.0
+    }
+  ]
+}
