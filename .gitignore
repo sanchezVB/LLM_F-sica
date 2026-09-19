@@ -23,6 +23,10 @@
 # ...menos o cache, que é derivado e chaveado pelo protocolo de avaliação.
 # Versionar cache é convidar a comparar números medidos com protocolos diferentes.
 /data/processed/avaliacao/*_cache.json
+# ⚠️ E o cache por sistema do `avaliar_pb_formula.py`, que se chama `<saida>.parcial.json`
+# e escapava da regra acima: `*.json` o reabria, e ele aparecia como não rastreado —
+# o que bastava para o `publicar_kaggle.py` recusar a árvore como suja.
+/data/processed/avaliacao/*.parcial.json
 /corpus/
 /raw/
 *.parquet
