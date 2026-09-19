@@ -535,7 +535,11 @@ def main() -> int:
     # `create` só na primeira vez; depois é `version`. Sem isto, rodar de novo (o
     # que a mensagem de erro do próprio script recomenda) morre em "dataset já
     # existe" — um roteiro que manda repetir e quebra na repetição.
-    ja_existe = a.enviar and _dataset_existe(id_dados)
+    # ⚠️ Sem o `not a.so_notebook`, o braço que REUSA o dataset imprimia "enviando
+    # VERSÃO nova" e, na linha seguinte, "o dataset não será tocado" — medido em
+    # 2026-09-18, no t2eq_cpt_tratado. Só a segunda era verdade, mas quem lê a
+    # primeira tem motivo para achar que a assinatura do controle acabou de quebrar.
+    ja_existe = a.enviar and not a.so_notebook and _dataset_existe(id_dados)
     if ja_existe:
         print("  dataset já existe — enviando VERSÃO nova em vez de criar")
         cmd_dados = [sys.executable, "-m", "kaggle", "datasets", "version",
