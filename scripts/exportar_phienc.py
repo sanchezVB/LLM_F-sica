@@ -58,6 +58,23 @@ aqui em 2026-09-08, `eager` contra `sdpa` dá 1,2e-07 de diferença nos MESMOS p
 afrouxar a tolerância, e isso destruiria o teste: 1e-6 de folga também esconde um
 tensor amarrado que voltou solto.
 
+## ⚠️ Um CPT exporta a arquitetura e os especiais DA BASE, não os do DOC-07
+
+Um run de pré-treino continuado (`modelo.nome` = `CPT:<base>`) não segue as duas
+convenções deste projeto que o caminho do zero presume: os especiais nos ids 0–4
+(`ESPECIAIS`) e a configuração do DOC-07. No ModernBERT-base os ids 0–4 são
+`|||IP_ADDRESS|||`, `<|padding|>`, `!`, `"` e `#`, e o `[MASK]` é o 50284.
+
+Medido em 2026-09-19, no primeiro CPT exportado: o tokenizer saiu com
+`mask_token=#` e o `config.json` com `pad/cls/sep` = 0/2/3. Pesos idênticos, logits
+idênticos, ida e volta com zero — e toda medida de MLM esconderia os tokens com
+`#`, incluindo a primária do caminho B. Nada acusava, porque cada conferência
+comparava o artefato com ele mesmo.
+
+Então, num CPT, a arquitetura sai de `AutoConfig.from_pretrained(base)`, os papéis
+dos especiais saem do tokenizer da base, e — nos dois caminhos — o id do
+`[MASK]` exportado é CONFERIDO contra o `id_mask` com que o laço treinou.
+
 ## ⚠️ Run que não terminou, ou que teve spike, não sai sem `--mesmo-assim`
 
 Num bake-off de seis variantes, uma que divergiu e foi exportada em silêncio é
@@ -92,7 +109,7 @@ from phifm.core.schema.reprodutibilidade import (  # noqa: E402
     hash_arquivo,
 )
 from phifm.models.encoder.config import ESPECIAIS, ConfigEnc  # noqa: E402
-from phifm.models.encoder.modelo import construir  # noqa: E402
+from phifm.models.encoder.modelo import construir, construir_da_base  # noqa: E402
 from phifm.training.pretrain.laco import NOME_ESTADO, NOME_METRICAS  # noqa: E402
 
 # ⚠️ No IMPORT, e não dentro do `main()`: o argparse imprime `--help` antes
@@ -129,10 +146,53 @@ def config_do_run(manifesto: dict) -> ConfigEnc:
     return ConfigEnc(**{k: v for k, v in d.items() if k in validos})
 
 
-def carregar_tokenizer(caminho: Path, vocab_esperado: int) -> PreTrainedTokenizerFast:
+def base_do_run(manifesto: dict) -> str | None:
+    """A base de um run de pré-treino continuado, ou `None` num run do zero.
+
+    `train_phienc.py --base X` grava o encoder como `CPT:X` (ver `config_de`); é o
+    único lugar em que o run declara de onde veio a arquitetura.
+    """
+    nome = (manifesto.get("modelo") or {}).get("nome") or ""
+    return nome.removeprefix("CPT:") if nome.startswith("CPT:") else None
+
+
+def id_mask_do_run(manifesto: dict) -> int:
+    """O id com que o laço MASCAROU. Runs anteriores ao CPT não o gravavam, e neles
+    ele é, por construção, o do `ESPECIAIS`."""
+    v = (manifesto.get("treino") or {}).get("id_mask")
+    return ESPECIAIS["mask"] if v is None else int(v)
+
+
+def especiais_da_base(base: str) -> dict[str, str]:
+    """Os papéis dos especiais como o tokenizer DA BASE os declara.
+
+    Ver o §"um CPT exporta … DA BASE" na docstring do módulo: o `tokenizer.json`
+    guarda os tokens, e quem diz qual deles é o `[MASK]` é o `tokenizer_config`
+    da base — o mesmo de onde o laço tirou o `id_mask`.
+    """
+    from transformers import AutoTokenizer
+
+    t = AutoTokenizer.from_pretrained(base)
+    especiais = {papel: getattr(t, papel) for papel in PAPEIS}
+    faltam = sorted(p for p, v in especiais.items() if v is None)
+    if faltam:
+        raise SystemExit(
+            f"o tokenizer de {base} não declara {faltam}. Sem o papel, o "
+            "`transformers` não sabe qual token é qual, e adivinhar pelos ids do "
+            "`ESPECIAIS` é exatamente o defeito que esta função existe para evitar.")
+    return especiais
+
+
+def carregar_tokenizer(caminho: Path, vocab_esperado: int,
+                       especiais: dict[str, str] | None = None,
+                       id_mask: int | None = None) -> PreTrainedTokenizerFast:
     """Embrulha o tokenizer treinado e CONFERE o tamanho do vocabulário.
 
     Ver o §"o tokenizer errado não parece um erro" na docstring do módulo.
+
+    `especiais` são os papéis já resolvidos (num CPT, os da base); sem eles, saem
+    dos ids do `ESPECIAIS`. `id_mask`, quando dado, é conferido contra o id do token
+    que ficou com o papel de `[MASK]`.
     """
     if not caminho.exists():
         raise SystemExit(
@@ -148,14 +208,27 @@ def carregar_tokenizer(caminho: Path, vocab_esperado: int) -> PreTrainedTokenize
             "configuração, então ids acima dela levantam e ids abaixo apontam "
             "para outro token. O §11.2 tem variantes de 32.768, 40.960 e 65.536 "
             "— este é o erro que faz um tokenizer bom parecer ruim.")
-    especiais = {}
-    for papel, chave in PAPEIS.items():
-        t = tok.id_to_token(ESPECIAIS[chave])
-        if t is None:
+    if especiais is None:
+        especiais = {}
+        for papel, chave in PAPEIS.items():
+            t = tok.id_to_token(ESPECIAIS[chave])
+            if t is None:
+                raise SystemExit(
+                    f"o id {ESPECIAIS[chave]} ({papel}) não existe em "
+                    f"{caminho.name}; o tokenizer não é o que este projeto treinou")
+            especiais[papel] = t
+    for papel, t in especiais.items():
+        if tok.token_to_id(t) is None:
             raise SystemExit(
-                f"o id {ESPECIAIS[chave]} ({papel}) não existe em {caminho.name}; "
-                "o tokenizer não é o que este projeto treinou")
-        especiais[papel] = t
+                f"o {papel} {t!r} não existe em {caminho.name}: os papéis vieram "
+                "de outro tokenizer que não o do run")
+    if id_mask is not None and tok.token_to_id(especiais["mask_token"]) != id_mask:
+        raise SystemExit(
+            f"o [MASK] exportado seria {especiais['mask_token']!r} (id "
+            f"{tok.token_to_id(especiais['mask_token'])}), e o laço treinou "
+            f"mascarando com o id {id_mask}.\nToda medida de MLM esconderia os "
+            "tokens com o token errado — e nada mais acusaria: pesos e logits "
+            "sairiam idênticos. Ver o §'um CPT exporta … DA BASE'.")
     # ⚠️ `model_input_names` sem `token_type_ids`, e não é cosmético.
     #
     # O default do `PreTrainedTokenizerFast` inclui `token_type_ids`, e o
@@ -264,6 +337,32 @@ def conferir_ida_e_volta(modelo, destino: Path, contexto: int,
     return delta
 
 
+def conferir_especiais(destino: Path, id_mask: int) -> None:
+    """Reaberto do disco, o `[MASK]` é o do treino, e config e tokenizer concordam.
+
+    ⚠️ A quarta coisa, e a que as outras três não pegam: pesos, logits e
+    `modelo(**tok(texto))` saíram perfeitos no CPT de 2026-09-19 com `mask_token=#`
+    e `pad/cls/sep` = 0/2/3. Ver o §"um CPT exporta … DA BASE".
+    """
+    from transformers import AutoConfig, AutoTokenizer
+
+    tok = AutoTokenizer.from_pretrained(destino)
+    cfg = AutoConfig.from_pretrained(destino)
+    if tok.mask_token_id != id_mask:
+        raise SystemExit(
+            f"o tokenizer exportado diz [MASK] = {tok.mask_token!r} (id "
+            f"{tok.mask_token_id}), e o laço mascarou com o id {id_mask}.")
+    divergentes = {c: (getattr(cfg, f"{c}_token_id"), getattr(tok, f"{c}_token_id"))
+                   for c in ("pad", "cls", "sep")
+                   if getattr(cfg, f"{c}_token_id") != getattr(tok, f"{c}_token_id")}
+    if divergentes:
+        raise SystemExit(
+            "config.json e tokenizer discordam nos ids especiais "
+            f"(config, tokenizer): {divergentes}")
+    log.info("especiais conferidos: [MASK]=%d e pad/cls/sep iguais no config e no "
+             "tokenizer", id_mask)
+
+
 def conferir_tokenizer_com_modelo(destino: Path, atencao: str) -> None:
     """⚠️ `modelo(**tokenizer(texto))` tem de FUNCIONAR, e isso é uma terceira coisa.
 
@@ -341,16 +440,25 @@ def main() -> int:
         raise SystemExit(
             "o run não registrou qual tokenizer usou e --tokenizer não foi dado. "
             "Ver o §'o tokenizer errado não parece um erro'.")
-    tok = carregar_tokenizer(Path(tok_caminho), cfg.vocab)
+    base = base_do_run(manifesto)
+    id_mask = id_mask_do_run(manifesto)
+    tok = carregar_tokenizer(Path(tok_caminho), cfg.vocab,
+                             especiais=especiais_da_base(base) if base else None,
+                             id_mask=id_mask)
 
     # `construir` já confere a contagem de parâmetros contra a analítica: se o
     # `transformers` mudou a estrutura do ModernBERT, o erro sai aqui e não como
-    # uma métrica estranha três horas depois.
+    # uma métrica estranha três horas depois. Num CPT a arquitetura é a da base —
+    # ver o §"um CPT exporta … DA BASE".
     # `eager` e não `sdpa`: a exportação é em CPU e o kernel não muda os pesos.
     # O que importa é usar o MESMO nos dois lados da conferência — ver
     # `conferir_ida_e_volta`.
     ATENCAO = "eager"
-    modelo = construir(cfg, torch.device("cpu"), atencao=ATENCAO)
+    if base:
+        modelo = construir_da_base(base, torch.device("cpu"), atencao=ATENCAO)
+        log.info("CPT de %s: arquitetura e especiais da base", base)
+    else:
+        modelo = construir(cfg, torch.device("cpu"), atencao=ATENCAO)
     ck = torch.load(estado, map_location="cpu", weights_only=True)
     if "modelo" not in ck:
         raise SystemExit(f"{estado} não tem a chave 'modelo'")
@@ -366,12 +474,15 @@ def main() -> int:
     tok.save_pretrained(a.para)
     delta = conferir_ida_e_volta(modelo, a.para, cfg.contexto, ATENCAO)
     conferir_tokenizer_com_modelo(a.para, ATENCAO)
+    conferir_especiais(a.para, id_mask)
 
     proveniencia = {
         "origem": str(a.run),
         "passo": passo,
         "concluido": bool(manifesto.get("concluido")),
         "config_do_encoder": cfg.como_dict(),
+        "base": base,
+        "id_mask": id_mask,
         "tokenizer": str(tok_caminho),
         "tokenizer_sha": hash_arquivo(Path(tok_caminho)),
         "tokens_treinados": (manifesto.get("metricas") or {}).get("tokens"),

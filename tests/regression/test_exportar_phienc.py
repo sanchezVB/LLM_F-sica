@@ -30,7 +30,11 @@ pytest.importorskip("transformers")
 pytest.importorskip("tokenizers")
 
 from tokenizers import Tokenizer, models  # noqa: E402
-from transformers import AutoModelForMaskedLM, AutoTokenizer  # noqa: E402
+from transformers import (  # noqa: E402
+    AutoModelForMaskedLM,
+    AutoTokenizer,
+    PreTrainedTokenizerFast,
+)
 
 from phifm.models.encoder.config import ConfigEnc  # noqa: E402
 from phifm.models.encoder.modelo import construir  # noqa: E402
@@ -265,3 +269,121 @@ def test_a_conferencia_de_ida_e_volta_TEM_DENTES(tmp_path):
         next(iter(modelo.parameters())).add_(1.0)
     with pytest.raises(SystemExit, match="mudou de valor|não é o checkpoint"):
         mod.conferir_ida_e_volta(modelo, destino, MINI.contexto, "eager")
+
+
+# ── pré-treino continuado: a base NÃO segue as convenções do projeto ──────────
+
+
+def _base_publicada(destino: Path) -> Path:
+    """Uma "base de fora" minúscula que quebra as duas convenções do projeto.
+
+    Como o ModernBERT-base: os especiais no FIM do vocabulário (os ids 0–4 são
+    tokens comuns) e um campo numérico — `global_rope_theta` — que o DOC-07 não
+    usa. O exportador anterior pegava os dois errados e passava em toda conferência.
+    """
+    from transformers import ModernBertConfig, ModernBertForMaskedLM
+
+    n = VOCAB
+    vocab = {f"t{i}": i for i in range(n - 5)}
+    vocab.update({"[UNK]": n - 5, "[CLS]": n - 4, "[SEP]": n - 3, "[PAD]": n - 2,
+                  "[MASK]": n - 1})
+    tok = Tokenizer(models.WordLevel(vocab=vocab, unk_token="[UNK]"))
+    PreTrainedTokenizerFast(
+        tokenizer_object=tok, unk_token="[UNK]", cls_token="[CLS]",
+        sep_token="[SEP]", pad_token="[PAD]", mask_token="[MASK]",
+        model_input_names=["input_ids", "attention_mask"]).save_pretrained(destino)
+    hf = ModernBertConfig(
+        vocab_size=n, hidden_size=64, num_hidden_layers=2, num_attention_heads=4,
+        intermediate_size=96, max_position_embeddings=128, local_attention=64,
+        pad_token_id=n - 2, cls_token_id=n - 4, sep_token_id=n - 3,
+        global_rope_theta=1234.0, reference_compile=False)
+    torch.manual_seed(0)
+    ModernBertForMaskedLM(hf).save_pretrained(destino)
+    return destino
+
+
+def _run_cpt(tmp: Path) -> tuple[Path, Path]:
+    """Um run de CPT como o laço o grava: `CPT:<base>` e o `id_mask` da base."""
+    from phifm.models.encoder.modelo import carregar_base
+
+    base = _base_publicada(tmp / "base")
+    modelo, cfg = carregar_base(str(base), torch.device("cpu"), atencao="eager")
+    with torch.no_grad():  # o "treino": pesos que já não são os da base
+        for p in modelo.parameters():
+            p.add_(0.01 * torch.randn_like(p))
+    d = tmp / "run"
+    d.mkdir(parents=True)
+    torch.save({"passo": 77, "modelo": modelo.state_dict(), "opt": {},
+                "escala": None, "passos_warmup": 3, "passos_decay": 10,
+                "detector": {}}, d / NOME_ESTADO)
+    (d / NOME_METRICAS).write_text(json.dumps({
+        "modelo": cfg.como_dict(),
+        "treino": {"id_mask": VOCAB - 1,
+                   "ids_especiais": list(range(VOCAB - 5, VOCAB))},
+        "dados": {"tokenizer": str(base / "tokenizer.json")},
+        "spike": {"n_spikes": 0},
+        "mascaramento": {"fracao_tratada": 0.0},
+        "metricas": {"passo": 77, "perda": 2.0, "tokens": 1_000},
+        "concluido": True, "motivo_da_parada": "",
+    }, ensure_ascii=False), encoding="utf-8")
+    return base, d
+
+
+def test_CPT_exporta_os_especiais_DA_BASE(tmp_path):
+    """O defeito de 2026-09-19: `mask_token=#` e `pad/cls/sep` = 0/2/3.
+
+    Toda medida de MLM do caminho B esconderia os tokens com um token comum, e
+    pesos, logits e ida e volta sairiam perfeitos.
+    """
+    base, run = _run_cpt(tmp_path)
+    para = tmp_path / "saida"
+    r = _exportar(run, para)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    tok = AutoTokenizer.from_pretrained(para)
+    assert tok.mask_token_id == VOCAB - 1, tok.mask_token
+    assert (tok.pad_token_id, tok.cls_token_id, tok.sep_token_id) == (
+        VOCAB - 2, VOCAB - 4, VOCAB - 3)
+    cfg = AutoModelForMaskedLM.from_pretrained(para).config
+    assert (cfg.pad_token_id, cfg.cls_token_id, cfg.sep_token_id) == (
+        VOCAB - 2, VOCAB - 4, VOCAB - 3)
+
+
+def test_CPT_exporta_a_ARQUITETURA_da_base(tmp_path):
+    """O exportado calcula o que o treinado calculava: a BASE com os pesos do run.
+
+    A ida e volta compara o artefato com ele mesmo e não pega isto. Com
+    `global_rope_theta` fora do DOC-07, montar pela `ConfigEnc` daria outros
+    logits com os mesmos pesos.
+    """
+    from phifm.models.encoder.modelo import carregar_base
+
+    base, run = _run_cpt(tmp_path)
+    para = tmp_path / "saida"
+    assert _exportar(run, para).returncode == 0
+
+    treinado, _ = carregar_base(str(base), torch.device("cpu"), atencao="eager")
+    treinado.load_state_dict(torch.load(run / NOME_ESTADO, map_location="cpu",
+                                        weights_only=True)["modelo"])
+    exportado = AutoModelForMaskedLM.from_pretrained(
+        para, attn_implementation="eager")
+    ids = torch.randint(0, VOCAB, (2, 100), generator=torch.Generator().manual_seed(3))
+    with torch.no_grad():
+        a = treinado.eval()(input_ids=ids).logits
+        b = exportado.eval()(input_ids=ids).logits
+    assert float((a - b).abs().max()) == 0.0
+
+
+def test_o_MASK_do_tokenizer_e_CONFERIDO_contra_o_do_treino(tmp_path):
+    """Um run que declara ter mascarado com outro id não é exportado.
+
+    É o dente da conferência: sem ela, papéis resolvidos por qualquer caminho
+    errado sairiam gravados sem que nada acusasse.
+    """
+    _, run = _run_cpt(tmp_path)
+    m = json.loads((run / NOME_METRICAS).read_text(encoding="utf-8"))
+    m["treino"]["id_mask"] = 4
+    (run / NOME_METRICAS).write_text(json.dumps(m), encoding="utf-8")
+    r = _exportar(run, tmp_path / "saida")
+    assert r.returncode != 0
+    assert "MASK" in (r.stdout + r.stderr)

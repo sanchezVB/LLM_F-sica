@@ -96,6 +96,33 @@ def construir(cfg: ConfigEnc, dev: torch.device | None = None,
     return modelo
 
 
+def construir_da_base(base: str, dev: torch.device | None = None,
+                      atencao: str | None = None) -> ModernBertForMaskedLM:
+    """A ARQUITETURA de uma base pronta, sem os pesos dela: o molde de um CPT.
+
+    É o que o exportador usa para um run de pré-treino continuado, cujos pesos vêm
+    do checkpoint. ⚠️ `construir(cfg)` NÃO serve aqui, ainda que dê as mesmas formas
+    de tensor: a `ConfigEnc` de um CPT guarda só as dimensões que o laço usa (ver
+    `config_de`), e `construir` completa o resto com o DOC-07 — ids especiais,
+    `classifier_pooling` e o que mais a base tiver de diferente. O `load_state_dict`
+    aceita tudo, porque nenhuma forma muda.
+
+    Medido em 2026-09-19, no CPT do ModernBERT-base: `pad/cls/sep` saíram 0/2/3 em
+    vez de 50283/50281/50282. Os campos numéricos por acaso coincidiam — os logits
+    bateram a 0,0 com a base carregada —, mas isso era sorte da base escolhida, e
+    não uma propriedade do caminho.
+    """
+    from transformers import AutoConfig
+
+    hf = AutoConfig.from_pretrained(base)
+    # Ver a ressalva 3 na docstring do módulo.
+    hf.reference_compile = False
+    modelo = ModernBertForMaskedLM(hf)
+    dev = dev or torch.device("cpu")
+    modelo.config._attn_implementation = atencao or escolher_atencao(dev)
+    return modelo.to(dev)
+
+
 def config_de(hf, nome: str) -> ConfigEnc:
     """`ConfigEnc` a partir de um `ModernBertConfig` JÁ EXISTENTE.
 
