@@ -115,8 +115,18 @@ campos numéricos por acaso coincidem: o controle exportado pelo caminho antigo 
 logits **0,0** contra a base carregada com os pesos treinados. Era sorte da base, não
 propriedade do caminho.
 
-`models/phienc-cpt-controle`: exportado de novo, `[MASK]`=50284, com a ressalva dos 2
-spikes de norma no manifesto.
+E um quarto defeito, achado ao ensaiar o avaliador no controle já exportado: o
+`save_pretrained` REESCREVE o `tokenizer.json` na serialização do `tokenizers`
+instalado — no ModernBERT-base os `merges` saem como listas onde o original tinha
+texto, conteúdo idêntico e bytes outros. O `avaliar_phienc_mlm.py` compara o SHA-256
+do arquivo do modelo com o `tokenizer_sha` da fatia e **recusava medir**. Afrouxar a
+guarda seria a troca errada; o exportador passa a gravar o arquivo ORIGINAL da fatia,
+byte a byte, depois de conferir que os dois codificam igual. O artefato leva o mesmo
+arquivo com que a fatia foi tokenizada, o que também é proveniência melhor.
+
+`models/phienc-cpt-controle`: exportado de novo, `[MASK]`=50284, tokenizer igual ao da
+fatia, com a ressalva dos 2 spikes de norma no manifesto. O avaliador de MLM roda nele
+de ponta a ponta (ensaio de 8 sequências, que não é medida).
 
 ### 3. O tratado: o detector confundiu a COMPOSIÇÃO do lote com instabilidade
 

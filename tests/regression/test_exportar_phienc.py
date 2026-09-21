@@ -387,3 +387,23 @@ def test_o_MASK_do_tokenizer_e_CONFERIDO_contra_o_do_treino(tmp_path):
     r = _exportar(run, tmp_path / "saida")
     assert r.returncode != 0
     assert "MASK" in (r.stdout + r.stderr)
+
+
+def test_o_tokenizer_do_artefato_e_o_ARQUIVO_da_fatia(tmp_path):
+    """`avaliar_phienc_mlm.py` compara o SHA-256 do arquivo com o da fatia.
+
+    `save_pretrained` reescreve o `tokenizer.json` na serialização do `tokenizers`
+    instalado — conteúdo igual, bytes outros —, e a guarda recusava medir o
+    controle do caminho B. O artefato leva o arquivo original.
+    """
+    from phifm.training.pretrain.dados import hash_de_tokenizer
+
+    for run, fonte in ((_run(tmp_path / "zero"), None), (_run_cpt(tmp_path / "cpt")[1], None)):
+        para = run.parent / "saida"
+        assert _exportar(run, para).returncode == 0, run
+        fonte = Path(json.loads((run / NOME_METRICAS).read_text(
+            encoding="utf-8"))["dados"]["tokenizer"])
+        assert (para / "tokenizer.json").read_bytes() == fonte.read_bytes(), run
+        assert hash_de_tokenizer(para / "tokenizer.json") == hash_de_tokenizer(fonte)
+        # E continua sendo um tokenizer que o `transformers` abre, com o papel certo.
+        assert AutoTokenizer.from_pretrained(para).mask_token_id is not None

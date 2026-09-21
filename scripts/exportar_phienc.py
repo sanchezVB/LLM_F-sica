@@ -337,6 +337,37 @@ def conferir_ida_e_volta(modelo, destino: Path, contexto: int,
     return delta
 
 
+def fixar_tokenizer_original(origem: Path, destino: Path) -> bool:
+    """Grava no artefato o `tokenizer.json` da FATIA, byte a byte. Devolve se trocou.
+
+    ⚠️ `save_pretrained` REESCREVE o arquivo, e a serialização do `tokenizers` novo
+    não é a do publicado: no ModernBERT-base os `merges` saem como listas
+    (`["Ġ","Ġ"]`) onde o original tinha texto (`"Ġ Ġ"`). Conteúdo idêntico, bytes
+    diferentes — e `avaliar_phienc_mlm.py` compara o SHA-256 do arquivo do modelo
+    com o `tokenizer_sha` da fatia e recusa medir. Medido em 2026-09-21, no
+    controle do caminho B.
+
+    Afrouxar a guarda seria a troca errada: ela existe porque um tokenizer
+    diferente dá um número com cara de medição. Então o artefato passa a carregar
+    o arquivo original, o que também é proveniência melhor — o modelo leva o mesmo
+    arquivo com que a fatia foi tokenizada.
+
+    A troca só acontece se os dois forem equivalentes de fato: mesmo vocabulário e
+    mesma codificação de uma sonda. Se não forem, o reescrito fica, e quem compara
+    verá a divergência em vez de um arquivo trocado em silêncio.
+    """
+    alvo = destino / "tokenizer.json"
+    escrito, original = Tokenizer.from_file(str(alvo)), Tokenizer.from_file(str(origem))
+    sonda = r"a energia \frac{1}{2}mv^2 e o tensor T^{\mu\nu}"
+    if (escrito.get_vocab() != original.get_vocab()
+            or escrito.encode(sonda).ids != original.encode(sonda).ids):
+        log.warning("o tokenizer reescrito NÃO é equivalente ao de %s; mantendo o "
+                    "reescrito, e a guarda da fatia vai acusar", origem)
+        return False
+    alvo.write_bytes(origem.read_bytes())
+    return True
+
+
 def conferir_especiais(destino: Path, id_mask: int) -> None:
     """Reaberto do disco, o `[MASK]` é o do treino, e config e tokenizer concordam.
 
@@ -472,6 +503,9 @@ def main() -> int:
     a.para.mkdir(parents=True, exist_ok=True)
     modelo.save_pretrained(a.para)
     tok.save_pretrained(a.para)
+    if fixar_tokenizer_original(Path(tok_caminho), a.para):
+        log.info("tokenizer.json gravado do original (%s), byte a byte",
+                 Path(tok_caminho).name)
     delta = conferir_ida_e_volta(modelo, a.para, cfg.contexto, ATENCAO)
     conferir_tokenizer_com_modelo(a.para, ATENCAO)
     conferir_especiais(a.para, id_mask)
