@@ -39,7 +39,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
-| **Caminho B** · os dois braços TREINADOS | 🟡 **medindo pela regra** | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
+| **Caminho B** · primária MEDIDA | 🟡 **NÃO DECIDIDO a 0,4 B** | diferença das diferenças **−0,00039** [−0,0016; +0,0009] — o negativo de 48 M (−0,0040) NÃO se repetiu, e encolheu 10×. O tratamento pegou mais forte que no proxy (equação inteira 0,0266 → **0,1999**, +0,173), mas não transfere para a máscara pontual. A assimetria de spike agora é a FAVOR do tratado. Falta a secundária — os dois ajustados em 200 mil pares contra a barra de 0,5270 | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. **Vazão medida em 2026-09-19**: mediana de **15,2–15,9 mil tok/s** no ModernBERT-base (150 M), contexto 1.024, contra 15,6 mil projetados |
 | **PB-Formula** · MEDIDO | 🔴 **a premissa do §6.3 cai** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
@@ -172,6 +172,69 @@ verificado** pela composição do lote.
 
 ~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
 controle está aproveitado inteiro. O tratado precisa de outra execução.
+
+## Caminho B, a PRIMÁRIA medida: NÃO DECIDIDO a 0,4 B, e o tratamento pegou mais forte que a 48 M (2026-09-22)
+
+Os dois braços do CPT do ModernBERT-base, medidos pela regra escrita antes
+(`kaggle/t2eq_cpt.py`), na fatia disjunta `part-00003`, 2.000 sequências sorteadas,
+contexto 1.024, máscara uniforme de 15% nas MESMAS posições, bootstrap pareado por
+sequência:
+
+| checagem de manipulação | valor | |
+|---|---|---|
+| 1 · fração tratada (≥ 0,50) | **0,5490** | ✅ |
+| 2 · equação inteira escondida, tratado − controle | **+0,1733** [0,1675; 0,1793] — 0,0266 → **0,1999** | ✅ |
+
+| prova uniforme | equação | prosa | vantagem |
+|---|---|---|---|
+| controle | 0,9032 | 0,7783 | +0,1249 |
+| tratado | 0,9030 | 0,7784 | +0,1245 |
+| **primária · diferença das diferenças** | | | **−0,00039 [−0,00161; +0,00087]** |
+
+**Desfecho pela regra: NÃO DECIDIDO.** O IC cruza zero. Não é o negativo do DOC-07;
+é "a 0,4 B não dá para ver".
+
+### O que muda em relação ao §2.3 a 48 M
+
+| | proxies de 48 M, 0,6 B | CPT do ModernBERT-base, 0,4 B |
+|---|---|---|
+| o tratamento pegou? | +0,128 na equação inteira | **+0,173** — mais forte |
+| primária (DiD) | **−0,0040** [−0,0058; −0,0022] · CONTROLE À FRENTE | **−0,00039** [−0,0016; +0,0009] · NÃO DECIDIDO |
+| assimetria de spike | 1 no tratado, 0 no controle — CONTRA o tratado | 2 no controle, 0 no tratado — **a favor do tratado** |
+
+O efeito negativo de 48 M **não se repetiu**: a 150 M ele encolheu 10× e o IC passou a
+cobrir zero. E não é falta de tratamento — reconstruir uma equação inteira escondida
+foi de 2,7% para 20,0%, um salto maior que o do proxy. O que não aparece é
+transferência para a máscara pontual: com ela, a vantagem em equação sobre prosa é a
+MESMA nos dois braços, na terceira casa decimal.
+
+⚠️ E a assimetria desta vez é **a favor** do tratado (o controle perdeu 182 lotes em
+dois rollbacks e teve a LR pela metade por 500 passos; o tratado rodou limpo). Mesmo
+assim a diferença é ~0 — o que torna o "não decidido" mais forte, não mais fraco.
+
+⚠️ A escala é 0,4 B, contra os 2 B para os quais a ablação foi desenhada, e uma
+semente por braço.
+
+### O defeito do comparador, achado ao publicar o número
+
+O `comparar_ablacao_phienc.py` carregava três constantes do §2.3 a 48 M: a escala
+("0,6 B"), a regra (`kaggle/t2eq_tratado.py`) e uma ressalva de spike — *"O tratado
+teve 1 spike (passo 8.075, rollback de 76 lotes…) e o controle nenhum — assimetria
+CONTRA o tratado"*. O artefato do caminho B saiu com as três, e a terceira **inverte o
+lado da assimetria real** deste run.
+
+Uma ressalva falsa é pior que ressalva nenhuma: ela tem a forma da honestidade e o
+conteúdo errado, e ninguém a confere porque ela já parece o cuidado. Agora escala,
+regra e ressalvas saem dos manifestos dos DOIS braços, e um teste reprova a volta das
+constantes.
+
+### O que falta para o ADR-0003
+
+A **secundária** é a que interessa ao sistema, e é onde o §2.3 deu positivo a 48 M
+(+0,084 de nDCG@10 depois do ajuste contrastivo): os dois encoders do CPT ajustados
+nos mesmos 200 mil pares, contra a barra de **0,5270** do passo 1 (o ModernBERT-base
+CRU ajustado do mesmo jeito). Sem ela, o caminho B não decide nada sobre o
+recuperador.
 
 ## Caminho B, 2ª execução do tratado: 0 spikes, e a exportação no Kaggle caiu por um CAMINHO (2026-09-22)
 

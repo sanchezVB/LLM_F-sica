@@ -85,3 +85,31 @@ def test_protocolo_diferente_e_RECUSADO(tmp_path):
     assert r.returncode != 0
     assert "contexto" in (r.stdout + r.stderr)
     assert not (tmp_path / "ablacao.json").exists()
+
+
+def test_a_ESCALA_e_as_RESSALVAS_saem_dos_MANIFESTOS(tmp_path):
+    """Constantes do §2.3 a 48 M contaminavam o artefato de outro experimento.
+
+    Medido em 2026-09-22, no caminho B: o JSON saía com "0,6 B" (rodou 0,4 B), com
+    a regra do outro experimento e com "O tratado teve 1 spike (passo 8.075…)", que
+    é de um run de 2026-09-16. Uma ressalva falsa tem a forma da honestidade e o
+    conteúdo errado — e aqui ela chegava a inverter o lado da assimetria.
+    """
+    args = _cenario(tmp_path, ganho_eq=0.0, ganho_pr=0.0, ganho_prova_eq=0.15)
+    treino = tmp_path / "treino.json"
+    d = json.loads(treino.read_text(encoding="utf-8"))
+    d |= {"metricas": {"tokens": 399_966_208}, "spike": {"n_spikes": 0, "spikes": []}}
+    treino.write_text(json.dumps(d), encoding="utf-8")
+    controle = tmp_path / "treino_controle.json"
+    controle.write_text(json.dumps({"spike": {"n_spikes": 2, "spikes": [297, 633]}}),
+                        encoding="utf-8")
+
+    r = _rodar([*args, "--treino-controle", str(controle),
+                "--regra", "kaggle/t2eq_cpt.py · REGRA"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    art = json.loads((tmp_path / "ablacao.json").read_text(encoding="utf-8"))
+    assert "0,4 B" in art["experimento"] and "0,6 B" not in json.dumps(art)
+    assert art["regra"] == "kaggle/t2eq_cpt.py · REGRA"
+    assert any("tratado 0" in x and "controle 2" in x and "a favor do tratado" in x
+               for x in art["ressalvas"]), art["ressalvas"]
+    assert not any("8.075" in x for x in art["ressalvas"])

@@ -1,0 +1,79 @@
+{
+  "experimento": "DOC-07 §2.3 — mascaramento de equações inteiras, a 0,4 B",
+  "regra": "kaggle/t2eq_cpt.py · REGRA",
+  "protocolo": {
+    "amostragem": "sorteada",
+    "contexto": 1024,
+    "fracao_mascara": 0.15,
+    "semente": 17,
+    "n_sequencias_pedidas": 2000,
+    "dados": "data/processed/phienc_aval_modernbert_cpt",
+    "tokenizer_sha": "9fd55248d51d3397"
+  },
+  "modelos": {
+    "controle_uniforme": "models/phienc-cpt-controle",
+    "tratado_uniforme": "models/phienc-cpt-tratado",
+    "controle_equacao": "models/phienc-cpt-controle",
+    "tratado_equacao": "models/phienc-cpt-tratado"
+  },
+  "checagens": {
+    "1_fracao_tratada": {
+      "valor": 0.549,
+      "minimo": 0.5,
+      "aprovada": true
+    },
+    "2_prova_com_equacao_inteira": {
+      "diferenca": 0.17329,
+      "ic95": [
+        0.16746,
+        0.17926
+      ],
+      "aprovada": true
+    }
+  },
+  "desfecho": "NÃO DECIDIDO",
+  "leitura": "o IC cruza zero. NÃO é o negativo do DOC-07: é 'a 0,4 B não dá para ver', registrado como não decidido.",
+  "primaria": {
+    "quantidade": "(acc_eq − acc_prosa) do tratado − (acc_eq − acc_prosa) do controle",
+    "diferenca_das_diferencas": -0.00039,
+    "ic95": [
+      -0.00161,
+      0.00087
+    ],
+    "cruza_zero": true,
+    "controle": {
+      "acuracia_equacao": 0.90322,
+      "acuracia_prosa": 0.7783,
+      "vantagem_em_equacao": 0.12492
+    },
+    "tratado": {
+      "acuracia_equacao": 0.90297,
+      "acuracia_prosa": 0.77844,
+      "vantagem_em_equacao": 0.12454
+    },
+    "sequencias": 2000,
+    "tokens_equacao": 110837,
+    "tokens_prosa": 197029,
+    "reamostras": 10000,
+    "teste": "bootstrap pareado por SEQUÊNCIA, as mesmas reamostras nos dois braços"
+  },
+  "checagem_2_detalhe": {
+    "diferenca": 0.17329,
+    "ic95": [
+      0.16746,
+      0.17926
+    ],
+    "cruza_zero": false,
+    "acuracia_controle": 0.02664,
+    "acuracia_tratado": 0.19993,
+    "sequencias": 1120,
+    "tokens": 104624,
+    "reamostras": 10000
+  },
+  "ressalvas": [
+    "0,4 B tokens; uma semente por braço.",
+    "Spikes assimétricos (tratado 0, controle 2 [297, 633]) — assimetria a favor do tratado.",
+    "A prova uniforme é o objetivo do controle: o viés dela aponta para ele.",
+    "Secundárias (recuperação, sonda tensorial) não entram aqui."
+  ]
+}

@@ -359,12 +359,18 @@ def diferenca_de_acuracia(controle: list, tratado: list, *, semente: int = 17,
     }
 
 
-def ler_pela_regra(primaria: dict, checagem_2: dict, fracao_tratada: float) -> dict:
+def ler_pela_regra(primaria: dict, checagem_2: dict, fracao_tratada: float,
+                   escala: str = "0,6 B") -> dict:
     """A leitura da regra de `kaggle/t2eq_tratado.py`, e nada além dela.
 
     As checagens de manipulação vêm ANTES: reprovada qualquer uma, a primária não
     se lê. "O tratado vence" na checagem 2 é o IC da diferença inteiro acima de
     zero — fixado aqui, antes de medir.
+
+    ⚠️ `escala` entra no TEXTO do desfecho porque a leitura de um "não decidido"
+    depende dela: "a 0,4 B não dá para ver" é uma afirmação sobre o orçamento, e
+    deixá-la fixa faria o artefato do caminho B (0,4 B) declarar a escala do §2.3 a
+    48 M (0,6 B). Quem chama passa a do run que mediu.
     """
     checagens = {
         "1_fracao_tratada": {"valor": fracao_tratada, "minimo": 0.50,
@@ -381,13 +387,15 @@ def ler_pela_regra(primaria: dict, checagem_2: dict, fracao_tratada: float) -> d
     if lo > 0:
         desfecho, leitura = "TRATADO À FRENTE", (
             "o tratado ganha em equação ALÉM do que ganha em prosa, na prova que "
-            "favorece o controle. A hipótese do §2.3 fica sustentada a 0,6 B.")
+            "favorece o controle. A hipótese do §2.3 fica sustentada a "
+            f"{escala}.")
     elif hi < 0:
         desfecho, leitura = "CONTROLE À FRENTE", (
             "o tratamento piora equação relativamente à prosa. É o negativo que o "
-            "DOC-07 manda publicar, com a escala de 0,6 B declarada ao lado.")
+            "DOC-07 manda publicar, com a escala de "
+            f"{escala} declarada ao lado.")
     else:
         desfecho, leitura = "NÃO DECIDIDO", (
-            "o IC cruza zero. NÃO é o negativo do DOC-07: é 'a 0,6 B não dá para "
-            "ver', registrado como não decidido.")
+            "o IC cruza zero. NÃO é o negativo do DOC-07: é "
+            f"'a {escala} não dá para ver', registrado como não decidido.")
     return {"checagens": checagens, "desfecho": desfecho, "leitura": leitura}

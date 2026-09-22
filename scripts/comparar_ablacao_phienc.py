@@ -48,6 +48,31 @@ PROTOCOLO_COMUM = ("amostragem", "contexto", "fracao_mascara", "semente",
                    "n_sequencias_pedidas")
 
 
+def _ressalva_de_spikes(tratado: dict, caminho_controle: Path | None) -> str:
+    """O que cada braço sofreu de spike, lido dos manifestos.
+
+    Um braço com spike e outro sem é uma assimetria REAL e entra na leitura como
+    ressalva nomeada — ver `kaggle/t2eq_tratado.py`. Inventá-la, ou herdá-la de
+    outro experimento, é o oposto disso.
+    """
+    n_t = (tratado.get("spike") or {}).get("n_spikes") or 0
+    passos_t = (tratado.get("spike") or {}).get("spikes") or []
+    if caminho_controle is None:
+        return (f"O tratado teve {n_t} spike(s){f' (passos {passos_t})' if passos_t else ''};"
+                " o controle não foi informado a este comparador.")
+    controle = json.loads(Path(caminho_controle).read_text(encoding="utf-8"))
+    n_c = (controle.get("spike") or {}).get("n_spikes") or 0
+    passos_c = (controle.get("spike") or {}).get("spikes") or []
+    if not n_t and not n_c:
+        return "Nenhum dos dois braços teve spike."
+    detalhe = (f"tratado {n_t}{f' {passos_t}' if passos_t else ''}, "
+               f"controle {n_c}{f' {passos_c}' if passos_c else ''}")
+    if n_t == n_c:
+        return f"Os dois braços tiveram spike ({detalhe})."
+    contra = "CONTRA o tratado" if n_t > n_c else "a favor do tratado"
+    return f"Spikes assimétricos ({detalhe}) — assimetria {contra}."
+
+
 def _ler(caminho: Path, prova: str) -> dict:
     d = json.loads(Path(caminho).read_text(encoding="utf-8"))
     obtida = (d.get("protocolo") or {}).get("prova")
@@ -84,6 +109,12 @@ def main() -> int:
     p.add_argument("--tratado-uniforme", type=Path, required=True)
     p.add_argument("--controle-equacao", type=Path, required=True)
     p.add_argument("--tratado-equacao", type=Path, required=True)
+    p.add_argument("--treino-controle", type=Path, default=None,
+                   help="o phienc.json do braço CONTROLE; sem ele a ressalva de "
+                        "spikes fala só do tratado")
+    p.add_argument("--regra", default="kaggle/t2eq_tratado.py · REGRA_ABLACAO",
+                   help="onde a regra deste run está escrita; o caminho B do "
+                        "ADR-0003 usa kaggle/t2eq_cpt.py · REGRA")
     p.add_argument("--treino-tratado", type=Path, required=True,
                    help="o JSON do treino do braço tratado, com `mascaramento`")
     p.add_argument("--n-boot", type=int, default=10_000)
@@ -110,24 +141,32 @@ def main() -> int:
         [[r[0], r[1], r[2]] for r in art["controle_equacao"]["por_sequencia"]],
         [[r[0], r[1], r[2]] for r in art["tratado_equacao"]["por_sequencia"]],
         semente=a.semente, n_boot=a.n_boot)
-    leitura = ler_pela_regra(primaria, checagem_2, float(fracao))
+    # ⚠️ Escala, regra e ressalvas saem dos MANIFESTOS, e não de constantes deste
+    # arquivo. Até 2026-09-22 os três eram fixos no §2.3 a 48 M, e o artefato do
+    # caminho B saiu declarando "0,6 B" (rodou 0,4 B), a regra do outro experimento
+    # e um spike que nunca houve — "O tratado teve 1 spike (passo 8.075…)" é do run
+    # de 2026-09-16. Uma ressalva falsa é pior que nenhuma: ela tem a forma da
+    # honestidade e o conteúdo errado.
+    tokens = ((treino.get("metricas") or {}).get("tokens")
+              or (treino.get("dados") or {}).get("tokens") or 0)
+    escala = f"{tokens / 1e9:.1f} B".replace(".", ",")
+    leitura = ler_pela_regra(primaria, checagem_2, float(fracao), escala=escala)
+    ressalvas = [f"{escala} tokens; uma semente por braço.",
+                 _ressalva_de_spikes(treino, a.treino_controle),
+                 "A prova uniforme é o objetivo do controle: o viés dela aponta "
+                 "para ele.",
+                 "Secundárias (recuperação, sonda tensorial) não entram aqui."]
 
     resultado = {
-        "experimento": "DOC-07 §2.3 — mascaramento de equações inteiras, a 0,6 B",
-        "regra": "kaggle/t2eq_tratado.py · REGRA_ABLACAO",
+        "experimento": ("DOC-07 §2.3 — mascaramento de equações inteiras, a "
+                        f"{escala}"),
+        "regra": a.regra,
         "protocolo": protocolo,
         "modelos": {k: v.get("modelo") for k, v in art.items()},
         **leitura,
         "primaria": primaria,
         "checagem_2_detalhe": checagem_2,
-        "ressalvas": [
-            "0,6 B tokens, 3,3x abaixo dos 2 B para os quais a ablação foi preparada; "
-            "uma semente por braço.",
-            "O tratado teve 1 spike (passo 8.075, rollback de 76 lotes, LR pela metade "
-            "até 8.575) e o controle nenhum — assimetria CONTRA o tratado.",
-            "A prova uniforme é o objetivo do controle: o viés dela aponta para ele.",
-            "Secundárias (recuperação, sonda tensorial) não entram aqui.",
-        ],
+        "ressalvas": ressalvas,
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(resultado, indent=2, ensure_ascii=False),
@@ -136,7 +175,7 @@ def main() -> int:
     c = leitura["checagens"]
     print()
     print("=" * 74)
-    print("  DOC-07 §2.3 · ablação do mascaramento de equações · a 0,6 B")
+    print(f"  DOC-07 §2.3 · ablação do mascaramento de equações · a {escala}")
     print("=" * 74)
     print(f"  checagem 1 · fração tratada {c['1_fracao_tratada']['valor']:.4f} "
           f"(mín. 0,50) · {'✅' if c['1_fracao_tratada']['aprovada'] else '❌'}")
