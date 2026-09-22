@@ -280,3 +280,30 @@ def test_a_prova_de_EQUACAO_esconde_uma_equacao_inteira(tmp_path):
     assert d["por_sequencia"], "nenhuma sequência teve equação escolhida"
     for linha in d["por_sequencia"]:
         assert linha[2] == 30, linha  # a equação INTEIRA, os 30 tokens
+
+
+def test_a_previsao_por_POSICAO_e_a_mesma_dos_logits_cheios():
+    """A cabeça só roda nas posições mascaradas, e isso não pode mudar o número.
+
+    A projeção 768 → vocabulário em TODAS as posições custa 39 GFLOP por sequência
+    de 1.024 e 206 MB de logits — no DirectML estourava a memória de vídeo, e em CPU
+    eram 4 h 20 para as quatro medidas da regra. `head` e `decoder` são por token,
+    então o subconjunto dá os mesmos logits; medido no encoder real do caminho B,
+    diferença 0,0 em 924 posições. Aqui a mesma conferência, em miniatura.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_av", AVALIADOR)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    modelo = construir(MINI, torch.device("cpu"), atencao="eager").eval()
+    g = torch.Generator().manual_seed(5)
+    ids = torch.randint(5, VOCAB, (1, CONTEXTO_AVAL), generator=g)
+    pos = torch.from_numpy(np.sort(np.random.default_rng(1).choice(
+        np.arange(1, CONTEXTO_AVAL - 1), 19, replace=False)))
+    att = torch.ones_like(ids)
+    with torch.no_grad():
+        cheio = modelo(input_ids=ids, attention_mask=att).logits[0][pos].argmax(-1)
+        subconjunto = mod.previsao_nas_posicoes(modelo, ids, att, pos)
+    assert torch.equal(cheio, subconjunto)

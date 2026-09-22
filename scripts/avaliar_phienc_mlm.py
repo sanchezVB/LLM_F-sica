@@ -128,6 +128,30 @@ def exigir_disjunto(dados: Path) -> dict:
     return m
 
 
+def previsao_nas_posicoes(modelo, entrada: torch.Tensor, att: torch.Tensor,
+                          pos: torch.Tensor) -> torch.Tensor:
+    """O argmax da cabeça de MLM **só nas posições mascaradas**.
+
+    ⚠️ Não é otimização cosmética. A cabeça projeta 768 → 50.368 em TODAS as 1.024
+    posições do contexto (39 GFLOP por sequência) quando ~150 estão mascaradas, e os
+    logits ocupam 206 MB por chamada. Medido em 2026-09-22: no DirectML isso estoura
+    a memória de vídeo — o alocador não devolve entre chamadas —, e em CPU custava
+    0,51 sequência/s, ou 4 h 20 para as quatro medidas da regra.
+
+    A conta é a MESMA: `head` e `decoder` são por token, então aplicá-los a um
+    subconjunto de posições dá os mesmos logits daquelas posições. O teste
+    `test_avaliar_phienc_mlm.py` compara com o caminho de logits cheios.
+
+    Se o modelo não tiver as três peças separadas (`model`/`head`/`decoder`), cai no
+    caminho cheio em vez de adivinhar a estrutura.
+    """
+    if not all(hasattr(modelo, n) for n in ("model", "head", "decoder")):
+        logits = modelo(input_ids=entrada, attention_mask=att).logits[0]
+        return logits[pos].argmax(-1)
+    h = modelo.model(input_ids=entrada, attention_mask=att).last_hidden_state[0]
+    return modelo.decoder(modelo.head(h[pos])).argmax(-1)
+
+
 def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
             fracao: float, id_mask: int, ids_especiais: set[int],
             prova: str = "uniforme") -> tuple[Contagem, dict, list[int]]:
@@ -172,8 +196,8 @@ def avaliar(modelo, fluxo: Fluxo, n_seq: int, semente: int, dev,
         t = torch.from_numpy(entrada).unsqueeze(0).to(dev)
         att = torch.ones_like(t)
         with torch.no_grad():
-            logits = modelo(input_ids=t, attention_mask=att).logits[0]
-        previsto = logits[torch.from_numpy(pos).to(dev)].argmax(-1).cpu().numpy()
+            previsto = previsao_nas_posicoes(
+                modelo, t, att, torch.from_numpy(pos).to(dev)).cpu().numpy()
 
         certo = (previsto == ids[pos]).astype(np.int64)
         # ⚠️ `marcas[pos]`, e não as marcas inteiras: `certo` e `em_equacao` têm
