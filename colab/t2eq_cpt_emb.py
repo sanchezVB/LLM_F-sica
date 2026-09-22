@@ -132,8 +132,18 @@ if achado.is_dir():
         shutil.copytree(achado, ENCODER)
     print(f"encoder copiado de {achado}")
 else:
-    with zipfile.ZipFile(achado) as z:
-        z.extractall(ENCODER.parent)
+    # ⚠️ NÃO é `extractall`. O `Compress-Archive` do Windows PowerShell grava os
+    # nomes como `pasta\arquivo`, e no Linux o `extractall` cria ARQUIVOS com barra
+    # invertida no nome em vez de uma pasta — sem erro nenhum. Medido em
+    # 2026-09-22, no braço controle: 531 MB subiram, a descompactação "deu certo",
+    # e o `model.safetensors` não estava em lugar nenhum.
+    #
+    # A função vem do repositório que esta célula acabou de clonar, e tem teste
+    # (`tests/unit/test_zips.py`), inclusive um que prova o defeito do `extractall`.
+    sys.path.insert(0, str(FONTE))
+    from phifm.core.io.zips import descompactar_normalizado
+
+    descompactar_normalizado(achado, ENCODER.parent)
     print(f"encoder descompactado de {achado}")
 
 # ── Os pesos TÊM de ser os do braço, e os pares os mesmos dos outros ───────
