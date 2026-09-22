@@ -49,9 +49,10 @@ from pathlib import Path
 ENTRADA = Path("/kaggle/input")
 TRABALHO = Path("/kaggle/working")
 
-VARIANTE = "__VARIANTE__"          # "controle", "tratado" ou "modernbert"
+VARIANTE = "__VARIANTE__"          # "controle", "tratado", "modernbert" ou "gte"
 BASES = {"controle": "phienc-t2a-E", "tratado": "phienc-t2eq-E-tratado",
-         "modernbert": "answerdotai/ModernBERT-base"}
+         "modernbert": "answerdotai/ModernBERT-base",
+         "gte": "thenlper/gte-base"}
 assert VARIANTE in BASES, VARIANTE
 
 # ── 1. Achar o dataset ──────────────────────────────────────────────────────
@@ -129,8 +130,10 @@ print(f"✅ assinatura do bundle confere: {_obtida}")
 MODELOS = TRABALHO / "modelos"
 with zipfile.ZipFile(DADOS / "modelos.zip.bin") as z:
     z.extractall(MODELOS)
-# ⚠️ O braço `modernbert` baixa a base do Hub; os outros dois a tiram do zip.
-if VARIANTE == "modernbert":
+# ⚠️ Quem tem BARRA no nome é id do Hub e é baixado; o resto sai do zip. Assim o
+# quarto braço (`gte`, 2026-09-22) entrou sem tocar nesta decisão — comparar com o
+# nome de um braço faria cada base nova precisar de mais um `or VARIANTE == ...`.
+if "/" in str(BASES[VARIANTE]):
     BASE = BASES[VARIANTE]
 else:
     BASE = MODELOS / BASES[VARIANTE]
@@ -218,7 +221,44 @@ REGRA_MODERNBERT = r"""
      `--sem-amp`) muda a numérica e o tempo, e NÃO entra sem nova decisão.
 """
 
-REGRA = REGRA_MODERNBERT if VARIANTE == "modernbert" else REGRA_BRACOS
+REGRA_GTE = r"""
+  ── A REGRA do braço gte, escrita ANTES (2026-09-22) ──────────────────────
+
+  A PERGUNTA: o ModernBERT-base é a base CERTA para o pré-treino continuado?
+  O T1f mediu que o GTE-base vence o nosso MiniLM por +0,063 de nDCG@10 — mas
+  a 400 mil pares, e a barra do caminho B é a 200 mil. Sem este número, "o
+  ModernBERT-base é a melhor base disponível" é suposição.
+
+  MEDIDA PRIMÁRIA: nDCG@10 no protocolo do G1, LOCAL, na mesma sessão que o
+  ModernBERT-base@200k (0,5270); IC por bootstrap pareado por ITEM.
+
+  Uma variável: a BASE. Mesmos 200 mil pares (os mesmos bytes), mesmo lote,
+  mesmos 192 tokens, mesma semente.
+
+  Os desfechos:
+
+    GTE À FRENTE      ->  os dois braços do CPT partiram da base errada, e a
+    (IC exclui zero)      resposta do ADR-0003 para o produto passa a ser
+                          "trocar a base", não "continuar o pré-treino". O que
+                          o CPT mediu sobre o §2.3 continua valendo; o que
+                          muda é qual encoder vai para o sistema.
+
+    EMPATE            ->  as duas bases gerais chegam no mesmo lugar a 200 mil
+    (IC cruza zero)       pares. A escolha do ModernBERT fica sem custo, e o
+                          argumento passa a ser o contexto de 8.192 dele.
+
+    MODERNBERT À      ->  a escolha do caminho B se confirma, e a comparação
+    FRENTE                dos dois braços do CPT fica mais forte: eles partiram
+    (IC exclui zero)      da melhor base disponível nesta receita.
+
+  ⚠️ O GTE-base tem 110 M contra 150 M do ModernBERT, e contexto de 512 contra
+     8.192. Com 192 tokens de truncagem, o contexto não entra nesta medida —
+     mas entra no produto, e a decisão é do dono.
+
+  ⚠️ Memória: lote 128 sem GradCache, como nos outros braços.
+"""
+
+REGRA = {"modernbert": REGRA_MODERNBERT, "gte": REGRA_GTE}.get(VARIANTE, REGRA_BRACOS)
 
 print(f"""
 {'=' * 74}

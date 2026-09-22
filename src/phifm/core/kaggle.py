@@ -582,6 +582,28 @@ VARIANTES_DE_VOLUME = ("t1a", "t1a15", "t1a3m", "t1a6m")
 # teste confere que tudo o mais é igual — orçamento, dataset, célula e código.
 BRACOS_DO_T2A = ("t2a_a", "t2a_e")
 
+T2EQ_EMB_GTE = Experimento(
+    nome="t2eq_emb_gte",
+    # ⚠️ REUSA o dataset do controle, e o reúso é a PREMISSA: a pergunta é se a
+    # BASE muda o resultado, então os pares têm de ser os mesmos bytes dos outros
+    # três braços. O `modelos.zip.bin` do dataset vai junto e não é usado aqui — a
+    # base vem do Hub —, o que custa banda e preserva a assinatura do bundle.
+    reusa_dados_de="t2eq_emb_controle",
+    titulo_dados="PhiFM T2eq Emb pares do T1a e dois PhiEnc",
+    slug_dados="phifm-t2eq-emb",
+    titulo_notebook="PhiFM T2eq Emb GTE",
+    slug_notebook="phifm-t2eq-emb-gte",
+    pacote="data/processed/kaggle_t2eq_emb",
+    fonte_celula="kaggle/t2eq_emb.py",
+    arquivos=_T2EQ_EMB_ARQUIVOS,
+    scripts=("train_embedding.py",),
+    modelos=_T2EQ_EMB_MODELOS,
+    max_pares=200_000,
+    variante="gte",
+    repo="sanchezVB/LLM_F-sica",
+)
+
+
 # ⚠️ Caminho B do ADR-0003 — pré-treino CONTINUADO do ModernBERT-base, em DUAS T4.
 #
 # Uma fatia, dois braços: a variável é `p_equacao`. O dataset é próprio (a fatia é
@@ -632,7 +654,7 @@ EXPERIMENTOS: dict[str, Experimento] = {
     e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
                         T2A_A, T2A_E, T2EQ_TRATADO,
                         T2EQ_EMB_CONTROLE, T2EQ_EMB_TRATADO,
-                        T2EQ_EMB_MODERNBERT,
+                        T2EQ_EMB_MODERNBERT, T2EQ_EMB_GTE,
                         T2EQ_CPT_CONTROLE, T2EQ_CPT_TRATADO)}
 
 
