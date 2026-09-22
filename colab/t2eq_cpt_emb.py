@@ -112,22 +112,29 @@ print(f"código em {CODIGO} · SHA {SHA[:7]}")
 # ⚠️ Descompactar para /content e não para o Drive: ler 598 MB de pesos pelo
 # FUSE do Drive a cada passo é lento, e o treino abre o modelo uma vez só.
 NOME = f"phienc-cpt-{VARIANTE}"
-NO_DRIVE = PASTA / "encoders" / NOME
-ZIP = PASTA / "encoders" / f"{NOME}.zip"
+# ⚠️ `encoders/` E a raiz da pasta: quem sobe 531 MB pelo navegador solta onde o
+# Drive abriu, e em 2026-09-22 os dois zips caíram em `phifm/`. Recusar por causa
+# de uma subpasta é fazer o dono mover meio giga para provar um ponto — e a
+# identidade do arquivo quem garante é o blake3 abaixo, não o caminho dele.
+ONDE = [PASTA / "encoders" / NOME, PASTA / NOME,
+        PASTA / "encoders" / f"{NOME}.zip", PASTA / f"{NOME}.zip"]
 ENCODER = Path("/content/encoders") / NOME
-if NO_DRIVE.is_dir():
+achado = next((p for p in ONDE if p.exists()), None)
+if achado is None:
+    raise AssertionError(
+        "não achei o encoder em nenhum destes caminhos:\n  "
+        + "\n  ".join(str(p) for p in ONDE)
+        + f"\nSuba o export local de models/{NOME} para o Drive (a pasta "
+          "inteira, ou o .zip dela).")
+if achado.is_dir():
     ENCODER.parent.mkdir(parents=True, exist_ok=True)
     if not ENCODER.exists():
-        shutil.copytree(NO_DRIVE, ENCODER)
-    print(f"encoder copiado de {NO_DRIVE}")
-elif ZIP.exists():
-    with zipfile.ZipFile(ZIP) as z:
-        z.extractall(ENCODER.parent)
-    print(f"encoder descompactado de {ZIP}")
+        shutil.copytree(achado, ENCODER)
+    print(f"encoder copiado de {achado}")
 else:
-    raise AssertionError(
-        f"não achei nem {NO_DRIVE} nem {ZIP}. Suba o export local de "
-        f"models/{NOME} para o Drive (a pasta inteira, ou o .zip dela).")
+    with zipfile.ZipFile(achado) as z:
+        z.extractall(ENCODER.parent)
+    print(f"encoder descompactado de {achado}")
 
 # ── Os pesos TÊM de ser os do braço, e os pares os mesmos dos outros ───────
 from blake3 import blake3
