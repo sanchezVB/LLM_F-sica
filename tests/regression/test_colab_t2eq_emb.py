@@ -95,7 +95,8 @@ def test_a_regra_esta_escrita_com_os_tres_desfechos():
 def test_o_notebook_gerado_fixa_o_COMMIT_e_nao_main():
     import gerar_notebook_colab as gerador
 
-    nb = gerador.notebook("a" * 40, "/content/drive/MyDrive/phifm")
+    nb = gerador.notebook("a" * 40, "/content/drive/MyDrive/phifm", colab,
+                          "t2eq_emb_modernbert", None)
     fonte = "".join("".join(c["source"]) for c in nb["cells"])
     assert "a" * 40 in fonte and "__SHA__" not in fonte
     assert nb["metadata"]["accelerator"] == "GPU"

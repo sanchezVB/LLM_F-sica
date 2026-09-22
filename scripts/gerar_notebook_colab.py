@@ -30,10 +30,18 @@ from phifm.core.console import utf8  # noqa: E402
 
 utf8()
 
-import t2eq_emb_modernbert as celulas  # noqa: E402
+import importlib  # noqa: E402
 
 REPO = "sanchezVB/LLM_F-sica"
-SAIDA = RAIZ / "colab" / "t2eq_emb_modernbert.ipynb"
+PADRAO = "t2eq_emb_modernbert"
+
+# ⚠️ O módulo das células é ESCOLHIDO, e não fixo: a secundária do caminho B tem duas
+# células iguais que diferem só na `__VARIANTE__`, e um gerador por notebook faria as
+# duas divergirem em silêncio — a mesma armadilha das células do Kaggle copiadas.
+TITULOS = {
+    "t2eq_emb_modernbert": "Passo 1 do caminho B — ModernBERT-base como ΦEmb",
+    "t2eq_cpt_emb": "Secundária do caminho B — o CPT ajustado como ΦEmb",
+}
 
 
 def sha_do_repositorio() -> str:
@@ -42,28 +50,49 @@ def sha_do_repositorio() -> str:
     return r.stdout.strip()
 
 
-def preencher(texto: str, sha: str, pasta: str) -> str:
-    return (texto.replace("__SHA__", sha).replace("__REPO__", REPO)
-            .replace("__PASTA__", pasta)
-            .replace("__HASHES__", json.dumps(celulas.HASHES, indent=4))
-            .replace("__REGRA__", celulas.REGRA))
+def preencher(texto: str, sha: str, pasta: str, celulas, variante: str | None) -> str:
+    texto = (texto.replace("__SHA__", sha).replace("__REPO__", REPO)
+             .replace("__PASTA__", pasta)
+             .replace("__HASHES__", json.dumps(celulas.HASHES, indent=4))
+             .replace("__REGRA__", celulas.REGRA))
+    if hasattr(celulas, "HASHES_ENCODER"):
+        texto = texto.replace("__HASHES_ENCODER__",
+                              json.dumps(celulas.HASHES_ENCODER, indent=4))
+    if variante:
+        texto = texto.replace("__VARIANTE__", variante)
+    # ⚠️ Marcador que sobra vira string literal no notebook, e o erro só aparece
+    # depois de a sessão subir e o Drive montar.
+    for marcador in ("__SHA__", "__REPO__", "__PASTA__", "__HASHES__",
+                     "__HASHES_ENCODER__", "__REGRA__", "__VARIANTE__"):
+        if marcador in texto:
+            raise SystemExit(
+                f"o marcador {marcador} sobrou na célula. Ou falta um argumento "
+                "(--variante?), ou a célula não devia tê-lo.")
+    return texto
 
 
-def notebook(sha: str, pasta: str) -> dict:
+def notebook(sha: str, pasta: str, celulas, nome: str,
+             variante: str | None) -> dict:
+    braco = f" · braço {variante}" if variante else ""
+    encoder = (f"\n\nE suba o encoder do braço para `{pasta}/encoders/"
+               f"phienc-cpt-{variante}` (a pasta, ou o `.zip` dela).\n"
+               if variante else "\n")
     cabecalho = [
-        "# Passo 1 do caminho B — ModernBERT-base como ΦEmb\n",
+        f"# {TITULOS.get(nome, nome)}{braco}\n",
         "\n",
         "Gerado por `scripts/gerar_notebook_colab.py`; **não edite aqui** — o fonte "
-        "é `colab/t2eq_emb_modernbert.py`.\n",
+        f"é `colab/{nome}.py`.\n",
         "\n",
         f"Código: commit `{sha[:7]}`.\n",
         "\n",
         "**Antes de rodar:** Ambiente de execução → Alterar o tipo → **T4 GPU**, e "
-        f"suba `pares_treino.parquet` e `pares_validacao.parquet` para `{pasta}/pares`.\n",
+        f"suba `pares_treino.parquet` e `pares_validacao.parquet` para `{pasta}/pares`.",
+        encoder,
     ]
     celulas_json = [{"cell_type": "markdown", "metadata": {}, "source": cabecalho}]
     for fonte in celulas.CELULAS:
-        linhas = preencher(fonte, sha, pasta).strip("\n").splitlines(keepends=True)
+        linhas = preencher(fonte, sha, pasta, celulas,
+                           variante).strip("\n").splitlines(keepends=True)
         celulas_json.append({
             "cell_type": "code", "execution_count": None, "metadata": {},
             "outputs": [], "source": linhas})
@@ -81,17 +110,27 @@ def notebook(sha: str, pasta: str) -> dict:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--pasta", default=celulas.PASTA_PADRAO,
+    p.add_argument("--celulas", default=PADRAO, choices=sorted(TITULOS),
+                   help="o módulo de `colab/` com as células")
+    p.add_argument("--variante", default=None,
+                   help="o braço, quando as células têm `__VARIANTE__`")
+    p.add_argument("--pasta", default=None,
                    help="pasta do Drive com `pares/` e onde os runs vão")
-    p.add_argument("--saida", type=Path, default=SAIDA)
+    p.add_argument("--saida", type=Path, default=None)
     p.add_argument("--sha", default=None, help="por omissão, o HEAD do repositório")
     a = p.parse_args()
 
+    celulas = importlib.import_module(a.celulas)
+    pasta = a.pasta or celulas.PASTA_PADRAO
+    sufixo = f"-{a.variante}" if a.variante else ""
+    saida = a.saida or RAIZ / "colab" / f"{a.celulas}{sufixo}.ipynb"
+
     sha = a.sha or sha_do_repositorio()
-    a.saida.parent.mkdir(parents=True, exist_ok=True)
-    a.saida.write_text(json.dumps(notebook(sha, a.pasta), indent=1,
-                                  ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"  {a.saida}  ·  commit {sha[:7]}  ·  dados em {a.pasta}/pares")
+    saida.parent.mkdir(parents=True, exist_ok=True)
+    saida.write_text(json.dumps(notebook(sha, pasta, celulas, a.celulas, a.variante),
+                                indent=1, ensure_ascii=False) + "\n",
+                     encoding="utf-8")
+    print(f"  {saida}  ·  commit {sha[:7]}  ·  dados em {pasta}/pares")
     return 0
 
 
