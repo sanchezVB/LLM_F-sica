@@ -407,3 +407,33 @@ def test_o_tokenizer_do_artefato_e_o_ARQUIVO_da_fatia(tmp_path):
         assert hash_de_tokenizer(para / "tokenizer.json") == hash_de_tokenizer(fonte)
         # E continua sendo um tokenizer que o `transformers` abre, com o papel certo.
         assert AutoTokenizer.from_pretrained(para).mask_token_id is not None
+
+
+def test_o_tokenizer_do_HUB_e_resolvido_pela_REVISAO_do_caminho(tmp_path):
+    """O caminho do manifesto é o da máquina que PREPAROU a fatia.
+
+    No contêiner do Kaggle ele não existe, e o braço tratado do caminho B terminou
+    em ERROR na exportação depois de 7 h 39 de treino (2026-09-22). Resolver pelo
+    NOME da base seria resolver por nome e não por identidade: o que se baixa é a
+    revisão embutida no caminho gravado.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_exp2", EXPORTADOR)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    rev = "8949b909ec900327062f0ebf497f51aef5e6f0c8"
+    cache = Path(f"cache/huggingface/hub/models--org--m/snapshots/{rev}/tokenizer.json")
+    assert mod.revisao_do_caminho(cache) == rev
+    assert mod.revisao_do_caminho(Path("models/meu/tokenizer.json")) is None
+
+    # Um caminho que EXISTE é usado como está, sem tocar na rede.
+    local = _tokenizer(tmp_path / "tok.json")
+    assert mod.resolver_tokenizer(local, "org/m") == local
+
+    # Sem revisão no caminho e sem arquivo, a recusa é a de sempre.
+    with pytest.raises(SystemExit, match="tokenizer ausente"):
+        mod.resolver_tokenizer(tmp_path / "nao_existe.json", "org/m")
+    with pytest.raises(SystemExit, match="tokenizer ausente"):
+        mod.resolver_tokenizer(cache, None)

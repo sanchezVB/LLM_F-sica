@@ -87,6 +87,7 @@ import argparse
 import contextlib
 import json
 import logging
+import re
 import sys
 from dataclasses import fields
 from pathlib import Path
@@ -144,6 +145,48 @@ def config_do_run(manifesto: dict) -> ConfigEnc:
     # Campo obrigatório ausente levanta `TypeError` nomeando qual — melhor que
     # uma mensagem própria, porque nomeia o campo sem precisar mantê-la.
     return ConfigEnc(**{k: v for k, v in d.items() if k in validos})
+
+
+_REVISAO_NO_CAMINHO = re.compile(r"snapshots[/\\]([0-9a-f]{40})[/\\]")
+
+
+def revisao_do_caminho(caminho: Path) -> str | None:
+    """A revisão do Hub embutida num caminho de cache do HuggingFace, se houver.
+
+    `…/models--org--modelo/snapshots/<sha1 de 40>/tokenizer.json` → o `<sha1>`.
+    """
+    m = _REVISAO_NO_CAMINHO.search(str(caminho))
+    return m.group(1) if m else None
+
+
+def resolver_tokenizer(caminho: Path, base: str | None) -> Path:
+    """O arquivo que o run nomeia — baixado do Hub quando o caminho é de outra máquina.
+
+    ⚠️ O manifesto de dados guarda o CAMINHO do `tokenizer.json`, e num CPT ele
+    aponta para o cache do HuggingFace da máquina que preparou a fatia. No contêiner
+    do Kaggle esse caminho não existe: medido em 2026-09-22, o braço tratado do
+    caminho B treinou os 6.103 passos em 7 h 39 e o notebook terminou em ERROR na
+    exportação. Os pesos estavam salvos e a exportação foi refeita aqui — o custo foi
+    a viagem, não o treino.
+
+    Baixar "o tokenizer da base" resolveria pelo NOME, e nome não é identidade: a
+    mesma base pode ter outro tokenizer em outra revisão, e os ids passariam a
+    significar outra coisa sem nada reclamar. O caminho gravado carrega a revisão
+    (`snapshots/<sha1>/`), então é ESSE commit que se baixa. Sem revisão no caminho,
+    a recusa é a de sempre.
+    """
+    if caminho.exists():
+        return caminho
+    revisao = revisao_do_caminho(caminho) if base else None
+    if revisao is None:
+        raise SystemExit(
+            f"tokenizer ausente: {caminho}\nÉ o que o manifesto de dados do run "
+            "nomeia. Exportar com outro mudaria o significado dos ids.")
+    from huggingface_hub import hf_hub_download
+
+    log.info("o caminho do tokenizer não existe aqui; baixando %s de %s na revisão "
+             "%s", caminho.name, base, revisao[:7])
+    return Path(hf_hub_download(base, caminho.name, revision=revisao))
 
 
 def base_do_run(manifesto: dict) -> str | None:
@@ -473,6 +516,7 @@ def main() -> int:
             "Ver o §'o tokenizer errado não parece um erro'.")
     base = base_do_run(manifesto)
     id_mask = id_mask_do_run(manifesto)
+    tok_caminho = resolver_tokenizer(Path(tok_caminho), base)
     tok = carregar_tokenizer(Path(tok_caminho), cfg.vocab,
                              especiais=especiais_da_base(base) if base else None,
                              id_mask=id_mask)

@@ -39,7 +39,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **§11.2** · o bake-off A×E | 🟢 **E vence, a 0,6 B** | bits por byte por três instrumentos, e só o terceiro (PLL-word-l2r) decide: A − E = **+0,047** [+0,043; +0,050]. Os dois primeiros se anularam, cada um a favor do braço que favorece. **A §8 cai.** ⚠️ A teve um spike com rollback e E não — assimetria a favor de E, estimada pequena, não medida. Ver a seção de 2026-09-15. ⚠️ Secundária de recuperação (2026-09-17) CONTRARIA: A à frente, nDCG@10 0,0296 contra 0,0171, os dois perto do piso; sonda sem diferença |
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
-| **Caminho B** · 2ª execução | 🟡 **controle PRONTO; tratado RODANDO desde 2026-09-21 19:35, código `adfae30`** | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
+| **Caminho B** · os dois braços TREINADOS | 🟡 **medindo pela regra** | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. **Vazão medida em 2026-09-19**: mediana de **15,2–15,9 mil tok/s** no ModernBERT-base (150 M), contexto 1.024, contra 15,6 mil projetados |
 | **PB-Formula** · MEDIDO | 🔴 **a premissa do §6.3 cai** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
 | **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
@@ -172,6 +172,43 @@ verificado** pela composição do lote.
 
 ~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
 controle está aproveitado inteiro. O tratado precisa de outra execução.
+
+## Caminho B, 2ª execução do tratado: 0 spikes, e a exportação no Kaggle caiu por um CAMINHO (2026-09-22)
+
+Com o detector corrigido, o braço tratado treinou **os 6.103 passos, com 0 spikes e 0
+rollbacks** — contra 3 spikes e a parada no passo 4.489 na primeira tentativa, com o
+mesmo dado, a mesma semente e o mesmo orçamento. É a confirmação prática de que os
+três alarmes eram composição de lote.
+
+| | controle | tratado (2ª) |
+|---|---|---|
+| passos | 6.103 | **6.103** |
+| spikes · rollbacks | 2 (norma) · 2 | **0 · 0** |
+| perda final | 0,9135 | 1,2266 (⚠️ NÃO compara: o tratado resolve tarefa mais difícil) |
+| vazão, duas T4 | 15.191 tok/s | 14.617 tok/s (máquina ~8% mais lenta) |
+| fração tratada | — | **0,549** ✅ (checagem 1 da regra: ≥ 0,50) |
+| passos pulados pelo scaler | 2 | 4 |
+
+⚠️ **E o notebook terminou em ERROR de novo, na exportação, por um motivo novo.** O
+manifesto do run guarda o **caminho** do `tokenizer.json`, e num CPT ele aponta para o
+cache do HuggingFace **da máquina que preparou a fatia**
+(`cache/huggingface/hub/models--answerdotai--ModernBERT-base/snapshots/8949b909…`).
+No contêiner do Kaggle esse caminho não existe. No controle isso ficou escondido atrás
+da trava do spike: são dois defeitos no mesmo passo, e o primeiro mascarava o segundo.
+
+Custo: a viagem, não o treino — os pesos estavam salvos e a exportação foi refeita
+aqui. `models/phienc-cpt-tratado`, do passo 6.103, sem ressalva nenhuma.
+
+Corrigido no exportador: quando o caminho não existe, o arquivo é baixado do Hub **na
+revisão embutida no próprio caminho** (`snapshots/<sha1>/`). Resolver pelo NOME da base
+seria resolver por nome e não por identidade — a mesma base pode ter outro tokenizer em
+outra revisão, e os ids passariam a significar outra coisa sem nada reclamar. Sem
+revisão no caminho, a recusa continua.
+
+⚠️ **A lição, que é a mesma três vezes seguidas:** o passo de exportação da célula
+nunca tinha rodado até o fim no Kaggle, e cada execução de 7 h revelou um defeito dele
+— a trava do spike (19/09), os especiais do tokenizer (19/09, achado aqui) e agora o
+caminho do tokenizer (22/09). Os três são baratos de testar e caros de descobrir.
 
 ## PB-Formula medido: o denso VENCE o BM25, e a premissa do DOC-11 §6.3 cai (2026-09-18)
 
