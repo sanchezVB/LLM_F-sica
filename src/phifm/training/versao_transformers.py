@@ -7,7 +7,7 @@ Sem torch no import: a escolha do nome é testável na suíte rápida.
 O conserto do fp16 de 2026-09-03/11 passa `dtype=torch.float32` ao `from_pretrained`
 (ver `test_dtype_fp32.py`). É o nome do argumento no `transformers` NOVO — o 5.0.0 da
 imagem do Kaggle, onde o T1f rodou com ele. O `transformers` 4.48.3 da `.venv-treino`
-local só conhece `torch_dtype` (conferido na fonte de `PreTrainedModel.from_pretrained`).
+de então só conhecia `torch_dtype` (conferido na fonte de `PreTrainedModel.from_pretrained`).
 
 Na 4.48 o `dtype` desconhecido segue para o construtor do modelo. O
 `ModernBertModel` o recusa com `TypeError` — foi assim que apareceu, no ensaio local do
@@ -16,6 +16,10 @@ acontece localmente.
 
 O corte em 4.56 é o da troca de nome no `transformers`; os dois lados dele usados neste
 projeto estão conferidos (4.48.3 local e 5.0.0 no Kaggle).
+
+⚠️ Desde 2026-09-23 a `.venv-treino` local também é 5.0.0 (a 4.48.3 ficou em
+`.venv-treino-tf4`). A escolha pelo número da versão continua, porque é ela que deixa
+as duas venvs rodarem o mesmo código — e a reserva existe para reproduzir medições antigas.
 """
 from __future__ import annotations
 

@@ -49,10 +49,19 @@ ROCm enumera zero dispositivos — ver `setup/rocm_wsl.md`).
 
 ```bash
 py -3.12 -m venv .venv-treino
-.venv-treino/Scripts/pip install torch-directml transformers
+.venv-treino/Scripts/pip install torch-directml "transformers==5.0.0"
 # e as do projeto que o codigo de treino tambem usa:
 .venv-treino/Scripts/pip install polars pyarrow numpy scipy blake3 pydantic
 ```
+
+**Por que `transformers==5.0.0`, fixado (2026-09-23):** é a versão da imagem do Kaggle
+e a do Colab em que os modelos do projeto são treinados. Com versões diferentes aqui e
+lá, cada checkpoint vindo da nuvem tinha de ser reexportado, e o tokenizador salvo pela
+5.x não abre na 4.48. A troca foi medida antes de ser feita — embeddings bit a bit
+iguais entre as duas versões em três modelos, na CPU e na DirectML (ESTADO,
+2026-09-17) — e a suíte inteira passou na venv nova. A venv anterior, com a 4.48.3,
+fica em `.venv-treino-tf4` para reproduzir medições antigas; pode ser apagada quando
+isso deixar de ser necessário.
 
 **Por que essas seis e não `-r requirements.lock`:** o lock traz a árvore inteira
 da venv principal, incluindo versões que conflitam com o `torch-directml`. A lista

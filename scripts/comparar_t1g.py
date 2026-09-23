@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T1g: aplica a regra do `kaggle/t1g_gte_1m.py` — o GTE@1M supera o ΦEmb do sistema?
 
-    .venv-treino-tf5\\Scripts\\python.exe scripts\\comparar_t1g.py \\
+    .venv-treino\\Scripts\\python.exe scripts\\comparar_t1g.py \\
         --gte data/processed/t1g_saida/phiemb-gte-base-1m-melhor \\
         --out data/processed/avaliacao/t1g_comparacao.json
 

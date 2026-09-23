@@ -97,8 +97,13 @@ def _trabalhador(rank: int, mundo: int, raiz: str, store: str, saida: str,
     dist.init_process_group("gloo", init_method=Path(store).as_uri(), rank=rank,
                             world_size=mundo)
     try:
-        _treinador(Path(raiz), total=total, acumulacao=acumulacao,
-                   distribuicao=Distribuicao(rank, mundo)).treinar(Path(saida))
+        tr = _treinador(Path(raiz), total=total, acumulacao=acumulacao,
+                        distribuicao=Distribuicao(rank, mundo))
+        tr.treinar(Path(saida))
+        # Os pesos de CADA processo, e não só os do principal: é o que prova que os
+        # dois ficaram sincronizados — ver `test_dois_processos_...`.
+        torch.save({k: v.detach().clone() for k, v in tr._nucleo().state_dict().items()},
+                   Path(saida) / f"pesos_rank{rank}.pt")
     finally:
         dist.destroy_process_group()
 
@@ -144,16 +149,43 @@ def test_dois_processos_terminam_com_os_mesmos_pesos_que_um(tmp_path):
     assert p1["passo"] == p2["passo"] == total
     assert p1["modelo"].keys() == p2["modelo"].keys(), (
         "as chaves do checkpoint mudaram: o DDP gravou com o prefixo `module.`")
-    diferenca = max(float((p1["modelo"][k] - p2["modelo"][k]).abs().max())
-                    for k in p1["modelo"])
-    assert diferenca < 1e-5, f"pesos divergem por {diferenca:.2e}"
 
+    # ── O que PROVA que dois processos treinam o mesmo modelo que um ───────────
     j1 = json.loads((um / NOME_METRICAS).read_text(encoding="utf-8"))
     j2 = json.loads((dois / NOME_METRICAS).read_text(encoding="utf-8"))
-    # Iguais EXATAMENTE: os dois processos juntos viram as mesmas máscaras que um.
+    # 1. Iguais EXATAMENTE: os dois processos juntos viram as mesmas máscaras que um.
     assert j1["mascaramento"] == j2["mascaramento"]
     assert j2["distribuicao"]["processos"] == 2
     assert j2["distribuicao"]["acumulacao_por_processo"] == 1
+    # 2. A mesma perda a cada passo: um micro-passo pulado ou duplicado a muda.
     perdas1 = [h["perda"] for h in j1["historico"]]
     perdas2 = [h["perda"] for h in j2["historico"]]
     assert perdas1 == pytest.approx(perdas2, abs=1e-5)
+    # 3. A mesma norma de gradiente a cada passo. ⚠️ É ESTA que pega um erro de
+    #    normalização (dividir pela acumulação do passo inteiro em vez da do
+    #    processo, por exemplo): o AdamW é quase invariante à escala do gradiente,
+    #    então um fator constante errado mal apareceria nos pesos.
+    normas1 = [h["norma_grad"] for h in j1["historico"]]
+    normas2 = [h["norma_grad"] for h in j2["historico"]]
+    assert normas1 == pytest.approx(normas2, rel=1e-5)
+    # 4. Os dois processos terminam BIT A BIT iguais entre si: sem dessincronia.
+    r0 = torch.load(dois / "pesos_rank0.pt", weights_only=True)
+    r1 = torch.load(dois / "pesos_rank1.pt", weights_only=True)
+    dessincronia = max(float((r0[k] - r1[k]).abs().max()) for k in r0)
+    assert dessincronia == 0.0, f"os processos dessincronizaram: {dessincronia:.2e}"
+
+    # 5. E os pesos contra os de um processo, com folga de ARREDONDAMENTO.
+    #
+    # ⚠️ Até 2026-09-23 esta era a única verificação, com tolerância de 1e-5, e na
+    # `transformers` 4.48 a igualdade era bit a bit. Na 5.0, em CPU, a execução em
+    # dois processos cai em um de DOIS resultados, como cara ou coroa: idêntico ao de
+    # um processo, ou a 5,774e-4 dele — sempre esse valor, nos pesos de atenção.
+    # Medido: um processo é determinístico (0,0 contra si mesmo, em qualquer
+    # contexto); `torch.use_deterministic_algorithms(True)` NÃO estabiliza (2 de 4
+    # execuções no desvio); e os dois processos ficam bit a bit iguais ENTRE SI em
+    # todas as execuções. É um arredondamento por processo, que o all-reduce espalha,
+    # amplificado pelo AdamW em 4 passos — não é a lógica do DDP, que as verificações
+    # 1 a 4 acima provam. A causa exata dentro da 5.0 não foi identificada.
+    diferenca = max(float((p1["modelo"][k] - p2["modelo"][k]).abs().max())
+                    for k in p1["modelo"])
+    assert diferenca < 1e-3, f"pesos divergem por {diferenca:.2e}"

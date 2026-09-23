@@ -46,7 +46,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Secundária do caminho B** · MEDIDA | 🟢 **§2.3 +0,0076 a 150 M; o GTE domina** | tratado − controle +0,0076 [+0,0013; +0,0139] (11× menor que a 48 M, e a assimetria de spike o favorece); tratado − ModernBERT cru +0,0103; GTE cru **0,5964** contra 0,5373 do melhor braço. A base vale ~7× o pré-treino continuado. Decisão no [ADR-0003 §9](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) | os dois braços do CPT ajustados como ΦEmb no **Colab** (`colab/t2eq_cpt_emb.py`, pesos conferidos por blake3), um depois do outro na mesma plataforma; e, em paralelo no **Kaggle**, o **GTE-base@200k** (`t2eq_emb_gte`, código `9993d14`) — a pergunta é se o ModernBERT-base é a base certa, já que o T1f só mediu o GTE a 400 mil pares. Comparador pronto: `scripts/comparar_t2eq_cpt_emb.py` |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. **Vazão medida em 2026-09-19**: mediana de **15,2–15,9 mil tok/s** no ModernBERT-base (150 M), contexto 1.024, contra 15,6 mil projetados |
 | **PB-Formula** · MEDIDO e revisto | 🟢 **a premissa do §6.3 cai; especificação revista ACEITA em 2026-09-23** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
-| **Versões** · `transformers` 5.0 local | 🟢 **viável, medido; NÃO trocado** | venv paralela `.venv-treino-tf5`: suíte idêntica, checkpoint do Kaggle abre direto, embeddings **bit a bit iguais** à 4.48 (ModernBERT, MiniLM, GTE; CPU e DirectML), exportação do ΦEnc com `model.safetensors` idêntico e treino na DirectML batendo em 2,2e-5. Só o tokenizer da 5.0 não volta para a 4.48. Falta vazão. Trocar a venv padrão é decisão do dono |
+| **Versões** · `transformers` 5.0 local | 🟢 **TROCADO em 2026-09-23** | a `.venv-treino` agora é a de `transformers` 5.0.0, a mesma do Kaggle e do Colab, fixada no `SETUP.md`. A anterior (4.48.3) ficou em `.venv-treino-tf4`, para reproduzir medições antigas. Medido antes de trocar: embeddings bit a bit iguais (ModernBERT, MiniLM, GTE; CPU e DirectML), e toda a medição da semana de 2026-09-22 já rodou na nova |
 | **Artigo do programa** | 🟢 **v0.5** (2026-09-23) | §4.9.3 (pré-treino continuado a 150 M), §4.10 (recuperação por equação, o PB-Formula), §5.4 nova (mecanismos que dependem da variável sob teste: o detector, o exportador, a ressalva herdada) e a oitava ocorrência de amostragem. Tabelas 1–24, corrigida a Tabela 20 duplicada da v0.4. A conclusão sobre o encoder do sistema espera o T1g. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
@@ -176,6 +176,41 @@ verificado** pela composição do lote.
 
 ~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
 controle está aproveitado inteiro. O tratado precisa de outra execução.
+
+## A troca para `transformers` 5.0 achou um não-determinismo no treino em dois processos (2026-09-23)
+
+A `.venv-treino` passou a ser a de `transformers` 5.0.0 (decisão do dono; a 4.48.3 ficou
+em `.venv-treino-tf4`). A suíte inteira rodou nela: **1.090 passaram**, e das 9 falhas, 8
+são as de ambiente já conhecidas (5 do parser de LaTeX sem `antlr4`, 2 do `reportlab`, 1
+do `sklearn`). A nona era real: `test_laco_ddp`, o teste de que duas GPUs treinam igual a
+uma, com os pesos divergindo por **5,774×10⁻⁴** contra a tolerância de 10⁻⁵.
+
+Isolado, com os experimentos no rascunho da sessão:
+
+| `transformers` 5.0, CPU, `gloo` | diferença nos pesos após 4 passos |
+|---|---|
+| 1 processo × 1 processo, em qualquer contexto | 0,0 |
+| 2 processos × 2 processos, a mesma execução repetida | 0,0 **ou** 5,774×10⁻⁴ |
+| idem, com `torch.use_deterministic_algorithms(True)` | 2 de 4 execuções no desvio |
+| rank 0 × rank 1, dentro de cada execução | **0,0 nas quatro** |
+| mesma coisa na 4.48.3 | 0,0 sempre |
+
+**Leitura:** na 5.0 a execução em dois processos cai, como cara ou coroa, em um de dois
+resultados — idêntico ao de um processo, ou sempre o mesmo desvio, concentrado nos pesos
+de atenção. As perdas coincidem a 10⁻⁶ e as normas de gradiente a ~10⁻⁶; os processos
+nunca dessincronizam. É um arredondamento por processo que o all-reduce espalha e o AdamW
+amplifica, **não a lógica do DDP**. A causa exata dentro da 5.0 não foi identificada.
+
+**O teste passou a provar o que importa**, em vez de exigir reprodutibilidade bit a bit:
+contadores de máscara exatos, perda por passo a 10⁻⁵, **norma de gradiente por passo a
+10⁻⁵ relativo** (nova), **ranks bit a bit iguais entre si** (nova), e pesos contra o de um
+processo a 10⁻³. Os dentes foram conferidos com dois defeitos injetados: um erro de
+normalização da perda (pego pela perda) e um que só escala o gradiente — o caso que o
+AdamW esconde nos pesos —, pego só pela norma. Estável em 4 rodadas nas duas venvs.
+
+⚠️ **Para o que já rodou no Kaggle:** o pré-treino continuado usou a 5.0 em duas T4 com
+NCCL. A GPU nunca foi bit a bit reproduzível, e o que o teste valida é a lógica — que
+está provada. Nada muda nos resultados publicados.
 
 ## T1g — o GTE-base com 1 M de pares EMPATA com o ΦEmb do sistema, e o sistema fica (2026-09-23)
 
