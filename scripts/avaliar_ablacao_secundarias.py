@@ -61,13 +61,19 @@ def ndcg_por_item(posicoes: list[int]) -> np.ndarray:
 
 
 def bootstrap_pareado_itens(a: np.ndarray, b: np.ndarray, semente: int = 17,
-                            n_boot: int = 10_000) -> dict:
+                            n_boot: int = 10_000, alfa: float = 0.05) -> dict:
+    """`b − a` por item, com IC de `1 − alfa`.
+
+    `alfa` existe para a correção de Bonferroni (o T1h compara 4 bases contra o mesmo
+    controle: 0,05/4). O padrão de 0,05 dá exatamente os percentis de antes — 2,5 e
+    97,5 —, então nenhum resultado já publicado muda.
+    """
     if a.shape != b.shape:
         raise ValueError("os braços não foram medidos nos mesmos itens")
     d = b - a
     rng = np.random.default_rng((semente, 0x1DC6))
     medias = np.array([d[rng.integers(0, d.size, d.size)].mean() for _ in range(n_boot)])
-    lo, hi = np.percentile(medias, [2.5, 97.5])
+    lo, hi = np.percentile(medias, [100 * alfa / 2, 100 * (1 - alfa / 2)])
     return {"diferenca": round(float(d.mean()), 5), "ic95": [round(float(lo), 5),
             round(float(hi), 5)], "cruza_zero": bool(lo <= 0 <= hi), "itens": int(d.size)}
 
