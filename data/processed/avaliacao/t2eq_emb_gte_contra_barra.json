@@ -1,0 +1,52 @@
+{
+  "experimento": "t2eq_cpt_emb — ADR-0003, caminho B, secundária",
+  "regra": "colab/t2eq_cpt_emb.py · REGRA (os braços do CPT) e kaggle/t2eq_emb.py · REGRA_GTE (a base)",
+  "protocolo": {
+    "n": 2000,
+    "semente": 17,
+    "max_tokens": 192,
+    "pares_de_treino": 200000,
+    "todos_medidos_nesta_sessao": true
+  },
+  "barra": {
+    "caminho": "models/phiemb-t2eq-modernbert-200k-melhor",
+    "recall_1": 0.354,
+    "recall_10": 0.72,
+    "mrr": 0.4774,
+    "ndcg_10": 0.527
+  },
+  "gte": {
+    "caminho": "data/processed/t2eq_emb_gte/phiemb-t2eq-gte-200k-melhor",
+    "recall_1": 0.417,
+    "recall_10": 0.788,
+    "mrr": 0.5443,
+    "ndcg_10": 0.5964
+  },
+  "barra_do_passo_1_registrada": 0.527,
+  "a_base_e_a_certa": {
+    "ndcg_10_gte_menos_barra": {
+      "diferenca": 0.06935,
+      "ic95": [
+        0.05797,
+        0.08118
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    },
+    "diagnostico_recall_1_mcnemar": {
+      "a": "barra",
+      "b": "gte",
+      "ganha_a": 111,
+      "ganha_b": 237,
+      "discordantes": 348,
+      "p": 1.2470326723171561e-11,
+      "veredito": "gte vence em recall@1 (p=0.0000)"
+    },
+    "desfecho": "GTE À FRENTE",
+    "leitura": "os dois braços do CPT partiram da base errada. A resposta do ADR-0003 para o produto passa a ser trocar a base, não continuar o pré-treino; o que o CPT mediu sobre o §2.3 continua valendo.",
+    "ressalva": "uma variável, a BASE: mesmos pares, lote, 192 tokens e semente. O GTE-base tem 110 M contra 150 M e contexto de 512 contra 8.192 — o contexto não entra nesta medida, e entra no produto."
+  },
+  "ressalvas": [
+    "Uma semente por braço; 200 mil pares, metade da receita do T1a — o absoluto NÃO se compara com o MiniLM@400k nem com o GTE-base@400k do T1f."
+  ]
+}
