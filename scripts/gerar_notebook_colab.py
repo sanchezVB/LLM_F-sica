@@ -42,6 +42,7 @@ TITULOS = {
     "t2eq_emb_modernbert": "Passo 1 do caminho B — ModernBERT-base como ΦEmb",
     "t2eq_cpt_emb": "Secundária do caminho B — o CPT ajustado como ΦEmb",
     "t1h_bases_pequenas": "T1h — bases pequenas no lugar do MiniLM-L6",
+    "t1i_pequenas_1m": "T1i — gte-small e bge-small com 1 M de pares",
 }
 
 
@@ -90,7 +91,8 @@ def notebook(sha: str, pasta: str, celulas, nome: str,
         f"Código: commit `{sha[:7]}`.\n",
         "\n",
         "**Antes de rodar:** Ambiente de execução → Alterar o tipo → **T4 GPU**, e "
-        f"suba `pares_treino.parquet` e `pares_validacao.parquet` para `{pasta}/pares`.",
+        + (getattr(celulas, "INSTRUCAO", "").replace("__PASTA__", pasta) or
+           f"suba `pares_treino.parquet` e `pares_validacao.parquet` para `{pasta}/pares`."),
         encoder,
     ]
     celulas_json = [{"cell_type": "markdown", "metadata": {}, "source": cabecalho}]
