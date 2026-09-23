@@ -41,7 +41,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
 | **Caminho B** · primária MEDIDA | 🟢 **NÃO DECIDIDO a 0,4 B** | diferença das diferenças **−0,00039** [−0,0016; +0,0009] — o negativo de 48 M (−0,0040) NÃO se repetiu, e encolheu 10×. O tratamento pegou mais forte que no proxy (equação inteira 0,0266 → **0,1999**, +0,173), mas não transfere para a máscara pontual. A assimetria de spike agora é a FAVOR do tratado. Falta a secundária — os dois ajustados em 200 mil pares contra a barra de 0,5270 | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
 | **A base do caminho B** · GTE × ModernBERT | 🔴 **GTE À FRENTE, +0,069** | a 200 mil pares, GTE-base **0,5964** contra ModernBERT-base **0,5270** (+0,0694 [+0,058; +0,081]). O CPT partiu da base errada para o produto; o que ele mede sobre o §2.3 continua valendo. A barra remedida deu 0,5270 de novo |
-| **T1g** · GTE-base@1M contra o sistema | 🟡 **RODANDO no Kaggle desde 2026-09-22 23:10** | a pergunta do produto: o GTE com 1/6 dos pares passa o ΦEmb do sistema (MiniLM@6M, 0,6223)? Não é ablação de uma variável, e a regra diz isso antes. ~6,5–7 h de T4; código `2bde691` |
+| **T1g** · GTE-base@1M contra o sistema | 🟢 **EMPATE — o sistema fica** | GTE@1M **0,6211** contra **0,6223** do MiniLM@6M (−0,0012 [−0,011; +0,008]; recall@1 148 × 144, p=0,861). Alcança com 1/6 dos pares e custa 4,4× para embutir; pela regra, nada muda no sistema |
 | **Secundária do caminho B** · MEDIDA | 🟢 **§2.3 +0,0076 a 150 M; o GTE domina** | tratado − controle +0,0076 [+0,0013; +0,0139] (11× menor que a 48 M, e a assimetria de spike o favorece); tratado − ModernBERT cru +0,0103; GTE cru **0,5964** contra 0,5373 do melhor braço. A base vale ~7× o pré-treino continuado. Decisão no [ADR-0003 §9](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) | os dois braços do CPT ajustados como ΦEmb no **Colab** (`colab/t2eq_cpt_emb.py`, pesos conferidos por blake3), um depois do outro na mesma plataforma; e, em paralelo no **Kaggle**, o **GTE-base@200k** (`t2eq_emb_gte`, código `9993d14`) — a pergunta é se o ModernBERT-base é a base certa, já que o T1f só mediu o GTE a 400 mil pares. Comparador pronto: `scripts/comparar_t2eq_cpt_emb.py` |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. **Vazão medida em 2026-09-19**: mediana de **15,2–15,9 mil tok/s** no ModernBERT-base (150 M), contexto 1.024, contra 15,6 mil projetados |
 | **PB-Formula** · MEDIDO | 🔴 **a premissa do §6.3 cai** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
@@ -175,6 +175,34 @@ verificado** pela composição do lote.
 
 ~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
 controle está aproveitado inteiro. O tratado precisa de outra execução.
+
+## T1g — o GTE-base com 1 M de pares EMPATA com o ΦEmb do sistema, e o sistema fica (2026-09-23)
+
+A pergunta do produto, com a regra escrita antes (`kaggle/t1g_gte_1m.py`): o GTE-base
+ajustado em 1 M de pares supera o MiniLM ajustado em 6 M? Os três medidos na mesma
+sessão, protocolo do G1:
+
+| | pares | recall@1 | recall@10 | MRR | nDCG@10 |
+|---|---|---|---|---|---|
+| ΦEmb do sistema (MiniLM) | 6 M | 0,4315 | 0,8305 | 0,5636 | **0,6223** |
+| **GTE-base** | **1 M** | 0,4335 | 0,8180 | 0,5663 | **0,6211** |
+| MiniLM (diagnóstico) | 1,5 M | 0,3890 | 0,7850 | 0,5216 | 0,5780 |
+
+nDCG@10 gte − sistema: **−0,0012 [−0,011; +0,008]**; recall@1 pareado 148 × 144, p=0,861.
+
+**Desfecho pela regra: EMPATE.** O GTE a 1/6 do volume alcança o sistema e não o passa,
+e custa 4,4× para embutir. O sistema fica como está.
+
+- **A régua conferiu de novo:** o sistema e o MiniLM@1,5M reproduziram 0,6223 e 0,5780
+  ao milésimo, como no ensaio da madrugada e nos registros originais.
+- **A curva do GTE cresce devagar:** 0,5964 (200 mil) → 0,6094 (400 mil) → 0,6211 (1 M),
+  cerca de +0,01 por dobra de pares. O MiniLM ganhou ~+0,02 por dobra entre 1,5 M e 6 M.
+  Extrapolar a 6 M não é medida, e o GTE@6M (~39 h de T4) segue sem sinal que o pague.
+- **O diagnóstico confirma a base de novo:** GTE@1M supera o MiniLM@1,5M por +0,043
+  [+0,033; +0,054], com 2/3 dos pares.
+
+Custo: 6 h 23 de T4 (43,6 pares/s, a mesma vazão do `t2eq_emb_gte`). Artefato:
+`data/processed/avaliacao/t1g_comparacao.json`.
 
 ## Caminho B, a SECUNDÁRIA: o §2.3 se repete a 150 M, 11× menor — e a base vale 7× o pré-treino (2026-09-23)
 

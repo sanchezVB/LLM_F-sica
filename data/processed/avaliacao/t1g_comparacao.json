@@ -1,0 +1,75 @@
+{
+  "experimento": "t1g — GTE-base@1M contra o ΦEmb do sistema",
+  "regra": "kaggle/t1g_gte_1m.py · REGRA",
+  "protocolo": {
+    "n": 2000,
+    "semente": 17,
+    "max_tokens": 192,
+    "todos_medidos_nesta_sessao": true
+  },
+  "sistema": {
+    "caminho": "models/phiemb-do-sistema",
+    "recall_1": 0.4315,
+    "recall_10": 0.8305,
+    "mrr": 0.5636,
+    "ndcg_10": 0.6223
+  },
+  "gte": {
+    "caminho": "data/processed/t1g_saida/phiemb-gte-base-1m-melhor",
+    "recall_1": 0.4335,
+    "recall_10": 0.818,
+    "mrr": 0.5663,
+    "ndcg_10": 0.6211
+  },
+  "minilm15": {
+    "caminho": "models/phiemb-minilm-15m-sorteado-melhor",
+    "recall_1": 0.389,
+    "recall_10": 0.785,
+    "mrr": 0.5216,
+    "ndcg_10": 0.578
+  },
+  "registrados": {
+    "sistema": 0.6223,
+    "minilm15": 0.578
+  },
+  "primaria_ndcg_10_gte_menos_sistema": {
+    "diferenca": -0.00119,
+    "ic95": [
+      -0.011,
+      0.00842
+    ],
+    "cruza_zero": true,
+    "itens": 2000
+  },
+  "diagnostico_recall_1_mcnemar": {
+    "a": "sistema",
+    "b": "gte",
+    "ganha_a": 144,
+    "ganha_b": 148,
+    "discordantes": 292,
+    "p": 0.860676622383634,
+    "veredito": "empate — 292 discordantes não separam os dois (p=0.861)"
+  },
+  "desfecho": "EMPATE",
+  "leitura": "o GTE a 1 M alcança o sistema e não o passa. Com o custo de 4,4×, o sistema fica como está; o GTE@6M (~39 h de T4) segue aberto, sem sinal que o pague.",
+  "diagnostico_gte_menos_minilm15": {
+    "diferenca": 0.04312,
+    "ic95": [
+      0.03277,
+      0.05369
+    ],
+    "cruza_zero": false,
+    "itens": 2000
+  },
+  "custo_de_servico": {
+    "gte_base_s": 954,
+    "minilm_s": 217,
+    "razao": 4.4,
+    "fonte": "T1f — o mesmo universo embutido pelos dois"
+  },
+  "ressalvas": [
+    "NÃO é ablação de uma variável: muda base E volume (1 M contra 6 M). É a pergunta do produto, declarada assim antes do número.",
+    "Uma semente por modelo.",
+    "O diagnóstico contra o MiniLM@1,5M dá ao MiniLM 1,5× mais pares."
+  ]
+}

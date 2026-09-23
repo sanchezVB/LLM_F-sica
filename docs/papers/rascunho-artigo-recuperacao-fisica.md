@@ -288,17 +288,20 @@ A execução de 6 milhões é a primeira com sinal de saturação: 15 avaliaçõ
 
 Duas leituras da versão anterior deste trabalho são revistas. O treinamento de 1,5 milhão de pares interrompido em 38% por estabilização da métrica usava as primeiras linhas, e os pares adicionais provinham de 67.232 documentos; sorteados, 1,5 milhão de pares alcançam 0,5780, contra 0,5442 das primeiras linhas, e a execução completa atinge o pico a 97% do caminho. A estabilização era esgotamento de documentos, e não de dados. Quanto ao número de negativos, a variante de 511 negativos obtém 0,5272 contra 0,5246 da execução de referência com 127, ambas com as primeiras linhas e remedidas no protocolo corrigido, sem ganho detectável, o que mantém a leitura de saturação entre 127 e 511.
 
-**Tabela 10.** Base contra volume. Os dois primeiros modelos diferem apenas na base; a terceira linha é o bi-encoder de 6 milhões de pares. O pareado compara o GTE-base (primeiro número) ao modelo da linha.
+**Tabela 10.** Base contra volume. Os dois primeiros modelos diferem apenas na base; a terceira linha é o bi-encoder de 6 milhões de pares. O pareado compara o GTE-base de 400 mil pares (primeiro número) ao modelo da linha, exceto na última, que compara o GTE-base de 1 milhão ao bi-encoder de 6 milhões, medidos na mesma sessão.
 
 | Modelo | Pares | nDCG@10 | recall@1 | recall@10 | Pareado em recall@1 |
 |---|---|---|---|---|---|
 | GTE-base [10] ajustado (109 M) | 400 mil | 0,6094 | 0,4300 | 0,8010 | — |
 | MiniLM-L6 ajustado (23 M) | 400 mil | 0,5462 | 0,3725 | 0,7395 | 219 × 104, p = 1,5 × 10⁻¹⁰ |
 | MiniLM-L6 ajustado (23 M) | 6 milhões | 0,6223 | 0,4315 | 0,8305 | 147 × 150, p = 0,908 |
+| GTE-base ajustado (109 M) | 1 milhão | 0,6211 | 0,4335 | 0,8180 | 148 × 144, p = 0,861 |
 
 Com a base geral de 109 M, 400 mil pares produzem o que o volume produziu com quinze vezes mais pares. O efeito é coerente com um padrão observado antes: o ganho do ajuste por citação é inverso ao ponto de partida — o SciBERT sobe 0,221 e termina abaixo do MiniLM-L6, que sobe 0,049 (Tabela 8) —, o que sugere que o ajuste ensina sobretudo a tarefa de recuperação, que uma base contrastiva geral já sabe. No universo completo de 88.807 documentos, o GTE-base sem ajuste algum já empata em recall@10 com o bi-encoder de 6 milhões de pares (0,2755 contra 0,2810, p = 0,545), embora perca em profundidade (recall@200 de 0,6450 contra 0,7300).
 
 A base, contudo, não foi trocada no sistema. Embutir o mesmo universo custa 954 segundos com o GTE-base e 217 com o MiniLM-L6, uma razão de 4,4 que se repete em serviço; pagar esse custo por um empate com o recuperador instalado não se justifica, e a combinação de base e volume, estimada em 39 horas de T4, não foi executada.
+
+Um ponto intermediário foi medido depois, com regra registrada antes: ajustado com 1 milhão de pares, o GTE-base empata com o bi-encoder de 6 milhões — nDCG@10 de 0,6211 contra 0,6223, diferença de −0,0012 [−0,011; +0,008] por bootstrap pareado por item — e supera o MiniLM-L6 de 1,5 milhão por +0,043 [+0,033; +0,054]. Com um sexto do volume, a base alcança o recuperador instalado e não o passa. A curva do GTE-base cresce devagar — 0,5964 a 200 mil pares, 0,6094 a 400 mil, 0,6211 a 1 milhão —, e a regra manteve o sistema como está: sem margem, o custo de serviço decide.
 
 A primeira medição da Tabela 10 quase registrou um falso negativo. Ela foi feita com 256 candidatos, valor padrão do avaliador, e produziu +0,039 com p = 0,161; com os 2.000 do protocolo, +0,0633 com p = 1,5 × 10⁻¹⁰. Com 256 candidatos a tarefa é muito mais fácil — o MiniLM-L6 sem ajuste marca 0,732 contra 0,476 —, e as duas escalas não se comparam. A discrepância foi percebida por comparação com o valor histórico do bi-encoder, que a execução com 2.000 reproduziu ao milésimo.
 
@@ -609,7 +612,7 @@ A comparação da Tabela 20 não é de uma variável: tamanho, tokenizador e vol
 
 Os resultados de pré-treinamento das Seções 4.9.1 e 4.9.2 são de substitutos de 48 M a 0,6 bilhão de tokens, 3,3 vezes abaixo do orçamento preparado para a ablação, e os da Seção 4.9.3, de um pré-treinamento continuado de 0,4 bilhão de tokens. Todos têm uma semente por braço, e cada ablação tem uma assimetria de execução não controlada — a favor de E na Seção 4.9.1, contra o tratado na Seção 4.9.2 e a favor do tratado na Seção 4.9.3. Nesta última, com um efeito de recuperação de +0,0076 e o limite inferior do intervalo em +0,0013, a assimetria é da ordem de grandeza que poderia explicar parte do efeito; ela não foi medida. A medida primária de modelagem mascarada tem viés declarado a favor do controle nas duas escalas. O encoder próprio de 150 M, treinado do zero, não foi treinado.
 
-A Tabela 22 compara bases gerais com uma variável, a 200 mil pares — metade da receita das Tabelas 9 e 10. A ordem entre duas bases a esse volume pode não se manter com mais pares, e a comparação da base vencedora com o recuperador atual do sistema, treinado em 6 milhões de pares, está em curso.
+A Tabela 22 compara bases gerais com uma variável, a 200 mil pares — metade da receita das Tabelas 9 e 10. A ordem entre duas bases a esse volume pode não se manter com mais pares. A base vencedora foi levada a 1 milhão de pares e empatou com o recuperador do sistema (Tabela 10); a comparação com a mesma base a 6 milhões, que isolaria o volume, não foi executada.
 
 O conjunto de recuperação por equação usa como consulta uma equação transcrita verbatim de um artigo, e não uma consulta escrita por um usuário; a vantagem medida do bi-encoder não se transfere, sem nova medição, a consultas que misturem notação e linguagem natural. A medida primária usa um sorteio de 2.000 itens de um estrato de 24.508, e a restrição a esse estrato, embora registrada antes de qualquer modelo medido, foi decidida depois da medição da grafia dos itens.
 
@@ -637,7 +640,7 @@ E dois resultados delimitam os três. A mesma receita de ajuste, aplicada a uma 
 
 Na recuperação por equação, o resultado é o oposto da premissa com que o conjunto foi desenhado: o bi-encoder de 23 M supera a busca léxica justamente onde a notação varia, e a vantagem cresce com a variação.
 
-Permanecem em aberto se uma base geral mais forte, ajustada com mais pares, supera o recuperador atual do sistema — medição em curso —, a contaminação do corpus filtrado e o efeito de acrescentar texto de domínios vizinhos.
+A base geral mais forte, ajustada com um sexto dos pares, empata com o recuperador atual do sistema e custa 4,4 vezes mais para embutir; o sistema permanece como está. Permanecem em aberto a contaminação do corpus filtrado e o efeito de acrescentar texto de domínios vizinhos.
 
 Os resultados metodológicos de maior alcance são os das Seções 5.2 a 5.4. Oito ocorrências da mesma falha de amostragem, três instrumentos registrados de antemão e inválidos para a pergunta e um mecanismo de segurança que intervinha preferencialmente no braço tratado, por causa do tratamento — nenhum deles com qualquer sintoma além do próprio número — sugerem que protocolos de baixo orçamento exigem verificação ativa da unidade de amostragem, da direção de viés de cada instrumento e da independência, em relação à variável sob teste, de todo mecanismo que atua sobre os braços, e não apenas convenção documentada ou registro prévio.
 
