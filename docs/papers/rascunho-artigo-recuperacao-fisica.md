@@ -4,13 +4,13 @@ Vinicius Sanchez
 
 *Pesquisa independente*
 
-*Versão 0.4 — 17 de setembro de 2026*
+*Versão 0.5 — 23 de setembro de 2026*
 
 ---
 
 ## Resumo
 
-> A escassez de texto em domínios científicos estreitos limita a aplicação direta de leis de escala a modelos de fundação especializados. Estimativas do corpus de Física legalmente adquirível situam-se entre 15 e 30 bilhões de tokens após filtragem, contra os cerca de 160 bilhões que um modelo de 8 bilhões de parâmetros exigiria sob a relação de computação ótima de Hoffmann et al. Este trabalho descreve a construção, sob orçamento de computação nulo — uma GPU de consumo de 8 GB e cotas gratuitas de aceleradores em nuvem —, de um sistema de recuperação de literatura de Física, e reporta os resultados positivos, negativos e em aberto. Foram montados um índice de metadados de 1.595.422 registros do arXiv associado a 4.613.751 obras do OpenAlex, com taxa de casamento de 99,1%, um classificador de domínio com acurácia de 0,954 e um corpus de Física de 27,75 bilhões de tokens, atestado por uma cadeia de hashes sobre 52,40 GB. Corrigido um defeito de protocolo que impunha teto de 0,7562 ao nDCG@10, um bi-encoder de 23 milhões de parâmetros ajustado por supervisão de citação com 6 milhões de pares sorteados atinge nDCG@10 de 0,6223, contra 0,5788 de um modelo geral de 335 M; trocar a base por um modelo geral de 109 M produz com 400 mil pares o que o volume produziu com 6 milhões (empate pareado, p = 0,908). Entre três cross-encoders idênticos exceto pelo corpus de pré-treinamento da base, apenas o pré-treinado em Física melhora a fusão de recuperadores (p = 0,0062); com o recuperador melhorado, contudo, nenhuma de cinco medições pareadas estabelece ganho do estágio de reordenação, que foi retirado do sistema. Em encoders de 48 M treinados com 0,6 bilhão de tokens, regras de pré-tokenização específicas para LaTeX pioraram a modelagem em 0,047 bit por byte — resultado que apenas o terceiro de três instrumentos de viés conhecido pôde decidir —, e mascarar equações inteiras não melhorou a predição de tokens de equação (diferença das diferenças de −0,0040), mas melhorou a recuperação após ajuste contrastivo em 0,084 de nDCG@10 [0,071; 0,097]. A mesma receita de ajuste aplicada a uma base geral de 150 M sem qualquer pré-treinamento no domínio, contudo, alcança 0,5270 contra 0,4712 do braço tratado [+0,0426; +0,0685], o que retira, sob este orçamento, a justificativa para treinar o encoder a partir do zero. Reportam-se ainda o discriminante válido para integridade de notação matemática em corpora e uma auditoria de sete ocorrências independentes de amostragem por posição em dados ordenados.
+> A escassez de texto em domínios científicos estreitos limita a aplicação direta de leis de escala a modelos de fundação especializados. Estimativas do corpus de Física legalmente adquirível situam-se entre 15 e 30 bilhões de tokens após filtragem, contra os cerca de 160 bilhões que um modelo de 8 bilhões de parâmetros exigiria sob a relação de computação ótima de Hoffmann et al. Este trabalho descreve a construção, sob orçamento de computação nulo — uma GPU de consumo de 8 GB e cotas gratuitas de aceleradores em nuvem —, de um sistema de recuperação de literatura de Física, e reporta os resultados positivos, negativos e em aberto. Foram montados um índice de metadados de 1.595.422 registros do arXiv associado a 4.613.751 obras do OpenAlex, com taxa de casamento de 99,1%, um classificador de domínio com acurácia de 0,954 e um corpus de Física de 27,75 bilhões de tokens, atestado por uma cadeia de hashes sobre 52,40 GB. Corrigido um defeito de protocolo que impunha teto de 0,7562 ao nDCG@10, um bi-encoder de 23 milhões de parâmetros ajustado por supervisão de citação com 6 milhões de pares sorteados atinge nDCG@10 de 0,6223, contra 0,5788 de um modelo geral de 335 M; trocar a base por um modelo geral de 109 M produz com 400 mil pares o que o volume produziu com 6 milhões (empate pareado, p = 0,908). Entre três cross-encoders idênticos exceto pelo corpus de pré-treinamento da base, apenas o pré-treinado em Física melhora a fusão de recuperadores (p = 0,0062); com o recuperador melhorado, contudo, nenhuma de cinco medições pareadas estabelece ganho do estágio de reordenação, que foi retirado do sistema. Em encoders de 48 M treinados com 0,6 bilhão de tokens, regras de pré-tokenização específicas para LaTeX pioraram a modelagem em 0,047 bit por byte — resultado que apenas o terceiro de três instrumentos de viés conhecido pôde decidir —, e mascarar equações inteiras não melhorou a predição de tokens de equação (diferença das diferenças de −0,0040), mas melhorou a recuperação após ajuste contrastivo em 0,084 de nDCG@10 [0,071; 0,097]. A mesma receita de ajuste aplicada a uma base geral de 150 M sem qualquer pré-treinamento no domínio, contudo, alcança 0,5270 contra 0,4712 do braço tratado. O pré-treinamento continuado dessa base com 0,4 bilhão de tokens de Física e o mesmo objetivo repete o ganho de recuperação onze vezes menor (+0,0076 [+0,0013; +0,0139]), com a medida primária de modelagem nula; e uma segunda base geral, sem pré-treinamento no domínio, supera a primeira em 0,069 — cerca de sete vezes o que o pré-treinamento continuado acrescentou —, o que retira, sob este orçamento, a justificativa tanto para treinar o encoder do zero quanto para pré-treiná-lo continuamente. Num conjunto de recuperação por equação construído do próprio corpus, o bi-encoder de 23 M supera o BM25 justamente no estrato que exige variação notacional (recall@1 de 0,860 contra 0,712), contra a premissa de que a recuperação densa perde o casamento simbólico. Reportam-se ainda o discriminante válido para integridade de notação matemática em corpora, uma auditoria de oito ocorrências independentes de amostragem dependente da ordem dos dados e um mecanismo de detecção de instabilidade cujo acionamento dependia da variável sob teste.
 
 **Palavras-chave:** recuperação de informação científica; supervisão por citação; modelos de embedding de domínio; construção de corpus; tokenização de LaTeX; mascaramento de equações; reprodutibilidade.
 
@@ -22,7 +22,7 @@ Modelos de linguagem de propósito geral apresentam, em Física, modos de falha 
 
 A restrição que organiza este trabalho, contudo, é de recurso. Sob a relação de computação ótima estabelecida por Hoffmann et al. [1], um modelo de 8 bilhões de parâmetros requer aproximadamente 160 bilhões de tokens de treinamento. Modelando o funil de aquisição e filtragem estágio a estágio para a literatura de Física legalmente adquirível a custo zero, obtêm-se entre 39 e 73 bilhões de tokens brutos, ou entre 15 e 30 bilhões após deduplicação e triagem de licença — uma escassez de cinco a dez vezes.
 
-A resposta usual a essa restrição é ampliar a aquisição. A adotada aqui é distinta, e é sustentada pela literatura recente: treinamento a partir de inicialização aleatória é justificável apenas onde o dado é excedente — encoders na faixa de 10⁸ parâmetros —, e capacidades acima disso devem ser obtidas por pré-treinamento continuado sobre uma base geral forte. A evidência é consistente. O Galactica [2], única tentativa de larga escala de treinar um modelo científico de fundação a partir do zero, foi retirado de circulação três dias após o lançamento, com alucinação de citações entre os defeitos determinantes. Em contraste, Minerva [3], Llemma [4] e DeepSeekMath [5] foram todos obtidos por pré-treinamento continuado sobre bases gerais, e todos reportam ganhos substanciais em raciocínio quantitativo. A Seção 5.4 reexamina essa premissa no próprio nível de encoders, à luz das ablações da Seção 4.9.
+A resposta usual a essa restrição é ampliar a aquisição. A adotada aqui é distinta, e é sustentada pela literatura recente: treinamento a partir de inicialização aleatória é justificável apenas onde o dado é excedente — encoders na faixa de 10⁸ parâmetros —, e capacidades acima disso devem ser obtidas por pré-treinamento continuado sobre uma base geral forte. A evidência é consistente. O Galactica [2], única tentativa de larga escala de treinar um modelo científico de fundação a partir do zero, foi retirado de circulação três dias após o lançamento, com alucinação de citações entre os defeitos determinantes. Em contraste, Minerva [3], Llemma [4] e DeepSeekMath [5] foram todos obtidos por pré-treinamento continuado sobre bases gerais, e todos reportam ganhos substanciais em raciocínio quantitativo. A Seção 5.5 reexamina essa premissa no próprio nível de encoders, à luz das ablações da Seção 4.9 — e a conclusão a que chega é mais forte que a da literatura citada: sob este orçamento, nem o treinamento a partir do zero nem o pré-treinamento continuado pagam o que a simples escolha da base geral paga.
 
 Uma segunda restrição, metodológica, decorre da primeira: com orçamento de computação nulo, cada experimento precisa ser justificado por uma medição anterior. Esse regime tem um efeito colateral relevante para os resultados aqui reportados — medições anteriores passam a ser reexaminadas com frequência, e parte substancial dos achados deste trabalho, inclusive os negativos, originou-se desse reexame.
 
@@ -33,10 +33,11 @@ As contribuições são as seguintes.
 3. Evidência empírica sobre tokenização de texto em LaTeX, em duas camadas que apontam em sentidos opostos: a métrica intrínseca favorece regras de pré-tokenização específicas, e a modelagem de linguagem, medida em bits por byte por três instrumentos de viés conhecido, as rejeita (Seções 4.4 e 4.9.1).
 4. A remedição de um protocolo de recuperação densa que tinha teto, e a separação experimental entre volume, diversidade e base na qualidade do recuperador (Seções 4.5 e 4.6).
 5. A separação entre domínio e capacidade como propriedade da base de um cross-encoder de reordenação, com controle de tamanho, arquitetura, dados, semente e hiperparâmetros — e a demonstração de que o ganho do estágio desaparece quando o recuperador melhora (Seções 4.7 e 4.8).
-6. Uma ablação do mascaramento de equações inteiras no pré-treinamento de encoders: negativa para a predição de tokens, positiva para a recuperação após ajuste contrastivo — e delimitada por uma base geral de 150 M que, sem pré-treinamento no domínio, supera o braço tratado na tarefa do domínio (Seção 4.9.2).
-7. Uma auditoria de vieses de amostragem em conjuntos derivados de grafos de citação, e de instrumentos de medição que, registrados antes da coleta, eram inválidos para a pergunta (Seções 5.2 e 5.3).
+6. Uma ablação do mascaramento de equações inteiras em duas escalas — do zero a 48 M e em pré-treinamento continuado a 150 M —, com o efeito sobre a recuperação encolhendo onze vezes da primeira para a segunda, e a demonstração de que a escolha da base geral vale cerca de sete vezes o pré-treinamento continuado inteiro (Seções 4.9.2 e 4.9.3).
+7. Um conjunto de avaliação de recuperação por equação, construído do próprio corpus com estratos de variação notacional, e a refutação da premissa de que recuperação densa perde o casamento simbólico que a busca léxica preserva (Seção 4.10).
+8. Uma auditoria de vieses de amostragem em conjuntos derivados de grafos de citação, de instrumentos de medição que, registrados antes da coleta, eram inválidos para a pergunta, e de mecanismos automáticos cujo acionamento dependia da própria variável sob teste (Seções 5.2 a 5.4).
 
-O trabalho não alega um modelo de Física em estado da arte. A Seção 4.5 reporta um resultado de recuperação, retira-o por defeito de protocolo identificado após as medições e reporta a remedição. Os resultados de pré-treinamento da Seção 4.9 são de modelos substitutos de 48 M, com uma semente por braço.
+O trabalho não alega um modelo de Física em estado da arte. A Seção 4.5 reporta um resultado de recuperação, retira-o por defeito de protocolo identificado após as medições e reporta a remedição. Os resultados de pré-treinamento da Seção 4.9 são de substitutos de 48 M e de um pré-treinamento continuado de 0,4 bilhão de tokens sobre uma base de 150 M, com uma semente por braço.
 
 ---
 
@@ -96,6 +97,10 @@ A integridade da notação matemática de cada fatia foi medida em 3.000 documen
 
 Os experimentos de pré-treinamento usam substitutos reduzidos da mesma arquitetura: 48 milhões de parâmetros, contexto de 1.024 tokens, lote lógico de 64 sequências e orçamento de 0,6 bilhão de tokens por braço, treinados em acelerador T4 a cerca de 20.500 tokens por segundo, em pouco mais de 8 horas por braço. Nessa escala, a matriz de embedding corresponde a 43,7% dos parâmetros. Os braços são exportados e medidos localmente.
 
+**Pré-treinamento continuado.** O mesmo objetivo, aplicado ao ModernBERT-base (150 M) [26] com o tokenizador dele: 0,4 bilhão de tokens por braço — o que cabe numa sessão de 9 horas —, contexto de 1.024, lote lógico de 64 sequências, taxa de aprendizado de pico de 10⁻⁴, `p_equacao` de 0,0 no controle e 0,6 no tratado, e todos os demais valores iguais, conferidos por comparação da árvore sintática das células. A fatia de treinamento foi retokenizada com o tokenizador da base (423 milhões de tokens), e a de avaliação vem de uma partição que nenhum braço viu. Os dois braços treinam em duas T4 com paralelismo de dados, em que o lote lógico é dividido entre os processos e a máscara de cada micro-passo é função apenas de (semente, índice do micro-passo); um teste confirma que dois processos terminam com os mesmos pesos que um, a menos de 10⁻⁵. A vazão medida foi de 15.200 a 15.900 tokens por segundo nas duas placas, contra 15.600 projetados a partir do custo relativo medido em CPU.
+
+**Bases gerais para o ajuste contrastivo.** Com os mesmos 200 mil pares e os hiperparâmetros da Tabela 10, foram ajustadas, além dos braços de pré-treinamento, duas bases gerais sem pré-treinamento no domínio: o ModernBERT-base e o GTE-base (109 M) [10]. As duas diferem entre si apenas na base.
+
 ### 3.5 Protocolo de avaliação
 
 A tarefa de avaliação é a recuperação do documento citado a partir do texto do documento citante. As métricas são recall@k, MRR e nDCG@10.
@@ -125,6 +130,8 @@ A primeira versão da cadeia omitia uma fonte inteira: o peS2o, com 18,34 GB, n�
 **Modelagem mascarada por região.** Tokens de equação e de prosa são mascarados uniformemente a 15%, nas mesmas posições para os dois braços, sobre 2.000 sequências sorteadas de uma partição que nenhum braço viu, com contexto de 1.024. A medida primária do mascaramento de equações é a diferença das diferenças: a vantagem de acurácia em equação sobre prosa no braço tratado, menos a mesma vantagem no controle. A diferença simples não serve, porque tokens de LaTeX são localmente redundantes: o ModernBERT-base, que nunca viu mascaramento de equações, acerta 0,8765 em tokens de equação contra 0,7480 em prosa, uma vantagem de 0,1286 sem tratamento algum.
 
 **Recuperação.** O protocolo de comparação de encoders da Seção 3.5, aplicado ao encoder com agregação por média, sem ajuste, e novamente após ajuste contrastivo como bi-encoder.
+
+**Detecção de instabilidade.** Uma perda acima de μ + 4σ da janela de 100 passos anteriores, ou uma norma de gradiente acima de dez vezes a mediana móvel, aciona o retorno ao último ponto de verificação, o salto dos lotes suspeitos e 500 passos com taxa de aprendizado reduzida à metade; três acionamentos em 5.000 passos interrompem o treinamento. No braço tratado, a perda do critério é calculada apenas sobre os alvos do sorteio uniforme, e não sobre os da equação inteira, pela razão discutida na Seção 5.4.
 
 **Sonda de estrutura tensorial.** Cada item é um trio sobre o mesmo texto: uma expressão base (`T^{\mu\nu}`), uma variante estrutural com os mesmos símbolos e estrutura diferente (`T_{\mu\nu}`) e uma variante renomeada com a mesma estrutura e símbolos diferentes (`T^{\alpha\beta}`). O item é acertado quando a base é mais próxima da renomeada que da estrutural. São 72 itens, em 4 famílias, 6 tensores e 3 textos. Por semelhança de superfície a variante estrutural é a mais próxima, e um modelo de trigramas de caracteres acerta 0 de 72; a escala resultante tem a superfície em 0, o acaso em 0,5 e a estrutura acima dele. Nenhum encoder existente avaliado alcança 0,5: ModernBERT-base 0,222, SciBERT 0,208, PhysBERT 0,028 e MiniLM-L6, o único treinado contrastivamente, 0,000.
 
@@ -390,7 +397,7 @@ A correção do laço de treinamento é verificada pela perda inicial: um modelo
 
 Um defeito no marcador de equações ilustra o ponto. A expressão regular de detecção usava âncora de início de cadeia em conjunto com casamento a partir de posição arbitrária; a âncora continua referindo-se ao início real da cadeia, de modo que nenhuma equação iniciada após o primeiro caractere era detectada. O efeito medido foi de 0 documentos tratados em 120, contra 91,7% de documentos contendo equações em display segundo um segundo instrumento, e foi a discordância entre os dois instrumentos que localizou o erro. Sem o contador de fração tratada, a ablação teria sido executada comparando duas condições aleatórias e reportado ausência de efeito.
 
-As duas ablações a seguir usam os substitutos de 48 M da Seção 3.4, com uma semente por braço, e são medidas sobre partições que nenhum braço viu. Os braços foram treinados em imagem de nuvem com `transformers` 5.0 e medidos localmente com a versão 4.48; como a versão antiga ignora chaves desconhecidas da configuração e usaria valores padrão, os modelos foram reexportados localmente, com diferença de logits nula contra a exportação original.
+As duas primeiras ablações a seguir usam os substitutos de 48 M da Seção 3.4, e a terceira, o pré-treinamento continuado da base de 150 M; todas têm uma semente por braço e são medidas sobre partições que nenhum braço viu. Os braços foram treinados em imagem de nuvem com `transformers` 5.0 e medidos localmente com a versão 4.48; como a versão antiga ignora chaves desconhecidas da configuração e usaria valores padrão, os modelos foram reexportados localmente, com diferença de logits nula contra a exportação original.
 
 #### 4.9.1 Regras de pré-tokenização de LaTeX
 
@@ -451,6 +458,56 @@ Um fator de oito na recuperação sem ajuste, entre modelos que diferem em um ú
 
 O resultado da ablação é, portanto, dividido. O mascaramento de equações inteiras não melhora a predição de tokens de equação e melhora a representação agregada para recuperação, antes e depois do ajuste. O mecanismo não foi medido. Os valores absolutos, com bases de 48 M e metade dos pares, não se comparam com os das Tabelas 8 a 10.
 
+#### 4.9.3 Pré-treinamento continuado a 150 M
+
+A Tabela 20 delimitou a pergunta: se o objetivo de mascaramento de equações tem valor, ele deve aparecer no pré-treinamento continuado da base que venceu, e não num modelo treinado do zero. Os dois braços partem do ModernBERT-base e diferem apenas em `p_equacao` (Seção 3.4). As regras de leitura, primária e secundária, foram registradas antes do treinamento.
+
+A primeira execução do braço tratado foi interrompida pelo detector de instabilidade no passo 4.489, após três acionamentos, com a norma do gradiente normal nos três; a Seção 5.4 mostra que os acionamentos correspondiam à composição dos lotes, e não a instabilidade. Com o critério corrigido, o braço foi refeito do zero e treinou os 6.103 passos sem nenhum acionamento. O controle treinou os 6.103 passos com dois acionamentos pelo critério de norma — 7,2 e 7,7 contra medianas móveis de 0,64 e 0,61 —, que descartaram 182 lotes e reduziram a taxa de aprendizado à metade por 500 passos. Essa assimetria, desta vez, favorece o tratado.
+
+**Tabela 21.** Pré-treinamento continuado: checagens de manipulação e medida primária. Duas mil sequências sorteadas de partição não vista, contexto de 1.024, as mesmas posições nos dois braços. Intervalos por bootstrap pareado por sequência.
+
+| Medida | Controle | Tratado | Tratado − controle |
+|---|---|---|---|
+| Fração de exemplos com equação elegível (limiar ≥ 0,50) | — | 0,549 | — |
+| Acurácia com a equação inteira mascarada (104.624 tokens) | 0,0266 | 0,1999 | +0,173 [+0,167; +0,179] |
+| Acurácia em equação, máscara uniforme | 0,9032 | 0,9030 | — |
+| Acurácia em prosa, máscara uniforme | 0,7783 | 0,7784 | — |
+| **Vantagem em equação (diferença das diferenças)** | +0,1249 | +0,1245 | **−0,00039 [−0,00161; +0,00087]** |
+
+Pela regra, o desfecho primário é não decidido. O tratamento foi absorvido com mais força que no substituto — reconstruir a equação inteira escondida vai de 2,7% para 20,0%, contra 7% para 20% a 48 M — e, sob máscara uniforme, os dois braços acertam equação e prosa igualmente até a terceira casa decimal. O negativo de −0,0040 do substituto não se repete: encolhe dez vezes, e o intervalo passa a cobrir zero.
+
+**Tabela 22.** Os mesmos 200 mil pares e a mesma receita de ajuste contrastivo sobre quatro bases, medidas na mesma sessão, no protocolo da Seção 3.5.
+
+| Base do ajuste | Pré-treinamento no domínio | recall@1 | recall@10 | MRR | nDCG@10 |
+|---|---|---|---|---|---|
+| ModernBERT-base [26] | nenhum | 0,3540 | 0,7200 | 0,4774 | 0,5270 |
+| ModernBERT-base, controle | 0,4 B tokens | 0,3635 | 0,7175 | 0,4823 | 0,5297 |
+| ModernBERT-base, tratado | 0,4 B tokens, com mascaramento de equações | 0,3620 | 0,7290 | 0,4876 | 0,5373 |
+| **GTE-base [10]** | **nenhum** | **0,4170** | **0,7880** | **0,5443** | **0,5964** |
+
+Pelas regras registradas, três desfechos. Entre os braços, o tratado fica à frente: +0,0076 de nDCG@10 [+0,0013; +0,0139], com recall@1 empatado (63 contra 60 discordantes, p = 0,86) — o ganho de recuperação do substituto se repete, onze vezes menor que os +0,084 de lá, e com o limite inferior do intervalo próximo de zero. Contra a base sem pré-treinamento, o tratado fica acima por +0,0103 [+0,0032; +0,0176]. E o GTE-base supera o ModernBERT-base, ambos sem qualquer pré-treinamento no domínio, por +0,0694 [+0,0580; +0,0812]. O ModernBERT-base medido nesta sessão reproduz o valor de seis dias antes, 0,5270, com o mesmo avaliador.
+
+Lidos juntos, os três dizem que 0,4 bilhão de tokens de Física com o objetivo específico de domínio compraram +0,010 sobre a base de partida, e que trocar a base de partida, sem pré-treinamento algum, compra +0,069. O GTE-base sem pré-treinamento fica 0,059 acima do melhor braço — diferença entre estimativas pontuais, não registrada como comparação, e cinco vezes a largura dos intervalos da tabela.
+
+### 4.10 Recuperação por equação
+
+Um argumento recorrente para sistemas híbridos em domínios matemáticos é que a recuperação densa perde o casamento simbólico exato que a busca léxica preserva. Para medi-lo no corpus próprio, foi construído um conjunto de avaliação de recuperação por equação, com gabarito gratuito: a consulta é uma equação de um documento, e os alvos são os demais documentos que contêm a mesma forma canônica de conteúdo. Das 202.365.265 equações extraídas de 828.601 documentos, resultaram 374.739 itens.
+
+O nome do conjunto promete variação notacional, e a medição da grafia dos itens desmente a promessa: 53,1% dos itens têm alvo com grafia idêntica byte a byte à da consulta, 37,0% diferem apenas por marcação superficial — espaço, rótulos, `\nonumber`, alinhamento, espaçamento fino e pontuação final —, e só 7,8% exigem variação notacional de fato, como `\le` contra `\leq` ou `\gamma_{\mu}` contra `\gamma_\mu`. Além disso, 36,3% dos itens ligam a consulta a um documento com o qual ela partilha cinco ou mais equações — a mesma obra em duas versões, ou trabalhos companheiros. A medida primária foi então restringida, antes de qualquer modelo medido, ao estrato notacional sem documento quase igual (24.508 itens), com os demais estratos como controle.
+
+**Tabela 23.** Recuperação por equação no estrato notacional. Dois mil itens sorteados, 20.000 documentos no conjunto de candidatos (838.198 equações), escore do documento igual ao máximo sobre suas equações, os quatro sistemas sobre o mesmo conjunto de candidatos, teto de 1,0. Diferença em recall@10 contra o BM25, por bootstrap pareado por item.
+
+| Sistema | recall@1 | recall@10 | MRR | recall@10 − BM25 |
+|---|---|---|---|---|
+| BM25 [25], equação inteira | 0,7115 | 0,9300 | 0,7902 | — |
+| **Bi-encoder do sistema** (23 M, 6 M de pares) | **0,8595** | **0,9550** | **0,8966** | **+0,0250 [+0,0115; +0,039]** |
+| ModernBERT-base ajustado (200 mil pares) | 0,8295 | 0,9500 | 0,8760 | +0,0200 [+0,0065; +0,034] |
+| GTE-base ajustado (400 mil pares) | 0,8005 | 0,9200 | 0,8450 | −0,0100 [−0,0245; +0,005] |
+
+A premissa não se sustenta para estes modelos: o bi-encoder de 23 M supera o BM25 justamente no estrato que exige variação notacional, por 15 pontos em recall@1, apesar de uma assimetria a favor do BM25 — que lê a equação inteira, enquanto os modelos densos leem 192 tokens (mediana de 81, com 10% acima de 238). Os estratos de controle confirmam que o corte mede o que promete: a vantagem do bi-encoder em recall@1 cresce monotonicamente com a variação notacional, de +0,053 na grafia idêntica para +0,065 na superficial e +0,148 na notacional.
+
+Uma primeira execução desta medição foi anulada: os sistemas foram medidos em processos separados, e cada processo montou um conjunto de candidatos diferente (Seção 5.2).
+
 ---
 
 ## 5. Discussão
@@ -467,9 +524,9 @@ O resultado também qualifica a prática, comum em trabalhos de domínio, de ava
 
 ### 5.2 Vieses de amostragem em conjuntos derivados de grafos de citação
 
-Uma auditoria identificou sete ocorrências independentes de amostragem por posição em dados ordenados, todas no mesmo repositório.
+Uma auditoria identificou oito ocorrências independentes de amostragem dependente da ordem dos dados, todas no mesmo repositório.
 
-**Tabela 20.** Ocorrências identificadas, com o efeito medido de cada uma.
+**Tabela 24.** Ocorrências identificadas, com o efeito medido de cada uma.
 
 | Local | Efeito medido | Consequência |
 |---|---|---|
@@ -480,8 +537,9 @@ Uma auditoria identificou sete ocorrências independentes de amostragem por posi
 | Instrumento de conferência do item anterior | 200 linhas provenientes de um único arquivo | Reproduziu o valor enviesado que existia para refutar |
 | Conjunto de avaliação principal e conjunto de treinamento | Teto de nDCG@10 de 0,7562; 10,7 vezes menos documentos distintos no treinamento | Inverteu o veredito do critério de aceitação (Seção 4.5) |
 | Avaliação de modelagem mascarada por região | As 2.000 primeiras sequências de uma partição cobriam cerca de 4% dos documentos, na ordem de ingestão | Detectada antes da medição da Seção 4.9.2 |
+| Conjunto de candidatos da recuperação por equação | Sorteio sobre uma lista cuja ordem mudava entre execuções: quatro sistemas, medidos em processos separados, viram 841.101, 843.127, 836.422 e 831.048 equações | Comparação pareada entre sistemas que não viram os mesmos distratores; medição anulada (Seção 4.10) |
 
-Duas observações parecem generalizáveis. A primeira é que o defeito é invisível por construção: nenhuma das sete ocorrências gera exceção, nenhuma se manifesta na função de perda, e todas produzem valores dentro da faixa esperada — a terceira eleva a métrica. A quinta é particularmente instrutiva, por haver ocorrido dentro do instrumento escrito para detectar a quarta, e a sétima, por ter ocorrido depois que as seis anteriores estavam catalogadas.
+Duas observações parecem generalizáveis. A primeira é que o defeito é invisível por construção: nenhuma das oito ocorrências gera exceção, nenhuma se manifesta na função de perda, e todas produzem valores dentro da faixa esperada — a terceira eleva a métrica. A quinta é particularmente instrutiva, por haver ocorrido dentro do instrumento escrito para detectar a quarta, e a sétima e a oitava, por terem ocorrido depois que as anteriores estavam catalogadas. A oitava foi exposta por uma correção: a medição passou a usar um processo por sistema para contornar o esgotamento de memória de vídeo, e só então cada processo passou a sortear seu próprio conjunto — com todos no mesmo processo, os sistemas teriam partilhado o conjunto por acidente, e o resultado sairia certo pelo motivo errado.
 
 A segunda é que a correção adequada não é a substituição pontual do esquema de amostragem. O caminho de código de reordenação já empregava amostragem aleatória, com a justificativa documentada em comentário, e essa justificativa não se propagou ao caminho de embedding. A correção adotada é uma verificação que interrompe a execução quando o teto do conjunto de avaliação difere de 1,0, com o teto registrado no artefato de saída — isto é, uma propriedade verificada a cada execução, e não uma convenção documentada. No treinamento, a mesma correção valeu +0,020 de nDCG@10 sem custo de computação (Seção 4.6).
 
@@ -499,7 +557,17 @@ Terceiro, o desempate registrado para os bits por byte era a pseudo-verossimilha
 
 A esses se soma o quase falso negativo da Seção 4.6, produzido por um valor padrão de linha de comando: um padrão não é um protocolo. A prática adotada em consequência é registrar, ao lado de cada regra, a direção do viés de cada instrumento, e, quando não há instrumento sem viés, cercar o valor com instrumentos de vieses opostos antes de decidir por um terceiro (Seção 4.9.1).
 
-### 5.4 O encoder de domínio deve ser treinado do zero?
+### 5.4 Mecanismos automáticos que dependem da variável sob teste
+
+O pré-treinamento continuado da Seção 4.9.3 expôs uma classe de defeito distinta das duas anteriores: não um instrumento de medida errado, mas um mecanismo automático do próprio treinamento — ou da cadeia que leva o modelo à medida — cujo comportamento dependia da variável sob teste.
+
+O detector de instabilidade julgava a perda média do lote. No braço tratado, parte dos alvos são equações inteiras escondidas, muito mais difíceis que os alvos do sorteio uniforme, e a quantidade delas por lote varia com o sorteio do tratamento. A perda do tratado oscilava com a composição do lote — o desvio padrão da perda registrada foi de 0,077, contra 0,037 no controle —, e o critério de μ + 4σ passou a ler composição como instabilidade. Como o fluxo de dados e a máscara são funções determinísticas de (semente, passo), os lotes dos três acionamentos puderam ser reproduzidos sem GPU: tinham de 3,0 a 4,1 desvios padrão acima da média de alvos de equação inteira em 300 passos sorteados, e dois deles ultrapassavam o máximo da amostra. O detector, portanto, intervinha — com retorno a ponto de verificação, salto de lotes e taxa de aprendizado reduzida — preferencialmente no braço tratado, e por causa do tratamento. Uma assimetria de execução desse tipo não é ruído: correlaciona-se com a variável. A correção julga a perda apenas sobre os alvos uniformes, cuja composição não depende do tratamento; no controle, os dois sinais coincidem. Refeito com ela, o braço tratado treinou sem acionamentos.
+
+Dois defeitos na cadeia até a medida tinham a mesma propriedade de silêncio. O exportador de modelos nomeava os tokens especiais pelos identificadores da convenção dos tokenizadores próprios do projeto; na base de pré-treinamento continuado esses identificadores correspondem a tokens comuns, e o modelo exportado declarava o sinal de pontuação `#` como token de máscara. Pesos, logits e a ida e volta pelo disco conferiam com diferença nula, porque cada conferência comparava o artefato consigo mesmo — e a medida primária da Tabela 21 esconde tokens com o token de máscara declarado. O defeito foi encontrado ao ler o registro de uma exportação local, antes de qualquer medida. O comparador da ablação, por sua vez, fora escrito para o experimento da Seção 4.9.2 e carregava três constantes dele: a escala, a regra e uma ressalva sobre a assimetria de execução daquele experimento. Aplicado ao pré-treinamento continuado, o artefato saiu declarando a escala errada e uma assimetria contra o tratado, quando a deste experimento era a favor. Uma ressalva falsa tem a forma do cuidado e o conteúdo errado, e por isso não costuma ser conferida.
+
+A prática adotada em consequência é tratar como parte do desenho experimental todo mecanismo que atua de modo diferente conforme o braço — e verificar, antes de comparar, que nenhum deles lê um sinal que o tratamento altera.
+
+### 5.5 O encoder de domínio deve ser treinado do zero?
 
 A premissa da Introdução — treinamento a partir do zero justificável no nível de encoders — apoiava-se, para o encoder deste trabalho, em três ingredientes que apenas um modelo próprio teria: tokenizador nativo, objetivo nativo e contexto longo. Os resultados da Seção 4.9, na escala de substituto, enfraquecem os três. A regra de tokenização nativa piorou a modelagem. O objetivo de mascaramento de equações ajudou a recuperação, mas as marcas de equação são derivadas de posições de caractere, e não de identificadores de token: o tratamento aplica-se igualmente ao pré-treinamento continuado de qualquer base, com qualquer tokenizador, e um resultado positivo dele favorece usá-lo, e não usá-lo a partir do zero. E contexto de 8.192 tokens já existe em encoders gerais abertos [26]. Soma-se a evidência da Tabela 10, de que a base importa mais que o volume de ajuste.
 
@@ -507,11 +575,15 @@ A comparação de referência foi então executada, e é o resultado mais conseq
 
 Isso fecha, na prática, a opção de treinar o encoder a partir do zero sob este orçamento. Um modelo próprio de 150 M teria de cobrir três desvantagens somadas — volume de pré-treinamento, número de parâmetros e a diferença de 0,0558 agora medida —, e nenhuma evidência deste trabalho sugere que o objetivo específico de domínio, sozinho, as cubra: ele vale +0,0840, medido na mesma escala e no mesmo protocolo.
 
-O que resta é o pré-treinamento continuado dessa base com o objetivo de mascaramento de equações, e a pergunta fica mais limpa do que era: os dois braços partiriam da mesma base, com uma única variável, contra um alvo numérico conhecido — 0,5270 no protocolo desta tabela. O custo foi medido antes da construção: 2,64 vezes o custo por passo do substituto, ou cerca de 21,5 horas de T4 por braço a 0,6 bilhão de tokens, reduzidas a cerca de 12 com duas placas. O que permanece sem resposta é o argumento do viés indutivo nativo, que só um confronto direto entre um encoder treinado do zero e um geral adaptado, no mesmo corpus e na mesma escala, responderia — e esse confronto, ao preço medido aqui, não se justifica. A decisão está registrada como proposta, e não como tomada.
+Restava o pré-treinamento continuado dessa base com o objetivo de mascaramento de equações, e ele foi executado (Seção 4.9.3): dois braços a partir do ModernBERT-base, uma variável, 0,4 bilhão de tokens cada, cerca de 7,5 horas por braço em duas T4. O objetivo mostrou-se real e pequeno. Na recuperação, o tratado supera o controle por +0,0076, e a base de partida por +0,0103; na predição de tokens, nada.
 
-### 5.5 Implicações práticas
+A resposta à pergunta desta seção, porém, veio de uma medição que o desenho original não previa. A base do pré-treinamento continuado foi escolhida por compartilhar a arquitetura planejada para o encoder próprio e ter contexto de 8.192 tokens, e não por ter sido comparada, na mesma régua, às demais bases gerais disponíveis. Quando o GTE-base foi ajustado nos mesmos 200 mil pares, superou o ModernBERT-base por 0,069 — cerca de sete vezes o que o pré-treinamento continuado inteiro acrescentou. O melhor encoder desta escala não passou por pré-treinamento no domínio algum.
 
-Quatro padrões emergiram, nenhum relativo a arquitetura.
+Isso fecha as duas opções de encoder próprio sob este orçamento. Treinar do zero perde para a base geral sem pré-treinamento; pré-treinar continuamente a base escolhida rende menos que escolher outra base. O padrão do objetivo de domínio através das escalas é também informativo: +0,084 sobre bases de 48 M treinadas do zero, +0,0076 sobre uma de 150 M com 2 trilhões de tokens gerais, e medida primária nula nas duas. O efeito encolhe à medida que a base se fortalece, o que é o padrão esperado de uma lacuna que a base forte já cobre. O argumento do viés indutivo nativo permanece sem teste direto, e os resultados aqui não indicam que valha o seu preço.
+
+### 5.6 Implicações práticas
+
+Cinco padrões emergiram, nenhum relativo a arquitetura.
 
 Medir a fonte antes de adquiri-la. A fatia de corpus que viabiliza o objetivo de treinamento específico de domínio já se encontrava em disco havia dezessete dias quando se recomendou a aquisição paga de acesso ao fonte do arXiv como pré-requisito. O que faltava não era dado nem orçamento, mas a medição da Tabela 4, de custo desprezível.
 
@@ -520,6 +592,8 @@ Medir a vazão real antes de planejar. A vazão medida em acelerador T4 foi de 1
 Empregar comparação pareada. Com 256 candidatos, o erro padrão é de ±0,031 e a margem mínima detectável, de aproximadamente 0,061, contra uma diferença de interesse de 0,004; nem 4.000 candidatos alterariam essa conclusão. O teste pareado sobre os mesmos itens é o que torna a diferença acessível, e é indispensável em regimes de baixo orçamento, nos quais o tamanho do conjunto de avaliação é limitado.
 
 Medir os braços na mesma sessão. Um valor histórico carrega a versão do avaliador que o produziu; a Tabela 13 mostra um erro de sete vezes evitado por essa única decisão de desenho, tomada antes do resultado.
+
+Comparar as bases candidatas antes de investir numa delas. O pré-treinamento continuado custou cerca de 20 horas de sessão de T4, incluída a execução interrompida pelo detector, sobre uma base escolhida por argumento; a comparação entre bases, feita depois e no mesmo protocolo, custou 1 hora e 17 minutos e mostrou uma diferença sete vezes maior que o ganho do pré-treinamento. A ordem inversa teria poupado o investimento, ou o dirigido para a base certa.
 
 ---
 
@@ -533,9 +607,13 @@ Os resultados das Tabelas 6 e 11 são históricos, pelo defeito de protocolo da 
 
 A comparação da Tabela 20 não é de uma variável: tamanho, tokenizador e volume de pré-treinamento diferem simultaneamente, e os três braços usam 200 mil pares — metade da receita das Tabelas 9 e 10, de modo que nenhum dos três valores se compara com os de lá. Ela responde se o artefato produzido pela hipótese compete com o que existe publicamente, e não qual dos três fatores produz a diferença.
 
-Os resultados de pré-treinamento são de substitutos de 48 M a 0,6 bilhão de tokens, 3,3 vezes abaixo do orçamento preparado para a ablação, com uma semente por braço, e cada ablação tem uma assimetria de execução não controlada — a favor de E na Seção 4.9.1, contra o tratado na Seção 4.9.2. O encoder de 150 M não foi treinado, e nenhum dos resultados da Seção 4.9 foi verificado nessa escala nem em pré-treinamento continuado. A medida primária da Seção 4.9.2 tem viés declarado a favor do controle.
+Os resultados de pré-treinamento das Seções 4.9.1 e 4.9.2 são de substitutos de 48 M a 0,6 bilhão de tokens, 3,3 vezes abaixo do orçamento preparado para a ablação, e os da Seção 4.9.3, de um pré-treinamento continuado de 0,4 bilhão de tokens. Todos têm uma semente por braço, e cada ablação tem uma assimetria de execução não controlada — a favor de E na Seção 4.9.1, contra o tratado na Seção 4.9.2 e a favor do tratado na Seção 4.9.3. Nesta última, com um efeito de recuperação de +0,0076 e o limite inferior do intervalo em +0,0013, a assimetria é da ordem de grandeza que poderia explicar parte do efeito; ela não foi medida. A medida primária de modelagem mascarada tem viés declarado a favor do controle nas duas escalas. O encoder próprio de 150 M, treinado do zero, não foi treinado.
 
-A taxa de contaminação do corpus filtrado não está medida. As taxas de falso positivo que justificam o limiar de decisão foram medidas sobre resumos do arXiv, ao passo que o corpus filtrado é de texto integral, com outra distribuição. Uma amostra estratificada de 200 resumos e 200 textos integrais está preparada, e o julgamento humano está pendente.
+A Tabela 22 compara bases gerais com uma variável, a 200 mil pares — metade da receita das Tabelas 9 e 10. A ordem entre duas bases a esse volume pode não se manter com mais pares, e a comparação da base vencedora com o recuperador atual do sistema, treinado em 6 milhões de pares, está em curso.
+
+O conjunto de recuperação por equação usa como consulta uma equação transcrita verbatim de um artigo, e não uma consulta escrita por um usuário; a vantagem medida do bi-encoder não se transfere, sem nova medição, a consultas que misturem notação e linguagem natural. A medida primária usa um sorteio de 2.000 itens de um estrato de 24.508, e a restrição a esse estrato, embora registrada antes de qualquer modelo medido, foi decidida depois da medição da grafia dos itens.
+
+A taxa de contaminação do corpus filtrado não está medida. As taxas de falso positivo que justificam o limiar de decisão foram medidas sobre resumos do arXiv, ao passo que o corpus filtrado é de texto integral, com outra distribuição. Uma amostra estratificada de 200 resumos e 200 textos integrais está em julgamento humano, com o escore do classificador oculto até cada decisão.
 
 O efeito de acrescentar a fatia de matemática e ciência da computação ao corpus de um modelo de Física não está medido.
 
@@ -555,9 +633,13 @@ Estão estabelecidos: um corpus de 27,75 bilhões de tokens de Física e um índ
 
 Na escala de substituto, dois resultados de pré-treinamento são negativos — regras de pré-tokenização de LaTeX pioram a modelagem, e mascarar equações inteiras não melhora a predição de tokens de equação — e um é positivo: o mesmo mascaramento melhora a recuperação em 0,084 de nDCG@10 após ajuste contrastivo.
 
-E um quarto resultado delimita os três: a mesma receita de ajuste, aplicada a uma base geral de 150 M sem qualquer pré-treinamento no domínio, produz 0,5270 de nDCG@10 contra 0,4712 do braço tratado. O objetivo específico de domínio vale menos, na tarefa do domínio, do que a diferença entre 0,6 bilhão e 2 trilhões de tokens de pré-treinamento — de modo que, sob este orçamento, treinar o encoder a partir do zero não se justifica, e o que resta a testar é o pré-treinamento continuado dessa base. Permanecem em aberto se o ganho do mascaramento se mantém nesse regime, a contaminação do corpus filtrado e o efeito de acrescentar texto de domínios vizinhos.
+E dois resultados delimitam os três. A mesma receita de ajuste, aplicada a uma base geral de 150 M sem qualquer pré-treinamento no domínio, produz 0,5270 de nDCG@10 contra 0,4712 do braço tratado; e o pré-treinamento continuado dessa base com o mesmo objetivo repete o ganho de recuperação, onze vezes menor, enquanto outra base geral, também sem pré-treinamento no domínio, a supera por um valor sete vezes maior. O objetivo específico de domínio é real e pequeno, e encolhe à medida que a base se fortalece. Sob este orçamento, a decisão que mais pesa num encoder de recuperação de Física é a escolha da base geral, e ela custa uma fração do que custa qualquer pré-treinamento.
 
-Os resultados metodológicos de maior alcance são os das Seções 5.2 e 5.3. Sete ocorrências da mesma falha de amostragem e três instrumentos registrados de antemão e inválidos para a pergunta, nenhum deles com qualquer sintoma além do próprio número, sugerem que conjuntos derivados de grafos de citação e protocolos de baixo orçamento exigem verificação ativa da unidade de amostragem e da direção de viés de cada instrumento, e não apenas convenção documentada ou registro prévio.
+Na recuperação por equação, o resultado é o oposto da premissa com que o conjunto foi desenhado: o bi-encoder de 23 M supera a busca léxica justamente onde a notação varia, e a vantagem cresce com a variação.
+
+Permanecem em aberto se uma base geral mais forte, ajustada com mais pares, supera o recuperador atual do sistema — medição em curso —, a contaminação do corpus filtrado e o efeito de acrescentar texto de domínios vizinhos.
+
+Os resultados metodológicos de maior alcance são os das Seções 5.2 a 5.4. Oito ocorrências da mesma falha de amostragem, três instrumentos registrados de antemão e inválidos para a pergunta e um mecanismo de segurança que intervinha preferencialmente no braço tratado, por causa do tratamento — nenhum deles com qualquer sintoma além do próprio número — sugerem que protocolos de baixo orçamento exigem verificação ativa da unidade de amostragem, da direção de viés de cada instrumento e da independência, em relação à variável sob teste, de todo mecanismo que atua sobre os braços, e não apenas convenção documentada ou registro prévio.
 
 ---
 
