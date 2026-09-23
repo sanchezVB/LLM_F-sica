@@ -48,3 +48,11 @@ def test_a_leitura_NOMEIA_o_braco_medido():
 
 def test_a_barra_registrada_e_a_do_passo_1():
     assert cmp.BARRA_DO_PASSO_1 == 0.5270
+
+
+def test_a_leitura_da_BASE_tem_os_tres_desfechos():
+    """`nd` é gte − modernbert: acima de zero, o CPT partiu da base errada."""
+    assert cmp.ler_a_base(_nd(0.01, 0.05))[0] == "GTE À FRENTE"
+    assert cmp.ler_a_base(_nd(-0.05, -0.01))[0] == "MODERNBERT À FRENTE"
+    assert cmp.ler_a_base(_nd(-0.01, 0.02))[0] == "EMPATE"
+    assert cmp.ler_a_base(_nd(0.0, 0.05))[0] == "EMPATE"

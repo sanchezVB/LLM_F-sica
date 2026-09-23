@@ -86,10 +86,29 @@ def ler_contra_a_barra(nome: str, nd: dict) -> tuple[str, str]:
         "próprio custo, e o encoder do sistema continua sendo a base ajustada.")
 
 
+def ler_a_base(nd: dict) -> tuple[str, str]:
+    """`nd` é `gte − barra`. A regra é a do braço gte em `kaggle/t2eq_emb.py`."""
+    lo, hi = nd["ic95"]
+    if lo > 0:
+        return "GTE À FRENTE", (
+            "os dois braços do CPT partiram da base errada. A resposta do ADR-0003 "
+            "para o produto passa a ser trocar a base, não continuar o pré-treino; o "
+            "que o CPT mediu sobre o §2.3 continua valendo.")
+    if hi < 0:
+        return "MODERNBERT À FRENTE", (
+            "a escolha do caminho B se confirma: os braços do CPT partiram da melhor "
+            "base disponível nesta receita.")
+    return "EMPATE", (
+        "as duas bases gerais chegam no mesmo lugar a 200 mil pares. A escolha do "
+        "ModernBERT fica sem custo, e o argumento passa a ser o contexto de 8.192.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--controle", required=True, help="o CPT p_equacao 0,0, ajustado")
-    ap.add_argument("--tratado", required=True, help="o CPT p_equacao 0,6, ajustado")
+    ap.add_argument("--controle", default=None, help="o CPT p_equacao 0,0, ajustado")
+    ap.add_argument("--tratado", default=None, help="o CPT p_equacao 0,6, ajustado")
+    ap.add_argument("--gte", default=None,
+                    help="o GTE-base ajustado nos mesmos pares (a base é a certa?)")
     ap.add_argument("--barra", required=True,
                     help="o ModernBERT-base CRU ajustado nos mesmos pares (passo 1)")
     ap.add_argument("--pares", type=Path, default=Path("data/processed/pares"))
@@ -97,6 +116,14 @@ def main() -> int:
     ap.add_argument("--dispositivo", default="dml")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+
+    # Os dois braços vêm juntos ou não vêm: um braço sozinho não tem a variável.
+    if bool(a.controle) != bool(a.tratado):
+        raise SystemExit("--controle e --tratado vêm juntos: um braço sozinho não "
+                         "mede `p_equacao`.")
+    if not a.controle and not a.gte:
+        raise SystemExit("nada a comparar com a barra: dê os dois braços, --gte, ou "
+                         "os três.")
 
     import polars as pl
 
@@ -108,85 +135,119 @@ def main() -> int:
     from phifm.training.amostragem import SEMENTE_POOL  # noqa: E402
 
     val = pl.read_parquet(a.pares / "pares_validacao.parquet")
+    pedidos = [("barra", a.barra)]
+    if a.controle:
+        pedidos += [("controle", a.controle), ("tratado", a.tratado)]
+    if a.gte:
+        pedidos.append(("gte", a.gte))
     medidos = {}
-    for nome, caminho in (("controle", a.controle), ("tratado", a.tratado),
-                          ("barra", a.barra)):
+    for nome, caminho in pedidos:
         r = avaliar_um(caminho, nome, val, n=a.n, dispositivo=a.dispositivo,
                        semente=SEMENTE_POOL)
         if r.erro:
             raise SystemExit(f"{nome}: {r.erro}")
         medidos[nome] = r
 
-    rc, rt, rb = medidos["controle"], medidos["tratado"], medidos["barra"]
-    entre = bootstrap_pareado_itens(ndcg_por_item(rc.posicoes),
-                                    ndcg_por_item(rt.posicoes))
-    desfecho, leitura = ler_entre_bracos(entre)
-
-    melhor_nome = max(("controle", "tratado"), key=lambda k: medidos[k].ndcg_10)
-    # ⚠️ `bootstrap_pareado_itens(a, b)` devolve `b − a` — aqui, melhor − barra. O
-    # sinal trocado inverteria "o CPT paga o próprio custo" sem nada acusar, e os
-    # dois desfechos são frases plausíveis.
-    contra = bootstrap_pareado_itens(ndcg_por_item(rb.posicoes),
-                                     ndcg_por_item(medidos[melhor_nome].posicoes))
-    d_barra, l_barra = ler_contra_a_barra(melhor_nome, contra)
-
     def resumo(r):
         return {"caminho": r.caminho, "recall_1": round(r.recall_1, 4),
                 "recall_10": round(r.recall_10, 4), "mrr": round(r.mrr, 4),
                 "ndcg_10": round(r.ndcg_10, 4)}
 
+    def por_item(nome):
+        return ndcg_por_item(medidos[nome].posicoes)
+
+    rb = medidos["barra"]
     resultado = {
         "experimento": "t2eq_cpt_emb — ADR-0003, caminho B, secundária",
-        "regra": "colab/t2eq_cpt_emb.py · REGRA",
+        "regra": ("colab/t2eq_cpt_emb.py · REGRA (os braços do CPT) e "
+                  "kaggle/t2eq_emb.py · REGRA_GTE (a base)"),
         "protocolo": {"n": a.n, "semente": SEMENTE_POOL, "max_tokens": 192,
                       "pares_de_treino": 200_000,
                       "todos_medidos_nesta_sessao": True},
-        "controle": resumo(rc), "tratado": resumo(rt), "barra": resumo(rb),
+        **{nome: resumo(r) for nome, r in medidos.items()},
         "barra_do_passo_1_registrada": BARRA_DO_PASSO_1,
-        "entre_bracos_ndcg_10_tratado_menos_controle": entre,
-        "diagnostico_recall_1_mcnemar": comparar_pareado(rc, rt),
-        "desfecho": desfecho, "leitura": leitura,
-        "contra_a_barra": {
-            "melhor_braco": melhor_nome,
-            "ndcg_10_melhor_menos_barra": contra,
-            "desfecho": d_barra, "leitura": l_barra,
-            "ressalva": ("não é ablação de uma variável: o CPT viu 0,4 B tokens de "
-                         "Física a mais que a barra. Entre os DOIS BRAÇOS, sim."),
-        },
-        "primaria_de_mlm_ja_medida": {
-            "diferenca_das_diferencas": -0.00039, "ic95": [-0.00161, 0.00087],
-            "desfecho": "NÃO DECIDIDO",
-            "fonte": "data/processed/avaliacao/t2eq_cpt_ablacao.json",
-        },
-        "ressalvas": [
-            "CPT de 0,4 B tokens sobre o ModernBERT-base, uma semente por braço.",
-            "200 mil pares, metade da receita do T1a; o absoluto NÃO se compara com "
-            "o MiniLM@400k nem com o GTE-base@400k do T1f.",
-            "O controle do CPT teve 2 spikes de norma com rollback de 182 lotes e o "
-            "tratado nenhum — assimetria a favor do tratado, herdada do pré-treino.",
-        ],
     }
+
+    # ⚠️ `bootstrap_pareado_itens(a, b)` devolve `b − a`. O sinal trocado inverteria
+    # cada leitura abaixo sem nada acusar, e os desfechos opostos são frases
+    # igualmente plausíveis.
+    if a.controle:
+        rc, rt = medidos["controle"], medidos["tratado"]
+        entre = bootstrap_pareado_itens(por_item("controle"), por_item("tratado"))
+        desfecho, leitura = ler_entre_bracos(entre)
+        melhor_nome = max(("controle", "tratado"), key=lambda k: medidos[k].ndcg_10)
+        contra = bootstrap_pareado_itens(por_item("barra"), por_item(melhor_nome))
+        d_barra, l_barra = ler_contra_a_barra(melhor_nome, contra)
+        resultado |= {
+            "entre_bracos_ndcg_10_tratado_menos_controle": entre,
+            "diagnostico_recall_1_mcnemar": comparar_pareado(rc, rt),
+            "desfecho": desfecho, "leitura": leitura,
+            "contra_a_barra": {
+                "melhor_braco": melhor_nome,
+                "ndcg_10_melhor_menos_barra": contra,
+                "desfecho": d_barra, "leitura": l_barra,
+                "ressalva": ("não é ablação de uma variável: o CPT viu 0,4 B tokens "
+                             "de Física a mais que a barra. Entre os DOIS BRAÇOS, "
+                             "sim."),
+            },
+            "primaria_de_mlm_ja_medida": {
+                "diferenca_das_diferencas": -0.00039, "ic95": [-0.00161, 0.00087],
+                "desfecho": "NÃO DECIDIDO",
+                "fonte": "data/processed/avaliacao/t2eq_cpt_ablacao.json",
+            },
+        }
+    if a.gte:
+        base = bootstrap_pareado_itens(por_item("barra"), por_item("gte"))
+        d_base, l_base = ler_a_base(base)
+        resultado["a_base_e_a_certa"] = {
+            "ndcg_10_gte_menos_barra": base,
+            "diagnostico_recall_1_mcnemar": comparar_pareado(rb, medidos["gte"]),
+            "desfecho": d_base, "leitura": l_base,
+            "ressalva": ("uma variável, a BASE: mesmos pares, lote, 192 tokens e "
+                         "semente. O GTE-base tem 110 M contra 150 M e contexto de "
+                         "512 contra 8.192 — o contexto não entra nesta medida, e "
+                         "entra no produto."),
+        }
+    resultado["ressalvas"] = [
+        "Uma semente por braço; 200 mil pares, metade da receita do T1a — o absoluto "
+        "NÃO se compara com o MiniLM@400k nem com o GTE-base@400k do T1f.",
+    ] + ([
+        "CPT de 0,4 B tokens sobre o ModernBERT-base. O controle do CPT teve 2 spikes "
+        "de norma com rollback de 182 lotes e o tratado nenhum — assimetria a favor "
+        "do tratado, herdada do pré-treino.",
+    ] if a.controle else [])
+
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(resultado, indent=2, ensure_ascii=False),
                      encoding="utf-8")
 
     print()
     print("=" * 78)
-    print("  Secundária do caminho B · o CPT ajustado · pool do G1, n=%d" % a.n)
+    print(f"  Secundária do caminho B · pool do G1, n={a.n} · todos nesta sessão")
     print("=" * 78)
     print(f"  {'':<12} {'recall@1':>9} {'recall@10':>10} {'MRR':>7} {'nDCG@10':>9}")
-    for nome in ("controle", "tratado", "barra"):
+    for nome in medidos:
         r = resultado[nome]
         print(f"  {nome:<12} {r['recall_1']:>9.4f} {r['recall_10']:>10.4f} "
               f"{r['mrr']:>7.4f} {r['ndcg_10']:>9.4f}")
-    print(f"\n  ENTRE OS BRAÇOS · nDCG@10 tratado − controle: "
-          f"{entre['diferenca']:+.5f} {entre['ic95']}")
-    print(f"  recall@1 pareado (diagnóstico): "
-          f"{resultado['diagnostico_recall_1_mcnemar'].get('veredito')}")
-    print(f"  DESFECHO: {desfecho}\n  {leitura}")
-    print(f"\n  CONTRA A BARRA · nDCG@10 {melhor_nome} − barra: "
-          f"{contra['diferenca']:+.5f} {contra['ic95']}")
-    print(f"  DESFECHO: {d_barra}\n  {l_barra}")
+    if a.controle:
+        e, c = (resultado["entre_bracos_ndcg_10_tratado_menos_controle"],
+                resultado["contra_a_barra"])
+        print(f"\n  ENTRE OS BRAÇOS · nDCG@10 tratado − controle: "
+              f"{e['diferenca']:+.5f} {e['ic95']}")
+        print(f"  DESFECHO: {resultado['desfecho']}\n  {resultado['leitura']}")
+        m = c["ndcg_10_melhor_menos_barra"]
+        print(f"\n  CONTRA A BARRA · nDCG@10 {c['melhor_braco']} − barra: "
+              f"{m['diferenca']:+.5f} {m['ic95']}")
+        print(f"  DESFECHO: {c['desfecho']}\n  {c['leitura']}")
+    if a.gte:
+        g = resultado["a_base_e_a_certa"]
+        b = g["ndcg_10_gte_menos_barra"]
+        print(f"\n  A BASE É A CERTA? · nDCG@10 gte − modernbert: "
+              f"{b['diferenca']:+.5f} {b['ic95']}")
+        print(f"  recall@1 pareado (diagnóstico): "
+              f"{g['diagnostico_recall_1_mcnemar'].get('veredito')}")
+        print(f"  DESFECHO: {g['desfecho']}\n  {g['leitura']}")
     print("=" * 78)
     print(f"  -> {a.out}")
     return 0
