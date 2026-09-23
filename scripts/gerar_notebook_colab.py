@@ -41,6 +41,7 @@ PADRAO = "t2eq_emb_modernbert"
 TITULOS = {
     "t2eq_emb_modernbert": "Passo 1 do caminho B — ModernBERT-base como ΦEmb",
     "t2eq_cpt_emb": "Secundária do caminho B — o CPT ajustado como ΦEmb",
+    "t1h_bases_pequenas": "T1h — bases pequenas no lugar do MiniLM-L6",
 }
 
 
@@ -58,12 +59,15 @@ def preencher(texto: str, sha: str, pasta: str, celulas, variante: str | None) -
     if hasattr(celulas, "HASHES_ENCODER"):
         texto = texto.replace("__HASHES_ENCODER__",
                               json.dumps(celulas.HASHES_ENCODER, indent=4))
+    if hasattr(celulas, "BASES"):
+        texto = texto.replace("__BASES__", json.dumps(celulas.BASES, indent=4))
     if variante:
         texto = texto.replace("__VARIANTE__", variante)
     # ⚠️ Marcador que sobra vira string literal no notebook, e o erro só aparece
     # depois de a sessão subir e o Drive montar.
     for marcador in ("__SHA__", "__REPO__", "__PASTA__", "__HASHES__",
-                     "__HASHES_ENCODER__", "__REGRA__", "__VARIANTE__"):
+                     "__HASHES_ENCODER__", "__REGRA__", "__VARIANTE__",
+                     "__BASES__"):
         if marcador in texto:
             raise SystemExit(
                 f"o marcador {marcador} sobrou na célula. Ou falta um argumento "
