@@ -432,6 +432,28 @@ T1F = Experimento(
     repo="sanchezVB/LLM_F-sica",
 )
 
+# T1g — o GTE-base com 1 M de pares supera o ΦEmb do sistema (MiniLM@6M, 0,6223)?
+#
+# ⚠️ REUSA o dataset do T1a 1,5 M, já publicado: nada novo sobe, e o sorteio é o
+# mesmo do MiniLM@1,5M que entra como diagnóstico. O `--max-pares 1_000_000` da
+# célula é o que limita o volume — 1,5 M a 43,6 pares/s seriam ~9,6 h e não cabem
+# nas ~8,4 h de cota que sobram na semana de 2026-09-22.
+T1G = Experimento(
+    nome="t1g",
+    reusa_dados_de="t1a15",
+    titulo_dados="PhiFM T1a 1,5 M — pares de citação arXiv sorteados",
+    slug_dados="phifm-t1a-pares-15m",
+    titulo_notebook="PhiFM T1g GTE 1M",
+    slug_notebook="phifm-t1g-gte-1m",
+    pacote="data/processed/kaggle_t1a15",
+    fonte_celula="kaggle/t1g_gte_1m.py",
+    arquivos=("pares_treino.parquet", "pares_validacao.parquet"),
+    scripts=("train_embedding.py",),
+    modelos=(),
+    max_pares=1_000_000,
+    repo="sanchezVB/LLM_F-sica",
+)
+
 # ⚠️ T2a — os DOIS braços do mesmo experimento, um dataset só.
 #
 # A pergunta é se o regex de pré-tokenização da §8 do DOC-05 — o que torna
@@ -651,7 +673,7 @@ T2EQ_CPT_TRATADO = Experimento(
 BRACOS_DO_CPT = ("t2eq_cpt_controle", "t2eq_cpt_tratado")
 
 EXPERIMENTOS: dict[str, Experimento] = {
-    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F,
+    e.nome: e for e in (T1A, T1A15, T1A3M, T1A6M, T1B2, T1C, T1D, T1E, T1F, T1G,
                         T2A_A, T2A_E, T2EQ_TRATADO,
                         T2EQ_EMB_CONTROLE, T2EQ_EMB_TRATADO,
                         T2EQ_EMB_MODERNBERT, T2EQ_EMB_GTE,
