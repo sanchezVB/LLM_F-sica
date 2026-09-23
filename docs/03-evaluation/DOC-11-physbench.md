@@ -166,7 +166,9 @@ O DOI é resolvido contra o Crossref em tempo de avaliação. **Um DOI inventado
 
 Dada uma equação, recuperar os documentos do corpus que a contêm — sob variação notacional. O gabarito vem da **forma canônica** do DOC-03 §3: dois documentos que escrevem a mesma equação de formas diferentes têm a mesma `canonical_latex`.
 
-Mede diretamente a capacidade que recuperação densa costuma perder: casamento simbólico exato.
+~~Mede diretamente a capacidade que recuperação densa costuma perder: casamento simbólico exato.~~
+
+**Revisto em 2026-09-23 (aceito pelo dono do projeto):** mede a recuperação de documentos a partir de uma equação, no estrato que exige variação notacional. Medido, o recuperador denso do sistema **vence** a busca léxica nele (ver §6.3-medido, parte 2), então o benchmark é reportado como medida em que o sistema vai bem, e não como lacuna que justifique um componente. A premissa original está riscada e não apagada, porque foi ela que desenhou o conjunto.
 
 > **§6.3-medido (2026-09-17) — montado sobre o corpus inteiro, e a maior parte dos itens NÃO exige variação notacional.**
 >
@@ -186,7 +188,7 @@ Mede diretamente a capacidade que recuperação densa costuma perder: casamento 
 > 1. **"Sob variação notacional" descreve 7,8% dos itens.** Em nove de cada dez, casar a string (a menos de marcação) resolve. A média sobre o benchmark inteiro premiaria um casador de string, que é o contrário do que a tarefa existe para medir.
 > 2. **36,3% dos itens ligam a consulta a um documento com quem ela divide 5+ equações**, e 1.490 pares de documentos dividem 50+ — a mesma obra em dois registros, ou trabalhos companheiros. Nesses itens o que se recupera é o documento parecido.
 >
-> **Proposta, não decidida, e escrita antes de qualquer modelo ser medido aqui:** o conjunto primário do PB-Formula passa a ser o estrato `notacional` sem alvo quase igual — **24.508 itens**, 24× o mínimo da §8.2 —, com `identica`+`superficial` reportados ao lado como controle de casamento de string. O limiar de 5 equações é arbitrário; a distribuição inteira está no artefato (`pb_formula_diagnostico.json`) para quem quiser outro.
+> **Proposta escrita antes de qualquer modelo ser medido aqui — ACEITA em 2026-09-23:** o conjunto primário do PB-Formula passa a ser o estrato `notacional` sem alvo quase igual — **24.508 itens**, 24× o mínimo da §8.2 —, com `identica`+`superficial` reportados ao lado como controle de casamento de string. O limiar de 5 equações é arbitrário; a distribuição inteira está no artefato (`pb_formula_diagnostico.json`) para quem quiser outro.
 >
 > Dois defeitos achados no caminho: o contador de "falhas de canonização" dava 0 **por construção** (`canonicalizar` é total, e a docstring alegava que ele media as equações perdidas pelo RedPajama); e o corpus tem **6.778 `arxiv_id` repetidos** — cópias byte a byte entre as partes 32/33 e 34 —, que o benchmark trata como um documento só.
 
@@ -217,7 +219,7 @@ Mede diretamente a capacidade que recuperação densa costuma perder: casamento 
 >
 > A dificuldade cresce monotonicamente nos dois sistemas, e a vantagem do denso cresce COM a variação notacional. O corte por grafia separa o que diz separar — e é isso que torna o desfecho primário forte, em vez de artefato do conjunto.
 >
-> **O que isto muda na especificação, proposto e não decidido:**
+> **O que isto muda na especificação — ACEITO em 2026-09-23 pelo dono do projeto.** Adotados os pontos 1, 2 e 4; o 3 fica registrado como a condição para retomar a intenção original, e não é executado:
 >
 > 1. **A justificativa do §6.3 não se sustenta como está.** Se o benchmark existe para medir o que o denso perde, ele precisa de itens que o denso perca. Estes não são.
 > 2. **Ele continua útil com outra leitura:** é uma medida de recuperação por equação em que o nosso recuperador de 23 M vence um BM25 que lê texto integral — resultado favorável ao sistema, e que vale reportar como tal, não como lacuna.

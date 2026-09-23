@@ -78,6 +78,10 @@ Cada chunk carrega, herdado do `PhysicsDocumentRecord`: `doc_id`, seção, subá
 
 A terceira perna é específica do domínio e só é possível porque o DOC-03 §3 produziu a forma canônica. É o que responde *"que papers usam esta equação?"* sob variação notacional.
 
+> ⚠️ **Medido em 2026-09-18, e aceito em 2026-09-23 ([DOC-11 §6.3](../03-evaluation/DOC-11-physbench.md)):** a perna densa **não** é fraca em casamento de equação neste corpus. No PB-Formula, estrato que exige variação notacional, o ΦEmb do sistema faz recall@1 **0,8595** contra **0,7115** do BM25 sobre a equação inteira, e a vantagem cresce com a variação. A coluna "fraca em" da perna densa descreve a expectativa da literatura, não a medida daqui.
+>
+> A perna de fórmula, portanto, **não se justifica por esse número**: consultas que são equações verbatim de artigos o denso já resolve. Ela teria de se justificar por consultas que usuários escrevem — fórmula misturada com texto, ou forma canônica distante da grafia —, que não foram medidas. Até lá, o M3 fica sem evidência a favor, e a esparsa já saiu da composição pela regra do T1b2 (2026-09-08).
+
 ### 4.2 Fusão
 
 **Reciprocal Rank Fusion (RRF):** `score(d) = Σᵢ 1/(k + rankᵢ(d))`, com `k = 60`.

@@ -1,8 +1,8 @@
 # ADR-0003 — O ΦEnc ainda deve ser treinado do zero?
 
-**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**. A opção C foi executada no mesmo dia (§7), o passo 1 do caminho B em 2026-09-17 (§8), e as três opções foram medidas na mesma régua em 2026-09-23 (§9): **o GTE-base cru ajustado (0,5964) domina o CPT tratado (0,5373) e o ModernBERT cru (0,5270)**.
+**Status:** **Aceito (2026-09-23)** pelo dono do projeto. Proposto em 2026-09-16; a opção C foi executada no mesmo dia (§7), o passo 1 do caminho B em 2026-09-17 (§8), as três opções medidas na mesma régua em 2026-09-23 (§9) e a decisão está na §10: **o ΦEnc próprio não é treinado, por nenhum dos dois caminhos; o ΦEmb do sistema continua o MiniLM ajustado em 6 M de pares.**
 **Contexto:** [DOC-07 §2](../02-models/DOC-07-familia-de-modelos.md) (ΦEnc) e §14 (OQ-4), [DOC-00 D-01](../00-foundations/DOC-00-project-charter.md) (o dissenso registrado), [DOC-05 §8 e §11.2](../01-data/DOC-05-tokenizer.md)
-**Não substitui nada ainda.** Se aceito, revisa a linha "Physics Encoder — treino do zero" da tabela de decisões do DOC-07.
+**Revisa** a linha "Physics Encoder — treino do zero" da tabela de decisões do DOC-07, e o §14 dele.
 
 ---
 
@@ -253,3 +253,38 @@ candidato a nada no produto**: a opção 3 domina as opções 1 e 2.
 
 Artefatos: `data/processed/avaliacao/t2eq_cpt_emb_comparacao.json`,
 `t2eq_emb_gte_contra_barra.json`, `t2eq_cpt_ablacao.json`.
+
+## 10. A decisão (2026-09-23)
+
+Aceita pelo dono do projeto, sobre a evidência da §9 e do T1g:
+
+1. **O ΦEnc próprio não é treinado, por nenhum dos dois caminhos.** Treinar do zero
+   (caminho A) perde para a base geral ajustada sem pré-treinamento (§8: 0,4712 contra
+   0,5270). Pré-treinar continuamente (caminho B) rende +0,010 sobre a base de partida,
+   enquanto trocar de base, sem pré-treinamento nenhum, rende +0,069 (§9).
+2. **O ΦEmb do sistema continua o MiniLM ajustado em 6 M de pares** (nDCG@10 0,6223). O
+   GTE-base, a base geral mais forte medida, empata com ele a 1 M de pares — 0,6211,
+   −0,0012 [−0,011; +0,008] (T1g, `data/processed/avaliacao/t1g_comparacao.json`) — e
+   custa 4,4× para embutir. Sem margem, o custo decide.
+3. **O objetivo do §2.3 fica registrado como resultado, não como componente.** Mascarar
+   equações inteiras melhora a recuperação após o ajuste: +0,084 a 48 M do zero, +0,0076
+   a 150 M em pré-treinamento continuado, com a medida primária de MLM nula nas duas
+   escalas. O efeito é real, pequeno, e encolhe com a força da base. Publicado no artigo
+   do programa (v0.5, §4.9).
+
+### O que reabriria esta decisão
+
+- Uma base geral do porte do MiniLM (e do custo dele) que, na mesma receita, ganhe dele
+  por uma margem da ordem da do GTE-base: aí o ganho de base viria sem os 4,4×. É o
+  experimento de menor custo que ainda pode mudar o encoder do sistema.
+- Uma tarefa em que o contexto longo pese. Hoje a truncagem a 192 tokens não custa nada
+  (2026-09-10), e é ela que tira o argumento do contexto de 8.192.
+- O dissenso da D-01 como pergunta de pesquisa por si — o confronto D da §4. Nada nesta
+  decisão o responde, e nada nela sugere que valha o preço.
+
+### O que fica no disco
+
+Os dois encoders do CPT (`models/phienc-cpt-controle`, `models/phienc-cpt-tratado`) e os
+ajustados (`models/phiemb-cpt-*-200k-melhor`, `data/processed/t2eq_emb_gte/`,
+`data/processed/t1g_saida/`) ficam como artefatos da medição publicada. Nenhum vai
+para o sistema.

@@ -16,8 +16,8 @@ O briefing lista dez modelos: Physics Encoder, Retriever, Embedding, Generator, 
 
 | Item do briefing | O que realmente é | Por quê |
 |---|---|---|
-| Physics Encoder | ✅ **Modelo próprio** (ΦEnc) | Objetivo, arquitetura e tokenizer distintos justificam treino do zero |
-| Physics Embedding | ✅ **Cabeça sobre o ΦEnc** (ΦEmb) | Mesmo tronco, fine-tune contrastivo |
+| Physics Encoder | ❌ **Não é treinado** (ADR-0003, aceito em 2026-09-23) | ~~Objetivo, arquitetura e tokenizer distintos justificam treino do zero~~ — medido: do zero perde para a base geral ajustada, e o pré-treino continuado rende +0,010 contra +0,069 de trocar a base |
+| Physics Embedding | ✅ **Base geral ajustada** (ΦEmb) | MiniLM-L6 ajustado em 6 M de pares de citação (nDCG@10 0,6223); ~~cabeça sobre o ΦEnc~~, que não existe |
 | Physics Retriever | ⚠️ **Não é um terceiro modelo** | Recuperação = ΦEmb + ΦRank. Nomear como modelo separado convida a treinar um redundante |
 | Physics Generator | ✅ **Modelo próprio** (ΦGen) | CPT sobre Qwen3, dois tamanhos |
 | Physics OCR | ✅ **Modelo próprio** (ΦOCR) | Modalidade e tarefa genuinamente distintas |
@@ -28,6 +28,8 @@ O briefing lista dez modelos: Physics Encoder, Retriever, Embedding, Generator, 
 | **Physics Agent** | ❌ **Camada de orquestração** | ΦGen + roteador de ferramentas + memória. Nenhum peso novo — §12 |
 
 **Contagem real de artefatos treinados: quatro troncos** (ΦEnc, ΦGen, ΦOCR, adaptador ΦVis) **e três cabeças** (ΦEmb, ΦRank, e a cabeça de MLM). Tudo o mais é composição.
+
+> ⚠️ **2026-09-23:** a contagem acima é a do desenho original. Com o [ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md) aceito, o ΦEnc não é treinado e o ΦEmb é uma base geral ajustada; o ΦRank já tinha saído do sistema pelo T1e (2026-09-10).
 
 Essa clareza vale dinheiro: reduz o orçamento da Fase 2 por um fator próximo de três e elimina três projetos que estariam condenados a ser piores que a alternativa composta.
 
@@ -137,6 +139,25 @@ competência que a hipótese acima nomeia.
 ajustados como ΦEmb — hiperparâmetros do T1f, 200 mil pares do T1a — dão nDCG@10
 **0,3872 contra 0,4712**, +0,084 [+0,071; +0,097] no protocolo do G1. Uma semente por
 braço. Ver [ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md).
+
+**E a 150 M, em pré-treino CONTINUADO (2026-09-22/23).** Os dois braços a partir do
+ModernBERT-base, 0,4 B tokens, uma variável (`p_equacao` 0,0 contra 0,6), regras escritas
+antes (`kaggle/t2eq_cpt.py`, `colab/t2eq_cpt_emb.py`):
+
+| | 48 M, do zero | 150 M, continuado |
+|---|---|---|
+| o tratamento pegou (equação inteira escondida) | +0,128 | **+0,173** |
+| primária · diferença das diferenças de MLM | −0,0040, controle à frente | **−0,00039 [−0,0016; +0,0009], não decidido** |
+| recuperação após o ajuste, tratado − controle | +0,084 | **+0,0076 [+0,0013; +0,0139]** |
+
+**Leitura:** o efeito sobre a recuperação é real e **encolhe 11× com a força da base**; o
+sobre a predição de tokens é nulo nas duas escalas. E uma base geral diferente (GTE-base),
+sem pré-treino nenhum, fica +0,069 acima da base do CPT — sete vezes o ganho do
+pré-treino inteiro. ⚠️ A 150 M a assimetria de spike favorece o tratado (o controle perdeu
+182 lotes em rollbacks), do tamanho que poderia explicar parte do +0,0076; não medida.
+
+Pelo ADR-0003, aceito em 2026-09-23, **o objetivo fica como resultado publicado, não como
+componente**: não há ΦEnc em que aplicá-lo.
 
 ### 2.4 Custo
 
@@ -362,6 +383,12 @@ Reavaliação com os números medidos, não com os estimados do DOC-00.
 > equações deu negativo na primária e 8× na recuperação (§2.3-medido) — e ele não exige
 > treino do zero: as marcas saem de offsets de caractere. O que sobra para o treino do
 > zero é o dissenso em si. Reavaliação proposta, não decidida: [ADR-0003](../adr/ADR-0003-phienc-do-zero-ou-cpt.md).
+>
+> ✅ **2026-09-23: respondida por medição, e o ΦEnc não é treinado.** O ADR-0003 foi aceito: do zero, um
+> encoder de 48 M perde para o ModernBERT-base ajustado (0,4712 contra 0,5270); em pré-treino
+> continuado, 0,4 B tokens de Física compram +0,010 sobre a base, contra +0,069 de trocar de base. O
+> viés indutivo nativo não foi testado diretamente, e nada do que foi medido sugere que valha o preço.
+> Para o Stage-Gate 4, isto é evidência **contra** a aposta do treino do zero, obtida pelo preço previsto.
 
 ---
 
