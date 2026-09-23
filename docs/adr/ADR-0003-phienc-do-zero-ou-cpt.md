@@ -1,6 +1,6 @@
 # ADR-0003 — O ΦEnc ainda deve ser treinado do zero?
 
-**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**. A opção C foi executada no mesmo dia (§7) e o passo 1 do caminho B em 2026-09-17: a barra é **0,5270** (§8).
+**Status:** Proposto (2026-09-16) — **aguarda decisão do dono do projeto**. A opção C foi executada no mesmo dia (§7), o passo 1 do caminho B em 2026-09-17 (§8), e as três opções foram medidas na mesma régua em 2026-09-23 (§9): **o GTE-base cru ajustado (0,5964) domina o CPT tratado (0,5373) e o ModernBERT cru (0,5270)**.
 **Contexto:** [DOC-07 §2](../02-models/DOC-07-familia-de-modelos.md) (ΦEnc) e §14 (OQ-4), [DOC-00 D-01](../00-foundations/DOC-00-project-charter.md) (o dissenso registrado), [DOC-05 §8 e §11.2](../01-data/DOC-05-tokenizer.md)
 **Não substitui nada ainda.** Se aceito, revisa a linha "Physics Encoder — treino do zero" da tabela de decisões do DOC-07.
 
@@ -187,3 +187,69 @@ Artefato: `data/processed/avaliacao/t2eq_emb_comparacao.json`.
 ⚠️ A opção 3 tem o melhor número da tabela e **não é comparável a estas três linhas**:
 400 mil pares contra 200 mil. Comparar exigiria rodar o GTE-base a 200 mil, ou os três a
 400 mil.
+
+## 9. As três opções na mesma régua (2026-09-23)
+
+A §8 deixou a opção 3 fora da tabela por não ser comparável ("400 mil pares contra 200
+mil"). Ela foi medida a 200 mil pares (`t2eq_emb_gte`), os dois braços do caminho B foram
+treinados e ajustados, e os quatro encoders foram medidos **na mesma sessão**, no
+protocolo do G1, com as regras escritas antes (`colab/t2eq_cpt_emb.py` e
+`kaggle/t2eq_emb.py` · REGRA_GTE):
+
+| @200k pares, mesma receita | recall@1 | recall@10 | MRR | nDCG@10 |
+|---|---|---|---|---|
+| ModernBERT-base CRU ajustado (a barra, opção 2) | 0,3540 | 0,7200 | 0,4774 | 0,5270 |
+| CPT controle (`p_equacao` 0,0) | 0,3635 | 0,7175 | 0,4823 | 0,5297 |
+| CPT tratado (`p_equacao` 0,6) — opção 1 | 0,3620 | 0,7290 | 0,4876 | 0,5373 |
+| **GTE-base CRU ajustado — opção 3** | **0,4170** | **0,7880** | **0,5443** | **0,5964** |
+
+A barra remedida deu 0,5270 de novo: o avaliador não derivou em seis dias.
+
+### O que cada regra decidiu
+
+- **Entre os braços** (a ciência, uma variável): tratado − controle **+0,0076
+  [+0,0013; +0,0139]** → **TRATADO À FRENTE**. O ganho de recuperação do §2.3 se repete a
+  150 M — mas **11× menor** que a 48 M (+0,084), com o IC encostando no zero. O recall@1
+  empata (63 × 60, p=0,86): o ganho está abaixo do topo.
+- **Contra a barra**: tratado − ModernBERT cru **+0,0103 [+0,0032; +0,0176]** → **CPT
+  ACIMA DA BARRA**.
+- **A base**: GTE − ModernBERT **+0,0694 [+0,0580; +0,0812]** → **GTE À FRENTE**.
+
+### A leitura conjunta, que nenhuma regra isolada dá
+
+**A escolha da base vale ~7× o pré-treino continuado inteiro.** Os 0,4 B tokens de
+Física, com o objetivo do §2.3, compraram +0,010 sobre o ModernBERT-base; trocar o
+ModernBERT pelo GTE, sem pré-treino nenhum, compra +0,069. O GTE cru ajustado fica
+**+0,059** acima do melhor braço do CPT (diferença de estimativas pontuais; não é
+comparação pré-registrada, e não precisa ser — a distância é 5× a largura dos ICs).
+
+A frase da regra "o encoder do sistema passa a ser candidato a trocar" foi escrita antes
+de o GTE entrar na mesma régua. Com ele dentro, **o CPT sobre o ModernBERT-base não é
+candidato a nada no produto**: a opção 3 domina as opções 1 e 2.
+
+### ⚠️ As ressalvas, e uma delas pesa contra o efeito do §2.3
+
+1. **A assimetria de spike favorece o tratado.** O CPT controle teve 2 spikes de norma,
+   com rollback de 182 lotes e LR pela metade por 500 passos; o tratado rodou limpo. Com
+   um efeito de +0,0076 e o limite inferior do IC em +0,0013, a assimetria é do tamanho
+   que poderia explicar parte dele. Não foi medida.
+2. **A primária do CPT, a de MLM, deu NÃO DECIDIDO** (−0,00039 [−0,0016; +0,0009]).
+   O §2.3 chega a 150 M com uma secundária positiva marginal e uma primária nula.
+3. **Uma semente por braço, e 200 mil pares** — metade da receita do T1a.
+
+### O que isto deixa para a decisão do dono
+
+1. **O ΦEnc próprio fecha para o produto.** Do zero (caminho A) já tinha fechado na §8;
+   o pré-treino continuado (caminho B) rende +0,010 sobre uma base que perde por 0,069
+   para outra base pronta.
+2. **O objetivo do §2.3 fica com evidência fraca e positiva.** Vale publicar como está:
+   +0,084 a 48 M, +0,0076 a 150 M, primária nula nas duas escalas — o efeito encolhe com a
+   base, que é o padrão de um viés que a base forte já resolve.
+3. **A pergunta que continua aberta é a do encoder do sistema**, e ela já está rodando:
+   o T1g mede o GTE-base a 1 M de pares contra o ΦEmb do sistema (MiniLM@6M, 0,6223).
+4. **Um CPT com o §2.3 sobre o GTE-base** é a combinação que esta tabela sugere, e ela
+   NÃO está pronta: o laço de pré-treino só conhece o ModernBERT, e o GTE é BERT. Pelo
+   tamanho do ganho medido (+0,008 entre braços), é difícil que pague a engenharia.
+
+Artefatos: `data/processed/avaliacao/t2eq_cpt_emb_comparacao.json`,
+`t2eq_emb_gte_contra_barra.json`, `t2eq_cpt_ablacao.json`.

@@ -1,0 +1,111 @@
+{
+  "experimento": "t2eq_cpt_emb — ADR-0003, caminho B, secundária",
+  "regra": "colab/t2eq_cpt_emb.py · REGRA (os braços do CPT) e kaggle/t2eq_emb.py · REGRA_GTE (a base)",
+  "protocolo": {
+    "n": 2000,
+    "semente": 17,
+    "max_tokens": 192,
+    "pares_de_treino": 200000,
+    "todos_medidos_nesta_sessao": true
+  },
+  "barra": {
+    "caminho": "models/phiemb-t2eq-modernbert-200k-melhor",
+    "recall_1": 0.354,
+    "recall_10": 0.72,
+    "mrr": 0.4774,
+    "ndcg_10": 0.527
+  },
+  "controle": {
+    "caminho": "models/phiemb-cpt-controle-200k-melhor",
+    "recall_1": 0.3635,
+    "recall_10": 0.7175,
+    "mrr": 0.4823,
+    "ndcg_10": 0.5297
+  },
+  "tratado": {
+    "caminho": "models/phiemb-cpt-tratado-200k-melhor",
+    "recall_1": 0.362,
+    "recall_10": 0.729,
+    "mrr": 0.4876,
+    "ndcg_10": 0.5373
+  },
+  "gte": {
+    "caminho": "data/processed/t2eq_emb_gte/phiemb-t2eq-gte-200k-melhor",
+    "recall_1": 0.417,
+    "recall_10": 0.788,
+    "mrr": 0.5443,
+    "ndcg_10": 0.5964
+  },
+  "barra_do_passo_1_registrada": 0.527,
+  "entre_bracos_ndcg_10_tratado_menos_controle": {
+    "diferenca": 0.00757,
+    "ic95": [
+      0.00128,
+      0.01388
+    ],
+    "cruza_zero": false,
+    "itens": 2000
+  },
+  "diagnostico_recall_1_mcnemar": {
+    "a": "controle",
+    "b": "tratado",
+    "ganha_a": 63,
+    "ganha_b": 60,
+    "discordantes": 123,
+    "p": 0.8569843282497003,
+    "veredito": "empate — 123 discordantes não separam os dois (p=0.857)"
+  },
+  "desfecho": "TRATADO À FRENTE",
+  "leitura": "o ganho de recuperação do §2.3 se repete a 150 M. O mascaramento de equações entra no programa como objetivo de pré-treino continuado.",
+  "contra_a_barra": {
+    "melhor_braco": "tratado",
+    "ndcg_10_melhor_menos_barra": {
+      "diferenca": 0.01027,
+      "ic95": [
+        0.00317,
+        0.01759
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    },
+    "desfecho": "CPT ACIMA DA BARRA",
+    "leitura": "o braço tratado supera a base geral ajustada do mesmo jeito. O pré-treino continuado paga os 0,4 B tokens que custou, e o encoder do sistema passa a ser candidato a trocar — decisão do dono, no ADR-0003.",
+    "ressalva": "não é ablação de uma variável: o CPT viu 0,4 B tokens de Física a mais que a barra. Entre os DOIS BRAÇOS, sim."
+  },
+  "primaria_de_mlm_ja_medida": {
+    "diferenca_das_diferencas": -0.00039,
+    "ic95": [
+      -0.00161,
+      0.00087
+    ],
+    "desfecho": "NÃO DECIDIDO",
+    "fonte": "data/processed/avaliacao/t2eq_cpt_ablacao.json"
+  },
+  "a_base_e_a_certa": {
+    "ndcg_10_gte_menos_barra": {
+      "diferenca": 0.06935,
+      "ic95": [
+        0.05797,
+        0.08118
+      ],
+      "cruza_zero": false,
+      "itens": 2000
+    },
+    "diagnostico_recall_1_mcnemar": {
+      "a": "barra",
+      "b": "gte",
+      "ganha_a": 111,
+      "ganha_b": 237,
+      "discordantes": 348,
+      "p": 1.2470326723171561e-11,
+      "veredito": "gte vence em recall@1 (p=0.0000)"
+    },
+    "desfecho": "GTE À FRENTE",
+    "leitura": "os dois braços do CPT partiram da base errada. A resposta do ADR-0003 para o produto passa a ser trocar a base, não continuar o pré-treino; o que o CPT mediu sobre o §2.3 continua valendo.",
+    "ressalva": "uma variável, a BASE: mesmos pares, lote, 192 tokens e semente. O GTE-base tem 110 M contra 150 M e contexto de 512 contra 8.192 — o contexto não entra nesta medida, e entra no produto."
+  },
+  "ressalvas": [
+    "Uma semente por braço; 200 mil pares, metade da receita do T1a — o absoluto NÃO se compara com o MiniLM@400k nem com o GTE-base@400k do T1f.",
+    "CPT de 0,4 B tokens sobre o ModernBERT-base. O controle do CPT teve 2 spikes de norma com rollback de 182 lotes e o tratado nenhum — assimetria a favor do tratado, herdada do pré-treino."
+  ]
+}
