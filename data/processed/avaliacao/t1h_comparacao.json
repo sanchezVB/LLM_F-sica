@@ -1,0 +1,159 @@
+{
+  "experimento": "t1h — bases pequenas no lugar do MiniLM-L6",
+  "regra": "colab/t1h_bases_pequenas.py · REGRA",
+  "protocolo": {
+    "n": 2000,
+    "semente": 17,
+    "max_tokens": 192,
+    "pares_de_treino": 200000,
+    "todos_medidos_nesta_sessao": true,
+    "ic": "98.75% (Bonferroni, 4 comparações)",
+    "custo": "2000 textos, lote 16, após aquecimento, dispositivo dml"
+  },
+  "bases": {
+    "minilm-l6": {
+      "base": "sentence-transformers/all-MiniLM-L6-v2",
+      "caminho": "data\\processed\\t1h_saida\\phiemb-t1h-minilm-l6-200k-melhor",
+      "recall_1": 0.355,
+      "recall_10": 0.7235,
+      "mrr": 0.4777,
+      "ndcg_10": 0.5289,
+      "parametros_m": 22.7,
+      "custo_s": 4.47,
+      "razao_custo": 1.0
+    },
+    "gte-small": {
+      "base": "thenlper/gte-small",
+      "caminho": "data\\processed\\t1h_saida\\phiemb-t1h-gte-small-200k-melhor",
+      "recall_1": 0.4025,
+      "recall_10": 0.755,
+      "mrr": 0.522,
+      "ndcg_10": 0.5706,
+      "parametros_m": 33.4,
+      "custo_s": 7.85,
+      "razao_custo": 1.76,
+      "ndcg_10_menos_referencia": {
+        "diferenca": 0.04168,
+        "ic95": [
+          0.02843,
+          0.05501
+        ],
+        "cruza_zero": false,
+        "itens": 2000
+      },
+      "diagnostico_recall_1_mcnemar": {
+        "a": "minilm-l6",
+        "b": "gte-small",
+        "ganha_a": 107,
+        "ganha_b": 202,
+        "discordantes": 309,
+        "p": 7.098240447460122e-08,
+        "veredito": "gte-small vence em recall@1 (p=0.0000)"
+      },
+      "desfecho": "ACIMA",
+      "leitura": "a base pesa também no porte pequeno. Custo 1.76× o MiniLM-L6: CANDIDATA a subir de volume (1 M de pares) contra o sistema.",
+      "candidata_a_subir_de_volume": true
+    },
+    "bge-small": {
+      "base": "BAAI/bge-small-en-v1.5",
+      "caminho": "data\\processed\\t1h_saida\\phiemb-t1h-bge-small-200k-melhor",
+      "recall_1": 0.3975,
+      "recall_10": 0.7545,
+      "mrr": 0.52,
+      "ndcg_10": 0.5692,
+      "parametros_m": 33.4,
+      "custo_s": 7.82,
+      "razao_custo": 1.75,
+      "ndcg_10_menos_referencia": {
+        "diferenca": 0.04031,
+        "ic95": [
+          0.02752,
+          0.05381
+        ],
+        "cruza_zero": false,
+        "itens": 2000
+      },
+      "diagnostico_recall_1_mcnemar": {
+        "a": "minilm-l6",
+        "b": "bge-small",
+        "ganha_a": 112,
+        "ganha_b": 197,
+        "discordantes": 309,
+        "p": 1.5281938739422208e-06,
+        "veredito": "bge-small vence em recall@1 (p=0.0000)"
+      },
+      "desfecho": "ACIMA",
+      "leitura": "a base pesa também no porte pequeno. Custo 1.75× o MiniLM-L6: CANDIDATA a subir de volume (1 M de pares) contra o sistema.",
+      "candidata_a_subir_de_volume": true
+    },
+    "e5-small": {
+      "base": "intfloat/e5-small-v2",
+      "caminho": "data\\processed\\t1h_saida\\phiemb-t1h-e5-small-200k-melhor",
+      "recall_1": 0.3605,
+      "recall_10": 0.737,
+      "mrr": 0.4879,
+      "ndcg_10": 0.5402,
+      "parametros_m": 33.4,
+      "custo_s": 7.88,
+      "razao_custo": 1.76,
+      "ndcg_10_menos_referencia": {
+        "diferenca": 0.01133,
+        "ic95": [
+          -0.00057,
+          0.02368
+        ],
+        "cruza_zero": true,
+        "itens": 2000
+      },
+      "diagnostico_recall_1_mcnemar": {
+        "a": "minilm-l6",
+        "b": "e5-small",
+        "ganha_a": 120,
+        "ganha_b": 131,
+        "discordantes": 251,
+        "p": 0.527996642963791,
+        "veredito": "empate — 251 discordantes não separam os dois (p=0.528)"
+      },
+      "desfecho": "EMPATE",
+      "leitura": "no porte pequeno a base não se separa do MiniLM-L6.",
+      "candidata_a_subir_de_volume": false
+    },
+    "minilm-l12": {
+      "base": "sentence-transformers/all-MiniLM-L12-v2",
+      "caminho": "data\\processed\\t1h_saida\\phiemb-t1h-minilm-l12-200k-melhor",
+      "recall_1": 0.3645,
+      "recall_10": 0.7315,
+      "mrr": 0.4897,
+      "ndcg_10": 0.5404,
+      "parametros_m": 33.4,
+      "custo_s": 7.87,
+      "razao_custo": 1.76,
+      "ndcg_10_menos_referencia": {
+        "diferenca": 0.01151,
+        "ic95": [
+          -0.00012,
+          0.02326
+        ],
+        "cruza_zero": true,
+        "itens": 2000
+      },
+      "diagnostico_recall_1_mcnemar": {
+        "a": "minilm-l6",
+        "b": "minilm-l12",
+        "ganha_a": 117,
+        "ganha_b": 136,
+        "discordantes": 253,
+        "p": 0.25773819674144455,
+        "veredito": "empate — 253 discordantes não separam os dois (p=0.258)"
+      },
+      "desfecho": "EMPATE",
+      "leitura": "no porte pequeno a base não se separa do MiniLM-L6.",
+      "candidata_a_subir_de_volume": false
+    }
+  },
+  "ressalvas": [
+    "Uma semente por base; 200 mil pares, metade da receita do T1a.",
+    "O e5-small e o bge-small foram feitos para usar prefixo, e aqui não usam.",
+    "O IC da tabela é de 98,75%; a chave `ic95` do bootstrap guarda esse intervalo pelo nome histórico do campo."
+  ]
+}
