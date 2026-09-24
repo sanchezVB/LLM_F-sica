@@ -1,0 +1,27 @@
+{
+  "etapa": "completa",
+  "regra": "DOC-13 §9.1",
+  "autor": "claude-opus-5-5",
+  "semente": 20260925,
+  "corte": "2025-06-01",
+  "cotas": {
+    "primario": 500,
+    "pos_corte": 150
+  },
+  "tentativas_por_estrato": {
+    "primario": {
+      "aceita": 500,
+      "nenhuma": 81,
+      "copia_titulo": 2,
+      "depende_do_artigo": 2
+    },
+    "pos_corte": {
+      "aceita": 150,
+      "nenhuma": 11,
+      "depende_do_artigo": 1
+    }
+  },
+  "sobreposicao_media_aceitas": 0.048,
+  "assinatura_autor": "6a8c6d62337c815f525ec7d0f7a5eba748a819713f5a8cacb9b98f1b789d7d93",
+  "sha256_itens": "36c84880f836492240d84dada847ecd4e102e57a672ce97b654e4ef8a33ea13c"
+}
