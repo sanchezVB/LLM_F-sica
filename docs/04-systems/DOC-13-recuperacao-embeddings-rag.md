@@ -188,6 +188,98 @@ Contra as tarefas da Trilha C do DOC-11: `PB-Retrieve`, `PB-Cite`, `PB-Formula`.
 
 **Ablações obrigatórias**, porque cada perna precisa justificar seu custo: denso puro · esparso puro · híbrido sem rerank · híbrido com rerank · com e sem a perna de fórmula · 128 vs. 768 dims · com e sem interação tardia (**OQ-27**).
 
+### 9.1 PROPOSTA — a medida do assistente, escrita antes (2026-09-24; aguarda o dono)
+
+> Escrita antes de qualquer item existir. Nada aqui foi rodado. Os dois limiares (0,75 e
+> 0,05) são decisão de produto e ficam para o dono aceitar ou trocar **antes** da execução.
+
+**A pergunta.** O assistente (`scripts/perguntar.py`: Qwen3-8B aberto + a nossa busca) erra
+por causa de **quem**: da busca, que não traz o artigo certo, ou do modelo que escreve, que
+não o usa bem? O ΦGen — pré-treino continuado de um modelo em Física, US$ 120–240 no 1,5 B —
+mexe **só no segundo**. Se o gerador aberto já acerta com a fonte certa na mão, o ΦGen
+não tem onde ganhar no assistente, e o dinheiro vai para a busca ou para lugar nenhum.
+
+**O que ela NÃO decide.** O ΦGen como resolvedor de problemas — os benchmarks fechados do
+G2 (GPQA-física, OlympiadBench…), sem artigo nenhum no prompt. Para isso a medida é o G2.1,
+e ela exige treinar. Esta mede o assistente de literatura, que é o produto que existe.
+
+#### Os itens — gabarito de graça, com o instrumento validado antes
+
+| | |
+|---|---|
+| fonte | artigo **P** sorteado das 20.372 âncoras de validação (semente fixa), fora do treino do encoder e dentro do índice |
+| pergunta | o Qwen3-8B lê **só o resumo de P** e escreve, em português, uma pergunta que um físico faria e cuja resposta é um fato do resumo, mais o **gabarito** curto; responde `NENHUMA` se o resumo não tiver fato verificável |
+| guarda contra cópia | descartada se ≥ 50% das palavras de conteúdo da pergunta estiverem no título de P |
+| **primário** | **500 itens** — o mínimo do DOC-11 §8.2; IC de ±3,8 pontos perto de 0,75 |
+| estrato de contaminação | **+150** dos 449 artigos criados a partir de 2025-06, depois do lançamento do Qwen3 — o modelo não pode tê-los lido; reportado à parte |
+
+**I1 · validade do instrumento, ANTES de qualquer braço rodar.** 40 perguntas sorteadas,
+revisadas pelo dono: clara? respondível pelo resumo? gabarito certo? Se menos de **32 de
+40** forem válidas, o gerador de perguntas é refeito e o sorteio repetido — e só então os
+braços rodam. É o instrumento sendo conferido antes do número, como no PB-Formula.
+
+#### Os três braços — mesmo modelo, mesmo prompt, configuração do produto, semente fixa
+
+| braço | o que o modelo recebe |
+|---|---|
+| **A · sistema** | o que o assistente faz hoje: consulta hipotética → busca → 6 fontes |
+| **B · fonte garantida** | as mesmas 6; se **P** não veio, **P** entra no lugar da 6ª, em posição sorteada. Onde P veio, B = A |
+| **C · sem fontes** | a pergunta sozinha, respondida de memória |
+
+#### As métricas
+
+**Julgada (a que decide):** a resposta contém o fato do gabarito, sem contradizê-lo?
+`certo` · `parcial` · `errado` · `absteve`. Só `certo` conta como acerto. Juiz: o Qwen3-8B
+**com o gabarito na mão**, sem saber o braço.
+
+**I3 · o juiz é calibrado, ou o número não vale** (DOC-11 §5: número de LLM-juiz sem
+concordância humana é opinião). 100 respostas sorteadas (50 de A, 50 de B, braço oculto)
+julgadas pelo dono; publica-se a concordância. Se κ de Cohen < 0,6, o resultado é
+**NÃO DECIDIDO pelo instrumento**, e o juiz é consertado antes de qualquer leitura.
+
+**Mecânicas (sem juiz):** P entre as 6 fontes (A); P citada quando presente (A, B);
+citações inventadas removidas pelo portão; abstenção em item respondível.
+
+#### A regra — IC 95% por bootstrap pareado por item, lado inteiro do limiar ou não decide
+
+- **acerto_B** = proporção de `certo` no braço B.
+  **Gerador BASTA** se o IC inteiro ≥ **0,75**; **LIMITA** se o IC inteiro < 0,75.
+- **lacuna_da_busca** = acerto_B − acerto_A.
+  **Busca LIMITA** se o IC inteiro > **0,05**; **NÃO LIMITA** se o IC inteiro < 0,05.
+- Fora disso: **NÃO DECIDIDO** naquele eixo, e o número vai para o ESTADO como está.
+
+| | busca NÃO limita | busca LIMITA |
+|---|---|---|
+| **gerador BASTA** | assistente pronto para uso; **o ΦGen não se justifica pelo assistente** | investir na busca (trechos do texto completo, §3; reranqueador), não no ΦGen |
+| **gerador LIMITA** | ΦGen é candidato — **mas antes o teste barato**: braço B com um modelo geral maior (Qwen3-14B). Se ele fechar a maior parte da diferença, o remédio é escala, não pré-treino em Física | os dois limitam: a busca primeiro (US$ 0) e medir de novo |
+
+Por que 0,75: com o artigo certo na mão, errar mais de 1 em 4 torna o assistente
+inutilizável sem conferir tudo. Por que 0,05: são os 5 pontos que o DOC-11 §8.2 usa como
+a diferença que a suíte precisa distinguir de ruído. Ambos são escolhas — por isso ficam
+com o dono.
+
+**I2 · os itens precisam da literatura.** Se acerto_C ≥ acerto_B − 0,10, as perguntas
+se respondem de memória e a medida não mede o que diz: o resultado é **inválido**, não
+negativo.
+
+#### Secundárias — relatadas, não decidem
+
+acerto_A − acerto_C (quanto a busca vale); os três braços no estrato pós-corte (se C cai
+e B se mantém, a resposta vem da fonte, não da memória); P entre as 6; citação de P
+quando presente; abstenção indevida; tempo por pergunta.
+
+#### Custo e limites
+
+- **US$ 0.** GPU local, ~9 h estimadas (650 itens × ~50 s), medidas nos 20 primeiros e
+  retomável. Do dono: 40 revisões de pergunta (~15 min) + 100 julgamentos (~50 min).
+- ⚠️ **O mesmo modelo escreve a pergunta, responde e julga.** Perguntas feitas por ele
+  tendem a ser fáceis para ele. I1 confere a validade, I3 confere o juiz; a facilidade
+  não se confere, e fica declarada — ela infla os três braços, não a diferença entre eles.
+- ⚠️ O gabarito vem só do resumo. Outro artigo pode responder certo com outro número; o
+  juiz marcaria errado. Afeta A mais que B, e portanto infla a lacuna da busca.
+- **Não medido aqui:** se a fonte citada **sustenta** a frase (o *entailment* do G2.4).
+  Continua sendo o limite declarado do portão.
+
 ---
 
 ## 10. Riscos
