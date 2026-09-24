@@ -116,3 +116,43 @@ def test_indice_NAO_TERMINADO_nao_abre(tmp_path, cenario):
     construir(spine, modelo, saida, dispositivo="cpu", lote=8, bloco=16, max_blocos=1)
     with pytest.raises(SystemExit, match="não terminou"):
         Busca(saida, dispositivo="cpu")
+
+
+# ── a página no navegador ────────────────────────────────────────────────────
+
+
+def test_o_SERVIDOR_responde_a_pagina_e_a_busca(tmp_path, cenario):
+    """A rota JSON devolve o documento em primeiro, e as recusas têm status certo."""
+    import json
+    import threading
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    from phifm.serving.web import criar_servidor
+
+    spine, modelo, _ = cenario
+    construir(spine, modelo, tmp_path / "indice", dispositivo="cpu", lote=8, bloco=16)
+    busca = Busca(tmp_path / "indice", dispositivo="cpu")
+    servidor = criar_servidor(busca, porta=0)
+    assert servidor.server_address[0] == "127.0.0.1", "só esta máquina enxerga a busca"
+    fio = threading.Thread(target=servidor.serve_forever, daemon=True)
+    fio.start()
+    base = f"http://127.0.0.1:{servidor.server_address[1]}"
+    try:
+        with urllib.request.urlopen(base + "/") as r:
+            assert r.status == 200 and "Busca em artigos de Física" in r.read().decode()
+        docs = documentos(spine)
+        q = urllib.parse.quote(docs["texto"][5])
+        with urllib.request.urlopen(f"{base}/api/buscar?k=3&q={q}") as r:
+            dados = json.loads(r.read())
+        assert dados["resultados"][0]["arxiv_id"] == docs["arxiv_id"][5]
+        assert len(dados["resultados"]) == 3
+        for caminho, status in (("/api/buscar?q=", 400), ("/nada", 404),
+                                ("/api/buscar?q=w1&k=abc", 400)):
+            with pytest.raises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + caminho)
+            assert e.value.code == status, caminho
+    finally:
+        servidor.shutdown()
+        servidor.server_close()
