@@ -50,6 +50,29 @@ MIN_CARACTERES = 120
 FRACAO_VALIDACAO = 0.02
 
 
+def textos_de_documentos(spine: pl.LazyFrame) -> pl.LazyFrame:
+    """`(arxiv_id, texto)` de cada documento, NO FORMATO em que o ΦEmb foi treinado.
+
+    `título + ". " + resumo`, espaços normalizados, e fora quem tiver menos de
+    `MIN_CARACTERES`. ⚠️ É a ÚNICA definição desse texto no projeto: os pares de
+    treino e o índice de busca (`phifm.retrieval.indice`) passam os dois por aqui. Um
+    índice que embutisse outro texto — só o resumo, ou título sem o ponto — não daria
+    erro nenhum; daria vetores um pouco fora da distribuição do treino, e uma busca
+    pior que ninguém saberia de onde veio.
+    """
+    return (
+        spine.select("arxiv_id", "title", "abstract")
+        .with_columns(
+            (pl.col("title").fill_null("") + ". " + pl.col("abstract").fill_null(""))
+            .str.replace_all(r"\s+", " ")
+            .str.strip_chars()
+            .alias("texto")
+        )
+        .filter(pl.col("texto").str.len_chars() >= MIN_CARACTERES)
+        .select("arxiv_id", "texto")
+    )
+
+
 def carregar_grafo(dir_snapshot: Path) -> pl.LazyFrame:
     """Grafo como plano PREGUIÇOSO, nunca materializado inteiro.
 
@@ -101,17 +124,7 @@ def montar_pares(grafo: pl.LazyFrame, spine: pl.LazyFrame, semente: int = 17) ->
         .drop("_i", "_ordem")
     )
 
-    textos = (
-        spine.select("arxiv_id", "title", "abstract")
-        .with_columns(
-            (pl.col("title").fill_null("") + ". " + pl.col("abstract").fill_null(""))
-            .str.replace_all(r"\s+", " ")
-            .str.strip_chars()
-            .alias("texto")
-        )
-        .filter(pl.col("texto").str.len_chars() >= MIN_CARACTERES)
-        .select("arxiv_id", "texto")
-    )
+    textos = textos_de_documentos(spine)
 
     pares = (
         arestas
