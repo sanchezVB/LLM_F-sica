@@ -21,6 +21,7 @@ from phifm.rag.assistente import (  # noqa: E402
     SISTEMA_HYDE,
     SISTEMA_RESPOSTA,
     Assistente,
+    instrucao_de_idioma,
     verificar_citacoes,
 )
 from phifm.rag.llm import chatml  # noqa: E402
@@ -80,6 +81,18 @@ def test_frase_longa_SEM_citacao_e_marcada_e_a_admissao_de_falta_nao():
     assert sem == ["Ele também aparece em supercondutores de alta temperatura crítica."]
 
 
+def test_admitir_falta_de_fonte_nao_e_marcado_mas_afirmar_com_negacao_e():
+    """As recusas reais do Qwen3 passam; uma afirmação negativa sem citação, não."""
+    _, _, _, sem = verificar_citacoes(
+        "The provided sources do not contain information about carrot cake recipes. "
+        "Therefore, I cannot provide a specific recipe based on the given sources. "
+        "The sources show that neutrinos do not oscillate in vacuum at all. "
+        "A pergunta sobre a receita de bolo não é abordada em nenhum dos documentos fornecidos. "
+        "Os textos mencionados são sobre física teórica e história da física e não tratam de "
+        "culinária. Portanto, não é possível responder com base nas fontes fornecidas.", 6)
+    assert sem == ["The sources show that neutrinos do not oscillate in vacuum at all."]
+
+
 # ── o encanamento ───────────────────────────────────────────────────────────
 
 
@@ -93,7 +106,8 @@ def test_a_busca_recebe_o_texto_HIPOTETICO_e_o_prompt_leva_as_fontes(tmp_path):
     assert r.consulta == HIPOTETICO
     sistema, usuario = modelo.chamadas[-1]
     assert sistema == SISTEMA_RESPOSTA
-    assert usuario.endswith("Question: O que é decoerência?")
+    assert usuario.endswith("Question: O que é decoerência?\n\n"
+                            "Write your entire answer in Brazilian Portuguese.")
     for n, a in enumerate(ids[:3], start=1):
         assert f"[{n}] Título {a} (2020, arXiv:{a})\nResumo do artigo {a}." in usuario
     assert "[4]" not in usuario.split("Question:")[0]
@@ -106,3 +120,9 @@ def test_o_prompt_do_qwen_desliga_o_raciocinio_longo():
     p = chatml("S", "U")
     assert p.startswith("<|im_start|>system\nS<|im_end|>\n<|im_start|>user\nU<|im_end|>\n")
     assert p.endswith("<|im_start|>assistant\n<think>\n\n</think>\n\n")
+
+
+def test_o_idioma_da_pergunta_e_NOMEADO_para_o_modelo():
+    assert "Portuguese" in instrucao_de_idioma("Qual é a receita de bolo de cenoura?")
+    assert "Portuguese" in instrucao_de_idioma("O que limita a coerência de qubits?")
+    assert "Portuguese" not in instrucao_de_idioma("How is the Hubble tension explained?")

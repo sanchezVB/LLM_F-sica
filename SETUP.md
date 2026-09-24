@@ -171,8 +171,11 @@ modelo carregado sobra ~1 GB de VRAM — por isso a busca do assistente roda na 
 ⚠️ **O antivírus.** Em 2026-09-24 o Avast desta máquina suspendia o `llama-server.exe`
 ~10 s depois de ele carregar: `/health` respondia e depois nem ele, sem erro no log. As
 threads do processo apareciam como `Wait: Suspended` (`Get-Process llama-server |
-% Threads`). A saída é uma exceção no antivírus para `ferramentas\llama.cpp\` — decisão
-do dono da máquina, como a que já existe para o `kaggle.exe` da `.venv`.
+% Threads`). Minutos depois, pôs o arquivo em quarentena (`IDP.Generic`, detecção por
+comportamento) — e o sintoma virou "arquivo não encontrado". O que resolveu, feito pelo
+dono da máquina: Avast → Configurações → Geral → Exceções → Adicionar exceção, aba
+**Arquivo/Pasta** (não Site/Domínio), `D:\LLMFísica\ferramentas\llama.cpp\*`; depois
+Proteção → Quarentena → Restaurar o `llama-server.exe`.
 
 ---
 

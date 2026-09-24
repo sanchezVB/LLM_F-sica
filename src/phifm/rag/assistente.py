@@ -37,10 +37,32 @@ SISTEMA_RESPOSTA = (
     "sources below. After each factual claim, cite the source(s) that support it, like [1] "
     "or [2][4]. Do not cite a source that does not support the claim, and never invent "
     "sources. If the sources do not contain enough information to answer, say so plainly "
-    "instead of guessing. Answer in the same language as the question, clearly and concisely.")
+    "instead of guessing. Answer clearly and concisely.")
+_PORTUGUES = re.compile(r"[ãõçáéíóúâêôà]|\b(que|qual|quais|como|por|porque|são|não|é|um|uma"
+                        r"|dos|das|na|no|em)\b", re.IGNORECASE)
+
+
+def instrucao_de_idioma(pergunta: str) -> str:
+    """O idioma NOMEADO. "Responda no idioma da pergunta" não bastou: com seis resumos em
+    inglês no prompt, a recusa de uma pergunta em português saiu em inglês duas vezes."""
+    if len(_PORTUGUES.findall(pergunta)) >= 2:
+        return "Write your entire answer in Brazilian Portuguese."
+    return "Write your answer in the same language as the question above."
 
 _CITACAO = re.compile(r"\[(\d+(?:\s*[-–,;]\s*\d+)*)\]")
 _FRASE = re.compile(r"(?<=[.!?])\s+")
+# Frase que admite que as fontes não bastam não precisa de citação — é o comportamento
+# pedido. Estreito de propósito: "as fontes mostram que neutrinos não oscilam" é uma
+# afirmação, e tem de continuar marcada se vier sem citação.
+_FONTES = r"\b(fontes?|sources?|documentos?|documents?|textos?|texts?|artigos?|papers?)\b"
+_ADMITE_FALTA = re.compile(
+    rf"(?i){_FONTES}[^.]{{0,80}}\b(não|do not|don't|does not|doesn't|lack)\b[^.]{{0,20}}"
+    r"\b(contain|mention|cover|address|provide|include|discuss|answer|cont[êé]m|menciona"
+    r"|trata|aborda|inclu|respond|traz)"
+    rf"|\b(não|not)\b[^.]{{0,20}}\b(abordad|tratad|mencionad|covered|addressed|mentioned)"
+    rf"[^.]{{0,40}}{_FONTES}"
+    rf"|\b(cannot|can't|unable to|não posso|não é possível|não consigo)\b[^.]{{0,80}}{_FONTES}"
+    rf"|{_FONTES}[^.]{{0,40}}\b(insuficientes?|insufficient|not enough|não bastam)")
 
 
 def _numeros(dentro: str) -> list[int]:
@@ -102,7 +124,7 @@ def verificar_citacoes(texto: str, n_fontes: int) -> tuple[str, list[int], list[
     limpo = re.sub(r"[ \t]{2,}", " ", limpo)
     sem_fonte = [f.strip() for f in _FRASE.split(limpo)
                  if len(f.strip()) > 40 and not _CITACAO.search(f)
-                 and not re.search(r"(?i)(fontes?|sources?).{0,40}(não|not|insuficient|insufficient)", f)]
+                 and not _ADMITE_FALTA.search(f)]
     return limpo, sorted(citadas), sorted(removidas), sem_fonte
 
 
@@ -143,7 +165,8 @@ class Assistente:
     def responder(self, pergunta: str) -> Resposta:
         consulta = self.consulta_hipotetica(pergunta)
         fontes = self.recuperar(consulta)
-        usuario = f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}"
+        usuario = (f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}\n\n"
+                   f"{instrucao_de_idioma(pergunta)}")
         bruto = self.modelo.gerar(SISTEMA_RESPOSTA, usuario)
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)

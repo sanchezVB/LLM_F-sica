@@ -1,4 +1,4 @@
-# Estado do projeto — 2026-09-23
+# Estado do projeto — 2026-09-24
 
 Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.md).
 
@@ -41,6 +41,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
 | **Caminho B** · primária MEDIDA | 🟢 **NÃO DECIDIDO a 0,4 B** | diferença das diferenças **−0,00039** [−0,0016; +0,0009] — o negativo de 48 M (−0,0040) NÃO se repetiu, e encolheu 10×. O tratamento pegou mais forte que no proxy (equação inteira 0,0266 → **0,1999**, +0,173), mas não transfere para a máscara pontual. A assimetria de spike agora é a FAVOR do tratado. Falta a secundária — os dois ajustados em 200 mil pares contra a barra de 0,5270 | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
 | **A busca** · FUNCIONANDO | 🟢 **1,59 M artigos, 28 ms por consulta** | `scripts/indexar.py` (57 min, retomável), `scripts/buscar.py` (terminal) e `scripts/servir_busca.py` (página em 127.0.0.1:8765). Texto, conta e modelo iguais aos do treino e das medições, com teste. Algum artigo citado aparece no top-10 em 35% das buscas por resumo, entre 1,59 M |
+| **O assistente** · FUNCIONANDO, NÃO MEDIDO | 🟡 **Qwen3-8B local + a busca, com citações** | `scripts/perguntar.py`: o modelo escreve um resumo hipotético, a busca acha 6 artigos, a resposta os cita como [n] e um portão remove citações inventadas. 11–24 s por pergunta na RX 7600. Três perguntas de teste deram respostas plausíveis e uma recusa correta; a qualidade **não foi medida** — é a medida que decide se vale gastar com o ΦGen |
 | **Busca por encoder** · ENCERRADA | ✅ **decisão do dono, 2026-09-24** | seis bases medidas na mesma régua (MiniLM-L6/L12, gte-small, bge-small, e5-small, GTE-base, ModernBERT) e dois pré-treinos próprios (do zero e continuado): nenhuma supera o ΦEmb do sistema (MiniLM-L6@6M, 0,6223) a um custo aceitável. O teste que sobrou — uma pequena a 6 M, ~17 h de T4 para ~+0,02 no máximo — não será feito. O encoder do sistema está decidido |
 | **T1i** · as pequenas a 1 M | 🔴 **ABAIXO do sistema — o sistema fica** | gte-small 0,6014 e bge-small 0,6012 contra 0,6223 (−0,021, IC 97,5% exclui zero); recall@1 empata. Crescem ~+0,013 por dobra de pares; alcançar o sistema pediria ~3 M, e uma pequena a 6 M custaria ~17 h de T4 para, no máximo, ~+0,02 a 1,77× de custo |
 | **T1h** · bases pequenas | 🟢 **gte-small e bge-small ACIMA, a 1,75× do custo** | +0,042 e +0,040 sobre o MiniLM-L6@200k (IC 98,75%, Bonferroni), recall@1 p<1e-5; e5-small e MiniLM-L12 empatam. As duas vencedoras sobem de volume pela regra: 1 M de pares (~2,8 h cada) contra o ΦEmb do sistema (0,6223) |
@@ -180,6 +181,37 @@ verificado** pela composição do lote.
 
 ~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
 controle está aproveitado inteiro. O tratado precisa de outra execução.
+
+## O ASSISTENTE existe: perguntas respondidas com citações, num modelo local (2026-09-24)
+
+`scripts/perguntar.py` junta a busca a um modelo de linguagem aberto rodando nesta
+máquina — a geração ancorada do DOC-13 §6 na versão que cabe numa RX 7600:
+
+| passo | o quê |
+|---|---|
+| consulta hipotética | o Qwen3-8B escreve o título e o resumo, em inglês, de um artigo que responderia à pergunta; a busca usa esse texto, que tem a forma do treino do encoder |
+| busca | os 6 primeiros de 1,59 M, com o resumo inteiro — na CPU (~1,4 s), porque o modelo deixa ~1 GB livre de VRAM |
+| resposta | só com as fontes numeradas; cita cada afirmação como [n]; diz quando as fontes não bastam; no idioma da pergunta |
+| portão | citação a fonte inexistente SAI do texto; frase sem citação é listada como "não confie sem conferir" |
+
+Modelo: Qwen3-8B Q4_K_M (5,03 GB) no `llama-server` b11159 com Vulkan — 802 tokens/s lendo,
+44–48 gerando. **11–24 s por pergunta**; ~50–60 s para carregar tudo na primeira.
+
+**Três perguntas de teste** (exploratório, não é medida): coerência de qubits
+supercondutores (4 de 6 fontes pertinentes, 3 citadas, resposta correta no geral); tensão
+de Hubble (5 citadas, incluindo duas revisões); receita de bolo (recusa correta, em
+português depois de o idioma ser nomeado no prompt — sem isso, saía em inglês).
+
+⚠️ **O Avast suspendia e depois pôs em quarentena o `llama-server.exe`** (`IDP.Generic`,
+detecção por comportamento). O sintoma parecia defeito do servidor: `/health` respondia
+e ~10 s depois nem ele, em GPU e em CPU. As threads estavam em `Wait: Suspended`. Resolvido
+pelo dono com uma exceção para `ferramentas\llama.cpp\*` e a restauração da quarentena;
+depois disso, 1 min seguido sem travar e as três perguntas acima. Ver SETUP.md §5.
+
+**O que NÃO se sabe:** se as respostas são boas. O portão confere que a citação aponta
+para uma fonte fornecida, não que a fonte sustente a frase. A próxima etapa é a medida,
+com a regra escrita antes — e é ela que decide se o ΦGen (CPT de um modelo de 8 B) vale o
+custo, ou se o modelo aberto com a nossa busca já basta.
 
 ## A BUSCA existe: 1,59 M artigos indexados, página local, 28 ms por consulta (2026-09-24)
 
