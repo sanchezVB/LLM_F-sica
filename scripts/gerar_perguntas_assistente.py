@@ -71,6 +71,9 @@ margin:1rem 0 .25rem}
 .rotulo:first-child{margin-top:0}
 .pergunta{font-size:1.1rem;font-weight:600}
 .resumo{white-space:pre-wrap;font:15px/1.65 ui-serif,Georgia,serif}
+details{margin-top:.6rem}
+summary{cursor:pointer}
+details .resumo{margin-top:.4rem;color:var(--sutil)}
 .acoes{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0 .25rem}
 button{font:inherit;padding:.55rem 1rem;border-radius:8px;border:1px solid var(--linha);
 background:var(--cartao);color:var(--fg);cursor:pointer}
@@ -85,7 +88,9 @@ font-size:.875rem;margin:1rem 0}
 </style></head><body><div class=env>
 <h1>As perguntas da medida do assistente servem?</h1>
 <p class=sutil>Cada pergunta foi escrita pelo Claude lendo só o resumo do artigo, sem o
-título. Quem vai responder é o Qwen, que nunca viu o resumo. Uma
+título. Quem vai responder é o Qwen, que nunca viu o resumo. O resumo aparece
+<b>traduzido</b> pelo Claude; o original em inglês abre logo abaixo dele e é o que vale
+em caso de dúvida. Uma
 pergunta é <b>válida</b> se: (1) se entende sozinha, sem ver o artigo; (2) a resposta
 está no resumo; (3) o gabarito está certo. Leia a pergunta ANTES do resumo — é assim
 que o assistente vai recebê-la.</p>
@@ -133,11 +138,15 @@ function pinta(){
     ITENS.length + "</p><div class=rotulo>pergunta</div><div class=pergunta id=p></div>" +
     "<div class=rotulo>gabarito</div><div id=g></div>" +
     "<div class=rotulo>resumo do artigo</div><div class=resumo id=r></div>" +
+    (d.resumo_pt ? "<details><summary class=sutil>original em inglês</summary>" +
+                   "<div class=resumo id=ro></div></details>" : "") +
     "<p class=sutil id=l></p></div>";
   // textContent, nunca innerHTML: pergunta, gabarito e resumo vêm de modelo e corpus.
   document.getElementById("p").textContent = d.pergunta;
   document.getElementById("g").textContent = d.gabarito;
-  document.getElementById("r").textContent = d.titulo + "\n\n" + d.resumo;
+  document.getElementById("r").textContent = d.resumo_pt ?
+    d.titulo_pt + "\n\n" + d.resumo_pt : d.titulo + "\n\n" + d.resumo;
+  if (d.resumo_pt) document.getElementById("ro").textContent = d.titulo + "\n\n" + d.resumo;
   document.getElementById("l").textContent = "arXiv:" + d.arxiv_id;
   document.getElementById("acoes").style.display = "flex";
 }
@@ -163,9 +172,14 @@ pinta();
 """
 
 
-def montar_folha(aceitas, spine: Path, semente: int, minimo: int) -> tuple[str, str]:
+def montar_folha(aceitas, spine: Path, semente: int, minimo: int,
+                 traducoes: dict | None = None) -> tuple[str, str]:
     """A folha com as `aceitas`, embaralhadas: julgar 31 de um estrato e depois 9 do
-    outro confundiria o estrato com o cansaço de quem julga."""
+    outro confundiria o estrato com o cansaço de quem julga.
+
+    `traducoes` ({arxiv_id: {titulo, resumo}}, feitas pelo Claude a pedido do dono) põe o
+    resumo em português na frente, com o original ao lado. Tem de cobrir TODAS as
+    perguntas: metade traduzida e metade não mudaria a leitura no meio da revisão."""
     import numpy as np
     import polars as pl
 
@@ -176,6 +190,13 @@ def montar_folha(aceitas, spine: Path, semente: int, minimo: int) -> tuple[str, 
               "gabarito": t.gabarito, "titulo": " ".join((por_id[t.arxiv_id]["title"] or "").split()),
               "resumo": " ".join((por_id[t.arxiv_id]["abstract"] or "").split())}
              for t in aceitas]
+    if traducoes is not None:
+        faltam = [x["arxiv_id"] for x in itens if x["arxiv_id"] not in traducoes]
+        if faltam:
+            raise SystemExit(f"traduções faltando para {len(faltam)} perguntas: {faltam[:5]}")
+        for x in itens:
+            x["titulo_pt"] = traducoes[x["arxiv_id"]]["titulo"]
+            x["resumo_pt"] = traducoes[x["arxiv_id"]]["resumo"]
     itens = [itens[k] for k in np.random.default_rng(semente).permutation(len(itens))]
     dados = json.dumps(itens, ensure_ascii=False)
     # A assinatura entra na chave do localStorage: regenerar a folha com OUTRAS
@@ -314,7 +335,12 @@ def main() -> int:
                                                   ensure_ascii=False).encode()).hexdigest(),
     }
     if a.etapa == "revisao":
-        pagina, assinatura_folha = montar_folha(aceitas, a.spine, m.SEMENTE, m.MINIMO_VALIDAS_I1)
+        arq = DIR / "traducoes_revisao.json"
+        traducoes = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else None
+        pagina, assinatura_folha = montar_folha(aceitas, a.spine, m.SEMENTE,
+                                                m.MINIMO_VALIDAS_I1, traducoes)
+        if traducoes:
+            agregado["traducao"] = "resumos em português (Claude), original ao lado"
         FOLHA.write_text(pagina, encoding="utf-8")
         agregado["assinatura_folha"] = assinatura_folha
     (AVALIACAO / f"assistente_itens_{a.etapa}.json").write_text(
