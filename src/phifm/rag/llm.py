@@ -46,11 +46,21 @@ DICA_TRAVADO = ("Se o processo existe e nem /health responde, confira se o antiv
                 "suspendeu (ver o cabeçalho de phifm.rag.llm e o SETUP.md).")
 
 
-def chatml(sistema: str, usuario: str) -> str:
-    """O prompt no formato de conversa do Qwen3, com o raciocínio longo DESLIGADO."""
+def chatml(sistema: str, usuario: str, pensar: bool = False) -> str:
+    """O prompt no formato de conversa do Qwen3. Sem `pensar`, o raciocínio longo fica
+    DESLIGADO pelo bloco `<think>` vazio; com ele, o modelo escreve o raciocínio antes."""
     return (f"<|im_start|>system\n{sistema}{FIM_DE_TURNO}\n"
             f"<|im_start|>user\n{usuario}{FIM_DE_TURNO}\n"
-            "<|im_start|>assistant\n<think>\n\n</think>\n\n")
+            "<|im_start|>assistant\n" + ("" if pensar else "<think>\n\n</think>\n\n"))
+
+
+def sem_raciocinio(texto: str) -> str:
+    """O que vem depois de `</think>`. Sem o fechamento — o limite de tokens cortou o
+    raciocínio no meio —, devolve vazio: meio raciocínio não é resposta."""
+    if "<think>" not in texto and "</think>" not in texto:
+        return texto.strip()
+    _, fechou, depois = texto.partition("</think>")
+    return depois.strip() if fechou else ""
 
 
 class ModeloLocal:
@@ -109,15 +119,19 @@ class ModeloLocal:
             self._log = None
 
     def gerar(self, sistema: str, usuario: str, *, max_tokens: int = 700,
-              temperatura: float = 0.2, tempo_max_s: int = 300) -> str:
-        corpo = {"prompt": chatml(sistema, usuario), "n_predict": max_tokens,
+              temperatura: float = 0.2, semente: int | None = None, pensar: bool = False,
+              tempo_max_s: int = 300) -> str:
+        corpo = {"prompt": chatml(sistema, usuario, pensar), "n_predict": max_tokens,
                  "temperature": temperatura, "stop": [FIM_DE_TURNO], "cache_prompt": True}
+        if semente is not None:
+            corpo["seed"] = semente
         req = urllib.request.Request(self.url + "/completion",
                                      data=json.dumps(corpo).encode("utf-8"),
                                      headers={"Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=tempo_max_s) as r:
-                return json.loads(r.read())["content"].strip()
+                texto = json.loads(r.read())["content"]
+                return sem_raciocinio(texto) if pensar else texto.strip()
         except TimeoutError:
             raise SystemExit(f"o llama-server não respondeu em {tempo_max_s} s. "
                              f"{DICA_TRAVADO}") from None

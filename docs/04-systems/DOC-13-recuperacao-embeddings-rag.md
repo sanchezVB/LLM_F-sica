@@ -188,11 +188,11 @@ Contra as tarefas da Trilha C do DOC-11: `PB-Retrieve`, `PB-Cite`, `PB-Formula`.
 
 **Ablações obrigatórias**, porque cada perna precisa justificar seu custo: denso puro · esparso puro · híbrido sem rerank · híbrido com rerank · com e sem a perna de fórmula · 128 vs. 768 dims · com e sem interação tardia (**OQ-27**).
 
-### 9.1 PROPOSTA — a medida do assistente, escrita antes (2026-09-24; aguarda o dono)
+### 9.1 A medida do assistente — ACEITA em 2026-09-24, escrita antes de qualquer item
 
-> Escrita antes de qualquer item existir. Nada aqui foi rodado. Os limiares são decisão de
-> produto e ficam com o dono **antes** da execução. **O do gerador está decidido: 0,90**
-> (o dono recusou os 0,75 da primeira versão, 2026-09-24). O da busca (0,05) aguarda.
+> Escrita antes de qualquer item existir. Os limiares são do dono: **0,90** para o gerador
+> (ele recusou os 0,75 da primeira versão) e **0,05** para a busca, aceitos em 2026-09-24.
+> A implementação é `phifm.eval.assistente`; as constantes de lá são estas.
 
 **A pergunta.** O assistente (`scripts/perguntar.py`: Qwen3-8B aberto + a nossa busca) erra
 por causa de **quem**: da busca, que não traz o artigo certo, ou do modelo que escreve, que
@@ -209,15 +209,20 @@ e ela exige treinar. Esta mede o assistente de literatura, que é o produto que 
 | | |
 |---|---|
 | fonte | artigo **P** sorteado das 20.372 âncoras de validação (semente fixa), fora do treino do encoder e dentro do índice |
-| pergunta | o Qwen3-8B lê **só o resumo de P** e escreve, em português, uma pergunta que um físico faria e cuja resposta é um fato do resumo, mais o **gabarito** curto; responde `NENHUMA` se o resumo não tiver fato verificável |
+| pergunta | **o Claude (Opus 5.5)** lê **só o resumo de P** — sem o título — e escreve, em português, uma pergunta que um físico faria e cuja resposta é um fato do resumo, mais o **gabarito** curto; `NENHUMA` se o resumo não tiver fato verificável. As regras são as do `SISTEMA_PERGUNTA` de `phifm.eval.assistente` |
+| por que não o Qwen | *decisão do dono, 2026-09-24, antes de qualquer braço.* Três versões escritas pelo Qwen3-8B, nos artigos de desenvolvimento (excluídos do conjunto formal), deram ~20 de 40 válidas na minha triagem: perguntas que dependem do artigo ("previsto pelo modelo") e gabaritos que não respondem ("é grande"). Com raciocínio e um crítico, 38 s por pergunta (~17 h no total) e o crítico aprovou gabarito vazio |
 | guarda contra cópia | descartada se ≥ 50% das palavras de conteúdo da pergunta estiverem no título de P |
 | **primário** | **500 itens** — o mínimo do DOC-11 §8.2; IC de ±2,6 pontos perto de 0,90 |
-| estrato de contaminação | **+150** dos 449 artigos criados a partir de 2025-06, depois do lançamento do Qwen3 — o modelo não pode tê-los lido; reportado à parte |
+| estrato de contaminação | **+150** dos 449 artigos criados a partir de 2025-06, depois do lançamento do Qwen3 — o modelo não pode tê-los lido; reportado à parte. O primário sorteia das âncoras de ANTES do corte, para os estratos não se sobreporem |
+| privacidade | as perguntas e os gabaritos ficam no HD, fora do git (DOC-11 §8.1: o conjunto de teste não é publicado); versionam-se o manifesto com hashes e os resultados agregados |
 
 **I1 · validade do instrumento, ANTES de qualquer braço rodar.** 40 perguntas sorteadas,
 revisadas pelo dono: clara? respondível pelo resumo? gabarito certo? Se menos de **32 de
 40** forem válidas, o gerador de perguntas é refeito e o sorteio repetido — e só então os
-braços rodam. É o instrumento sendo conferido antes do número, como no PB-Formula.
+braços rodam. É o instrumento sendo conferido antes do número, como no PB-Formula. As 40
+são as primeiras aceitas de cada permutação (31 do primário, 9 do pós-corte, na proporção
+500:150) e **ficam no conjunto como estão**: consertá-las uma a uma deixaria a amostra
+revisada melhor que o resto, e a taxa de validade deixaria de valer para o conjunto.
 
 #### Os três braços — mesmo modelo, mesmo prompt, configuração do produto, semente fixa
 
@@ -288,9 +293,10 @@ quando presente; abstenção indevida; tempo por pergunta.
 - **US$ 0.** GPU local, ~9 h estimadas (650 itens × ~50 s), medidas nos 20 primeiros e
   retomável. Do dono: 40 revisões de pergunta (~15 min) + 100 julgamentos (~50 min) +
   a revisão R dos erros de B (~25 min se o gerador for bom; no máximo 100 itens, ~50 min).
-- ⚠️ **O mesmo modelo escreve a pergunta, responde e julga.** Perguntas feitas por ele
-  tendem a ser fáceis para ele. I1 confere a validade, I3 confere o juiz; a facilidade
-  não se confere, e fica declarada — ela infla os três braços, não a diferença entre eles.
+- ⚠️ **Quem escreve as perguntas é outro modelo.** O Qwen responde e julga; o Claude
+  escreve. Isso tira o viés de o modelo responder perguntas que ele mesmo formulou, mas
+  as perguntas têm o estilo do Claude, não o de um usuário real — mais completas e bem
+  formadas que a média. Infla os três braços por igual, não a diferença entre eles.
 - ⚠️ O gabarito vem só do resumo. Outro artigo pode responder certo com outro número; o
   juiz marcaria errado. Afeta A mais que B, e portanto infla a lacuna da busca.
 - **Não medido aqui:** se a fonte citada **sustenta** a frase (o *entailment* do G2.4).

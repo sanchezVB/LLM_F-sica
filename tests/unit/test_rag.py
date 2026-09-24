@@ -126,3 +126,12 @@ def test_o_idioma_da_pergunta_e_NOMEADO_para_o_modelo():
     assert "Portuguese" in instrucao_de_idioma("Qual é a receita de bolo de cenoura?")
     assert "Portuguese" in instrucao_de_idioma("O que limita a coerência de qubits?")
     assert "Portuguese" not in instrucao_de_idioma("How is the Hubble tension explained?")
+
+
+def test_o_raciocinio_sai_da_resposta_e_o_cortado_vira_vazio():
+    from phifm.rag.llm import sem_raciocinio
+
+    assert sem_raciocinio("<think>\nhmm, pensando\n</think>\n\nNENHUMA") == "NENHUMA"
+    assert sem_raciocinio("<think>\npensando sem fim") == ""
+    assert sem_raciocinio("resposta direta") == "resposta direta"
+    assert chatml("S", "U", pensar=True).endswith("<|im_start|>assistant\n")

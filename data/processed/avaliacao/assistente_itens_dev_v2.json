@@ -1,0 +1,28 @@
+{
+  "etapa": "dev_v2",
+  "regra": "DOC-13 §9.1",
+  "semente": 20260924,
+  "corte": "2025-06-01",
+  "cotas": {
+    "primario": 31,
+    "pos_corte": 9
+  },
+  "tentativas_por_estrato": {
+    "primario": {
+      "aceita": 31,
+      "depende_do_artigo": 6,
+      "nenhuma": 2,
+      "formato": 2
+    },
+    "pos_corte": {
+      "aceita": 9,
+      "nenhuma": 1,
+      "formato": 1,
+      "depende_do_artigo": 1
+    }
+  },
+  "sobreposicao_media_aceitas": 0.0594,
+  "sha256_prompt_pergunta": "7d1f7727fc1f6e8e9e7592b4601aabe16af3f0693095ecffdc51f3ebd5647f1d",
+  "sha256_modelo": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+  "sha256_itens": "944da5892b919c5d99e52ded5b7c1f16e0c5db992771fe08efe579f99fbc7992"
+}
