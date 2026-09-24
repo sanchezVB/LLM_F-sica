@@ -150,6 +150,32 @@ PYTHONPATH=src .venv/bin/python scripts/train_classifier.py
 
 ---
 
+## 5. O assistente (busca + modelo de linguagem local)
+
+`scripts/perguntar.py` responde perguntas de Física citando artigos do índice de busca
+(`data/processed/indice_busca/`, montado por `scripts/indexar.py`). Precisa de dois
+arquivos de terceiros, que ficam no HD e fora do git:
+
+| O quê | Onde | Origem |
+|---|---|---|
+| llama.cpp b11159, backend Vulkan (5 MB de exe + DLLs) | `ferramentas/llama.cpp/` | `https://github.com/ggml-org/llama.cpp/releases/download/b11159/llama-b11159-bin-win-vulkan-x64.zip`, descompactado |
+| Qwen3-8B, Q4_K_M (5,03 GB) | `models/llm/Qwen3-8B-Q4_K_M.gguf` | repositório `Qwen/Qwen3-8B-GGUF` no HuggingFace; sha256 `d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785` |
+
+Vulkan, e não ROCm, porque roda na RX 7600 sem instalar nada além do driver. Com o
+modelo carregado sobra ~1 GB de VRAM — por isso a busca do assistente roda na CPU.
+
+```bash
+.venv-treino/Scripts/python.exe scripts/perguntar.py "o que limita a coerência de qubits supercondutores?"
+```
+
+⚠️ **O antivírus.** Em 2026-09-24 o Avast desta máquina suspendia o `llama-server.exe`
+~10 s depois de ele carregar: `/health` respondia e depois nem ele, sem erro no log. As
+threads do processo apareciam como `Wait: Suspended` (`Get-Process llama-server |
+% Threads`). A saída é uma exceção no antivírus para `ferramentas\llama.cpp\` — decisão
+do dono da máquina, como a que já existe para o `kaggle.exe` da `.venv`.
+
+---
+
 ## O que NÃO copiar
 
 | Item | Por quê |

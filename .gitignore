@@ -122,3 +122,6 @@ Thumbs.db
 
 # Cache do HuggingFace no HD. ⚠️ Nada de modelo vai para o C:.
 /.hf_cache/
+
+# Programas de terceiros baixados (llama.cpp): binários, não versionados.
+/ferramentas/
