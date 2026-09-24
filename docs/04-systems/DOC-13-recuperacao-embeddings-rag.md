@@ -190,8 +190,9 @@ Contra as tarefas da Trilha C do DOC-11: `PB-Retrieve`, `PB-Cite`, `PB-Formula`.
 
 ### 9.1 PROPOSTA — a medida do assistente, escrita antes (2026-09-24; aguarda o dono)
 
-> Escrita antes de qualquer item existir. Nada aqui foi rodado. Os dois limiares (0,75 e
-> 0,05) são decisão de produto e ficam para o dono aceitar ou trocar **antes** da execução.
+> Escrita antes de qualquer item existir. Nada aqui foi rodado. Os limiares são decisão de
+> produto e ficam com o dono **antes** da execução. **O do gerador está decidido: 0,90**
+> (o dono recusou os 0,75 da primeira versão, 2026-09-24). O da busca (0,05) aguarda.
 
 **A pergunta.** O assistente (`scripts/perguntar.py`: Qwen3-8B aberto + a nossa busca) erra
 por causa de **quem**: da busca, que não traz o artigo certo, ou do modelo que escreve, que
@@ -210,7 +211,7 @@ e ela exige treinar. Esta mede o assistente de literatura, que é o produto que 
 | fonte | artigo **P** sorteado das 20.372 âncoras de validação (semente fixa), fora do treino do encoder e dentro do índice |
 | pergunta | o Qwen3-8B lê **só o resumo de P** e escreve, em português, uma pergunta que um físico faria e cuja resposta é um fato do resumo, mais o **gabarito** curto; responde `NENHUMA` se o resumo não tiver fato verificável |
 | guarda contra cópia | descartada se ≥ 50% das palavras de conteúdo da pergunta estiverem no título de P |
-| **primário** | **500 itens** — o mínimo do DOC-11 §8.2; IC de ±3,8 pontos perto de 0,75 |
+| **primário** | **500 itens** — o mínimo do DOC-11 §8.2; IC de ±2,6 pontos perto de 0,90 |
 | estrato de contaminação | **+150** dos 449 artigos criados a partir de 2025-06, depois do lançamento do Qwen3 — o modelo não pode tê-los lido; reportado à parte |
 
 **I1 · validade do instrumento, ANTES de qualquer braço rodar.** 40 perguntas sorteadas,
@@ -240,11 +241,22 @@ julgadas pelo dono; publica-se a concordância. Se κ de Cohen < 0,6, o resultad
 **Mecânicas (sem juiz):** P entre as 6 fontes (A); P citada quando presente (A, B);
 citações inventadas removidas pelo portão; abstenção em item respondível.
 
+**R · a revisão dos erros de B — o que tira o instrumento da conta do gerador.** Toda
+resposta de B que o juiz não marcar `certo` vai ao dono, que a classifica: **o modelo
+errou** · **o juiz errou** (a resposta estava certa) · **o item é inválido** (pergunta
+mal feita ou gabarito errado). Se forem mais de 100, revisam-se 100 sorteadas, e as
+proporções entram no bootstrap. Sem isso, pergunta ruim e juiz errado contariam como erro
+do modelo — até 5–10 pontos — e uma barra alta reprovaria um gerador bom por culpa do
+instrumento, empurrando para o caminho caro.
+
 #### A regra — IC 95% por bootstrap pareado por item, lado inteiro do limiar ou não decide
 
-- **acerto_B** = proporção de `certo` no braço B.
-  **Gerador BASTA** se o IC inteiro ≥ **0,75**; **LIMITA** se o IC inteiro < 0,75.
-- **lacuna_da_busca** = acerto_B − acerto_A.
+- **acerto_B** = acertos de B ÷ itens válidos de B, depois de R (`juiz errou` conta como
+  acerto; `item inválido` sai do denominador).
+  **Gerador BASTA** se o IC inteiro ≥ **0,90**; **LIMITA** se o IC inteiro < 0,90.
+- **lacuna_da_busca** = acerto_B − acerto_A **pelo juiz, nos dois braços** — sem R. A
+  revisão só existe em B; usá-la de um lado só inflaria a lacuna. Com o mesmo juiz nos dois,
+  o ruído do instrumento é o mesmo e se cancela na diferença.
   **Busca LIMITA** se o IC inteiro > **0,05**; **NÃO LIMITA** se o IC inteiro < 0,05.
 - Fora disso: **NÃO DECIDIDO** naquele eixo, e o número vai para o ESTADO como está.
 
@@ -253,12 +265,15 @@ citações inventadas removidas pelo portão; abstenção em item respondível.
 | **gerador BASTA** | assistente pronto para uso; **o ΦGen não se justifica pelo assistente** | investir na busca (trechos do texto completo, §3; reranqueador), não no ΦGen |
 | **gerador LIMITA** | ΦGen é candidato — **mas antes o teste barato**: braço B com um modelo geral maior (Qwen3-14B). Se ele fechar a maior parte da diferença, o remédio é escala, não pré-treino em Física | os dois limitam: a busca primeiro (US$ 0) e medir de novo |
 
-Por que 0,75: com o artigo certo na mão, errar mais de 1 em 4 torna o assistente
-inutilizável sem conferir tudo. Por que 0,05: são os 5 pontos que o DOC-11 §8.2 usa como
-a diferença que a suíte precisa distinguir de ruído. Ambos são escolhas — por isso ficam
-com o dono.
+Por que 0,90 (decidido pelo dono): em B a resposta está num dos seis resumos do prompt —
+é leitura com o texto na mão, não memória. A primeira versão propunha 0,75, e deixaria
+passar um leitor medíocre. A barra alta só é justa porque R tira da conta os erros do
+instrumento. Com 500 itens, o ponto medido precisa estar em ~0,92–0,93 para o IC inteiro
+ficar acima. Por que 0,05: são os 5 pontos que o DOC-11 §8.2 usa como a diferença que a
+suíte precisa distinguir de ruído.
 
-**I2 · os itens precisam da literatura.** Se acerto_C ≥ acerto_B − 0,10, as perguntas
+**I2 · os itens precisam da literatura.** Se acerto_C ≥ acerto_B − 0,10 (os dois pelo
+juiz, sem R), as perguntas
 se respondem de memória e a medida não mede o que diz: o resultado é **inválido**, não
 negativo.
 
@@ -271,7 +286,8 @@ quando presente; abstenção indevida; tempo por pergunta.
 #### Custo e limites
 
 - **US$ 0.** GPU local, ~9 h estimadas (650 itens × ~50 s), medidas nos 20 primeiros e
-  retomável. Do dono: 40 revisões de pergunta (~15 min) + 100 julgamentos (~50 min).
+  retomável. Do dono: 40 revisões de pergunta (~15 min) + 100 julgamentos (~50 min) +
+  a revisão R dos erros de B (~25 min se o gerador for bom; no máximo 100 itens, ~50 min).
 - ⚠️ **O mesmo modelo escreve a pergunta, responde e julga.** Perguntas feitas por ele
   tendem a ser fáceis para ele. I1 confere a validade, I3 confere o juiz; a facilidade
   não se confere, e fica declarada — ela infla os três braços, não a diferença entre eles.
