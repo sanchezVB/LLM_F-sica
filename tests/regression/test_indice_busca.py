@@ -156,3 +156,37 @@ def test_o_SERVIDOR_responde_a_pagina_e_a_busca(tmp_path, cenario):
     finally:
         servidor.shutdown()
         servidor.server_close()
+
+
+def test_excluir_tira_o_proprio_documento(tmp_path, cenario):
+    spine, modelo, _ = cenario
+    construir(spine, modelo, tmp_path / "indice", dispositivo="cpu", lote=8, bloco=16)
+    busca = Busca(tmp_path / "indice", dispositivo="cpu")
+    docs = documentos(spine)
+    alvo = docs["arxiv_id"][3]
+    res = busca.buscar(docs["texto"][3], k=5, excluir={alvo})
+    assert alvo not in [r.arxiv_id for r in res] and len(res) == 5
+
+
+def test_GPU_e_CPU_dao_a_mesma_ordem(tmp_path, cenario):
+    """A conta na GPU (`mm` 2-D, em float32) ordena igual à da CPU.
+
+    Pula sem GPU. Nesta máquina roda na DirectML — é onde o caminho lento de
+    matriz-vetor foi medido, e onde a troca por `mm` precisa continuar certa.
+    """
+    from phifm.training.embedding import escolher_dispositivo
+
+    dev = escolher_dispositivo("auto")
+    if dev.type == "cpu":
+        pytest.skip("sem GPU nesta máquina")
+    spine, modelo, _ = cenario
+    construir(spine, modelo, tmp_path / "indice", dispositivo="cpu", lote=8, bloco=16)
+    cpu = Busca(tmp_path / "indice", dispositivo="cpu")
+    gpu = Busca(tmp_path / "indice", dispositivo="auto")
+    assert gpu._matriz is not None
+    docs = documentos(spine)
+    for i in (1, 12, 30):
+        q = cpu.embutir(docs["texto"][i])
+        assert np.allclose(cpu.pontuar(q), gpu.pontuar(q), atol=1e-5)
+        assert ([r.arxiv_id for r in cpu.buscar(docs["texto"][i], k=10)]
+                == [r.arxiv_id for r in gpu.buscar(docs["texto"][i], k=10)])

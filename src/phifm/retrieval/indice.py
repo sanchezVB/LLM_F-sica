@@ -201,6 +201,13 @@ class Busca:
         self.docs = pl.read_parquet(indice / NOME_DOCUMENTOS)
         if self.docs.height != self.vetores.shape[0]:
             raise SystemExit("documentos e vetores do índice têm tamanhos diferentes")
+        # Com GPU, a matriz sobe UMA vez, em float32 (~2,4 GB dos 8 da RX 7600). Em
+        # float16 na DirectML a conta levou 7,7 s por consulta; em float32, 11 ms — ver
+        # `pontuar`. Sem GPU, a conta fica na CPU por blocos, sem copiar a matriz.
+        self._matriz = None
+        if self.dev.type != "cpu":
+            self._matriz = torch.from_numpy(self.vetores).to(self.dev).float()
+        self._posicao = None
 
     def embutir(self, consulta: str) -> np.ndarray:
         from phifm.eval.encoders import _codificar
@@ -209,22 +216,44 @@ class Busca:
             v = _codificar(self.mod, self.tok, [consulta], self.dev, MAX_TOKENS, 1)
         return v[0].numpy().astype(np.float32)
 
-    def buscar(self, consulta: str, k: int = 10, bloco: int = 200_000) -> list[Resultado]:
-        q = self.embutir(consulta)
-        melhores_i: list[np.ndarray] = []
-        melhores_s: list[np.ndarray] = []
-        for ini in range(0, self.vetores.shape[0], bloco):
-            s = self.vetores[ini:ini + bloco].astype(np.float32) @ q
-            kk = min(k, s.size)
-            idx = np.argpartition(-s, kk - 1)[:kk]
-            melhores_i.append(idx + ini)
-            melhores_s.append(s[idx])
-        todos_i, todos_s = np.concatenate(melhores_i), np.concatenate(melhores_s)
-        ordem = np.argsort(-todos_s, kind="stable")[:k]
+    def pontuar(self, q: np.ndarray, bloco: int = 200_000) -> np.ndarray:
+        """Cosseno de `q` com cada documento do índice, em float32, na ordem da tabela.
+
+        ⚠️ Na GPU é `mm(matriz, q[:, None])`, e NÃO `matriz @ q`. Medido em 2026-09-24 na
+        RX 7600 com o índice inteiro: com a consulta 1-D a DirectML cai num caminho de
+        matriz-vetor que levou 1.332 ms; a MESMA conta como multiplicação 2-D, 11 ms.
+        Nada acusa a diferença além do relógio — e 1,3 s por consulta tornava a página
+        inutilizável. O teste `test_GPU_e_CPU_dao_a_mesma_ordem` confere que as duas
+        contas ordenam igual.
+        """
+        if self._matriz is not None:
+            t = self._torch.from_numpy(q).to(self.dev)
+            return self._torch.mm(self._matriz, t[:, None]).cpu().numpy().ravel()
+        return np.concatenate([self.vetores[i:i + bloco].astype(np.float32) @ q
+                               for i in range(0, self.vetores.shape[0], bloco)])
+
+    def buscar(self, consulta: str, k: int = 10,
+               excluir: set[str] | None = None) -> list[Resultado]:
+        """Os `k` documentos mais próximos. `excluir` tira ids do resultado.
+
+        `excluir` existe para medir: quem busca pelo texto de um artigo que está no
+        índice o recebe em primeiro, com escore 1,0 — certo para o usuário, e inútil
+        para saber se o encoder acha os artigos que ele CITA.
+        """
+        s = self.pontuar(self.embutir(consulta))
+        if excluir:
+            if self._posicao is None:
+                self._posicao = {a: i for i, a in enumerate(self.docs["arxiv_id"].to_list())}
+            for a in excluir:
+                if a in self._posicao:
+                    s[self._posicao[a]] = -np.inf
+        k = min(k, s.size)
+        idx = np.argpartition(-s, k - 1)[:k]
+        ordem = idx[np.argsort(-s[idx], kind="stable")]
         saida = []
         for pos, j in enumerate(ordem, start=1):
-            linha = self.docs.row(int(todos_i[j]), named=True)
-            saida.append(Resultado(pos, float(todos_s[j]), linha["arxiv_id"], linha["title"],
+            linha = self.docs.row(int(j), named=True)
+            saida.append(Resultado(pos, float(s[j]), linha["arxiv_id"], linha["title"],
                                    linha["year"], linha["primary_category"],
                                    list(linha["autores"] or [])))
         return saida
