@@ -274,6 +274,10 @@ Aceita pelo dono do projeto, sobre a evidência da §9 e do T1g:
 
 ### O que reabriria esta decisão
 
+> ✅ **Testado em 2026-09-23/24 (T1h e T1i), e a busca encerrada pelo dono.** `gte-small` e `bge-small` ganham do
+> MiniLM-L6 a 200 mil pares (+0,04, a 1,75× do custo), mas a 1 M ficam **abaixo** do ΦEmb do sistema
+> (0,6014 contra 0,6223; −0,021, IC 97,5% exclui zero). O encoder do sistema está decidido.
+
 - Uma base geral do porte do MiniLM (e do custo dele) que, na mesma receita, ganhe dele
   por uma margem da ordem da do GTE-base: aí o ganho de base viria sem os 4,4×. É o
   experimento de menor custo que ainda pode mudar o encoder do sistema.
