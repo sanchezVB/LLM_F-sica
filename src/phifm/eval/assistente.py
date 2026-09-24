@@ -415,9 +415,35 @@ def aceitas_em_ordem(ordem: dict[str, list[str]], feitas: dict,
 # ── I1: a apuração da revisão do dono ────────────────────────────────────────
 
 
+# Menos de 1 s entre um julgamento e o seguinte não dá para ler pergunta, gabarito e
+# resumo. Uns poucos acontecem (duas teclas sem querer, depois ←); mais que isto é
+# julgamento automático. Em 2026-09-24 um script de conferência marcou as 40 como
+# válidas em um segundo, na aba em que o dono revisava — a folha só não foi apurada
+# assim porque o dono estranhou o "40 de 40".
+MS_MINIMO_POR_JULGAMENTO = 1000
+MAX_JULGAMENTOS_RAPIDOS = N_REVISAO_I1 // 4
+
+
+def julgamentos_rapidos(lista: list[dict]) -> int | None:
+    """Quantos julgamentos vieram menos de `MS_MINIMO_POR_JULGAMENTO` depois do anterior;
+    None se a folha não registrou os horários (folha antiga)."""
+    ms = [v.get("ms") for v in sorted(lista, key=lambda v: v["indice"])]
+    if not ms or any(x is None for x in ms):
+        return None
+    return sum(1 for a, b in zip(ms, ms[1:], strict=False) if b - a < MS_MINIMO_POR_JULGAMENTO)
+
+
 def apurar_i1(veredictos: dict) -> dict:
-    """Conta as válidas e aplica a guarda. `veredictos` é o JSON baixado da folha."""
+    """Conta as válidas e aplica a guarda. `veredictos` é o JSON baixado da folha.
+    Recusa (levanta) folha sem horários ou julgada rápido demais para ter sido lida."""
     lista = veredictos["veredictos"]
+    rapidos = julgamentos_rapidos(lista)
+    if rapidos is None:
+        raise ValueError("a folha não registrou o horário dos julgamentos — é de uma versão "
+                         "antiga, que não distingue revisão de clique automático")
+    if rapidos > MAX_JULGAMENTOS_RAPIDOS:
+        raise ValueError(f"{rapidos} julgamentos a menos de 1 s do anterior: isso não é "
+                         "leitura, é clique automático. A folha não vale.")
     validas = sum(1 for v in lista if v["veredicto"] == "valida")
     motivos: dict[str, int] = {}
     for v in lista:

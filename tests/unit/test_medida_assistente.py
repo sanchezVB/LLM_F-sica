@@ -114,15 +114,34 @@ def test_a_RETOMADA_nao_refaz_e_estende_a_cota(tmp_path):
     assert [t.arxiv_id for t in tent if t.estrato == "primario"] == ordem["primario"][:5]
 
 
-def test_I1_so_passa_COMPLETA_e_com_o_minimo():
-    def folha(n_validas, n=40):
-        vs = [{"veredicto": "valida"}] * n_validas + [{"veredicto": "confusa"}] * (n - n_validas)
-        return {"n_amostra": 40, "veredictos": vs}
+def _folha(n_validas, n=40, passo_ms=20_000):
+    vs = [{"indice": k, "veredicto": "valida" if k < n_validas else "confusa",
+           "ms": 1_000_000 + k * passo_ms} for k in range(n)]
+    return {"n_amostra": 40, "veredictos": vs}
 
-    assert m.apurar_i1(folha(32))["passa"]
-    r = m.apurar_i1(folha(31))
+
+def test_I1_so_passa_COMPLETA_e_com_o_minimo():
+    assert m.apurar_i1(_folha(32))["passa"]
+    r = m.apurar_i1(_folha(31))
     assert not r["passa"] and r["invalidas_por_motivo"] == {"confusa": 9}
-    assert not m.apurar_i1(folha(32, n=35))["passa"], "passou com revisão incompleta"
+    assert not m.apurar_i1(_folha(32, n=35))["passa"], "passou com revisão incompleta"
+
+
+def test_I1_RECUSA_folha_julgada_rapido_demais_ou_sem_horarios():
+    """O acidente de 2026-09-24: um script marcou as 40 como válidas em um segundo."""
+    import pytest
+
+    with pytest.raises(ValueError, match="clique automático"):
+        m.apurar_i1(_folha(40, passo_ms=25))
+    sem_horario = _folha(40)
+    for v in sem_horario["veredictos"]:
+        v.pop("ms")
+    with pytest.raises(ValueError, match="versão antiga"):
+        m.apurar_i1(sem_horario)
+    humana = _folha(40)   # umas poucas teclas rápidas acontecem, e passam
+    for k in (5, 6, 20):
+        humana["veredictos"][k]["ms"] = humana["veredictos"][k - 1]["ms"] + 300
+    assert m.apurar_i1(humana)["passa"]
 
 
 def test_o_formal_EXCLUI_os_artigos_que_o_desenvolvimento_viu(tmp_path, monkeypatch):

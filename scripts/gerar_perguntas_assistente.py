@@ -122,16 +122,23 @@ perguntas revisadas ficam no conjunto como estão — não há conserto item a i
 const ITENS = __DADOS__;
 const CHAVE = "revisao_perguntas_" + "__ASSINATURA__";
 const NOMES = __MOTIVOS__;
-let v = {}, i = 0;
+// `t` guarda o horário de cada julgamento. Ele vai no JSON, e a apuração recusa uma folha
+// julgada rápido demais para ter sido lida: em 2026-09-24 um script de conferência do
+// Claude "julgou" as 40 como válidas em um segundo, na mesma aba em que o dono revisava.
+let v = {}, t = {}, i = 0, guarda = true;
 try { const g = localStorage.getItem(CHAVE); if (g) { const o = JSON.parse(g);
-  v = o.v || {}; i = o.i || 0; } } catch (e) {}
-function salva(){ try { localStorage.setItem(CHAVE, JSON.stringify({v:v, i:i})); } catch (e) {} }
+  v = o.v || {}; t = o.t || {}; i = o.i || 0; }
+  localStorage.setItem(CHAVE + "_teste", "1"); localStorage.removeItem(CHAVE + "_teste");
+} catch (e) { guarda = false; }
+function salva(){ try { localStorage.setItem(CHAVE, JSON.stringify({v:v, t:t, i:i})); } catch (e) {} }
 function pinta(){
   const feitos = Object.keys(v).length;
   document.getElementById("preenche").style.width = (100*feitos/ITENS.length).toFixed(1) + "%";
   const validas = Object.values(v).filter(x => x === "valida").length;
   document.getElementById("progresso").textContent =
-    feitos + " de " + ITENS.length + " julgadas · " + validas + " válidas";
+    feitos + " de " + ITENS.length + " julgadas · " + validas + " válidas" +
+    (guarda ? "" : " · ⚠️ este navegador NÃO guarda o progresso: não recarregue a página " +
+                   "no meio (abra o arquivo no Chrome com dois cliques para ele guardar)");
   const area = document.getElementById("area");
   if (i >= ITENS.length){
     area.innerHTML = "<div class=fim><b>Fim.</b><br>Baixe os veredictos abaixo.</div>";
@@ -163,12 +170,15 @@ function pinta(){
                  {left: "$", right: "$", display: false}],
     throwOnError: false, strict: "ignore"});
 }
-function julga(x){ if (i >= ITENS.length) return; v[String(i)] = x; i++; salva(); pinta(); }
-function volta(){ if (i > 0){ i--; delete v[String(i)]; salva(); pinta(); } }
-function zerar(){ if (confirm("Apagar todos os julgamentos?")){ v = {}; i = 0; salva(); pinta(); } }
+function julga(x){ if (i >= ITENS.length) return; v[String(i)] = x; t[String(i)] = Date.now();
+  i++; salva(); pinta(); }
+function volta(){ if (i > 0){ i--; delete v[String(i)]; delete t[String(i)]; salva(); pinta(); } }
+function zerar(){ if (confirm("Apagar todos os julgamentos?")){ v = {}; t = {}; i = 0; salva();
+  pinta(); } }
 function baixar(){
   const linhas = Object.entries(v).map(([k, x]) => ({indice: +k, veredicto: x,
-    motivo: NOMES[x], arxiv_id: ITENS[+k].arxiv_id, estrato: ITENS[+k].estrato}));
+    motivo: NOMES[x], arxiv_id: ITENS[+k].arxiv_id, estrato: ITENS[+k].estrato,
+    ms: t[k] || null}));
   const b = new Blob([JSON.stringify({assinatura_amostra: "__ASSINATURA__",
     n_amostra: ITENS.length, veredictos: linhas}, null, 2)], {type: "application/json"});
   const a = document.createElement("a");
@@ -274,7 +284,10 @@ def main() -> int:
         if veredictos.get("assinatura_amostra") != folha:
             raise SystemExit(f"os veredictos são de outra folha ({veredictos.get('assinatura_amostra')}"
                              f" ≠ {folha}): julgamentos colados nas perguntas erradas.")
-        r = m.apurar_i1(veredictos)
+        try:
+            r = m.apurar_i1(veredictos)
+        except ValueError as e:
+            raise SystemExit(f"I1 não apurada: {e}") from None
         r["assinatura_amostra"] = veredictos.get("assinatura_amostra")
         I1_AGREGADO.write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"I1: {r['validas']} válidas de {r['julgadas']} (mínimo {r['minimo']}) → "
