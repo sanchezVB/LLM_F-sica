@@ -302,6 +302,30 @@ quando presente; abstenção indevida; tempo por pergunta.
 - **Não medido aqui:** se a fonte citada **sustenta** a frase (o *entailment* do G2.4).
   Continua sendo o limite declarado do portão.
 
+#### Como roda — escrito antes da primeira resposta existir (2026-09-24)
+
+`phifm.eval.assistente_bracos` e `scripts/medir_assistente.py`. O que o texto acima não
+fixava, e ficou fixado aqui antes de qualquer braço rodar:
+
+- **C** usa o prompt de A sem as fontes, com a mesma licença de dizer "não sei" — nem mais
+  nem menos. Um C que se abstém por instrução deixaria I2 passar de graça.
+- **B igual a A** onde a busca já trouxe P: a resposta de A é reaproveitada, não gerada de
+  novo. P entra em B numa posição sorteada **por item** (semente da regra + id).
+- **O juiz** lê pergunta, gabarito e a resposta **sem as marcas [n]** — com elas saberia que
+  houve fontes. Não vê braço, fontes nem artigo. Temperatura 0, uma frase de motivo antes
+  do veredicto, sem o modo de raciocínio do Qwen3 (≈2 s por julgamento, contra ~20 s). Se
+  I3 reprovar, ligar o raciocínio é o primeiro conserto.
+- **I3** decide pelo κ da variável que decide — **certa × o resto** —, porque só `certo`
+  conta como acerto e trocar `parcial` por `errado` não muda número nenhum. O κ nas quatro
+  categorias é publicado junto. *Interpretação minha do "κ de Cohen < 0,6"; o dono pode
+  trocá-la antes de julgar.* As 100 vêm de 100 itens diferentes dos 650 (50 respostas de A,
+  50 de B), embaralhadas, e o dono vê o mesmo que o juiz.
+- **R** é no estrato primário, o que decide, e vem **depois** de I3: se o juiz não valer,
+  a lista dos erros de B muda.
+- **Os acertos pelo juiz não são impressos antes de I3.** A regra manda consertar um juiz
+  reprovado "antes de qualquer leitura"; o que sai antes são só as métricas mecânicas
+  (P entre as 6, P citada, citações removidas, tempo) em `assistente_bracos.json`.
+
 ---
 
 ## 10. Riscos

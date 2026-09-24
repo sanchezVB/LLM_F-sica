@@ -128,6 +128,13 @@ def verificar_citacoes(texto: str, n_fontes: int) -> tuple[str, list[int], list[
     return limpo, sorted(citadas), sorted(removidas), sem_fonte
 
 
+def sem_citacoes(texto: str) -> str:
+    """O texto sem as marcas [n]. É o que o juiz da medida lê: com as marcas, ele saberia
+    que a resposta teve fontes — e a regra quer o juiz sem saber o braço."""
+    limpo = re.sub(r"[ \t]*" + _CITACAO.pattern, "", texto)
+    return re.sub(r"[ \t]+([.,;:])", r"\1", limpo)
+
+
 def bloco_de_fontes(fontes: list[Fonte]) -> str:
     return "\n\n".join(
         f"[{f.numero}] {f.titulo} ({f.ano or 'n.d.'}, arXiv:{f.arxiv_id})\n{f.resumo}"
@@ -135,8 +142,8 @@ def bloco_de_fontes(fontes: list[Fonte]) -> str:
 
 
 class Assistente:
-    def __init__(self, busca, modelo, spine: Path, k: int = 6):
-        self.busca, self.modelo, self.k = busca, modelo, k
+    def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None):
+        self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self._spine = pl.scan_parquet(spine)
         # O primeiro acesso ao parquet lê do HD frio (~16 s medidos); aquecer aqui tira
         # esse custo da primeira pergunta.
@@ -148,7 +155,8 @@ class Assistente:
         return {r["arxiv_id"]: r for r in d.iter_rows(named=True)}
 
     def consulta_hipotetica(self, pergunta: str) -> str:
-        texto = self.modelo.gerar(SISTEMA_HYDE, pergunta, max_tokens=260, temperatura=0.3)
+        texto = self.modelo.gerar(SISTEMA_HYDE, pergunta, max_tokens=260, temperatura=0.3,
+                                  semente=self.semente)
         texto = " ".join(texto.split())
         return texto or pergunta
 
@@ -162,11 +170,21 @@ class Assistente:
                                 " ".join((meta.get("abstract") or "").split()), r.escore))
         return fontes
 
-    def responder(self, pergunta: str) -> Resposta:
-        consulta = self.consulta_hipotetica(pergunta)
-        fontes = self.recuperar(consulta)
+    def fonte(self, arxiv_id: str, numero: int) -> Fonte:
+        """Um artigo do spine como fonte, sem passar pela busca (escore NaN). É como a
+        medida garante o artigo certo no prompt (DOC-13 §9.1, braço B)."""
+        meta = self._resumos([arxiv_id])[arxiv_id]
+        return Fonte(numero, arxiv_id, " ".join((meta["title"] or "").split()), meta["year"],
+                     " ".join((meta["abstract"] or "").split()), float("nan"))
+
+    def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "") -> Resposta:
+        """O passo 3 e o portão, com as fontes dadas — vindas da busca ou trocadas."""
         usuario = (f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}\n\n"
                    f"{instrucao_de_idioma(pergunta)}")
-        bruto = self.modelo.gerar(SISTEMA_RESPOSTA, usuario)
+        bruto = self.modelo.gerar(SISTEMA_RESPOSTA, usuario, semente=self.semente)
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
+
+    def responder(self, pergunta: str) -> Resposta:
+        consulta = self.consulta_hipotetica(pergunta)
+        return self.responder_com(pergunta, self.recuperar(consulta), consulta)
