@@ -51,6 +51,11 @@ PAGINA = r"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Revisão das perguntas</title>
+<!-- As fórmulas dos resumos vêm em LaTeX ($\mathfrak{osp}(1|2)$); o KaTeX as desenha.
+     Sem internet ele não carrega, e o texto aparece cru — a folha continua funcionando. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
 :root{--bg:#faf9f7;--fg:#1c1b19;--sutil:#6b6862;--linha:#e0ddd6;--cartao:#fff;
 --sim:#1a7f4b;--nao:#b3261e;--realce:#f3f0e8}
@@ -142,13 +147,21 @@ function pinta(){
                    "<div class=resumo id=ro></div></details>" : "") +
     "<p class=sutil id=l></p></div>";
   // textContent, nunca innerHTML: pergunta, gabarito e resumo vêm de modelo e corpus.
+  // `limpa` só tira marcação de ênfase do LaTeX (\emph{x} → x) NA TELA: os dados da
+  // folha não mudam, e com eles não mudam a assinatura nem o progresso salvo.
+  const limpa = s => String(s).replace(/\\(emph|textit|textbf)\{([^{}]*)\}/g, "$2");
   document.getElementById("p").textContent = d.pergunta;
   document.getElementById("g").textContent = d.gabarito;
-  document.getElementById("r").textContent = d.resumo_pt ?
-    d.titulo_pt + "\n\n" + d.resumo_pt : d.titulo + "\n\n" + d.resumo;
-  if (d.resumo_pt) document.getElementById("ro").textContent = d.titulo + "\n\n" + d.resumo;
+  document.getElementById("r").textContent = limpa(d.resumo_pt ?
+    d.titulo_pt + "\n\n" + d.resumo_pt : d.titulo + "\n\n" + d.resumo);
+  if (d.resumo_pt) document.getElementById("ro").textContent =
+    limpa(d.titulo + "\n\n" + d.resumo);
   document.getElementById("l").textContent = "arXiv:" + d.arxiv_id;
   document.getElementById("acoes").style.display = "flex";
+  if (window.renderMathInElement) renderMathInElement(area, {
+    delimiters: [{left: "$$", right: "$$", display: false},
+                 {left: "$", right: "$", display: false}],
+    throwOnError: false, strict: "ignore"});
 }
 function julga(x){ if (i >= ITENS.length) return; v[String(i)] = x; i++; salva(); pinta(); }
 function volta(){ if (i > 0){ i--; delete v[String(i)]; salva(); pinta(); } }
@@ -167,7 +180,10 @@ addEventListener("keydown", e => {
   const m = {"1": "valida", "2": "confusa", "3": "fora_do_resumo", "4": "gabarito_errado"};
   if (m[e.key]) julga(m[e.key]); else if (e.key === "ArrowLeft") volta();
 });
+// O KaTeX vem com `defer` e só existe depois do carregamento: pintar de novo no `load`
+// desenha as fórmulas do primeiro cartão também.
 pinta();
+addEventListener("load", pinta);
 </script></body></html>
 """
 
