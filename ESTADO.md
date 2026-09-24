@@ -40,6 +40,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **§2.3** · mascarar equações inteiras | 🟢 **ajuda a RECUPERAÇÃO, a 48 M** | primária de MLM negativa (−0,0040), mas a base tratada recupera melhor antes (nDCG@10 0,017 → 0,139) e **depois do ajuste como ΦEmb**: 0,3872 → **0,4712**, +0,084 [+0,071; +0,097]. Pelo ADR-0003, caminho B (CPT do ModernBERT-base com `p_equacao` 0,6) — decisão do dono |
 | **Passo 1** · a barra do caminho B | 🟢 **medido: 0,5270** | o ModernBERT-base CRU, ajustado nos mesmos 200 mil pares, supera o nosso tratado de 48 M por **+0,056** [+0,043; +0,069] — e o tratado segue à frente do controle por +0,084. Rodou no Colab (2,56 h), fora da cota. O caminho A fecha na prática; o B ganha alvo. Decisão no [ADR-0003 §8](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) |
 | **Caminho B** · primária MEDIDA | 🟢 **NÃO DECIDIDO a 0,4 B** | diferença das diferenças **−0,00039** [−0,0016; +0,0009] — o negativo de 48 M (−0,0040) NÃO se repetiu, e encolheu 10×. O tratamento pegou mais forte que no proxy (equação inteira 0,0266 → **0,1999**, +0,173), mas não transfere para a máscara pontual. A assimetria de spike agora é a FAVOR do tratado. Falta a secundária — os dois ajustados em 200 mil pares contra a barra de 0,5270 | controle treinou os **6.103 passos** (441 min) e está exportado em `models/phienc-cpt-controle`; o tratado parou no passo **4.489** por três spikes de perda que eram **composição do lote** (+3,0σ a +4,1σ de alvos de equação inteira), não instabilidade — o detector agora julga só os alvos uniformes. E o exportador gravava `[MASK]`=`#` num CPT, o que teria envenenado a primária sem nada acusar; corrigido e travado por teste. Ver a seção de 2026-09-19 |
+| **T1i** · as pequenas a 1 M | 🔴 **ABAIXO do sistema — o sistema fica** | gte-small 0,6014 e bge-small 0,6012 contra 0,6223 (−0,021, IC 97,5% exclui zero); recall@1 empata. Crescem ~+0,013 por dobra de pares; alcançar o sistema pediria ~3 M, e uma pequena a 6 M custaria ~17 h de T4 para, no máximo, ~+0,02 a 1,77× de custo |
 | **T1h** · bases pequenas | 🟢 **gte-small e bge-small ACIMA, a 1,75× do custo** | +0,042 e +0,040 sobre o MiniLM-L6@200k (IC 98,75%, Bonferroni), recall@1 p<1e-5; e5-small e MiniLM-L12 empatam. As duas vencedoras sobem de volume pela regra: 1 M de pares (~2,8 h cada) contra o ΦEmb do sistema (0,6223) |
 | **ADR-0003** · o encoder próprio | ✅ **ACEITO em 2026-09-23** | o ΦEnc não é treinado, por nenhum dos dois caminhos; o ΦEmb do sistema continua o MiniLM@6M; o §2.3 fica como resultado publicado. DOC-07 revisto (tabela de decisões, §2.3 a 150 M, §14). O que reabriria: uma base do porte do MiniLM que ganhe dele por margem da ordem da do GTE |
 | **A base do caminho B** · GTE × ModernBERT | 🔴 **GTE À FRENTE, +0,069** | a 200 mil pares, GTE-base **0,5964** contra ModernBERT-base **0,5270** (+0,0694 [+0,058; +0,081]). O CPT partiu da base errada para o produto; o que ele mede sobre o §2.3 continua valendo. A barra remedida deu 0,5270 de novo |
@@ -177,6 +178,46 @@ verificado** pela composição do lote.
 
 ~7,4 h (controle) + ~5,2 h (tratado) de sessão T4 x2, de ~30 h semanais. O
 controle está aproveitado inteiro. O tratado precisa de outra execução.
+
+## T1i — as pequenas a 1 M ficam ABAIXO do sistema: o volume ainda manda (2026-09-24)
+
+A regra do T1h mandou subir `gte-small` e `bge-small` para 1 M de pares; a do T1i
+(`colab/t1i_pequenas_1m.py`), escrita antes, compara cada uma com o ΦEmb do sistema com IC
+de **97,5%** (Bonferroni sobre 2). Os mesmos pares do T1g (T1a 1,5 M limitado a 1 M, mesma
+semente), treino no Colab (2,92 h cada, 95,8 pares/s), medição local na mesma sessão:
+
+| | pares | nDCG@10 | recall@1 | custo | − sistema [IC 97,5%] |
+|---|---|---|---|---|---|
+| **ΦEmb do sistema** (MiniLM-L6) | 6 M | **0,6223** | 0,4315 | 1,00× | — |
+| gte-small | 1 M | 0,6014 | 0,4255 | 1,77× | **−0,0209 [−0,0323; −0,0096] · ABAIXO** |
+| bge-small | 1 M | 0,6012 | 0,4255 | 1,77× | **−0,0211 [−0,0323; −0,0100] · ABAIXO** |
+| GTE-base (T1g, diagnóstico) | 1 M | 0,6211 | 0,4335 | 4,16× | — |
+
+**Desfecho pela regra: ABAIXO, as duas.** O sistema segura o lugar. No recall@1 empatam
+(147 × 135, p=0,51): a perda está abaixo do topo. E ficam ~0,020 abaixo do GTE-base no
+mesmo volume — a base grande ainda vale algo que a pequena não tem.
+
+⚠️ As duas deram recall@1 e discordantes idênticos contra o sistema. Conferido que não é
+troca de arquivos: pesos distintos (`d6e82ff5…` e `772e8165…`), cada um da base certa, e
+nDCG e posições por item diferentes. É coincidência.
+
+**A curva, que é o que isto ensina:**
+
+| base | 200 mil | 1 M | ganho |
+|---|---|---|---|
+| MiniLM-L6 | 0,5289 | ~0,57 (interpolado entre 400 mil e 1,5 M) | — |
+| gte-small | 0,5706 | 0,6014 | +0,031 |
+| bge-small | 0,5692 | 0,6012 | +0,032 |
+| GTE-base | 0,5964 | 0,6211 | +0,025 |
+
+A 1 M as pequenas estão ~+0,03 acima do que o MiniLM-L6 faria no mesmo volume, e crescem
+~+0,013 por dobra de pares. Para alcançar os 0,6223 do sistema precisariam de mais ~1,5
+dobra (~3 M); a 6 M, extrapolando, algo perto de 0,64. **Extrapolação não é medida.** O
+teste direto — uma pequena a 6 M — custaria ~17 h de T4 a 96 pares/s: não cabe numa sessão
+do Kaggle (sem retomada), cabe no Colab com retomada, e compraria no máximo ~+0,02 a um
+custo de serviço permanente de 1,77×.
+
+Artefato: `data/processed/avaliacao/t1i_comparacao.json`.
 
 ## T1h — duas bases PEQUENAS capturam o ganho de base a 1,75× do custo: `gte-small` e `bge-small` (2026-09-23)
 

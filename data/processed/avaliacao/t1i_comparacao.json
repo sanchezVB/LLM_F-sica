@@ -1,0 +1,120 @@
+{
+  "experimento": "t1i — gte-small e bge-small a 1 M contra o ΦEmb do sistema",
+  "regra": "colab/t1i_pequenas_1m.py · REGRA",
+  "protocolo": {
+    "n": 2000,
+    "semente": 17,
+    "max_tokens": 192,
+    "todos_medidos_nesta_sessao": true,
+    "ic": "97.5% (Bonferroni, 2 comparações)"
+  },
+  "registrados": {
+    "sistema": 0.6223,
+    "gte-base@1M": 0.6211
+  },
+  "modelos": {
+    "sistema": {
+      "caminho": "models/phiemb-do-sistema",
+      "recall_1": 0.4315,
+      "recall_10": 0.8305,
+      "mrr": 0.5636,
+      "ndcg_10": 0.6223,
+      "parametros_m": 22.7,
+      "custo_s": 4.41,
+      "razao_custo": 1.0
+    },
+    "gte-small": {
+      "caminho": "data\\processed\\t1i_saida\\phiemb-t1i-gte-small-1m-melhor",
+      "recall_1": 0.4255,
+      "recall_10": 0.7915,
+      "mrr": 0.5499,
+      "ndcg_10": 0.6014,
+      "parametros_m": 33.4,
+      "custo_s": 7.82,
+      "razao_custo": 1.77,
+      "ndcg_10_menos_sistema": {
+        "diferenca": -0.02087,
+        "ic95": [
+          -0.0323,
+          -0.0096
+        ],
+        "cruza_zero": false,
+        "itens": 2000
+      },
+      "diagnostico_recall_1_mcnemar": {
+        "a": "sistema",
+        "b": "gte-small",
+        "ganha_a": 147,
+        "ganha_b": 135,
+        "discordantes": 282,
+        "p": 0.5125134982685585,
+        "veredito": "empate — 282 discordantes não separam os dois (p=0.513)"
+      },
+      "desfecho": "ABAIXO",
+      "leitura": "o volume ainda manda a 1 M: o sistema segura o lugar.",
+      "diagnostico_menos_gte_base_1m_ic95": {
+        "diferenca": -0.01968,
+        "ic95": [
+          -0.02926,
+          -0.01
+        ],
+        "cruza_zero": false,
+        "itens": 2000
+      }
+    },
+    "bge-small": {
+      "caminho": "data\\processed\\t1i_saida\\phiemb-t1i-bge-small-1m-melhor",
+      "recall_1": 0.4255,
+      "recall_10": 0.7945,
+      "mrr": 0.5486,
+      "ndcg_10": 0.6012,
+      "parametros_m": 33.4,
+      "custo_s": 7.81,
+      "razao_custo": 1.77,
+      "ndcg_10_menos_sistema": {
+        "diferenca": -0.02112,
+        "ic95": [
+          -0.03233,
+          -0.00998
+        ],
+        "cruza_zero": false,
+        "itens": 2000
+      },
+      "diagnostico_recall_1_mcnemar": {
+        "a": "sistema",
+        "b": "bge-small",
+        "ganha_a": 147,
+        "ganha_b": 135,
+        "discordantes": 282,
+        "p": 0.5125134982685585,
+        "veredito": "empate — 282 discordantes não separam os dois (p=0.513)"
+      },
+      "desfecho": "ABAIXO",
+      "leitura": "o volume ainda manda a 1 M: o sistema segura o lugar.",
+      "diagnostico_menos_gte_base_1m_ic95": {
+        "diferenca": -0.01993,
+        "ic95": [
+          -0.0294,
+          -0.01039
+        ],
+        "cruza_zero": false,
+        "itens": 2000
+      }
+    },
+    "gte-base": {
+      "caminho": "data/processed/t1g_saida/phiemb-gte-base-1m-melhor",
+      "recall_1": 0.4335,
+      "recall_10": 0.818,
+      "mrr": 0.5663,
+      "ndcg_10": 0.6211,
+      "parametros_m": 109.5,
+      "custo_s": 18.34,
+      "razao_custo": 4.16
+    }
+  },
+  "ressalvas": [
+    "NÃO é ablação de uma variável contra o sistema: muda base E volume (1 M contra 6 M). É a pergunta do produto, declarada assim antes do número.",
+    "Uma semente por base.",
+    "O IC da primária é de 97,5%; a chave `ic95` guarda esse intervalo pelo nome histórico do campo. O diagnóstico contra o GTE-base usa 95%."
+  ]
+}
