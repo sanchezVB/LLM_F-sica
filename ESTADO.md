@@ -228,6 +228,23 @@ Já se sabe, sem o juiz (`avaliacao/assistente_bracos.json`): **a busca traz o a
 entre as 6 fontes em 68,6%** das perguntas do primário (72,7% no pós-corte); quando ele
 vem, o modelo o cita em ~98%; uma citação inventada removida por braço e estrato.
 
+**Diagnóstico da busca** (exploratório, não decide; `avaliacao/assistente_diagnostico_busca.json`,
+`scripts/diagnosticar_busca_assistente.py`). A posição do artigo certo na ordem inteira
+do índice, primário (500):
+
+| consulta | @1 | @6 | @20 | @50 | @100 | @1000 | posição mediana |
+|---|---|---|---|---|---|---|---|
+| resumo hipotético (o produto) | 0,52 | **0,69** | 0,79 | **0,86** | 0,88 | 0,94 | 1 |
+| a pergunta crua, em português | 0,02 | 0,05 | 0,08 | 0,14 | 0,18 | 0,36 | 3.781 |
+
+- Das 157 falhas, **85 estão entre a 7ª e a 50ª posição**: um reranqueador sobre os 50
+  primeiros tem até 17 pontos para ganhar (teto 0,86). 29 estão além da 1.000ª — essas
+  são do encoder, não da ordem final.
+- O passo hipotético é o que faz a busca funcionar: sem ele, 0,05. ⚠️ Mistura duas
+  coisas — a pergunta está em português e o índice aprendeu inglês; a pergunta em inglês
+  não foi medida.
+- A consulta gravada reproduz o braço A em 650 de 650 itens. Pós-corte: 0,73 → 0,90 @50.
+
 ## A BUSCA existe: 1,59 M artigos indexados, página local, 28 ms por consulta (2026-09-24)
 
 Até hoje o projeto media e escolhia o recuperador, e `src/phifm/retrieval` e
