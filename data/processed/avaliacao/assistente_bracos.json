@@ -1,0 +1,45 @@
+{
+  "regra": "DOC-13 §9.1",
+  "sha256_itens": "36c84880f836492240d84dada847ecd4e102e57a672ce97b654e4ef8a33ea13c",
+  "assinatura_bracos": "3ae312df14a2f64ffad8ab565ea4cd29e617d8dca2ee2a0c534da4a8838f8e9c",
+  "itens_rodados": 650,
+  "itens_total": 650,
+  "por_estrato": {
+    "primario": {
+      "itens": 500,
+      "p_entre_as_fontes_A": 0.686,
+      "p_citada_quando_presente": {
+        "A": 0.9854,
+        "B": 0.978
+      },
+      "respostas_com_citacao_removida": {
+        "A": 1,
+        "B": 1,
+        "C": 0
+      },
+      "segundos_medianos": {
+        "A": 31.3,
+        "B": 14.1,
+        "C": 5.1
+      }
+    },
+    "pos_corte": {
+      "itens": 150,
+      "p_entre_as_fontes_A": 0.7267,
+      "p_citada_quando_presente": {
+        "A": 1.0,
+        "B": 1.0
+      },
+      "respostas_com_citacao_removida": {
+        "A": 1,
+        "B": 1,
+        "C": 0
+      },
+      "segundos_medianos": {
+        "A": 32.7,
+        "B": 16.4,
+        "C": 5.0
+      }
+    }
+  }
+}
