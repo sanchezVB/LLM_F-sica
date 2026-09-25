@@ -51,7 +51,7 @@ Ponto de retomada para migração de máquina. Instalação em [SETUP.md](SETUP.
 | **Secundária do caminho B** · MEDIDA | 🟢 **§2.3 +0,0076 a 150 M; o GTE domina** | tratado − controle +0,0076 [+0,0013; +0,0139] (11× menor que a 48 M, e a assimetria de spike o favorece); tratado − ModernBERT cru +0,0103; GTE cru **0,5964** contra 0,5373 do melhor braço. A base vale ~7× o pré-treino continuado. Decisão no [ADR-0003 §9](docs/adr/ADR-0003-phienc-do-zero-ou-cpt.md) | os dois braços do CPT ajustados como ΦEmb no **Colab** (`colab/t2eq_cpt_emb.py`, pesos conferidos por blake3), um depois do outro na mesma plataforma; e, em paralelo no **Kaggle**, o **GTE-base@200k** (`t2eq_emb_gte`, código `9993d14`) — a pergunta é se o ModernBERT-base é a base certa, já que o T1f só mediu o GTE a 400 mil pares. Comparador pronto: `scripts/comparar_t2eq_cpt_emb.py` |
 | **ΦEnc** · duas GPUs | 🟢 **pronto, e o Kaggle SEMPRE deu duas T4** | `torchrun --nproc_per_node 2` com os mesmos argumentos: mesmos dados e máscaras, pesos a < 10⁻⁵ (teste) e 1,2×10⁻⁷ (script, 48 M). ⚠️ A máscara passou a sair de `(semente, micro-passo)`. ✅ Conferido pelo dono: os notebooks estão em **"GPU T4 x2"**, então todo run até hoje usou **uma de duas** placas. **Vazão medida em 2026-09-19**: mediana de **15,2–15,9 mil tok/s** no ModernBERT-base (150 M), contexto 1.024, contra 15,6 mil projetados |
 | **PB-Formula** · MEDIDO e revisto | 🟢 **a premissa do §6.3 cai; especificação revista ACEITA em 2026-09-23** | no estrato que exige variação notacional, o ΦEmb do sistema faz recall@10 **0,9550** contra **0,9300** do BM25 (+0,0250 [0,0115; 0,039]) e recall@1 **0,8595** contra 0,7115. O denso NÃO perde casamento simbólico aqui. ⚠️ A primeira execução foi ANULADA: cada modelo pegou um pool diferente (ver a seção) |
-| **Versões** · `transformers` 5.0 local | 🟢 **TROCADO em 2026-09-23** | a `.venv-treino` agora é a de `transformers` 5.0.0, a mesma do Kaggle e do Colab, fixada no `SETUP.md`. A anterior (4.48.3) ficou em `.venv-treino-tf4`, para reproduzir medições antigas. Medido antes de trocar: embeddings bit a bit iguais (ModernBERT, MiniLM, GTE; CPU e DirectML), e toda a medição da semana de 2026-09-22 já rodou na nova |
+| **Versões** · `transformers` 5.0 local | 🟢 **TROCADO em 2026-09-23** | a `.venv-treino` agora é a de `transformers` 5.0.0, a mesma do Kaggle e do Colab, fixada no `SETUP.md`. A anterior (4.48.3) ficou em `.venv-treino-tf4` até 2026-09-25, quando foi apagada. Medido antes de trocar: embeddings bit a bit iguais (ModernBERT, MiniLM, GTE; CPU e DirectML), e toda a medição da semana de 2026-09-22 já rodou na nova |
 | **Artigo do programa** | 🟢 **v0.5** (2026-09-23) | §4.9.3 (pré-treino continuado a 150 M), §4.10 (recuperação por equação, o PB-Formula), §5.4 nova (mecanismos que dependem da variável sob teste: o detector, o exportador, a ressalva herdada) e a oitava ocorrência de amostragem. Tabelas 1–24, corrigida a Tabela 20 duplicada da v0.4. A conclusão sobre o encoder do sistema espera o T1g. `docs/papers/rascunho-artigo-recuperacao-fisica.md` |
 | **§11.2** · o instrumento | 🟢 **bits por byte, e a acurácia saiu** | acurácia de MLM **não compara vocabulários**: quem parte em pedaços menores acerta mais sem ser melhor, e o viés aponta CONTRA a hipótese. Confirmado num ensaio real — E marcou acurácia maior (0,0237 contra 0,0195) e bits/byte pior (2,890 contra 2,761). `phifm.eval.bits_por_byte`, fumaça com o mesmo modelo contra si mesmo: Δ 0,00000 |
 | **Proxy de fertilidade** | 🟢 **erra por 3×, medido** | E gasta **13,6%** mais tokens por documento no corpus de treino real, não os 37,7% da razão de fertilidade. A §11.1 mediu **resumos**, onde a matemática é *inline* e curta. E a §11.1-medido declarava a §8 "vindicada pelo teste que o §11.2 estipulou" — o §11.2 estipulou TREINAR MODELOS; corrigido |
@@ -219,9 +219,14 @@ custo, ou se o modelo aberto com a nossa busca já basta.
 |---|---|
 | I1 · as perguntas servem? | ✅ **40 de 40** válidas na revisão do dono (mínimo 32) |
 | os itens | ✅ **500 do primário + 150 do pós-corte**, escritos pelo Claude só do resumo; 747 tentativas, 92 resumos sem fato verificável, 5 caídas nas guardas · sha256 em `avaliacao/assistente_itens_completa.json` |
-| braços A/B/C + juiz | ⏳ código pronto (`scripts/medir_assistente.py`), 20 itens de medição de tempo rodando |
-| I3 · o juiz concorda com o dono? | aguarda os braços · 100 respostas |
+| braços A/B/C | ✅ os 650 itens, ~7 h de GPU (43 s por item; retomado 3× sem perda) |
+| o juiz | ✅ 1.497 textos distintos, 0 fora do formato · **os acertos não foram lidos**: esperam I3 |
+| I3 · o juiz concorda com o dono? | ⏳ **com o dono**: `assistente/folha_i3.html`, 100 respostas |
 | R · os erros de B são do modelo? | aguarda I3 |
+
+Já se sabe, sem o juiz (`avaliacao/assistente_bracos.json`): **a busca traz o artigo certo
+entre as 6 fontes em 68,6%** das perguntas do primário (72,7% no pós-corte); quando ele
+vem, o modelo o cita em ~98%; uma citação inventada removida por braço e estrato.
 
 ## A BUSCA existe: 1,59 M artigos indexados, página local, 28 ms por consulta (2026-09-24)
 

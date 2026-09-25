@@ -17,9 +17,9 @@ acontece localmente.
 O corte em 4.56 é o da troca de nome no `transformers`; os dois lados dele usados neste
 projeto estão conferidos (4.48.3 local e 5.0.0 no Kaggle).
 
-⚠️ Desde 2026-09-23 a `.venv-treino` local também é 5.0.0 (a 4.48.3 ficou em
-`.venv-treino-tf4`). A escolha pelo número da versão continua, porque é ela que deixa
-as duas venvs rodarem o mesmo código — e a reserva existe para reproduzir medições antigas.
+⚠️ Desde 2026-09-23 a `.venv-treino` local também é 5.0.0 (a venv com a 4.48.3 foi
+apagada em 2026-09-25). A escolha pelo número da versão continua, porque é ela que deixa
+o mesmo código rodar numa venv 4.48 recriada para reproduzir uma medição antiga.
 """
 from __future__ import annotations
 

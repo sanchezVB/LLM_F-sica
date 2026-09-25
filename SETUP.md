@@ -60,8 +60,8 @@ lá, cada checkpoint vindo da nuvem tinha de ser reexportado, e o tokenizador sa
 5.x não abre na 4.48. A troca foi medida antes de ser feita — embeddings bit a bit
 iguais entre as duas versões em três modelos, na CPU e na DirectML (ESTADO,
 2026-09-17) — e a suíte inteira passou na venv nova. A venv anterior, com a 4.48.3,
-fica em `.venv-treino-tf4` para reproduzir medições antigas; pode ser apagada quando
-isso deixar de ser necessário.
+ficou em `.venv-treino-tf4` até 2026-09-25, quando foi apagada (decisão do dono). Para
+reproduzir uma medição antiga: uma venv nova com `transformers==4.48.3` e o resto igual.
 
 **Por que essas seis e não `-r requirements.lock`:** o lock traz a árvore inteira
 da venv principal, incluindo versões que conflitam com o `torch-directml`. A lista
