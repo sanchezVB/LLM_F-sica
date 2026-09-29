@@ -204,34 +204,65 @@ function comCitacoes(texto, n) {
     (+k >= 1 && +k <= n) ? `<a href="#fonte-${k}">[${k}]</a>` : m)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 }
+function htmlFontes(fontes, final) {
+  return `<h2>Fontes que o modelo leu</h2><ol>` + fontes.map(f => `
+    <li id="fonte-${f.numero}" class="${f.citada ? "citada" : ""}">
+      [${f.numero}] <a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.titulo)}</a>
+      <div class="meta">${esc(f.ano ?? "—")} · arXiv:${esc(f.arxiv_id)}${final
+        ? " · " + (f.citada ? "citada na resposta" : "não citada") : ""}</div>
+      <details><summary>resumo</summary><p>${esc(f.resumo)}</p></details>
+    </li>`).join("") + `</ol>`;
+}
+function mostrarFinal(d) {
+  // O texto que PASSOU pelo portão substitui o que foi aparecendo: uma citação
+  // inventada pode ter sido escrita e depois removida.
+  let html = `<div class="resposta">${comCitacoes(d.texto, d.fontes.length)}</div>`;
+  if (d.removidas.length) html += `<div class="aviso">O portão removeu citações a fontes
+    que não existiam: ${d.removidas.map(k => "[" + k + "]").join(", ")}.</div>`;
+  if (d.frases_sem_fonte.length) html += `<div class="aviso">Frases sem citação — não confie
+    nelas sem conferir:<ul>${d.frases_sem_fonte.map(f => "<li>" + esc(f) + "</li>").join("")}</ul></div>`;
+  $("rp").innerHTML = html + htmlFontes(d.fontes, true);
+  formulas($("rp"));
+  $("estado-p").textContent = "Respondida em " + d.segundos.toFixed(0) + " s";
+}
 $("fp").addEventListener("submit", async (e) => {
   e.preventDefault();
   const pergunta = $("qp").value.trim();
   if (!pergunta) return;
   $("bp").disabled = true; $("rp").innerHTML = "";
   const t0 = performance.now();
-  const relogio = setInterval(() => { $("estado-p").textContent =
-    "Buscando e escrevendo… " + Math.round((performance.now() - t0) / 1000) + " s"; }, 500);
+  let fase = "Buscando…";
+  const relogio = setInterval(() => { if (fase) $("estado-p").textContent =
+    fase + " " + Math.round((performance.now() - t0) / 1000) + " s"; }, 500);
   try {
     const resp = await fetch("/api/perguntar", {method: "POST",
-      headers: {"Content-Type": "application/json"}, body: JSON.stringify({pergunta})});
-    const d = await resp.json();
-    if (!resp.ok) throw new Error(d.erro || resp.status);
-    const n = d.fontes.length;
-    let html = `<div class="resposta">${comCitacoes(d.texto, n)}</div>`;
-    if (d.removidas.length) html += `<div class="aviso">O portão removeu citações a fontes
-      que não existiam: ${d.removidas.map(k => "[" + k + "]").join(", ")}.</div>`;
-    if (d.frases_sem_fonte.length) html += `<div class="aviso">Frases sem citação — não confie
-      nelas sem conferir:<ul>${d.frases_sem_fonte.map(f => "<li>" + esc(f) + "</li>").join("")}</ul></div>`;
-    html += `<h2>Fontes que o modelo leu</h2><ol>` + d.fontes.map(f => `
-      <li id="fonte-${f.numero}" class="${f.citada ? "citada" : ""}">
-        [${f.numero}] <a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.titulo)}</a>
-        <div class="meta">${esc(f.ano ?? "—")} · arXiv:${esc(f.arxiv_id)} · ${f.citada ? "citada na resposta" : "não citada"}</div>
-        <details><summary>resumo</summary><p>${esc(f.resumo)}</p></details>
-      </li>`).join("") + `</ol>`;
-    $("rp").innerHTML = html;
-    formulas($("rp"));
-    $("estado-p").textContent = "Respondida em " + d.segundos.toFixed(0) + " s";
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({pergunta, fluxo: true})});
+    if (!resp.ok) { const d = await resp.json(); throw new Error(d.erro || resp.status); }
+    const leitor = resp.body.getReader(), dec = new TextDecoder();
+    let resto = "", caixa = null, terminou = false;
+    while (true) {
+      const {value, done} = await leitor.read();
+      if (done) break;
+      resto += dec.decode(value, {stream: true});
+      let i;
+      while ((i = resto.indexOf("\n")) >= 0) {
+        const linha = resto.slice(0, i); resto = resto.slice(i + 1);
+        if (!linha.trim()) continue;
+        const d = JSON.parse(linha);
+        if (d.tipo === "fontes") {
+          fase = "Escrevendo…";
+          $("rp").innerHTML = `<div class="resposta" id="rascunho"></div>` + htmlFontes(d.fontes, false);
+          caixa = $("rascunho");
+        } else if (d.tipo === "pedaco" && caixa) {
+          caixa.textContent += d.texto;
+        } else if (d.tipo === "fim") {
+          terminou = true; fase = null; mostrarFinal(d);
+        } else if (d.tipo === "erro") {
+          throw new Error(d.erro);
+        }
+      }
+    }
+    if (!terminou) throw new Error("a resposta parou no meio");
   } catch (err) {
     $("estado-p").textContent = "Erro: " + err.message;
   } finally { clearInterval(relogio); $("bp").disabled = false; estado(); }
@@ -262,6 +293,13 @@ def _fonte_json(f, citadas: list[int]) -> dict:
     return {"numero": f.numero, "arxiv_id": f.arxiv_id, "titulo": f.titulo, "ano": f.ano,
             "resumo": f.resumo, "link": f.link, "citada": f.numero in citadas,
             "escore": None if math.isnan(f.escore) else round(f.escore, 4)}
+
+
+def _resposta_json(r, segundos: float) -> dict:
+    return {"pergunta": r.pergunta, "texto": r.texto, "consulta": r.consulta,
+            "fontes": [_fonte_json(f, r.citadas) for f in r.fontes],
+            "citadas": r.citadas, "removidas": r.removidas,
+            "frases_sem_fonte": r.frases_sem_fonte, "segundos": round(segundos, 1)}
 
 
 def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente=None,
@@ -358,13 +396,18 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                 self._json(HTTPStatus.BAD_REQUEST, {"erro": "corpo vazio ou grande demais"})
                 return
             try:
-                pergunta = str(json.loads(self.rfile.read(tamanho)).get("pergunta", "")).strip()
+                corpo = json.loads(self.rfile.read(tamanho))
+                pergunta = str(corpo.get("pergunta", "")).strip()
+                fluxo = bool(corpo.get("fluxo", False))
             except (json.JSONDecodeError, AttributeError, UnicodeDecodeError):
                 self._json(HTTPStatus.BAD_REQUEST, {"erro": "JSON inválido"})
                 return
             if not pergunta or len(pergunta) > MAX_PERGUNTA:
                 self._json(HTTPStatus.BAD_REQUEST,
                            {"erro": f"pergunta vazia ou com mais de {MAX_PERGUNTA} caracteres"})
+                return
+            if fluxo and hasattr(assistente, "responder_em_fluxo"):
+                self._responder_em_fluxo(pergunta)
                 return
             t0 = time.perf_counter()
             try:
@@ -373,12 +416,42 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
             except SystemExit as e:  # o cliente do modelo sinaliza servidor travado assim
                 self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"erro": str(e)})
                 return
-            self._json(HTTPStatus.OK, {
-                "pergunta": pergunta, "texto": r.texto, "consulta": r.consulta,
-                "fontes": [_fonte_json(f, r.citadas) for f in r.fontes],
-                "citadas": r.citadas, "removidas": r.removidas,
-                "frases_sem_fonte": r.frases_sem_fonte,
-                "segundos": round(time.perf_counter() - t0, 1)})
+            self._json(HTTPStatus.OK, _resposta_json(r, time.perf_counter() - t0))
+
+        def _responder_em_fluxo(self, pergunta: str) -> None:
+            """Uma linha JSON por evento (NDJSON), escrita assim que o evento sai. Sem
+            `Content-Length`: o corpo termina quando a conexão fecha (HTTP/1.0). Se o
+            navegador desconectar no meio, o gerador é FECHADO — ele segura a trava do
+            modelo até acabar."""
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+
+            def enviar(d: dict) -> None:
+                self.wfile.write((json.dumps(d, ensure_ascii=False) + "\n").encode("utf-8"))
+                self.wfile.flush()
+
+            t0 = time.perf_counter()
+            with trava_pergunta:
+                eventos = assistente.responder_em_fluxo(pergunta)
+                try:
+                    for tipo, dado in eventos:
+                        if tipo == "fontes":
+                            consulta, fontes = dado
+                            enviar({"tipo": "fontes", "consulta": consulta,
+                                    "fontes": [_fonte_json(f, []) for f in fontes]})
+                        elif tipo == "pedaco":
+                            enviar({"tipo": "pedaco", "texto": dado})
+                        else:
+                            enviar({"tipo": "fim", **_resposta_json(
+                                dado, time.perf_counter() - t0)})
+                except SystemExit as e:
+                    enviar({"tipo": "erro", "erro": str(e)})
+                except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                    pass
+                finally:
+                    eventos.close()
 
         def log_message(self, formato: str, *args) -> None:
             return  # o terminal fica limpo; erros de verdade levantam

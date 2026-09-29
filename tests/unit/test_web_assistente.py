@@ -172,3 +172,88 @@ def test_modelo_que_ja_estava_no_ar_nao_e_derrubado():
     time.sleep(0.3)
     s.parar()
     assert m.ligado and not m.subiu
+
+
+# ── a resposta em fluxo ─────────────────────────────────────────────────────
+
+
+class AssistenteEmFluxo(AssistenteFalso):
+    def responder_em_fluxo(self, pergunta):
+        r = self.responder(pergunta)
+        yield "fontes", (r.consulta, r.fontes)
+        for pedaco in ("É 42 ", "[1]", " e ", "[9]."):   # [9] inventada: o fim a tira
+            yield "pedaco", pedaco
+        yield "fim", r
+
+
+def _post_fluxo(url, pergunta):
+    req = urllib.request.Request(url, method="POST",
+                                 data=json.dumps({"pergunta": pergunta, "fluxo": True}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req) as r:
+        assert r.headers["Content-Type"].startswith("application/x-ndjson")
+        return [json.loads(linha) for linha in r.read().decode("utf-8").splitlines() if linha]
+
+
+def test_fluxo_manda_fontes_pedacos_e_o_fim_que_passou_pelo_portao(servidor):
+    base = servidor(AssistenteEmFluxo())
+    eventos = _post_fluxo(base + "/api/perguntar", "Qual é?")
+    tipos = [e["tipo"] for e in eventos]
+    assert tipos == ["fontes", "pedaco", "pedaco", "pedaco", "pedaco", "fim"]
+    assert all(not f["citada"] for f in eventos[0]["fontes"])   # ainda não se sabe
+    assert "".join(e["texto"] for e in eventos if e["tipo"] == "pedaco") == "É 42 [1] e [9]."
+    fim = eventos[-1]
+    assert fim["texto"] == "É 42 [1]." and fim["removidas"] == [7]
+    assert [f["citada"] for f in fim["fontes"]] == [True, False]
+
+
+def test_sem_pedir_fluxo_a_resposta_vem_inteira(servidor):
+    status, d = _post(servidor(AssistenteEmFluxo()) + "/api/perguntar",
+                      json.dumps({"pergunta": "Qual é?"}).encode())
+    assert status == 200 and d["texto"] == "É 42 [1]."
+
+
+def test_modelo_sob_demanda_em_fluxo_sobe_e_libera_a_trava():
+    class Falso(ModeloLocalFalso):
+        def gerar_em_fluxo(self, sistema, usuario, **kw):
+            yield from ("a", "b")
+
+    m = Falso()
+    s = ModeloSobDemanda(m, ocioso_s=60, intervalo_s=60)
+    assert list(s.gerar_em_fluxo("s", "u")) == ["a", "b"] and m.ligado
+    gen = s.gerar_em_fluxo("s", "u")
+    next(gen)
+    gen.close()                                   # o navegador desconectou no meio
+    assert s.gerar("s", "u") == "ok"              # a trava foi solta
+    s.parar()
+
+
+def test_cliente_le_o_stream_do_llama_server():
+    """O formato do `stream` do `/completion`: uma linha `data: {…}` por pedaço, e o
+    último com `stop: true`."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from phifm.rag.llm import ModeloLocal
+
+    class Falso(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            corpo = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            assert corpo["stream"] is True
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            for d in ({"content": "Olá", "stop": False}, {"content": ", mundo", "stop": False},
+                      {"content": "", "stop": True}):
+                self.wfile.write(f"data: {json.dumps(d)}\n\n".encode())
+
+        def log_message(self, *a):
+            return
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Falso)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        m = ModeloLocal(porta=srv.server_address[1])
+        assert list(m.gerar_em_fluxo("s", "u")) == ["Olá", ", mundo"]
+    finally:
+        srv.shutdown()
+        srv.server_close()

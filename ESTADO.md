@@ -198,7 +198,7 @@ Modelo: Qwen3-8B Q4_K_M (5,03 GB) no `llama-server` b11159 com Vulkan — 802 to
 44–48 gerando. **11–24 s por pergunta**; ~50–60 s para carregar tudo na primeira.
 
 **Também na página local** (2026-09-29): `scripts/servir_busca.py --assistente` põe a aba
-"Perguntar" ao lado da busca — resposta com as citações [n] clicáveis, as fontes com o
+"Perguntar" ao lado da busca — a resposta aparece enquanto é escrita (streaming), com as citações [n] clicáveis, as fontes com o
 resumo, e os avisos do portão (citação removida, frase sem fonte). O modelo **só sobe na
 GPU na primeira pergunta e sai sozinho depois de 10 min sem uso** (`ModeloSobDemanda`);
 a busca vai para a CPU (~1,4 s), porque o modelo e a matriz do índice não cabem juntos

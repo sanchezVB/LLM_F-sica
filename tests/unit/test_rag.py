@@ -135,3 +135,23 @@ def test_o_raciocinio_sai_da_resposta_e_o_cortado_vira_vazio():
     assert sem_raciocinio("<think>\npensando sem fim") == ""
     assert sem_raciocinio("resposta direta") == "resposta direta"
     assert chatml("S", "U", pensar=True).endswith("<|im_start|>assistant\n")
+
+
+def test_resposta_em_FLUXO_passa_pelo_portao_no_fim(tmp_path):
+    """Os pedaços saem crus; o `fim` traz o texto pelo portão — a citação [9], que não
+    existe, aparece nos pedaços e some no fim."""
+    spine, ids = _spine(tmp_path)
+
+    class ModeloFluxo(ModeloFalso):
+        def gerar_em_fluxo(self, sistema, usuario, **kw):
+            self.chamadas.append((sistema, usuario))
+            yield from ("A massa é 3 GeV [1]", " e o spin 1/2 [9].")
+
+    modelo = ModeloFluxo("")
+    eventos = list(Assistente(BuscaFalsa(ids), modelo, spine, k=3).responder_em_fluxo("Qual?"))
+    assert [t for t, _ in eventos] == ["fontes", "pedaco", "pedaco", "fim"]
+    consulta, fontes = eventos[0][1]
+    assert consulta == HIPOTETICO.strip() and len(fontes) == 3
+    fim = eventos[-1][1]
+    assert fim.texto == "A massa é 3 GeV [1] e o spin 1/2." and fim.removidas == [9]
+    assert modelo.chamadas[-1][0] == SISTEMA_RESPOSTA

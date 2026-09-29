@@ -118,20 +118,48 @@ class ModeloLocal:
             self._log.close()
             self._log = None
 
+    def _pedido(self, sistema: str, usuario: str, max_tokens: int, temperatura: float,
+                semente: int | None, pensar: bool, fluxo: bool) -> urllib.request.Request:
+        corpo = {"prompt": chatml(sistema, usuario, pensar), "n_predict": max_tokens,
+                 "temperature": temperatura, "stop": [FIM_DE_TURNO], "cache_prompt": True,
+                 "stream": fluxo}
+        if semente is not None:
+            corpo["seed"] = semente
+        return urllib.request.Request(self.url + "/completion",
+                                      data=json.dumps(corpo).encode("utf-8"),
+                                      headers={"Content-Type": "application/json"})
+
     def gerar(self, sistema: str, usuario: str, *, max_tokens: int = 700,
               temperatura: float = 0.2, semente: int | None = None, pensar: bool = False,
               tempo_max_s: int = 300) -> str:
-        corpo = {"prompt": chatml(sistema, usuario, pensar), "n_predict": max_tokens,
-                 "temperature": temperatura, "stop": [FIM_DE_TURNO], "cache_prompt": True}
-        if semente is not None:
-            corpo["seed"] = semente
-        req = urllib.request.Request(self.url + "/completion",
-                                     data=json.dumps(corpo).encode("utf-8"),
-                                     headers={"Content-Type": "application/json"})
+        req = self._pedido(sistema, usuario, max_tokens, temperatura, semente, pensar, False)
         try:
             with urllib.request.urlopen(req, timeout=tempo_max_s) as r:
                 texto = json.loads(r.read())["content"]
                 return sem_raciocinio(texto) if pensar else texto.strip()
+        except TimeoutError:
+            raise SystemExit(f"o llama-server não respondeu em {tempo_max_s} s. "
+                             f"{DICA_TRAVADO}") from None
+
+    def gerar_em_fluxo(self, sistema: str, usuario: str, *, max_tokens: int = 700,
+                       temperatura: float = 0.2, semente: int | None = None,
+                       tempo_max_s: int = 300):
+        """Como `gerar`, mas devolve o texto aos pedaços, enquanto o modelo escreve (o
+        `stream` do `/completion`: uma linha `data: {…}` por pedaço). Sem o modo de
+        raciocínio — um bloco `<think>` sairia pela metade na tela. O `tempo_max_s` vale
+        por pedaço, não para a resposta inteira."""
+        req = self._pedido(sistema, usuario, max_tokens, temperatura, semente, False, True)
+        try:
+            with urllib.request.urlopen(req, timeout=tempo_max_s) as r:
+                for linha in r:
+                    linha = linha.decode("utf-8").strip()
+                    if not linha.startswith("data:"):
+                        continue
+                    d = json.loads(linha[len("data:"):])
+                    if d.get("content"):
+                        yield d["content"]
+                    if d.get("stop"):
+                        return
         except TimeoutError:
             raise SystemExit(f"o llama-server não respondeu em {tempo_max_s} s. "
                              f"{DICA_TRAVADO}") from None
@@ -170,6 +198,17 @@ class ModeloSobDemanda:
                 self.modelo.iniciar(log=self.log)
             try:
                 return self.modelo.gerar(sistema, usuario, **kw)
+            finally:
+                self._ultimo = time.monotonic()
+
+    def gerar_em_fluxo(self, sistema: str, usuario: str, **kw):
+        """⚠️ Segura a trava até o gerador acabar: quem o consome tem de levá-lo até o
+        fim ou chamar `.close()` — a página faz isso quando o navegador desconecta."""
+        with self._trava:
+            if not self.modelo.no_ar():
+                self.modelo.iniciar(log=self.log)
+            try:
+                yield from self.modelo.gerar_em_fluxo(sistema, usuario, **kw)
             finally:
                 self._ultimo = time.monotonic()
 

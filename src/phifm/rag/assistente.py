@@ -177,14 +177,39 @@ class Assistente:
         return Fonte(numero, arxiv_id, " ".join((meta["title"] or "").split()), meta["year"],
                      " ".join((meta["abstract"] or "").split()), float("nan"))
 
+    @staticmethod
+    def _usuario(pergunta: str, fontes: list[Fonte]) -> str:
+        return (f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}\n\n"
+                f"{instrucao_de_idioma(pergunta)}")
+
     def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "") -> Resposta:
         """O passo 3 e o portão, com as fontes dadas — vindas da busca ou trocadas."""
-        usuario = (f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}\n\n"
-                   f"{instrucao_de_idioma(pergunta)}")
-        bruto = self.modelo.gerar(SISTEMA_RESPOSTA, usuario, semente=self.semente)
+        bruto = self.modelo.gerar(SISTEMA_RESPOSTA, self._usuario(pergunta, fontes),
+                                  semente=self.semente)
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
 
     def responder(self, pergunta: str) -> Resposta:
         consulta = self.consulta_hipotetica(pergunta)
         return self.responder_com(pergunta, self.recuperar(consulta), consulta)
+
+    def responder_em_fluxo(self, pergunta: str):
+        """A mesma resposta, em eventos para uma tela que mostra o texto enquanto ele é
+        escrito: `("fontes", (consulta, fontes))` depois da busca, `("pedaco", texto)` a
+        cada pedaço, e `("fim", Resposta)` com o texto que PASSOU pelo portão.
+
+        ⚠️ Os pedaços são o texto CRU: uma citação inventada aparece na tela enquanto é
+        escrita, e só o `fim` a tira. Quem mostra os pedaços tem de trocar o texto pelo do
+        `fim` — a página faz isso."""
+        consulta = self.consulta_hipotetica(pergunta)
+        fontes = self.recuperar(consulta)
+        yield "fontes", (consulta, fontes)
+        partes = []
+        for pedaco in self.modelo.gerar_em_fluxo(SISTEMA_RESPOSTA,
+                                                 self._usuario(pergunta, fontes),
+                                                 semente=self.semente):
+            partes.append(pedaco)
+            yield "pedaco", pedaco
+        texto, citadas, removidas, sem_fonte = verificar_citacoes("".join(partes).strip(),
+                                                                  len(fontes))
+        yield "fim", Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
