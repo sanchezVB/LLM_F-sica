@@ -366,6 +366,31 @@ mediano por pergunta até **60 s [dono]**. Fora disso, fica o sistema atual.
 **Custo:** o desenvolvimento, ~20 min de GPU por candidato; o teste, ~5 h de GPU (como o
 braço A) mais ~1 h de juiz. Do dono: nada, se o juiz já passou em I3.
 
+#### O desenvolvimento, rodado em 2026-09-29 (exploratório — não decide)
+
+`scripts/explorar_busca_dev.py`, `avaliacao/assistente_busca_dev.json`. Recall de P entre
+as fontes que o modelo lê; IC 95% por bootstrap pareado da diferença para o sistema atual.
+
+| candidato | primário (150) | Δ primário | pós-corte (50) | ganha/perde (200) |
+|---|---|---|---|---|
+| hoje (6 fontes) | 0,733 | — | 0,760 | — |
+| (a) 10 fontes | 0,760 | +0,027 [+0,007; +0,053] | 0,820 | +7/−0 |
+| (b) 3 resumos hipotéticos | 0,753 | +0,020 [−0,020; +0,060] | 0,880 | +12/−3 |
+| **(c) ΦRank-PhysBERT nos 50** | **0,827** | **+0,093 [+0,047; +0,140]** | 0,840 | **+19/−1** |
+| (c′) ΦEmb GTE-base nos 50 | 0,767 | +0,033 [−0,013; +0,080] | 0,860 | +15/−5 |
+| (c″) RRF base + GTE nos 50 | 0,773 | +0,040 [+0,007; +0,080] | 0,860 | +12/−1 |
+
+- O ΦRank passa a barra proposta de 5 pontos, e com folga; nenhum outro passa no primário.
+  O teto a 50 é 0,847: ele recupera ~80% do que a reordenação pode recuperar.
+- É o reordenador que SAIU do sistema no G1 (T1e) — lá a tarefa era achar o que um artigo
+  cita; aqui é achar o artigo a partir de um resumo hipotético dele, e ele serve.
+- Os 19 resgates vêm de toda a faixa (posições 8 a 49): reordenar só os 30 primeiros
+  perderia 5 deles.
+- **Custo medido:** com o Qwen ocupando a GPU, o ΦRank roda na CPU — **~11,4 s** para 50
+  pares de 384 tokens (6 threads). O braço A iria de ~31 s para ~42 s por pergunta.
+- Nada disso tocou no teste. O próximo passo, se a §9.1 não disser "busca NÃO LIMITA" e o
+  dono aceitar esta proposta, é a confirmação única do braço A' = A + ΦRank nos 650.
+
 ---
 
 ## 10. Riscos

@@ -1,0 +1,199 @@
+{
+  "exploratorio": true,
+  "conjunto": "desenvolvimento (DOC-13 §9.2)",
+  "profundidade_reordenada": 50,
+  "por_estrato": {
+    "primario": {
+      "n": 150,
+      "recall_base_@50": 0.8467,
+      "base": {
+        "recall": 0.7333,
+        "menos_base": 0.0,
+        "ic95": [
+          0.0,
+          0.0
+        ],
+        "ganha": 0,
+        "perde": 0
+      },
+      "k10": {
+        "recall": 0.76,
+        "menos_base": 0.0267,
+        "ic95": [
+          0.0067,
+          0.0533
+        ],
+        "ganha": 4,
+        "perde": 0
+      },
+      "hyde3": {
+        "recall": 0.7533,
+        "menos_base": 0.02,
+        "ic95": [
+          -0.02,
+          0.06
+        ],
+        "ganha": 6,
+        "perde": 3
+      },
+      "phirank": {
+        "recall": 0.8267,
+        "menos_base": 0.0933,
+        "ic95": [
+          0.0467,
+          0.14
+        ],
+        "ganha": 15,
+        "perde": 1
+      },
+      "gte": {
+        "recall": 0.7667,
+        "menos_base": 0.0333,
+        "ic95": [
+          -0.0133,
+          0.08
+        ],
+        "ganha": 9,
+        "perde": 4
+      },
+      "fusao": {
+        "recall": 0.7733,
+        "menos_base": 0.04,
+        "ic95": [
+          0.0067,
+          0.08
+        ],
+        "ganha": 7,
+        "perde": 1
+      }
+    },
+    "pos_corte": {
+      "n": 50,
+      "recall_base_@50": 0.9,
+      "base": {
+        "recall": 0.76,
+        "menos_base": 0.0,
+        "ic95": [
+          0.0,
+          0.0
+        ],
+        "ganha": 0,
+        "perde": 0
+      },
+      "k10": {
+        "recall": 0.82,
+        "menos_base": 0.06,
+        "ic95": [
+          0.0,
+          0.14
+        ],
+        "ganha": 3,
+        "perde": 0
+      },
+      "hyde3": {
+        "recall": 0.88,
+        "menos_base": 0.12,
+        "ic95": [
+          0.04,
+          0.22
+        ],
+        "ganha": 6,
+        "perde": 0
+      },
+      "phirank": {
+        "recall": 0.84,
+        "menos_base": 0.08,
+        "ic95": [
+          0.02,
+          0.16
+        ],
+        "ganha": 4,
+        "perde": 0
+      },
+      "gte": {
+        "recall": 0.86,
+        "menos_base": 0.1,
+        "ic95": [
+          0.0,
+          0.2
+        ],
+        "ganha": 6,
+        "perde": 1
+      },
+      "fusao": {
+        "recall": 0.86,
+        "menos_base": 0.1,
+        "ic95": [
+          0.02,
+          0.18
+        ],
+        "ganha": 5,
+        "perde": 0
+      }
+    },
+    "todos": {
+      "n": 200,
+      "recall_base_@50": 0.86,
+      "base": {
+        "recall": 0.74,
+        "menos_base": 0.0,
+        "ic95": [
+          0.0,
+          0.0
+        ],
+        "ganha": 0,
+        "perde": 0
+      },
+      "k10": {
+        "recall": 0.775,
+        "menos_base": 0.035,
+        "ic95": [
+          0.01,
+          0.065
+        ],
+        "ganha": 7,
+        "perde": 0
+      },
+      "hyde3": {
+        "recall": 0.785,
+        "menos_base": 0.045,
+        "ic95": [
+          0.01,
+          0.085
+        ],
+        "ganha": 12,
+        "perde": 3
+      },
+      "phirank": {
+        "recall": 0.83,
+        "menos_base": 0.09,
+        "ic95": [
+          0.05,
+          0.135
+        ],
+        "ganha": 19,
+        "perde": 1
+      },
+      "gte": {
+        "recall": 0.79,
+        "menos_base": 0.05,
+        "ic95": [
+          0.005,
+          0.095
+        ],
+        "ganha": 15,
+        "perde": 5
+      },
+      "fusao": {
+        "recall": 0.795,
+        "menos_base": 0.055,
+        "ic95": [
+          0.02,
+          0.09
+        ],
+        "ganha": 12,
+        "perde": 1
+      }
+    }
+  }
+}
