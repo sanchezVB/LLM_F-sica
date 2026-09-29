@@ -1,0 +1,24 @@
+{
+  "etapa": "dev_busca",
+  "regra": "DOC-13 §9.2 · desenvolvimento da busca",
+  "autor": "claude-opus-5-5",
+  "semente": 20260925,
+  "corte": "2025-06-01",
+  "cotas": {
+    "primario": 150,
+    "pos_corte": 50
+  },
+  "tentativas_por_estrato": {
+    "primario": {
+      "aceita": 150,
+      "nenhuma": 21
+    },
+    "pos_corte": {
+      "aceita": 50,
+      "nenhuma": 4
+    }
+  },
+  "sobreposicao_media_aceitas": 0.0491,
+  "assinatura_autor": "6a8c6d62337c815f525ec7d0f7a5eba748a819713f5a8cacb9b98f1b789d7d93",
+  "sha256_itens": "e9e0598f94fa168ded3dde952c2065a1af1c9b17847728cfd5ae7b963a693694"
+}

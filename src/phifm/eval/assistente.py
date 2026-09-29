@@ -215,6 +215,19 @@ def ordem_formal(pares_validacao: Path, spine: Path) -> dict[str, list[str]]:
     return sortear(pares_validacao, spine, SEMENTE, excluir=vistos)
 
 
+def ordem_dev_busca(ordem: dict[str, list[str]], feitas_teste: dict) -> dict[str, list[str]]:
+    """A ordem das perguntas de DESENVOLVIMENTO da busca: a mesma permutação do conjunto
+    formal, sem nenhum artigo que o conjunto de teste tentou — aceito, NENHUMA ou caído.
+
+    Melhorar a busca olhando para as 650 perguntas da medida seria ajustar no conjunto de
+    teste; estas são disjuntas dele e nunca foram lidas por quem escreveu o teste."""
+    return {e: [a for a in ids if (e, a) not in feitas_teste] for e, ids in ordem.items()}
+
+
+# O conjunto de desenvolvimento da busca: ±6,5 pontos perto de 0,7 no primário.
+N_DEV_BUSCA = {"primario": 150, "pos_corte": 50}
+
+
 def cotas_de_revisao(n_revisao: int = N_REVISAO_I1) -> dict[str, int]:
     """A amostra de I1 na proporção dos estratos: 40 → 31 do primário e 9 do pós-corte."""
     primario = round(n_revisao * N_PRIMARIO / (N_PRIMARIO + N_POS_CORTE))

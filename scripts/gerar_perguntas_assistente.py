@@ -268,7 +268,10 @@ def main() -> int:
                    help="grava o próximo lote de resumos (sem título) para o Claude escrever")
     p.add_argument("-n", type=int, default=25, help="tamanho do lote exportado")
     p.add_argument("--importar", type=Path, help="lote escrito pelo Claude, para conferir")
-    p.add_argument("--etapa", choices=["dev", "revisao", "completa"])
+    p.add_argument("--etapa", choices=["dev", "revisao", "completa", "dev_busca"])
+    p.add_argument("--dev-busca", action="store_true",
+                   help="exportar/importar perguntas de DESENVOLVIMENTO da busca, disjuntas "
+                        "do conjunto de teste")
     p.add_argument("--apurar", type=Path, help="JSON baixado da folha de revisão")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     p.add_argument("--pares-validacao", type=Path,
@@ -307,6 +310,13 @@ def main() -> int:
     assinatura = m.assinatura_autor()
     cache = DIR / f"tentativas_{m.AUTOR}_{assinatura[:12]}_{m.SEMENTE}.jsonl"
     ordem = m.ordem_formal(a.pares_validacao, a.spine)
+    prefixo, regra = "", "DOC-13 §9.1"
+    if a.dev_busca or a.etapa == "dev_busca":
+        # O desenvolvimento da busca anda na MESMA permutação, depois de tudo o que o teste
+        # tentou, com cache próprio: nada do que se ajustar nele encosta no teste.
+        ordem = m.ordem_dev_busca(ordem, m.ler_cache(cache))
+        cache = DIR / f"tentativas_devbusca_{m.AUTOR}_{assinatura[:12]}_{m.SEMENTE}.jsonl"
+        prefixo, regra = "devbusca_", "DOC-13 §9.2 · desenvolvimento da busca"
 
     if a.exportar:
         import polars as pl
@@ -317,7 +327,7 @@ def main() -> int:
                        .collect().iter_rows())
         for x in lote:   # SÓ o resumo: o título fica de fora, como para o Qwen
             x["resumo"] = " ".join((resumos[x["arxiv_id"]] or "").split())
-        destino = DIR / f"lote_{a.exportar}_{lote[0]['ordem']:04d}.json"
+        destino = DIR / f"lote_{prefixo}{a.exportar}_{lote[0]['ordem']:04d}.json"
         destino.write_text(json.dumps(lote, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"{len(lote)} resumos ({a.exportar}, ordem {lote[0]['ordem']}–{lote[-1]['ordem']})"
               f" → {destino}")
@@ -344,6 +354,8 @@ def main() -> int:
             raise SystemExit("I1 não foi aprovada (ou não foi apurada). A regra do DOC-13 "
                              "§9.1 proíbe fechar o conjunto antes da revisão das 40.")
         cotas = {"primario": m.N_PRIMARIO, "pos_corte": m.N_POS_CORTE}
+    elif a.etapa == "dev_busca":
+        cotas = dict(m.N_DEV_BUSCA)
     else:
         cotas = m.cotas_de_revisao()
 
@@ -354,7 +366,7 @@ def main() -> int:
     (DIR / f"itens_{a.etapa}.json").write_text(
         json.dumps([asdict(t) for t in aceitas], ensure_ascii=False, indent=1), encoding="utf-8")
     agregado = {
-        "etapa": a.etapa, "regra": "DOC-13 §9.1", "autor": m.AUTOR, "semente": m.SEMENTE,
+        "etapa": a.etapa, "regra": regra, "autor": m.AUTOR, "semente": m.SEMENTE,
         "corte": m.CORTE, "cotas": cotas,
         "tentativas_por_estrato": _resumo_por_situacao(tentativas),
         "sobreposicao_media_aceitas": round(sum(t.sobreposicao for t in aceitas)

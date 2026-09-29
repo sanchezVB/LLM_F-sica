@@ -223,3 +223,15 @@ def test_copia_de_EXEMPLO_do_prompt_cai():
                     'cobertura crítica?", "gabarito": "Ela vai a zero kelvin."}')
 
     assert m.tentar(Copiador(), "pos_corte", 0, "1", "Co NbS2", "r").situacao == "copia_exemplo"
+
+
+def test_ordem_de_DESENVOLVIMENTO_da_busca_nao_encosta_no_teste():
+    """Tudo o que o conjunto de teste tentou — aceito, NENHUMA ou caído — fica fora, e a
+    ordem dos que sobram é a mesma da permutação formal."""
+    ordem = {"primario": ["a", "b", "c", "d", "e"], "pos_corte": ["x", "y", "z"]}
+    feitas = {("primario", "a"): m.Tentativa("primario", 0, "a", "aceita"),
+              ("primario", "b"): m.Tentativa("primario", 1, "b", "nenhuma"),
+              ("primario", "c"): m.Tentativa("primario", 2, "c", "copia_titulo"),
+              ("pos_corte", "x"): m.Tentativa("pos_corte", 0, "x", "aceita")}
+    dev = m.ordem_dev_busca(ordem, feitas)
+    assert dev == {"primario": ["d", "e"], "pos_corte": ["y", "z"]}

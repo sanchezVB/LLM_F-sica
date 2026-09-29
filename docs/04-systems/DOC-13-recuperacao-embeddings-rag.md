@@ -326,6 +326,46 @@ fixava, e ficou fixado aqui antes de qualquer braço rodar:
   reprovado "antes de qualquer leitura"; o que sai antes são só as métricas mecânicas
   (P entre as 6, P citada, citações removidas, tempo) em `assistente_bracos.json`.
 
+### 9.2 Melhorar a busca do assistente — PROPOSTA (2026-09-29), NÃO ACEITA
+
+> Escrita antes de qualquer candidato rodar. Os números marcados **[dono]** são decisão do
+> dono; os daqui são sugestão.
+
+**Quando roda.** Só se a §9.1 não disser "busca NÃO LIMITA". Se a busca não limita, não há
+o que ganhar aqui.
+
+**O que já se sabe** (`avaliacao/assistente_diagnostico_busca.json`, exploratório, no
+conjunto de TESTE): P entre os 6 em 0,69; entre os 50 em 0,86. Das 157 falhas do
+primário, 85 estão entre a 7ª e a 50ª posição. ⚠️ Os candidatos (a) e (c) abaixo vieram
+de ler esse diagnóstico — é informação do teste. Por isso nenhum candidato é ESCOLHIDO no
+teste: a escolha é no desenvolvimento, e o teste só confirma.
+
+**O conjunto de desenvolvimento** — 200 itens (150 do primário, 50 do pós-corte), escritos
+pelo Claude com as mesmas regras e guardas, na MESMA permutação do conjunto formal, depois
+de tudo o que o teste tentou: disjuntos do teste e nunca lidos por quem escreveu o teste.
+sha256 em `avaliacao/assistente_itens_dev_busca.json`; perguntas fora do git.
+
+**Candidatos, sem treino nenhum:**
+
+| | o quê | custo por pergunta |
+|---|---|---|
+| (a) | ler 10 fontes em vez de 6 | +~2 s de prompt |
+| (b) | 3 resumos hipotéticos em vez de 1, média dos vetores (como no artigo do HyDE) | +~8 s |
+| (c) | reordenar os 50 primeiros com um reordenador | depende do reordenador; um de prateleira exige download **[dono]** |
+
+**No desenvolvimento** (métrica mecânica, sem juiz): recall de P entre as fontes que o
+modelo lê. Vai para o teste o candidato de maior recall, se ganhar do sistema atual por
+pelo menos **5 pontos [dono]** no desenvolvimento — abaixo disso, o IC de ±6,5 pontos
+de 150 itens não separa ganho de ruído.
+
+**No teste, uma vez só:** o braço A' (o candidato) nos 650 itens, julgado pelo MESMO juiz
+já calibrado em I3, contra o braço A que já existe. **Adota** se o IC 95% de
+acerto_A' − acerto_A (bootstrap pareado) ficar inteiro acima de **0 [dono]**, com tempo
+mediano por pergunta até **60 s [dono]**. Fora disso, fica o sistema atual.
+
+**Custo:** o desenvolvimento, ~20 min de GPU por candidato; o teste, ~5 h de GPU (como o
+braço A) mais ~1 h de juiz. Do dono: nada, se o juiz já passou em I3.
+
 ---
 
 ## 10. Riscos
