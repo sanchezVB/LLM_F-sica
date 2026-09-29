@@ -254,6 +254,11 @@ do índice, primário (500):
   não foi medida.
 - A consulta gravada reproduz o braço A em 650 de 650 itens. Pós-corte: 0,73 → 0,90 @50.
 
+**Próximo passo da busca, preparado e parado** (2026-09-29): a proposta de regra no
+DOC-13 §9.2 (**não aceita** — limiares do dono) e **200 perguntas de desenvolvimento**
+(150 + 50), disjuntas do teste, para escolher o candidato sem tocar nas 650. Só roda se
+a §9.1 não disser "busca NÃO LIMITA".
+
 ## A BUSCA existe: 1,59 M artigos indexados, página local, 28 ms por consulta (2026-09-24)
 
 Até hoje o projeto media e escolhia o recuperador, e `src/phifm/retrieval` e
