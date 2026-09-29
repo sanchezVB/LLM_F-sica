@@ -197,6 +197,15 @@ máquina — a geração ancorada do DOC-13 §6 na versão que cabe numa RX 7600
 Modelo: Qwen3-8B Q4_K_M (5,03 GB) no `llama-server` b11159 com Vulkan — 802 tokens/s lendo,
 44–48 gerando. **11–24 s por pergunta**; ~50–60 s para carregar tudo na primeira.
 
+**Também na página local** (2026-09-29): `scripts/servir_busca.py --assistente` põe a aba
+"Perguntar" ao lado da busca — resposta com as citações [n] clicáveis, as fontes com o
+resumo, e os avisos do portão (citação removida, frase sem fonte). O modelo **só sobe na
+GPU na primeira pergunta e sai sozinho depois de 10 min sem uso** (`ModeloSobDemanda`);
+a busca vai para a CPU (~1,4 s), porque o modelo e a matriz do índice não cabem juntos
+nos 8 GB. Guardas contra outra origem no mesmo navegador: `Host` conferido e pergunta só
+em `application/json`. Testado de ponta a ponta: uma pergunta sobre coerência de transmons,
+124 s com a carga do modelo, 5 de 6 fontes citadas.
+
 **Três perguntas de teste** (exploratório, não é medida): coerência de qubits
 supercondutores (4 de 6 fontes pertinentes, 3 citadas, resposta correta no geral); tensão
 de Hubble (5 citadas, incluindo duas revisões); receita de bolo (recusa correta, em

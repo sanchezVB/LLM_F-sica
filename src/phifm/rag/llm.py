@@ -135,3 +135,51 @@ class ModeloLocal:
         except TimeoutError:
             raise SystemExit(f"o llama-server não respondeu em {tempo_max_s} s. "
                              f"{DICA_TRAVADO}") from None
+
+
+class ModeloSobDemanda:
+    """O `ModeloLocal` que só ocupa a GPU enquanto é usado — o da página local.
+
+    O servidor sobe na primeira chamada de `gerar` (~1–2 min com o HD frio) e é derrubado
+    depois de `ocioso_s` segundos sem chamada. Numa página que fica aberta o dia todo, o
+    modelo parado não segura os ~6 GB da placa. Um servidor que JÁ estava no ar (o
+    `perguntar.py` de outro terminal) é usado e nunca derrubado — `ModeloLocal.parar` só
+    encerra o que ele mesmo subiu.
+
+    Uma chamada por vez (a trava): o servidor roda com `-np 1`, e o vigia não pode
+    derrubá-lo no meio de uma resposta.
+    """
+
+    def __init__(self, modelo: ModeloLocal, log: Path | None = None, ocioso_s: float = 600,
+                 intervalo_s: float = 15):
+        import threading
+
+        self.modelo, self.log, self.ocioso_s = modelo, log, ocioso_s
+        self._trava = threading.Lock()
+        self._ultimo = time.monotonic()
+        self._fim = threading.Event()
+        self._vigia = threading.Thread(target=self._vigiar, args=(intervalo_s,), daemon=True)
+        self._vigia.start()
+
+    def no_ar(self) -> bool:
+        return self.modelo.no_ar()
+
+    def gerar(self, sistema: str, usuario: str, **kw) -> str:
+        with self._trava:
+            if not self.modelo.no_ar():
+                self.modelo.iniciar(log=self.log)
+            try:
+                return self.modelo.gerar(sistema, usuario, **kw)
+            finally:
+                self._ultimo = time.monotonic()
+
+    def _vigiar(self, intervalo_s: float) -> None:
+        while not self._fim.wait(intervalo_s):
+            with self._trava:
+                if time.monotonic() - self._ultimo > self.ocioso_s:
+                    self.modelo.parar()
+
+    def parar(self) -> None:
+        self._fim.set()
+        with self._trava:
+            self.modelo.parar()
