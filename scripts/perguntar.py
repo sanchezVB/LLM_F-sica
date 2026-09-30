@@ -55,6 +55,8 @@ def main() -> int:
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     p.add_argument("-k", type=int, default=6, help="quantos artigos o modelo lê")
     p.add_argument("--dispositivo-busca", default="cpu")
+    p.add_argument("--reordenar", action="store_true",
+                   help="reordena os 50 primeiros com o ΦRank (+~11 s na CPU; EXPLORATÓRIO — DOC-13 §9.2)")
     p.add_argument("--mostrar-consulta", action="store_true",
                    help="imprime o resumo hipotético que foi à busca")
     a = p.parse_args()
@@ -69,7 +71,12 @@ def main() -> int:
         print("subindo o llama-server (Qwen3-8B na GPU)...")
         modelo.iniciar(log=RAIZ / "data/processed/llama_server.log")
     busca = Busca(a.indice, dispositivo=a.dispositivo_busca)
-    assistente = Assistente(busca, modelo, a.spine, k=a.k)
+    reordenador = None
+    if a.reordenar:
+        from phifm.rag.reordenador import Reordenador
+
+        reordenador = Reordenador()
+    assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador)
     print(f"pronto em {time.perf_counter() - t0:.1f} s · "
           f"{busca.vetores.shape[0]:,} artigos no índice")
     try:

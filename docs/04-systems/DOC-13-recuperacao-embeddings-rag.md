@@ -390,6 +390,10 @@ as fontes que o modelo lê; IC 95% por bootstrap pareado da diferença para o si
   pares de 384 tokens (6 threads). O braço A iria de ~31 s para ~42 s por pergunta.
 - Nada disso tocou no teste. O próximo passo, se a §9.1 não disser "busca NÃO LIMITA" e o
   dono aceitar esta proposta, é a confirmação única do braço A' = A + ΦRank nos 650.
+- **Já no código, desligado por padrão** (`phifm.rag.reordenador`, `--reordenar` no
+  `perguntar.py` e no `servir_busca.py`). O caminho do produto reproduz a exploração em
+  15 de 15 perguntas de desenvolvimento (8 delas resgates do ΦRank); recuperação mediana
+  de ~14 s com ele, contra ~3 s sem.
 
 ---
 

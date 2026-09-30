@@ -155,3 +155,41 @@ def test_resposta_em_FLUXO_passa_pelo_portao_no_fim(tmp_path):
     fim = eventos[-1][1]
     assert fim.texto == "A massa é 3 GeV [1] e o spin 1/2." and fim.removidas == [9]
     assert modelo.chamadas[-1][0] == SISTEMA_RESPOSTA
+
+
+class ReordenadorFalso:
+    """Inverte a ordem da busca — e guarda o que recebeu."""
+    profundidade = 5
+
+    def __init__(self):
+        self.recebido = None
+
+    def ordem(self, consulta, textos):
+        self.recebido = (consulta, textos)
+        return list(range(len(textos)))[::-1]
+
+
+def test_com_REORDENADOR_as_fontes_sao_os_k_primeiros_DEPOIS_de_reordenar(tmp_path):
+    """A busca vai fundo (`profundidade`), o reordenador recebe `título. resumo` na ordem
+    da busca, e o modelo lê os `k` primeiros da nova ordem, renumerados."""
+    ids = [f"2001.{i:05d}" for i in range(5)]
+    longo = "um resumo longo o bastante para passar do mínimo de caracteres " * 3
+    pl.DataFrame({"arxiv_id": ids, "title": [f"Título {a}" for a in ids],
+                  "abstract": [f"Resumo de {a}, {longo}" for a in ids],
+                  "year": [2020] * 5}).write_parquet(tmp_path / "spine.parquet")
+    spine = tmp_path / "spine.parquet"
+    busca = BuscaFalsa(ids)
+    reord = ReordenadorFalso()
+    a = Assistente(busca, ModeloFalso(""), spine, k=2, reordenador=reord)
+    fontes = a.recuperar("consulta X")
+    assert [f.arxiv_id for f in fontes] == [ids[4], ids[3]]
+    assert [f.numero for f in fontes] == [1, 2]
+    consulta, textos = reord.recebido
+    assert consulta == "consulta X"
+    assert textos[0] == f"Título {ids[0]}. Resumo de {ids[0]}, {longo}".strip()
+
+
+def test_SEM_reordenador_nada_muda(tmp_path):
+    spine, ids = _spine(tmp_path)
+    fontes = Assistente(BuscaFalsa(ids), ModeloFalso(""), spine, k=2).recuperar("c")
+    assert [f.arxiv_id for f in fontes] == ids[:2]

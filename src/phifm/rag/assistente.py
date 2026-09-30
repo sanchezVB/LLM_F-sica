@@ -142,8 +142,10 @@ def bloco_de_fontes(fontes: list[Fonte]) -> str:
 
 
 class Assistente:
-    def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None):
+    def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
+                 reordenador=None):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
+        self.reordenador = reordenador
         self._spine = pl.scan_parquet(spine)
         # O primeiro acesso ao parquet lê do HD frio (~16 s medidos); aquecer aqui tira
         # esse custo da primeira pergunta.
@@ -161,8 +163,23 @@ class Assistente:
         return texto or pergunta
 
     def recuperar(self, consulta: str) -> list[Fonte]:
-        resultados = self.busca.buscar(consulta, k=self.k)
-        resumos = self._resumos([r.arxiv_id for r in resultados])
+        """Os `k` primeiros da busca — ou, com reordenador, os `k` primeiros depois de ele
+        reordenar os `profundidade` primeiros (DOC-13 §9.2)."""
+        if self.reordenador is None:
+            resultados = self.busca.buscar(consulta, k=self.k)
+            resumos = self._resumos([r.arxiv_id for r in resultados])
+        else:
+            from phifm.training.pairs import textos_de_documentos
+
+            candidatos = self.busca.buscar(consulta, k=self.reordenador.profundidade)
+            ids = [r.arxiv_id for r in candidatos]
+            # Uma leitura do spine só (~2 s no HD): o texto do reordenador e os resumos
+            # das fontes saem das mesmas linhas.
+            resumos = self._resumos(ids)
+            textos = (dict(textos_de_documentos(pl.DataFrame(list(resumos.values())).lazy())
+                           .collect().iter_rows()) if resumos else {})
+            ordem = self.reordenador.ordem(consulta, [textos.get(a, "") for a in ids])
+            resultados = [candidatos[i] for i in ordem[:self.k]]
         fontes = []
         for r in resultados:
             meta = resumos.get(r.arxiv_id, {})
