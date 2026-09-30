@@ -16,6 +16,10 @@
     # 4. a regra
     .venv-treino\\Scripts\\python.exe scripts\\medir_assistente.py --decidir
 
+    # 5. só se a §9.2 for ACEITA: o braço A′ (A + ΦRank), o juiz nele, e A′ contra A
+    .venv-treino\\Scripts\\python.exe scripts\\medir_assistente.py --reordenado
+    .venv-treino\\Scripts\\python.exe scripts\\medir_assistente.py --comparar-reordenado
+
 Respostas, julgamentos e folhas ficam em `data/processed/assistente/`, fora do git:
 carregam as perguntas do conjunto de teste (DOC-11 §8.1). Vão para o git só os
 agregados em `data/processed/avaliacao/assistente_*.json`.
@@ -271,7 +275,7 @@ def _ler_folha(caminho: Path, agregado: Path, n_esperado: int) -> dict:
     return {v["id"]: v["veredicto"] for v in lista}
 
 
-def _modelo_e_assistente(a, com_busca: bool):
+def _modelo_e_assistente(a, com_busca: bool, reordenar: bool = False):
     from phifm.eval.assistente import K_FONTES, SEMENTE
     from phifm.rag.assistente import Assistente
     from phifm.rag.llm import ModeloLocal
@@ -288,7 +292,13 @@ def _modelo_e_assistente(a, com_busca: bool):
         modelo.iniciar(log=RAIZ / "data/processed/llama_server.log")
     if busca is None:
         return modelo, None
-    return modelo, Assistente(busca, modelo, a.spine, k=K_FONTES, semente=SEMENTE)
+    reordenador = None
+    if reordenar:
+        from phifm.rag.reordenador import Reordenador
+
+        reordenador = Reordenador()
+    return modelo, Assistente(busca, modelo, a.spine, k=K_FONTES, semente=SEMENTE,
+                              reordenador=reordenador)
 
 
 def rodar(a, itens, cache_b: Path) -> None:
@@ -338,6 +348,37 @@ def julgar(a, itens, cache_b: Path, cache_j: Path) -> None:
     print(f"{len(julg)} textos julgados · {ilegiveis} fora do formato")
 
 
+def reordenado(a, itens, cache_b: Path, cache_j: Path, ab: str) -> None:
+    """O braço A′ da §9.2 (A com o ΦRank) e o juiz nele. Recusa enquanto a §9.2 for
+    proposta: ela toca o conjunto de teste UMA vez, e só depois do aceite do dono."""
+    from phifm.eval import assistente_bracos as b
+
+    if not b.REGRA_9_2_ACEITA:
+        raise SystemExit("a §9.2 do DOC-13 ainda é PROPOSTA: o braço A′ não roda antes do "
+                         "aceite do dono (REGRA_9_2_ACEITA em phifm.eval.assistente_bracos).")
+    respostas_a = {(r.estrato, r.arxiv_id): r for r in b.ler_respostas(cache_b) if r.braco == "A"}
+    if len(respostas_a) < len(itens):
+        raise SystemExit("o braço A não rodou em todos os itens (--rodar).")
+    cache_a2 = DIR / f"bracos_A2_{ab[:12]}.jsonl"
+    modelo, assistente = _modelo_e_assistente(a, com_busca=True, reordenar=True)
+    t0, n = time.perf_counter(), [0]
+
+    def ao_terminar(item, reg):
+        n[0] += 1
+        print(f"[A′ {n[0]}] {item['arxiv_id']} · {reg.segundos:.0f}s"
+              + (" =A" if reg.igual_a_A else "")
+              + f" · {(time.perf_counter() - t0) / n[0]:.0f} s/item", flush=True)
+
+    try:
+        respostas = b.rodar_reordenado(assistente, itens, respostas_a, cache_a2, a.limite,
+                                       ao_terminar)
+        julg = b.julgar_todas(modelo, itens, respostas, cache_j)
+    finally:
+        modelo.parar()
+    iguais = sum(1 for r in respostas if r.igual_a_A)
+    print(f"A′: {len(respostas)} itens ({iguais} iguais a A) · {len(julg)} textos no juiz")
+
+
 def resumo_mecanico(itens, respostas, sha_itens: str, ab: str) -> dict:
     """O que não depende do juiz: pode ser lido e versionado antes de I3."""
     import numpy as np
@@ -376,6 +417,10 @@ def main() -> int:
     p.add_argument("--folha-r", action="store_true")
     p.add_argument("--apurar-r", type=Path)
     p.add_argument("--decidir", action="store_true")
+    p.add_argument("--reordenado", action="store_true",
+                   help="o braço A′ da §9.2 (A + ΦRank) e o juiz nele — só depois do aceite")
+    p.add_argument("--comparar-reordenado", action="store_true",
+                   help="acerto de A′ contra A, pareado (exige I3 aprovado)")
     p.add_argument("--indice", type=Path, default=RAIZ / "data/processed/indice_busca")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     a = p.parse_args()
@@ -396,6 +441,20 @@ def main() -> int:
         print(json.dumps(resumo["por_estrato"], ensure_ascii=False, indent=1))
     if a.julgar:
         julgar(a, itens, cache_b, cache_j)
+    if a.reordenado:
+        reordenado(a, itens, cache_b, cache_j, ab)
+    if a.comparar_reordenado:
+        i3 = json.loads(agregado_i3.read_text(encoding="utf-8")) if agregado_i3.exists() else {}
+        if not i3.get("passa"):
+            raise SystemExit("A′ contra A é leitura pelo juiz: espera I3 aprovado.")
+        cache_a2 = DIR / f"bracos_A2_{ab[:12]}.jsonl"
+        respostas = b.ler_respostas(cache_b) + b.ler_respostas(cache_a2)
+        veredictos = b.veredictos_por_braco(itens, respostas, b.ler_julgamentos(cache_j))
+        r2 = {e: b.comparar_reordenado(veredictos, e) for e in ("primario", "pos_corte")}
+        (AVALIACAO / "assistente_reordenado.json").write_text(
+            json.dumps({"regra": "DOC-13 §9.2", **r2}, ensure_ascii=False, indent=2),
+            encoding="utf-8")
+        print(json.dumps(r2, ensure_ascii=False, indent=1))
 
     if a.folha_i3 or a.apurar_i3 or a.folha_r or a.apurar_r or a.decidir:
         respostas = b.ler_respostas(cache_b)
@@ -480,7 +539,8 @@ def main() -> int:
         print(json.dumps({k: resultado[k] for k in (
             "situacao", "gerador", "busca", "acerto_B_com_R", "ic_acerto_B_com_R",
             "lacuna_da_busca", "ic_lacuna_da_busca")}, ensure_ascii=False, indent=1))
-    if not any((a.rodar, a.julgar, a.folha_i3, a.apurar_i3, a.folha_r, a.apurar_r, a.decidir)):
+    if not any((a.rodar, a.julgar, a.folha_i3, a.apurar_i3, a.folha_r, a.apurar_r, a.decidir,
+                a.reordenado, a.comparar_reordenado)):
         p.error("nada a fazer: --rodar, --julgar, --folha-i3, --apurar-i3, --folha-r, "
                 "--apurar-r ou --decidir")
     return 0

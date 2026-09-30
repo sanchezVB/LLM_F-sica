@@ -276,8 +276,61 @@ def veredictos_por_braco(itens: list[dict], respostas: list[RespostaDoBraco],
         chave = chave_do_julgamento(it["pergunta"], it["gabarito"], r.texto)
         if chave not in julgamentos:
             raise RuntimeError(f"resposta {r.braco} de {r.arxiv_id} sem julgamento")
-        saida[r.braco][(r.estrato, r.arxiv_id)] = julgamentos[chave]["veredicto"]
+        saida.setdefault(r.braco, {})[(r.estrato, r.arxiv_id)] = julgamentos[chave]["veredicto"]
     return saida
+
+
+# ── o braço A′ da §9.2: A com o reordenador (PROPOSTA — não roda antes do aceite) ──
+BRACO_REORDENADO = "A2"
+# A §9.2 toca o conjunto de teste UMA vez. Enquanto ela for proposta, o script se recusa
+# a rodar o braço A′: mude para True só quando o dono aceitar, com o registro no DOC-13.
+REGRA_9_2_ACEITA = False
+
+
+def rodar_reordenado(assistente, itens: list[dict], respostas_a: dict[tuple, RespostaDoBraco],
+                     cache: Path, limite: int | None = None, ao_terminar=None
+                     ) -> list[RespostaDoBraco]:
+    """O braço A′ (DOC-13 §9.2): a MESMA consulta hipotética de A, com as fontes
+    reordenadas. Onde as 6 fontes saem iguais às de A, na mesma ordem, o prompt é o de A e
+    a resposta de A é reaproveitada (`igual_a_A`) — não se gera de novo. Retomável."""
+    feitos = {(r.estrato, r.arxiv_id) for r in ler_respostas(cache)}
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with cache.open("a", encoding="utf-8") as f:
+        for item in itens:
+            chave = (item["estrato"], item["arxiv_id"])
+            if chave in feitos:
+                continue
+            if limite is not None and n >= limite:
+                break
+            ra = respostas_a[chave]
+            t0 = time.perf_counter()
+            fontes = assistente.recuperar(ra.consulta)
+            if [x.arxiv_id for x in fontes] == ra.fontes:
+                reg = replace(ra, braco=BRACO_REORDENADO, igual_a_A=True,
+                              segundos=round(time.perf_counter() - t0, 2))
+            else:
+                r = assistente.responder_com(item["pergunta"], fontes, ra.consulta)
+                reg = _registro(item, BRACO_REORDENADO, r, time.perf_counter() - t0)
+            f.write(json.dumps(asdict(reg), ensure_ascii=False) + "\n")
+            f.flush()
+            n += 1
+            if ao_terminar:
+                ao_terminar(item, reg)
+    return ler_respostas(cache)
+
+
+def comparar_reordenado(veredictos: dict[str, dict[tuple, str]], estrato: str = "primario"
+                        ) -> dict:
+    """acerto_A′ − acerto_A pelo juiz, pareado por item, com IC 95%. Só números: o
+    critério de adoção é do dono (§9.2, proposta)."""
+    ids = sorted(k for k in veredictos[BRACO_REORDENADO] if k[0] == estrato)
+    a = np.array([veredictos["A"][k] == "certo" for k in ids], dtype=float)
+    a2 = np.array([veredictos[BRACO_REORDENADO][k] == "certo" for k in ids], dtype=float)
+    dif, ic = diferenca_pareada(a2, a)
+    return {"estrato": estrato, "n_itens": len(ids), "acerto_A": round(float(a.mean()), 4),
+            "acerto_A2": round(float(a2.mean()), 4), "A2_menos_A": dif, "ic95": ic,
+            "ganha": int(((a2 - a) > 0).sum()), "perde": int(((a2 - a) < 0).sum())}
 
 
 # ── I3: a concordância do juiz com o dono ────────────────────────────────────

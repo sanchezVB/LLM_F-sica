@@ -220,3 +220,53 @@ def test_decidir_r_entra_no_acerto_b():
     r = b.decidir(v, revisao, {"passa": True})
     assert r["acerto_B_com_R"] == 1.0 and r["gerador"] == "BASTA"
     assert r["lacuna_da_busca"] == 0.0     # a lacuna é pelo juiz, sem R
+
+
+# ── o braço A′ da §9.2 ──────────────────────────────────────────────────────
+
+
+class AssistenteReordenadoFalso:
+    """`recuperar` devolve as fontes que o teste mandar, por consulta."""
+
+    def __init__(self, fontes_por_consulta):
+        self.fontes_por_consulta, self.respondidas = fontes_por_consulta, []
+
+    def recuperar(self, consulta):
+        return self.fontes_por_consulta[consulta]
+
+    def responder_com(self, pergunta, fontes, consulta=""):
+        from phifm.rag.assistente import Resposta
+
+        self.respondidas.append(consulta)
+        return Resposta(pergunta, consulta, "Nova [1].", fontes, [1], [], [])
+
+
+def test_reordenado_reaproveita_A_quando_as_fontes_sao_as_mesmas(tmp_path):
+    fa = [_fonte(i, f"x{i}") for i in range(1, 7)]
+    trocadas = [_fonte(1, "P")] + fa[:5]
+    itens = [{"estrato": "primario", "ordem": 0, "arxiv_id": "P", "pergunta": "q0"},
+             {"estrato": "primario", "ordem": 1, "arxiv_id": "Q", "pergunta": "q1"}]
+    ra = {("primario", "P"): b.RespostaDoBraco("primario", 0, "P", "A", "Velha [2].",
+                                                [f.arxiv_id for f in fa], consulta="c0"),
+          ("primario", "Q"): b.RespostaDoBraco("primario", 1, "Q", "A", "Igual [1].",
+                                                [f.arxiv_id for f in fa], consulta="c1")}
+    ass = AssistenteReordenadoFalso({"c0": trocadas, "c1": fa})
+    regs = {r.arxiv_id: r for r in b.rodar_reordenado(ass, itens, ra, tmp_path / "a2.jsonl")}
+    assert ass.respondidas == ["c0"]                     # só onde as fontes mudaram
+    assert regs["P"].texto == "Nova [1]." and regs["P"].posicao_p == 1
+    assert regs["Q"].igual_a_A and regs["Q"].texto == "Igual [1]."
+    assert {r.braco for r in regs.values()} == {b.BRACO_REORDENADO}
+    assert len(b.rodar_reordenado(ass, itens, ra, tmp_path / "a2.jsonl")) == 2   # retoma
+
+
+def test_comparar_reordenado_e_pareado_por_item():
+    ids = [("primario", f"i{k}") for k in range(10)]
+    v = {"A": {k: ("certo" if j < 5 else "errado") for j, k in enumerate(ids)},
+         b.BRACO_REORDENADO: {k: ("certo" if j < 7 else "errado") for j, k in enumerate(ids)}}
+    r = b.comparar_reordenado(v)
+    assert (r["acerto_A"], r["acerto_A2"], r["A2_menos_A"]) == (0.5, 0.7, 0.2)
+    assert (r["ganha"], r["perde"]) == (2, 0)
+
+
+def test_braco_reordenado_nao_roda_antes_do_aceite():
+    assert b.REGRA_9_2_ACEITA is False
