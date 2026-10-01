@@ -38,7 +38,7 @@ sequências da fatia disjunta (39,4% de token de equação):
     acurácia em prosa     0,7480
     vantagem em equação   +0,1286
 
-LaTeX é redundante: fechado um `rac{`, o `}{` e o `}` vêm quase de graça, e os
+LaTeX é redundante: fechado um `\\frac{`, o `}{` e o `}` vêm quase de graça, e os
 nomes de símbolo repetem dentro da mesma expressão. **Token de equação é
 intrinsecamente mais previsível que prosa**, e por larga margem.
 

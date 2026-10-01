@@ -1636,7 +1636,7 @@ vez das constantes do projeto.
 
 O ModernBERT-base **nunca viu mascaramento consciente de equação**. Mesmo assim
 prevê token de equação muito melhor que prosa — LaTeX é redundante: fechado um
-`rac{`, o `}{` e o `}` vêm quase de graça.
+`\frac{`, o `}{` e o `}` vêm quase de graça.
 
 **Logo, uma `vantagem_em_equacao` positiva no braço tratado NÃO é evidência da
 hipótese do DOC-07 §2.3.** Ela já é +0,13 sem tratamento nenhum. O que testa a
@@ -3107,7 +3107,7 @@ era a contribuição própria prometida, e ela saiu: **BPE ganha**.
 
 A margem é seis vezes maior em equações (13%) que em prosa (2%), e o mecanismo é
 observável — o Unigram aprendeu **0 de 3** sequências LaTeX como token único, o BPE
-aprendeu **2 de 3** (`rac` e `\partial`). A poda iterativa do Unigram não retém
+aprendeu **2 de 3** (`\frac` e `\partial`). A poda iterativa do Unigram não retém
 essas unidades; a fusão do BPE retém. Não é só um número: é uma explicação.
 
 ### 3. ⚠️ V = 40.960 NÃO é o melhor, e isso contraria o §7
@@ -3176,7 +3176,7 @@ objetivo de treino, e a hipótese que o ΦEnc existiria para testar. **Não é p
 sobre texto de que as equações foram removidas.**
 
 E o DOC-05 inteiro — tokenizer nativo com ~2.000 sequências de controle, pré-tokenização
-que preserva `rac{d^2x}{dt^2}`, tratamento estrutural de índices — pressupõe LaTeX
+que preserva `\frac{d^2x}{dt^2}`, tratamento estrutural de índices — pressupõe LaTeX
 íntegro. Sobre peS2o, esse orçamento de vocabulário não tem o que representar.
 
 ### O que isso faz com o corpus de 27,75 B
