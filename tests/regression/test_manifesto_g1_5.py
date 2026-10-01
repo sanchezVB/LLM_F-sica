@@ -669,3 +669,34 @@ def test_entrada_de_distingue_CAMINHO_AUSENTE_de_sem_manifesto(tmp_path):
     sumiu = entrada_de(tmp_path / "nunca_existiu")
     assert "AUSENTE" in (sumiu.nota or "")
     assert "não é reproduzível" in (sumiu.nota or "")
+
+
+def test_parametro_reconstruido_do_classificador_bate_com_o_log_da_execucao():
+    """Onde há log da execução, o parâmetro reconstruído tem de dizer o que o log diz.
+
+    O manifesto do classificador é reconstruído: a etapa rodou antes de capturar os
+    próprios parâmetros. Até 2026-10-01 ele declarava `max_por_classe = 400_000`, o
+    padrão de `train_classifier.py`; o log versionado da execução registra cota de
+    75.000 por domínio negativo, sobre quatro domínios, e 300.000 positivos. Um
+    manifesto que atesta o padrão do código em vez da execução é o defeito que a
+    palavra "reconstruído" existe para confessar — e aqui dava para conferir.
+    """
+    import re
+
+    import scripts.manifesto_corpus as mc
+
+    raiz = Path(__file__).resolve().parents[2]
+    log = (raiz / "data" / "processed" / "avaliacao" / "isphysics_com_math.log"
+           ).read_text(encoding="utf-8")
+    m = re.search(r"cota ([\d,]+)\): ([a-z_, ]+)", log)
+    assert m, "o log da execução perdeu a linha da cota por domínio"
+    cota = int(m.group(1).replace(",", ""))
+    dominios = [d for d in m.group(2).split(",") if d.strip()]
+    positivos = int(re.search(r"is_physics: ([\d,]+) física", log).group(1).replace(",", ""))
+
+    etapa = next(e for e in mc.ETAPAS if e["etapa"] == "isphysics_clf")
+    declarado = etapa["parametros"]["max_por_classe"]
+    assert declarado == cota * len(dominios) == positivos, (
+        f"o manifesto declara max_por_classe={declarado:,}; o log da execução diz "
+        f"cota {cota:,} × {len(dominios)} domínios e {positivos:,} positivos")
+

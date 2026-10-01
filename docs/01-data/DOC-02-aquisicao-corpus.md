@@ -51,6 +51,9 @@ A lista de áreas do briefing precisa virar um seletor executável. O mapeamento
 > ### 📏 Volumes medidos (2026-08-07) — a coluna "volume relativo" acima era estimativa
 >
 > Coleta concluída: **1.595.065 registros** contra os ~1,2 M previstos (**+33%**).
+> Esta é a coleta de 2026-08-06. A que a cadeia de hashes atesta e o artigo usa
+> terminou onze horas depois, com **1.595.422**: o OAI-PMH filtra por data de
+> modificação, e duas coletas do mesmo conjunto não devolvem os mesmos registros.
 > Os volumes por arquivo, contando toda categoria atribuída e não só a primária:
 >
 > | Arquivo | Previsto | Medido | Erro |

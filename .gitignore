@@ -14,6 +14,10 @@
 /data/*
 !/data/processed/
 /data/processed/*
+# O manifesto raiz É versionado. É contra ele que se confere a cadeia de hashes, e
+# um atestado que só existe no disco de quem o gerou não atesta nada para quem está
+# de fora. Os manifestos de etapa ficam com os dados; a raiz traz o hash de cada um.
+!/data/processed/MANIFESTO-RAIZ.json
 !/data/processed/avaliacao/
 /data/processed/avaliacao/*
 # Resultados de medição SÃO versionados: são a evidência das afirmações do

@@ -18,7 +18,13 @@ git clone https://github.com/sanchezVB/LLM_F-sica.git
 cd LLM_F-sica
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
+.venv/bin/pip install "reportlab>=4.0"   # o extra `relatorio`: os PDFs e os testes deles
 ```
+
+O `reportlab` não está no `requirements.lock` porque é um extra (`relatorio`, em
+`pyproject.toml`); o CI o instala nessa mesma linha à parte. Sem ele, dois testes de
+`tests/regression/test_overflow_caracteres.py` falham com `ModuleNotFoundError` e os
+de `test_artigo_pdf.py` são saltados.
 
 Verificar que funcionou:
 
@@ -26,7 +32,7 @@ Verificar que funcionou:
 PYTHONPATH=src .venv/bin/python -m pytest tests/ -q
 ```
 
-Devem passar **414 testes**, com 9 saltados — os que dependem de `torch` e vivem
+Não deve haver falha. Em 2026-10-01 passam 1.092 testes e 22 são saltados — os que dependem de `torch` e vivem
 na venv de treino (ver §1b). O salto é declarado com motivo, nunca silencioso:
 salto silencioso é ausência de erro lida como sucesso.
 

@@ -115,16 +115,18 @@ Em ordem de retorno por custo. As quatro primeiras não exigem treinar nada.
 
 ## 6. Defeitos fora do artigo
 
+Corrigidos em 2026-10-01, depois deste relatório. O que resta depende dos dados da máquina do corpus, e está em `ESTADO.md`, na linha "Pendências na máquina do corpus".
+
 | Onde | Defeito | Estado |
 |---|---|---|
 | `ESTADO.md`, `src/phifm/eval/mlm_regiao.py` | `\frac` gravado como form feed + `rac` | Corrigido (`cad11c8`) |
 | `docs/02-models/DOC-07` §2.2, `docs/01-data/DOC-05` §11.1 | Embedding a 16% (e ~24%); o certo é 22,1% e 31,2%, como a docstring de `config.py` já dizia | Corrigido |
-| `src/phifm/core/licensing/registry.py` | Sem regra para `licenses/publicdomain/` (1.660 registros caem em NOASSERTION e contam como não redistribuíveis: 14,8% deveria ser 14,9%); versão ignorada (`by/3.0` rotulado CC-BY-4.0) | **Aberto** — exige reconstruir a contagem |
-| `scripts/manifesto_corpus.py`, `ETAPAS['isphysics_clf']` | `max_por_classe = 400_000` reconstruído do padrão; o log da execução mostra 300.000 | **Aberto** — exige reconstruir a raiz |
-| `data/processed/MANIFESTO-RAIZ.json` | Não versionado; o hash raiz não aparece no artigo, que oferece a cadeia como atestado | **Aberto** |
-| `docs/adr/ADR-0003` §8 | "A soma de três ordens" conta os 0,0558 como terceira desvantagem, e eles são o efeito das outras duas | **Aberto** — o artigo foi corrigido, o ADR não |
-| ADR-0001, DOC-00, DOC-02, DOC-19 | Citam a coleta de 1.595.065 registros; o artigo usa a de 1.595.422 | **Aberto** |
-| `SETUP.md`, `requirements.lock` | "414 testes" (são 1.070); `reportlab` fora do lock e sem menção ao extra `relatorio`, o que quebra dois testes numa instalação limpa | **Aberto** |
+| `src/phifm/core/licensing/registry.py` | Sem regra para `licenses/publicdomain/` (1.660 registros caem em NOASSERTION e contam como não redistribuíveis: 14,8% deveria ser 14,9%); versão ignorada (`by/3.0` rotulado CC-BY-4.0) | Corrigido no código (2026-10-01): versão lida, `CC-PDDC` reconhecida, 22 testes novos; `scripts/reaplicar_licencas.py` atualiza a tabela mestra sem reconstruí-la (aplicado na coleta local: 14,77% → 14,88%). **Falta rodar na máquina do corpus** |
+| `scripts/manifesto_corpus.py`, `ETAPAS['isphysics_clf']` | `max_por_classe = 400_000` reconstruído do padrão; o log da execução mostra 300.000 | Corrigido no código, com teste que confere o parâmetro contra o log versionado. **Falta reconstruir a raiz** |
+| `data/processed/MANIFESTO-RAIZ.json` | Não versionado; o hash raiz não aparece no artigo, que oferece a cadeia como atestado | `.gitignore` passou a aceitá-lo. **Falta gerar a raiz nova, versioná-la e citar o hash** |
+| `docs/adr/ADR-0003` §8 | "A soma de três ordens" conta os 0,0558 como terceira desvantagem, e eles são o efeito das outras duas | Corrigido: frase riscada, com a correção ao lado |
+| ADR-0001, DOC-00, DOC-02, DOC-19 | Citam a coleta de 1.595.065 registros; o artigo usa a de 1.595.422 | Corrigido: cada um diz qual coleta cita e qual é a atestada |
+| `SETUP.md`, `requirements.lock` | "414 testes" (são mais de mil); `reportlab` fora do lock e sem menção ao extra `relatorio`, o que quebra dois testes numa instalação limpa | Corrigido: o `SETUP.md` instala o extra, como o CI, e não fixa mais a contagem |
 
 ## 7. Integridade do texto da v0.6, por script
 

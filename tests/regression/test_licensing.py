@@ -69,6 +69,84 @@ class TestClausulaNaoComercial:
         assert resolve("https://creativecommons.org/licenses/by-nc-nd/4.0/").non_commercial is True
 
 
+class TestVersaoETipo:
+    """A versão e o tipo fazem parte da licença: o rótulo tem de ser o que está na URL.
+
+    Até 2026-10-01 as regras olhavam só o tipo. Os DIREITOS saíam certos, e por
+    isso nada acusava; o IDENTIFICADOR saía errado em 7.631 registros do índice,
+    e 1.660 dedicados ao domínio público contavam como não redistribuíveis.
+    """
+
+    @pytest.mark.parametrize("url, spdx, particao", [
+        ("http://creativecommons.org/licenses/by/3.0/", "CC-BY-3.0", Partition.TRAIN_OPEN),
+        ("http://creativecommons.org/licenses/by-nc-sa/3.0/", "CC-BY-NC-SA-3.0", Partition.EVAL_ONLY),
+        ("https://creativecommons.org/licenses/by-sa/2.5/", "CC-BY-SA-2.5", Partition.TRAIN_OPEN),
+        ("https://creativecommons.org/licenses/by-nc/4.0/", "CC-BY-NC-4.0", Partition.EVAL_ONLY),
+        ("http://creativecommons.org/licenses/by/4.0/", "CC-BY-4.0", Partition.TRAIN_OPEN),
+    ])
+    def test_o_rotulo_carrega_a_versao_da_url(self, url, spdx, particao):
+        r = resolve(url)
+        assert r.spdx_id == spdx
+        assert r.partition is particao
+        assert r.license_url.endswith(url.split("creativecommons.org")[1])
+
+    def test_versoes_do_mesmo_tipo_tem_os_mesmos_direitos(self):
+        """O ADR-0001 §2 decide por cláusula (BY, SA, NC, ND), não por versão."""
+        direitos = lambda r: (r.train_ok, r.redistributable, r.commercial_ok,  # noqa: E731
+                              r.attribution_required, r.share_alike, r.non_commercial)
+        for tipo in ("by", "by-sa", "by-nc", "by-nc-sa", "by-nc-nd"):
+            base = f"https://creativecommons.org/licenses/{tipo}"
+            assert direitos(resolve(f"{base}/3.0/")) == direitos(resolve(f"{base}/4.0/"))
+
+    def test_dedicacao_ao_dominio_publico_e_redistribuivel(self):
+        """`licenses/publicdomain/` é a ferramenta anterior ao CC0, com os mesmos direitos."""
+        r = resolve("http://creativecommons.org/licenses/publicdomain/")
+        assert r.spdx_id == "CC-PDDC"
+        assert r.partition is Partition.TRAIN_OPEN
+        assert r.attribution_required is False
+
+    @pytest.mark.parametrize("url", [
+        "https://creativecommons.org/licenses/by-nd-nc/1.0/",   # a ordem da versão 1.0
+        "https://creativecommons.org/licenses/by-nc-sa/9.9/",   # versão que não existe
+        "https://creativecommons.org/licenses/by-nc-sa/",       # sem versão
+        "https://creativecommons.org/licenses/nc-sampling+/1.0/",
+    ])
+    def test_nc_fora_do_catalogo_continua_fora_do_treino(self, url):
+        """O caminho de fuga: `UNKNOWN` treina, e NC não pode cair nele."""
+        r = resolve(url)
+        assert r.train_ok is False and r.partition is Partition.EVAL_ONLY
+        assert r.spdx_id == "NOASSERTION", "sem tipo e versão conhecidos, não se afirma rótulo"
+
+    @pytest.mark.parametrize("url", [
+        "https://creativecommons.org/licenses/by/",             # sem versão
+        "https://creativecommons.org/licenses/by/9.9/",
+        "https://creativecommons.org/licenses/by-nd/4.0/",      # ND sem NC: fora do catálogo
+    ])
+    def test_cc_aberta_sem_rotulo_afirmavel_nao_e_redistribuida(self, url):
+        """Sem identificador não há atribuição correta, e sem atribuição não se publica."""
+        r = resolve(url)
+        assert r.spdx_id == "NOASSERTION"
+        assert r.train_ok is True and r.redistributable is False
+
+    def test_as_dez_licencas_do_indice_tem_identificador(self):
+        """A distribuição real, medida no índice em 2026-10-01: nenhuma cai em UNKNOWN."""
+        observadas = [
+            "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+            "arXiv-perpetual-nonexclusive",
+            "http://creativecommons.org/licenses/by/4.0/",
+            "http://creativecommons.org/licenses/by-nc-nd/4.0/",
+            "http://creativecommons.org/licenses/by-nc-sa/4.0/",
+            "http://creativecommons.org/publicdomain/zero/1.0/",
+            "http://creativecommons.org/licenses/by-sa/4.0/",
+            "http://creativecommons.org/licenses/by/3.0/",
+            "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+            "http://creativecommons.org/licenses/publicdomain/",
+        ]
+        rotulos = [resolve(u).spdx_id for u in observadas]
+        assert "NOASSERTION" not in rotulos
+        assert len(set(rotulos)) == 9, "as duas grafias da licença padrão do arXiv são uma só"
+
+
 class TestObrasSobCopyright:
     """ADR-0001 §5: livros sob copyright ingerem para AVALIAÇÃO, nunca treino."""
 

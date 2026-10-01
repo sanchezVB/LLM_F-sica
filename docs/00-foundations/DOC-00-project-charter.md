@@ -106,7 +106,7 @@ Esta seção é o coração quantitativo da carta.
 
 | Classe de fonte | Volume estimado | Tokens estimados | Confiança |
 |---|---|---|---|
-| Texto completo do arXiv, família Física (fonte LaTeX) | **1.595.065 papers** *(medido, +33% sobre a estimativa)* | **12–20 B** *(medido)* | ✅ **Verificado** — coleta concluída 2026-08-07 |
+| Texto completo do arXiv, família Física (fonte LaTeX) | **1.595.065 papers** *(medido, +33% sobre a estimativa; coleta de 06/08/2026 — a atestada pela cadeia, de 07/08, tem 1.595.422)* | **12–20 B** *(medido)* | ✅ **Verificado** — coleta concluída 2026-08-07 |
 | Teses de doutorado em Física (repositórios abertos) | ~200–400 mil | **8–16 B** | Média |
 | Journals de acesso aberto + fatia de Física do PMC/DOAJ | ~200 mil artigos | **2–4 B** | Média |
 | Notas de aula, OCW, livros abertos (licença CC) | — | **1–3 B** | Média |

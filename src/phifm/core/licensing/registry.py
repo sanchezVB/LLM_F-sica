@@ -22,7 +22,7 @@ sob Apache-2.0), conteúdo NC fica **fora do treino** — ADR-0001 §4.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 
@@ -73,12 +73,20 @@ CATALOG: dict[str, LicenseRecord] = {
                          train=True, redist=True, comm=True, attr=True, sa=True,
                          note="Share-alike: obras derivadas do CORPUS herdam a licença. "
                               "Não afeta os pesos, que não são obra derivada do corpus."),
+    "CC-BY-NC-4.0": _lic("CC-BY-NC-4.0", "https://creativecommons.org/licenses/by-nc/4.0/",
+                         train=False, redist=False, comm=False, attr=True, nc=True,
+                         note="NC excluído do treino sob Q3 (ADR-0001 §4)."),
     "CC-BY-NC-SA-4.0": _lic("CC-BY-NC-SA-4.0", "https://creativecommons.org/licenses/by-nc-sa/4.0/",
                             train=False, redist=False, comm=False, attr=True, sa=True, nc=True,
                             note="NC excluído do treino sob Q3 (ADR-0001 §4)."),
     "CC-BY-NC-ND-4.0": _lic("CC-BY-NC-ND-4.0", "https://creativecommons.org/licenses/by-nc-nd/4.0/",
                             train=False, redist=False, comm=False, attr=True, nc=True,
                             note="NC + ND. Excluído do treino sob Q3."),
+    "CC-PDDC": _lic("CC-PDDC", "https://creativecommons.org/licenses/publicdomain/",
+                    train=True, redist=True, comm=True,
+                    note="Dedicação ao domínio público da Creative Commons — a ferramenta "
+                         "anterior ao CC0, aposentada em 2010. Mesmos direitos do CC0. "
+                         "No arXiv: 1.660 registros, todos de 2008 a 2015."),
     "arXiv-1.0": _lic("LicenseRef-arXiv-perpetual-nonexclusive",
                       "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
                       train=True, redist=False, comm=True,
@@ -101,16 +109,70 @@ CATALOG: dict[str, LicenseRecord] = {
 }
 
 # ── Resolução a partir da URL crua observada no metadado ───────────────────
+# ⚠️ A VERSÃO faz parte da licença. Até 2026-10-01 as regras olhavam só o tipo, e
+# `by/3.0` saía rotulado `CC-BY-4.0`. Os direitos são os mesmos — a partição não
+# mudava, e por isso nenhum teste acusava —, mas 7.631 registros do índice
+# carregavam o identificador da licença errada, e atribuição correta é a condição
+# de uso de uma CC-BY: um PhysCorpus-Open publicado assim citaria a licença errada
+# em 2% dos documentos.
+#
+# A mesma leitura por tipo deixava `licenses/publicdomain/` sem regra nenhuma:
+# 1.660 registros dedicados ao domínio público caíam em UNKNOWN e contavam como
+# NÃO redistribuíveis. O erro era conservador, e por isso sobreviveu — a fração
+# redistribuível do corpus saía 0,1 ponto abaixo do que é.
+_CC = re.compile(r"creativecommons\.org/licenses/([a-z]+(?:-[a-z]+)*)(?:/(\d+\.\d+))?", re.I)
+_CC_VERSOES = frozenset({"1.0", "2.0", "2.5", "3.0", "4.0"})
+
+# Tipo → entrada 4.0 do catálogo, que serve de molde dos direitos: entre as
+# versões de um mesmo tipo muda o texto jurídico, não o que este projeto faz com
+# o documento (ADR-0001 §2 decide por cláusula — BY, SA, NC, ND —, não por versão).
+_CC_TIPO = {
+    "by": "CC-BY-4.0",
+    "by-sa": "CC-BY-SA-4.0",
+    "by-nc": "CC-BY-NC-4.0",
+    "by-nc-sa": "CC-BY-NC-SA-4.0",
+    "by-nc-nd": "CC-BY-NC-ND-4.0",
+}
+
 _RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"creativecommons\.org/publicdomain/zero", re.I), "CC0-1.0"),
-    (re.compile(r"creativecommons\.org/licenses/by-nc-nd", re.I), "CC-BY-NC-ND-4.0"),
-    (re.compile(r"creativecommons\.org/licenses/by-nc-sa", re.I), "CC-BY-NC-SA-4.0"),
-    (re.compile(r"creativecommons\.org/licenses/by-nc(?![-a-z])", re.I), "CC-BY-NC-SA-4.0"),
-    (re.compile(r"creativecommons\.org/licenses/by-sa", re.I), "CC-BY-SA-4.0"),
-    (re.compile(r"creativecommons\.org/licenses/by(?![-a-z])", re.I), "CC-BY-4.0"),
     (re.compile(r"arxiv\.org/licenses/nonexclusive-distrib", re.I), "arXiv-1.0"),
     (re.compile(r"^arXiv-perpetual-nonexclusive$", re.I), "arXiv-1.0"),
 ]
+
+
+def _nc_sem_rotulo(raw: str) -> LicenseRecord:
+    """Direitos de NC, identificador não afirmado.
+
+    Para uma URL da Creative Commons que traz a cláusula NC mas cujo tipo ou
+    versão não está no catálogo. ⚠️ Não pode cair em `UNKNOWN`: o padrão
+    conservador de lá é *treina, não redistribui*, e treinar em conteúdo NC é
+    exatamente o que o ADR-0001 §4 proíbe. Conservador, aqui, é não treinar.
+    """
+    return replace(CATALOG["CC-BY-NC-ND-4.0"], spdx_id="NOASSERTION", license_url=None,
+                   note=f"Creative Commons com cláusula NC, tipo ou versão fora do "
+                        f"catálogo ({raw[:80]!r}). Tratada como NC: fora do treino.")
+
+
+def _resolve_cc(raw: str) -> LicenseRecord | None:
+    """URL `creativecommons.org/licenses/<tipo>/<versão>/` → registro, ou ``None``."""
+    m = _CC.search(raw)
+    if m is None:
+        return None
+    tipo, versao = m.group(1).lower(), m.group(2)
+    if tipo == "publicdomain":
+        return CATALOG["CC-PDDC"]
+    tem_nc = "nc" in tipo.split("-")
+    chave = _CC_TIPO.get(tipo)
+    if chave is None or versao not in _CC_VERSOES:
+        # Tipo fora da tabela (`by-nd`, o `by-nd-nc` da versão 1.0) ou versão
+        # ausente. Afirmar `-4.0` aqui seria o defeito que este bloco corrige.
+        return _nc_sem_rotulo(raw) if tem_nc else None
+    molde = CATALOG[chave]
+    if versao == "4.0":
+        return molde
+    return replace(molde, spdx_id=f"CC-{tipo.upper()}-{versao}",
+                   license_url=f"https://creativecommons.org/licenses/{tipo}/{versao}/")
 
 
 def resolve(raw: str | None) -> LicenseRecord:
@@ -123,6 +185,9 @@ def resolve(raw: str | None) -> LicenseRecord:
     """
     if not raw:
         return CATALOG["arXiv-1.0"]  # ausência no arXiv = licença padrão
+    cc = _resolve_cc(raw)
+    if cc is not None:
+        return cc
     for pattern, key in _RULES:
         if pattern.search(raw):
             return CATALOG[key]

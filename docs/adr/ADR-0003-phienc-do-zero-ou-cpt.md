@@ -148,8 +148,16 @@ treinada em 2 T.
 
 **Fecha o caminho A, na prática.** Um ΦEnc-150M do zero teria de superar, com o nosso
 corpus e o nosso orçamento, um modelo que já está pronto e de graça. Nada aqui sugere
-que isso aconteça: a distância que o treino do zero teria de cobrir é a soma de três
-ordens (tokens, parâmetros, e agora +0,056 de desvantagem medida).
+que isso aconteça: ~~a distância que o treino do zero teria de cobrir é a soma de três
+ordens (tokens, parâmetros, e agora +0,056 de desvantagem medida).~~
+
+> **Corrigido em 2026-10-01 (revisão do artigo).** A frase riscada contava duas vezes. Um
+> ΦEnc-150M do zero **igualaria** a base em parâmetros; e os +0,056 não são uma terceira
+> desvantagem a somar às outras — são o **efeito medido** delas, no proxy de 48 M, com
+> tamanho, tokenizer e volume confundidos, e não se sabe quanto restaria a 150 M. A
+> distância que sobra é uma só: volume de pré-treino, ~2 B tokens preparados contra ~2 T
+> da base, três ordens de grandeza. A decisão do §10 não muda — ela se apoia no volume e
+> no custo, não na soma.
 
 **Dá ao caminho B um alvo numérico e uma pergunta mais limpa.** A barra é **0,5270** no
 protocolo do G1, e os dois braços do CPT partem DESTA base — então a comparação passa a

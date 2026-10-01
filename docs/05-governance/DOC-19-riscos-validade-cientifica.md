@@ -150,7 +150,7 @@ próprio, um dado de validade.
 
 | Previsão | Documento | Estimado | Medido | Erro |
 |---|---|---|---|---|
-| Papers de Física no arXiv | DOC-00 §4.1 | ~1,2 M | **1.595.065** | **+33%** |
+| Papers de Física no arXiv | DOC-00 §4.1 | ~1,2 M | **1.595.065** (coleta de 06/08; 1.595.422 na de 07/08, a atestada) | **+33%** |
 | Tokens do arXiv (texto completo) | DOC-00 §4.1 | 15–25 B | 12–20 B | −20% |
 | Tamanho da tabela mestra em disco | DOC-02 §3.1 | 516–686 B/registro | 422 B/registro | −25% |
 | `cond-mat` | DOC-02 §2 | ~350 k | 556.487 | **+59%** |

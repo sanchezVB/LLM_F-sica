@@ -103,8 +103,15 @@ ETAPAS: list[dict] = [
         "descricao": "Classificador binário Física/não-Física, negativos estratificados",
         "raiz": "models/isphysics-clf",
         "entradas": ["data/processed/spine.parquet", "data/raw/arxiv_negativos"],
+        # ⚠️ 300.000, e não os 400.000 do padrão de `train_classifier.py`. Este manifesto
+        # é RECONSTRUÍDO — o classificador rodou antes de as etapas capturarem os
+        # próprios parâmetros —, e eu havia copiado o padrão do script. O log da
+        # execução diz outra coisa: `isphysics_com_math.log` registra "cota 75,000"
+        # por domínio, a cota é `max_por_classe // 4`, e a linha seguinte traz
+        # "300,000 física". Parâmetro reconstruído do código atesta o código de hoje,
+        # não a execução; onde há log da execução, vale o log.
         "parametros": {"script": "scripts/train_classifier.py", "task": "isphysics",
-                       "max_por_classe": 400_000, "precision": 0.95},
+                       "max_por_classe": 300_000, "precision": 0.95},
     },
     {
         "etapa": "pares_citacao",

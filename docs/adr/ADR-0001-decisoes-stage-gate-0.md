@@ -184,6 +184,32 @@ Decorre naturalmente de §2:
 > 8–15 B do §6. Continua sendo um artefato publicável e provavelmente o maior
 > corpus de Física abertamente redistribuível — mas a alegação precisa ser
 > feita com o número certo.
+
+> ### 🔧 Duas correções a este bloco (2026-10-01)
+>
+> **A coleta.** Os números acima são da coleta OAI-PMH concluída em 2026-08-06
+> (1.595.065 registros únicos). A que a cadeia de hashes atesta, e que o artigo
+> usa, terminou onze horas depois, em 2026-08-07, com **1.595.422** — o protocolo
+> filtra por data de modificação, e duas coletas do mesmo conjunto não devolvem os
+> mesmos registros. As frações coincidem nas duas até a primeira casa decimal.
+>
+> **O resolvedor.** `licenses/publicdomain/` — a dedicação ao domínio público da
+> Creative Commons, a ferramenta anterior ao CC0 — não tinha regra e caía em
+> `NOASSERTION`: 1.660 registros, todos de 2008 a 2015, contados como não
+> redistribuíveis. Com a regra (SPDX `CC-PDDC`, tratada com os direitos do CC0),
+> na coleta de 2026-08-06:
+>
+> | | antes | depois |
+> |---|---|---|
+> | Redistribuível (`train_open`) | 14,8% (235.628) | **14,9%** (237.288) |
+> | Treina mas não redistribui | 82,3% (1.312.430) | 82,2% (1.310.770) |
+> | Só avaliação (NC) | 2,9% (47.007) | 2,9% (47.007) |
+>
+> O registro passou também a ler a **versão** da licença: `by/3.0` e
+> `by-nc-sa/3.0`, 7.631 registros, saíam rotulados como 4.0. Os direitos e a
+> partição não mudam; o identificador, que é o que a atribuição cita, muda. Nada
+> entra em `eval_only` nem sai dela. A tabela mestra é atualizada por
+> `scripts/reaplicar_licencas.py`, sem reconstrução.
 >
 > **Consequência de segunda ordem, e é a boa notícia:** a fatia redistribuível
 > cresce ~15 pontos percentuais a cada quatro anos. O `PhysCorpus-Open`
