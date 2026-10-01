@@ -87,7 +87,9 @@ Base **ModernBERT** (Warner et al., 2024), não BERT/RoBERTa clássico. A difere
 | Cabeças | 12 | 16 |
 | Vocabulário | **40.960** (DOC-05 §7) | 40.960 |
 | Contexto | 8.192 | 8.192 |
-| Embedding como % do modelo | 16% | 10% |
+| Embedding como % do modelo | 22% | 11% |
+
+> **Corrigido em 2026-10-01.** A linha dizia 16% e 10%. Os 16% eram a conta do DOC-05 §7.2 para V = 32 mil sobre 150 M nominais; com V = 40.960 e o total real da configuração (142,4 M e 386,2 M, `ConfigEnc.fracao_de_embedding()`), são 22,1% e 10,9%.
 
 O ΦEnc-400M só é treinado se o 150M passar o Portão G1 — não se gasta em escala antes de a receita estar validada.
 

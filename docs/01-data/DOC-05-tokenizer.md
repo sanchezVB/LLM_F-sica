@@ -212,7 +212,7 @@ O Qwen3 usa 151.936 tokens porque cobre **mais de 100 idiomas**. Nós cobrimos *
 >
 > ⚠️ **Medido em 2026-08-27, e contraria esta seção.** Nas três métricas intrínsecas a ordem é monotônica — 32.768 (0,9973) → 40.960 (0,9620) → 65.536 (0,8966): quanto maior, melhor, em toda a faixa testada. Consistente com Tao et al., que esta ressalva já citava.
 >
-> **A decisão não muda, e a razão é a §7.2.** A fertilidade não vê a troca que decide: com V = 65.536 a tabela de embeddings sai de 16% para ~24% do ΦEnc-150M — parâmetros que não computam nada. Escolher pelo número intrínseco seria otimizar a métrica que este documento já argumentou ser proxy. O que a medição autoriza é **não tratar 40.960 como decidido antes do §11.2**, e é isso que a variante D existe para resolver. Ver §11.1-medido.
+> **A decisão não muda, e a razão é a §7.2.** A fertilidade não vê a troca que decide: com V = 65.536 a tabela de embeddings sai de 22,1% para 31,2% do ΦEnc-150M (corrigido em 2026-10-01: dizia 16% e ~24%, que é a conta de V = 32 mil) — parâmetros que não computam nada. Escolher pelo número intrínseco seria otimizar a métrica que este documento já argumentou ser proxy. O que a medição autoriza é **não tratar 40.960 como decidido antes do §11.2**, e é isso que a variante D existe para resolver. Ver §11.1-medido.
 
 ---
 
