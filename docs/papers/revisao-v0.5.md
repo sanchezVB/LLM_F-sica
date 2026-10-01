@@ -90,7 +90,7 @@ Por tema:
 
 **Sobre o destino — opinião minha, não de um revisor.**
 
-- **O artigo são vários.** Oito contribuições, 24 tabelas, cerca de 14 mil palavras. Um revisor vai perguntar qual é a tese. Leio três artigos: (a) o sistema de recuperação e a curva volume × base, que é o resultado mais sólido; (b) a auditoria metodológica das §5.2 a 5.4, que é o mais original e já tem um rascunho próprio (`rascunho-armadilhas-recuperacao-por-citacao.md`); (c) os negativos de tokenização e pré-treinamento, que depois desta revisão são mais fracos do que pareciam, porque a ablação A×E não isola o que dizia isolar.
+- **O artigo são vários.** Oito contribuições, 24 tabelas, cerca de 21 mil palavras. Um revisor vai perguntar qual é a tese. Leio três artigos: (a) o sistema de recuperação e a curva volume × base, que é o resultado mais sólido; (b) a auditoria metodológica das §5.2 a 5.4, que é o mais original e já tem um rascunho próprio (`rascunho-armadilhas-recuperacao-por-citacao.md`); (c) os negativos de tokenização e pré-treinamento, que depois desta revisão são mais fracos do que pareciam, porque a ablação A×E não isola o que dizia isolar.
 - **Idioma.** Qualquer venue de PLN ou RI exige inglês. Em português, o caminho é relatório técnico no arXiv (cs.IR), que não exige revisão por pares e fixa a prioridade.
 - **O que um revisor vai exigir e não há:** um baseline treinado por citação (SPECTER2 ou SciNCL), um conjunto externo (SciDocs ou SciRepEval), mais de uma semente e um conjunto de teste separado. Os dois últimos custam pouco (§5, itens 1 e 7).
 
@@ -124,7 +124,7 @@ Em ordem de retorno por custo. As quatro primeiras não exigem treinar nada.
 | `data/processed/MANIFESTO-RAIZ.json` | Não versionado; o hash raiz não aparece no artigo, que oferece a cadeia como atestado | **Aberto** |
 | `docs/adr/ADR-0003` §8 | "A soma de três ordens" conta os 0,0558 como terceira desvantagem, e eles são o efeito das outras duas | **Aberto** — o artigo foi corrigido, o ADR não |
 | ADR-0001, DOC-00, DOC-02, DOC-19 | Citam a coleta de 1.595.065 registros; o artigo usa a de 1.595.422 | **Aberto** |
-| `SETUP.md`, `requirements.lock` | "414 testes" (são 1.065); `reportlab` fora do lock e sem menção ao extra `relatorio`, o que quebra dois testes numa instalação limpa | **Aberto** |
+| `SETUP.md`, `requirements.lock` | "414 testes" (são 1.070); `reportlab` fora do lock e sem menção ao extra `relatorio`, o que quebra dois testes numa instalação limpa | **Aberto** |
 
 ## 7. Integridade do texto da v0.6, por script
 
