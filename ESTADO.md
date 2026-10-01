@@ -263,7 +263,12 @@ a §9.1 não disser "busca NÃO LIMITA".
 com o **ΦRank-PhysBERT** leva o artigo certo às 6 fontes em **0,827 contra 0,733** no
 primário (+9,3 pontos, IC [+4,7; +14,0]; 19 resgates, 1 perda) — os outros candidatos
 (10 fontes, 3 resumos hipotéticos, GTE, fusão) ficam em +2 a +4. Custo: ~11 s na CPU por
-pergunta. Falta a confirmação no teste, que depende da §9.1 e do aceite do dono.
+pergunta.
+
+**A §9.2 foi ACEITA pelo dono em 2026-10-01**, com o limiar de adoção mais exigente que o
+proposto: adota o ΦRank só se o IC de acerto_A′ − acerto_A ficar inteiro acima de **0,03**
+(era 0), com até 60 s por pergunta. O braço A′ roda já, por decisão dele (~5 h de GPU); a
+comparação com A é pelo juiz e **só é lida depois de I3**.
 
 ## A BUSCA existe: 1,59 M artigos indexados, página local, 28 ms por consulta (2026-09-24)
 

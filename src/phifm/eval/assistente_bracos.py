@@ -113,6 +113,7 @@ class RespostaDoBraco:
     igual_a_A: bool = False       # B em que a busca já trouxe P
     consulta: str = ""            # a consulta hipotética (A e B)
     segundos: float = 0.0
+    segundos_recuperacao: float = 0.0   # só no braço A′: busca + ΦRank
 
 
 def posicao_sorteada(arxiv_id: str, k: int = K_FONTES) -> int:
@@ -282,9 +283,11 @@ def veredictos_por_braco(itens: list[dict], respostas: list[RespostaDoBraco],
 
 # ── o braço A′ da §9.2: A com o reordenador (PROPOSTA — não roda antes do aceite) ──
 BRACO_REORDENADO = "A2"
-# A §9.2 toca o conjunto de teste UMA vez. Enquanto ela for proposta, o script se recusa
-# a rodar o braço A′: mude para True só quando o dono aceitar, com o registro no DOC-13.
-REGRA_9_2_ACEITA = False
+# A §9.2 toca o conjunto de teste UMA vez. ACEITA pelo dono em 2026-10-01, com o limiar de
+# adoção mais exigente que o proposto (0,03 em vez de 0) — registro no DOC-13 §9.2.
+REGRA_9_2_ACEITA = True
+LIMIAR_ADOCAO_REORDENADO = 0.03   # o IC de acerto_A′ − acerto_A tem de ficar INTEIRO acima
+TEMPO_MAX_REORDENADO_S = 60.0     # mediana por pergunta
 
 
 def rodar_reordenado(assistente, itens: list[dict], respostas_a: dict[tuple, RespostaDoBraco],
@@ -306,12 +309,13 @@ def rodar_reordenado(assistente, itens: list[dict], respostas_a: dict[tuple, Res
             ra = respostas_a[chave]
             t0 = time.perf_counter()
             fontes = assistente.recuperar(ra.consulta)
+            t_rec = round(time.perf_counter() - t0, 2)
             if [x.arxiv_id for x in fontes] == ra.fontes:
-                reg = replace(ra, braco=BRACO_REORDENADO, igual_a_A=True,
-                              segundos=round(time.perf_counter() - t0, 2))
+                reg = replace(ra, braco=BRACO_REORDENADO, igual_a_A=True, segundos=t_rec)
             else:
                 r = assistente.responder_com(item["pergunta"], fontes, ra.consulta)
                 reg = _registro(item, BRACO_REORDENADO, r, time.perf_counter() - t0)
+            reg = replace(reg, segundos_recuperacao=t_rec)
             f.write(json.dumps(asdict(reg), ensure_ascii=False) + "\n")
             f.flush()
             n += 1
@@ -320,17 +324,32 @@ def rodar_reordenado(assistente, itens: list[dict], respostas_a: dict[tuple, Res
     return ler_respostas(cache)
 
 
-def comparar_reordenado(veredictos: dict[str, dict[tuple, str]], estrato: str = "primario"
-                        ) -> dict:
-    """acerto_A′ − acerto_A pelo juiz, pareado por item, com IC 95%. Só números: o
-    critério de adoção é do dono (§9.2, proposta)."""
+def comparar_reordenado(veredictos: dict[str, dict[tuple, str]],
+                        respostas: list[RespostaDoBraco], estrato: str = "primario") -> dict:
+    """A regra da §9.2 no estrato: acerto_A′ − acerto_A pelo juiz, pareado por item, e o
+    tempo. ADOTA se o IC 95% ficar inteiro acima de `LIMIAR_ADOCAO_REORDENADO` e o tempo
+    mediano couber em `TEMPO_MAX_REORDENADO_S`; fora disso, fica o sistema atual.
+
+    O tempo de A′ é a mediana de A mais a mediana da recuperação com o ΦRank — conta a
+    busca simples duas vezes, errando para o lado de reprovar (definido antes de rodar)."""
     ids = sorted(k for k in veredictos[BRACO_REORDENADO] if k[0] == estrato)
     a = np.array([veredictos["A"][k] == "certo" for k in ids], dtype=float)
     a2 = np.array([veredictos[BRACO_REORDENADO][k] == "certo" for k in ids], dtype=float)
     dif, ic = diferenca_pareada(a2, a)
+    do_estrato = [r for r in respostas if r.estrato == estrato]
+    t_a = float(np.median([r.segundos for r in do_estrato if r.braco == "A"]))
+    t_rec = float(np.median([r.segundos_recuperacao for r in do_estrato
+                             if r.braco == BRACO_REORDENADO]))
+    tempo = round(t_a + t_rec, 1)
+    adota = ic[0] > LIMIAR_ADOCAO_REORDENADO and tempo <= TEMPO_MAX_REORDENADO_S
+    iguais = sum(1 for r in do_estrato if r.braco == BRACO_REORDENADO and r.igual_a_A)
     return {"estrato": estrato, "n_itens": len(ids), "acerto_A": round(float(a.mean()), 4),
             "acerto_A2": round(float(a2.mean()), 4), "A2_menos_A": dif, "ic95": ic,
-            "ganha": int(((a2 - a) > 0).sum()), "perde": int(((a2 - a) < 0).sum())}
+            "limiar": LIMIAR_ADOCAO_REORDENADO,
+            "ganha": int(((a2 - a) > 0).sum()), "perde": int(((a2 - a) < 0).sum()),
+            "respostas_iguais_as_de_A": iguais,
+            "tempo_mediano_s": tempo, "tempo_maximo_s": TEMPO_MAX_REORDENADO_S,
+            "decisao": "ADOTA" if adota else "FICA O SISTEMA ATUAL"}
 
 
 # ── I3: a concordância do juiz com o dono ────────────────────────────────────

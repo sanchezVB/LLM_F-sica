@@ -326,13 +326,24 @@ fixava, e ficou fixado aqui antes de qualquer braço rodar:
   reprovado "antes de qualquer leitura"; o que sai antes são só as métricas mecânicas
   (P entre as 6, P citada, citações removidas, tempo) em `assistente_bracos.json`.
 
-### 9.2 Melhorar a busca do assistente — PROPOSTA (2026-09-29), NÃO ACEITA
+### 9.2 Melhorar a busca do assistente — ACEITA em 2026-10-01, antes de o teste ser tocado
 
-> Escrita antes de qualquer candidato rodar. Os números marcados **[dono]** são decisão do
-> dono; os daqui são sugestão.
+> Proposta em 2026-09-29, antes de qualquer candidato rodar. **Aceita pelo dono em
+> 2026-10-01 com um limiar mais exigente que o proposto:** adota só se o IC de
+> acerto_A′ − acerto_A ficar inteiro acima de **0,03** (a proposta era 0) — o ΦRank custa
+> ~11 s a mais por pergunta, e um ganho que mal se distingue de zero não paga isso. Os
+> outros números ficaram como propostos: 5 pontos no desenvolvimento, 60 s por pergunta.
+> As constantes estão em `phifm.eval.assistente_bracos`.
+>
+> **Dois desvios da proposta, decididos pelo dono no aceite e registrados aqui antes de
+> rodar:** (1) o braço A′ roda **antes** de a §9.1 dizer se a busca limita — o dono
+> preferiu gastar as ~5 h de GPU já; (2) por isso roda **antes de I3**. Nada muda no que
+> se LÊ: a comparação de A′ com A é pelo juiz, e só é aberta depois de I3 aprovar o juiz
+> (`--comparar-reordenado` recusa antes disso). Se I3 reprovar, o juiz é consertado e as
+> respostas de A′, já guardadas, são julgadas de novo junto com as outras.
 
-**Quando roda.** Só se a §9.1 não disser "busca NÃO LIMITA". Se a busca não limita, não há
-o que ganhar aqui.
+**Quando roda.** ~~Só se a §9.1 não disser "busca NÃO LIMITA".~~ Ver o desvio (1) acima: o
+braço roda já; a leitura espera I3.
 
 **O que já se sabe** (`avaliacao/assistente_diagnostico_busca.json`, exploratório, no
 conjunto de TESTE): P entre os 6 em 0,69; entre os 50 em 0,86. Das 157 falhas do
@@ -358,10 +369,17 @@ modelo lê. Vai para o teste o candidato de maior recall, se ganhar do sistema a
 pelo menos **5 pontos [dono]** no desenvolvimento — abaixo disso, o IC de ±6,5 pontos
 de 150 itens não separa ganho de ruído.
 
-**No teste, uma vez só:** o braço A' (o candidato) nos 650 itens, julgado pelo MESMO juiz
-já calibrado em I3, contra o braço A que já existe. **Adota** se o IC 95% de
-acerto_A' − acerto_A (bootstrap pareado) ficar inteiro acima de **0 [dono]**, com tempo
-mediano por pergunta até **60 s [dono]**. Fora disso, fica o sistema atual.
+**No teste, uma vez só:** o braço A′ (A + ΦRank-PhysBERT nos 50 primeiros, a MESMA
+consulta hipotética de A) nos 650 itens, julgado pelo MESMO juiz de I3, contra o braço A
+que já existe. Decide no estrato primário (500 itens). **Adota** se o IC 95% de
+acerto_A′ − acerto_A (bootstrap pareado por item) ficar inteiro acima de **0,03**, com
+tempo mediano por pergunta até **60 s**. Fora disso, fica o sistema atual.
+
+- *Tempo de A′*, definido antes de rodar: mediana do tempo de A (consulta + busca +
+  resposta, já medido) **mais** a mediana do tempo de recuperação com o ΦRank medido no
+  braço A′. Conta a busca simples duas vezes (~3 s): erra para o lado de reprovar.
+- Onde as 6 fontes de A′ saem iguais às de A, na mesma ordem, o prompt é o mesmo e a
+  resposta de A é reaproveitada.
 
 **Custo:** o desenvolvimento, ~20 min de GPU por candidato; o teste, ~5 h de GPU (como o
 braço A) mais ~1 h de juiz. Do dono: nada, se o juiz já passou em I3.

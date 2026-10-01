@@ -259,14 +259,31 @@ def test_reordenado_reaproveita_A_quando_as_fontes_sao_as_mesmas(tmp_path):
     assert len(b.rodar_reordenado(ass, itens, ra, tmp_path / "a2.jsonl")) == 2   # retoma
 
 
+def _caso_reordenado(n, certos_a, certos_a2, t_a=30.0, t_rec=14.0):
+    ids = [("primario", f"i{k}") for k in range(n)]
+    v = {"A": {k: ("certo" if j < certos_a else "errado") for j, k in enumerate(ids)},
+         b.BRACO_REORDENADO: {k: ("certo" if j < certos_a2 else "errado")
+                              for j, k in enumerate(ids)}}
+    rs = [b.RespostaDoBraco("primario", j, k[1], "A", "t", segundos=t_a)
+          for j, k in enumerate(ids)]
+    rs += [b.RespostaDoBraco("primario", j, k[1], b.BRACO_REORDENADO, "t", segundos=20.0,
+                             segundos_recuperacao=t_rec) for j, k in enumerate(ids)]
+    return v, rs
+
+
 def test_comparar_reordenado_e_pareado_por_item():
-    ids = [("primario", f"i{k}") for k in range(10)]
-    v = {"A": {k: ("certo" if j < 5 else "errado") for j, k in enumerate(ids)},
-         b.BRACO_REORDENADO: {k: ("certo" if j < 7 else "errado") for j, k in enumerate(ids)}}
-    r = b.comparar_reordenado(v)
+    r = b.comparar_reordenado(*_caso_reordenado(10, 5, 7))
     assert (r["acerto_A"], r["acerto_A2"], r["A2_menos_A"]) == (0.5, 0.7, 0.2)
     assert (r["ganha"], r["perde"]) == (2, 0)
+    assert r["tempo_mediano_s"] == 44.0          # mediana de A + mediana da recuperação
 
 
-def test_braco_reordenado_nao_roda_antes_do_aceite():
-    assert b.REGRA_9_2_ACEITA is False
+def test_a_regra_da_9_2_adota_so_com_o_IC_inteiro_acima_de_3_pontos_e_dentro_do_tempo():
+    assert b.REGRA_9_2_ACEITA and b.LIMIAR_ADOCAO_REORDENADO == 0.03
+    assert b.comparar_reordenado(*_caso_reordenado(500, 300, 350))["decisao"] == "ADOTA"
+    # +2 pontos: ganho real, mas o IC não fica inteiro acima de 0,03
+    assert (b.comparar_reordenado(*_caso_reordenado(500, 300, 310))["decisao"]
+            == "FICA O SISTEMA ATUAL")
+    # ganho grande, mas estoura os 60 s
+    assert (b.comparar_reordenado(*_caso_reordenado(500, 300, 350, t_a=50.0))["decisao"]
+            == "FICA O SISTEMA ATUAL")

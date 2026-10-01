@@ -349,8 +349,9 @@ def julgar(a, itens, cache_b: Path, cache_j: Path) -> None:
 
 
 def reordenado(a, itens, cache_b: Path, cache_j: Path, ab: str) -> None:
-    """O braço A′ da §9.2 (A com o ΦRank) e o juiz nele. Recusa enquanto a §9.2 for
-    proposta: ela toca o conjunto de teste UMA vez, e só depois do aceite do dono."""
+    """O braço A′ da §9.2 (A com o ΦRank) e o juiz nele. A §9.2 toca o conjunto de
+    teste UMA vez, e só com o aceite do dono (2026-10-01) — a trava continua aqui para o
+    dia em que outra regra reaproveitar este código."""
     from phifm.eval import assistente_bracos as b
 
     if not b.REGRA_9_2_ACEITA:
@@ -450,7 +451,9 @@ def main() -> int:
         cache_a2 = DIR / f"bracos_A2_{ab[:12]}.jsonl"
         respostas = b.ler_respostas(cache_b) + b.ler_respostas(cache_a2)
         veredictos = b.veredictos_por_braco(itens, respostas, b.ler_julgamentos(cache_j))
-        r2 = {e: b.comparar_reordenado(veredictos, e) for e in ("primario", "pos_corte")}
+        r2 = {e: b.comparar_reordenado(veredictos, respostas, e)
+              for e in ("primario", "pos_corte")}
+        r2["decide"] = "primario"
         (AVALIACAO / "assistente_reordenado.json").write_text(
             json.dumps({"regra": "DOC-13 §9.2", **r2}, ensure_ascii=False, indent=2),
             encoding="utf-8")
