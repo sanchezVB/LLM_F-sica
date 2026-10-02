@@ -257,3 +257,43 @@ def test_cliente_le_o_stream_do_llama_server():
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+# ── o servidor que some no meio ─────────────────────────────────────────────
+
+
+class _ProcessoMorto:
+    def wait(self, timeout=None):
+        return 1
+
+    def poll(self):
+        return 1
+
+
+def test_gerar_sobe_o_servidor_de_novo_quando_ele_some(monkeypatch):
+    """A conexão cai e o processo que este objeto subiu morreu: reinicia e repete o
+    pedido. Se o servidor não era dele, o erro sobe."""
+    import io
+
+    from phifm.rag import llm
+
+    chamadas = {"n": 0, "iniciar": 0}
+
+    def urlopen_falso(req, timeout=None):
+        chamadas["n"] += 1
+        if chamadas["n"] == 1:
+            raise ConnectionResetError(10054, "host remoto")
+        return io.BytesIO(json.dumps({"content": " ok "}).encode())
+
+    monkeypatch.setattr(llm.urllib.request, "urlopen", urlopen_falso)
+    m = llm.ModeloLocal()
+    m._processo = _ProcessoMorto()
+    monkeypatch.setattr(m, "iniciar", lambda log=None, anexar=False: chamadas.update(
+        iniciar=chamadas["iniciar"] + 1))
+    assert m.gerar("s", "u") == "ok"
+    assert chamadas == {"n": 2, "iniciar": 1} and m.reinicios == 1
+
+    chamadas["n"] = 0
+    alheio = llm.ModeloLocal()                     # não subiu servidor nenhum
+    with pytest.raises(ConnectionResetError):
+        alheio.gerar("s", "u")

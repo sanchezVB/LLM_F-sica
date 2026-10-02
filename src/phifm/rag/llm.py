@@ -27,9 +27,23 @@ A travada "do caminho de chat" acima tem o mesmo sintoma; não foi medida de nov
 O sintoma, para reconhecer: `/health` responde nos primeiros segundos e depois nem ele;
 o log para em `all slots are idle` sem erro. O remédio é do dono da máquina (exceção no
 antivírus para `ferramentas/llama.cpp/`), não deste código — ver SETUP.md.
+
+## ⚠️ O servidor some quando a sessão do Windows muda
+
+Duas rodadas longas perderam o servidor no meio (2026-09-24, com 2 h no ar; 2026-10-01,
+com 33 min): o processo deixa de existir, o log dele termina numa linha normal, e o
+Windows não registra falha de aplicativo. Na segunda, o log do sistema tem um
+`SessionUnlock` (Kernel-Power 566) no mesmo minuto — a tela foi desbloqueada. A leitura
+mais provável é o backend Vulkan perdendo o dispositivo na troca de sessão; não foi
+reproduzido de propósito, e fica como hipótese.
+
+O remédio está aqui: se o pedido falha por conexão e o processo que ESTE objeto subiu
+morreu, `gerar` sobe o servidor de novo e repete o pedido (até `MAX_REINICIOS` vezes por
+objeto). Com semente fixa, o pedido repetido dá a mesma resposta.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import subprocess
 import time
@@ -44,6 +58,7 @@ PORTA = 8080
 FIM_DE_TURNO = "<|im_end|>"
 DICA_TRAVADO = ("Se o processo existe e nem /health responde, confira se o antivírus o "
                 "suspendeu (ver o cabeçalho de phifm.rag.llm e o SETUP.md).")
+MAX_REINICIOS = 5
 
 
 def chatml(sistema: str, usuario: str, pensar: bool = False) -> str:
@@ -72,6 +87,8 @@ class ModeloLocal:
         self.modelo, self.executavel, self.contexto = modelo, executavel, contexto
         self._processo: subprocess.Popen | None = None
         self._log = None
+        self._caminho_log: Path | None = None
+        self.reinicios = 0
 
     def no_ar(self) -> bool:
         try:
@@ -80,15 +97,19 @@ class ModeloLocal:
         except (urllib.error.URLError, OSError):
             return False
 
-    def iniciar(self, log: Path | None = None, espera_s: int = 180) -> None:
-        """Sobe o servidor na GPU (`-ngl 99`), UMA conversa por vez (`-np 1`)."""
+    def iniciar(self, log: Path | None = None, espera_s: int = 180,
+                anexar: bool = False) -> None:
+        """Sobe o servidor na GPU (`-ngl 99`), UMA conversa por vez (`-np 1`). `anexar`
+        continua o log em vez de zerá-lo — é o que o reinício usa, para a queda ficar."""
         if self.no_ar():
             return
         for f in (self.executavel, self.modelo):
             if not f.exists():
                 raise SystemExit(f"{f} não existe. Ver SETUP.md, seção do assistente.")
+        self._caminho_log = log
         # O arquivo vive enquanto o servidor escreve nele; `parar` o fecha.
-        self._log = open(log, "w", encoding="utf-8") if log else None  # noqa: SIM115
+        self._log = (open(log, "a" if anexar else "w", encoding="utf-8")  # noqa: SIM115
+                     if log else None)
         porta = self.url.rsplit(":", 1)[1]
         self._processo = subprocess.Popen(
             [str(self.executavel), "-m", str(self.modelo), "-ngl", "99",
@@ -133,13 +154,37 @@ class ModeloLocal:
               temperatura: float = 0.2, semente: int | None = None, pensar: bool = False,
               tempo_max_s: int = 300) -> str:
         req = self._pedido(sistema, usuario, max_tokens, temperatura, semente, pensar, False)
+        while True:
+            try:
+                with urllib.request.urlopen(req, timeout=tempo_max_s) as r:
+                    texto = json.loads(r.read())["content"]
+                    return sem_raciocinio(texto) if pensar else texto.strip()
+            except TimeoutError:
+                raise SystemExit(f"o llama-server não respondeu em {tempo_max_s} s. "
+                                 f"{DICA_TRAVADO}") from None
+            except (OSError, http.client.HTTPException):
+                # A conexão caiu. Se o servidor que ESTE objeto subiu morreu, sobe de novo
+                # e repete; qualquer outra coisa (servidor de outro, erro de rede) sobe.
+                if not self._ressuscitar():
+                    raise
+
+    def _ressuscitar(self) -> bool:
+        """Sobe de novo o servidor que este objeto tinha subido e que morreu. False se o
+        servidor não era deste objeto, se ainda está vivo, ou se o limite estourou."""
+        if self._processo is None or self.reinicios >= MAX_REINICIOS:
+            return False
         try:
-            with urllib.request.urlopen(req, timeout=tempo_max_s) as r:
-                texto = json.loads(r.read())["content"]
-                return sem_raciocinio(texto) if pensar else texto.strip()
-        except TimeoutError:
-            raise SystemExit(f"o llama-server não respondeu em {tempo_max_s} s. "
-                             f"{DICA_TRAVADO}") from None
+            self._processo.wait(timeout=10)       # a morte e o erro de conexão correm juntos
+        except subprocess.TimeoutExpired:
+            return False                          # está vivo: o problema é outro
+        self.reinicios += 1
+        self._processo = None
+        if self._log is not None:
+            self._log.write(f"\n=== o servidor sumiu; reinício {self.reinicios} ===\n")
+            self._log.close()
+            self._log = None
+        self.iniciar(log=self._caminho_log, anexar=True)
+        return True
 
     def gerar_em_fluxo(self, sistema: str, usuario: str, *, max_tokens: int = 700,
                        temperatura: float = 0.2, semente: int | None = None,
