@@ -135,3 +135,19 @@ Corrigidos em 2026-10-01, depois deste relatório. O que resta depende dos dados
 - 35 referências; toda citação do corpo existe na lista, e toda referência é citada.
 - Toda "Seção X.Y" citada existe.
 - `tests/regression/test_artigo_pdf.py`: 11 testes passam.
+
+## 8. O que a v0.7 fez com as decisões da §4 (2026-10-02)
+
+A v0.6 foi dividida em dois rascunhos: o principal (`rascunho-artigo-recuperacao-fisica.md`, o sistema de recuperação) e o complementar (`rascunho-artigo-pretreinamento-encoder-fisica.md`, tokenização e pré-treinamento). A auditoria das §5.2 a 5.4 ficou repartida entre os dois — as cinco ocorrências de amostragem do sistema no principal, as três do pré-treinamento, os instrumentos inválidos e os mecanismos no complementar —, e o rascunho das armadilhas não foi tocado. Os números de seção e de tabela desta revisão referem-se à v0.6.
+
+| Decisão da §4 | O que foi feito |
+|---|---|
+| 1. Título | Trocado para "…de artigos de Física do arXiv…" no principal. Reverter se não quiser |
+| 2. Razões de manchete | Fora do principal, que usa os valores absolutos; mantidas no complementar, com a ressalva |
+| 3. Fonte da retirada do Galactica | Heaven, *MIT Technology Review*, 18/11/2022, no complementar, onde o argumento ficou |
+| 4. INDUS | Descrito pelas cinco áreas que o próprio trabalho declara (Terra, astrofísica, planetárias, heliofísica, ciências biológicas e físicas); a frase sobre subáreas não cobertas saiu |
+| 5. Máscara de 30% | Wettig et al. (EACL 2023) acrescentado no complementar |
+| 6. Ordem das referências | Os dois rascunhos numerados por ordem de primeira citação |
+| 7. Tabelas citadas só pela legenda | Toda tabela é citada no texto, nos dois rascunhos |
+
+As referências [32] a [35] da v0.6 foram conferidas contra as fontes (ficha do all-MiniLM-L6-v2: 1.170.060.424 pares, 52.603.982 + 116.288.806 de citação do S2ORC; S2ORC, ACL 2020, p. 4969–4983; SciNCL, EMNLP 2022, p. 11670–11688; SciRepEval, EMNLP 2023, p. 5548–5566).

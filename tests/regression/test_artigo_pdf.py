@@ -35,7 +35,12 @@ import pytest
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
 
-ARTIGO = RAIZ / "docs" / "papers" / "rascunho-artigo-recuperacao-fisica.md"
+# Os dois rascunhos que a v0.6 virou ao ser dividida (2026-10-02). Cada um tem de
+# renderizar inteiro e caber na margem: o segundo nasceu depois dos testes.
+ARTIGOS = [RAIZ / "docs" / "papers" / nome for nome in (
+    "rascunho-artigo-recuperacao-fisica.md",
+    "rascunho-artigo-pretreinamento-encoder-fisica.md",
+)]
 
 
 def _modulo():
@@ -105,12 +110,13 @@ def test_bloco_largo_demais_levanta_em_vez_de_sair_cortado():
         mod.bloco_codigo(["x" * 400], estrito=True)
 
 
-def test_as_tabelas_do_artigo_cabem_na_margem():
+@pytest.mark.parametrize("artigo", ARTIGOS, ids=lambda p: p.stem)
+def test_as_tabelas_do_artigo_cabem_na_margem(artigo):
     """Ponta a ponta no documento real: `--estrito` é o que o build usa."""
     mod = _modulo()
     largura_max = mod.LARGURA_UTIL - 10 * mod.mm
     dentro, fora = False, []
-    for linha in ARTIGO.read_text(encoding="utf-8").splitlines():
+    for linha in artigo.read_text(encoding="utf-8").splitlines():
         if linha.lstrip().startswith("```"):
             dentro = not dentro
             continue
@@ -121,10 +127,11 @@ def test_as_tabelas_do_artigo_cabem_na_margem():
 
 # ── 4. o documento inteiro ───────────────────────────────────────────────────
 
-def test_o_artigo_renderiza_inteiro(tmp_path):
+@pytest.mark.parametrize("artigo", ARTIGOS, ids=lambda p: p.stem)
+def test_o_artigo_renderiza_inteiro(artigo, tmp_path):
     """Nenhum bloco pode sumir: um `.md` que vira PDF de 2 páginas é falha muda."""
     mod = _modulo()
-    saida = mod.render(ARTIGO, tmp_path / "artigo.pdf", estrito=True)
+    saida = mod.render(artigo, tmp_path / "artigo.pdf", estrito=True)
     bytes_pdf = saida.read_bytes()
     assert bytes_pdf.startswith(b"%PDF"), "saída não é um PDF"
     paginas = bytes_pdf.count(b"/Type /Page\n") + bytes_pdf.count(b"/Type /Page ")
