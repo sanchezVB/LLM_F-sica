@@ -380,6 +380,47 @@ def reordenado(a, itens, cache_b: Path, cache_j: Path, ab: str) -> None:
     print(f"A′: {len(respostas)} itens ({iguais} iguais a A) · {len(julg)} textos no juiz")
 
 
+def resumo_reordenado(itens, cache_b: Path, ab: str) -> dict:
+    """O que o braço A′ diz SEM o juiz — pode ser lido antes de I3: quantas vezes o artigo
+    certo chegou às fontes, contra o braço A nos mesmos itens, e o tempo."""
+    import numpy as np
+
+    from phifm.eval import assistente_bracos as b
+
+    ra = {(r.estrato, r.arxiv_id): r for r in b.ler_respostas(cache_b) if r.braco == "A"}
+    r2 = {(r.estrato, r.arxiv_id): r
+          for r in b.ler_respostas(DIR / f"bracos_A2_{ab[:12]}.jsonl")}
+    if len(r2) < len(itens):
+        raise SystemExit(f"o braço A′ tem {len(r2)} de {len(itens)} itens (--reordenado).")
+    saida = {"regra": "DOC-13 §9.2", "sem_juiz": True, "assinatura_bracos": ab,
+             "por_estrato": {}}
+    for estrato in ("primario", "pos_corte"):
+        ids = sorted(k for k in r2 if k[0] == estrato)
+        em_a = np.array([ra[k].posicao_p is not None for k in ids], dtype=float)
+        em_a2 = np.array([r2[k].posicao_p is not None for k in ids], dtype=float)
+        dif, ic = b.diferenca_pareada(em_a2, em_a)
+        t_a = float(np.median([ra[k].segundos for k in ids]))
+        t_rec = float(np.median([r2[k].segundos_recuperacao for k in ids]))
+        saida["por_estrato"][estrato] = {
+            "itens": len(ids),
+            "p_entre_as_fontes_A": round(float(em_a.mean()), 4),
+            "p_entre_as_fontes_A2": round(float(em_a2.mean()), 4),
+            "A2_menos_A": dif, "ic95": ic,
+            "resgatados": int(((em_a2 - em_a) > 0).sum()),
+            "perdidos": int(((em_a2 - em_a) < 0).sum()),
+            "p_em_primeiro_A": round(float(np.mean([ra[k].posicao_p == 1 for k in ids])), 4),
+            "p_em_primeiro_A2": round(float(np.mean([r2[k].posicao_p == 1 for k in ids])), 4),
+            "p_citada_quando_presente_A2": round(float(np.mean(
+                [r2[k].p_citada for k in ids if r2[k].posicao_p])), 4),
+            "respostas_iguais_as_de_A": sum(1 for k in ids if r2[k].igual_a_A),
+            "segundos_medianos_A": round(t_a, 1),
+            "segundos_medianos_recuperacao_A2": round(t_rec, 1),
+            "tempo_mediano_A2_pela_regra": round(t_a + t_rec, 1),
+            "tempo_maximo_s": b.TEMPO_MAX_REORDENADO_S,
+        }
+    return saida
+
+
 def resumo_mecanico(itens, respostas, sha_itens: str, ab: str) -> dict:
     """O que não depende do juiz: pode ser lido e versionado antes de I3."""
     import numpy as np
@@ -420,6 +461,8 @@ def main() -> int:
     p.add_argument("--decidir", action="store_true")
     p.add_argument("--reordenado", action="store_true",
                    help="o braço A′ da §9.2 (A + ΦRank) e o juiz nele — só depois do aceite")
+    p.add_argument("--resumo-reordenado", action="store_true",
+                   help="o que o braço A′ diz sem o juiz (pode ser lido antes de I3)")
     p.add_argument("--comparar-reordenado", action="store_true",
                    help="acerto de A′ contra A, pareado (exige I3 aprovado)")
     p.add_argument("--indice", type=Path, default=RAIZ / "data/processed/indice_busca")
@@ -444,6 +487,11 @@ def main() -> int:
         julgar(a, itens, cache_b, cache_j)
     if a.reordenado:
         reordenado(a, itens, cache_b, cache_j, ab)
+    if a.resumo_reordenado:
+        resumo = resumo_reordenado(itens, cache_b, ab)
+        (AVALIACAO / "assistente_bracos_A2.json").write_text(
+            json.dumps(resumo, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(resumo["por_estrato"], ensure_ascii=False, indent=1))
     if a.comparar_reordenado:
         i3 = json.loads(agregado_i3.read_text(encoding="utf-8")) if agregado_i3.exists() else {}
         if not i3.get("passa"):
@@ -543,7 +591,7 @@ def main() -> int:
             "situacao", "gerador", "busca", "acerto_B_com_R", "ic_acerto_B_com_R",
             "lacuna_da_busca", "ic_lacuna_da_busca")}, ensure_ascii=False, indent=1))
     if not any((a.rodar, a.julgar, a.folha_i3, a.apurar_i3, a.folha_r, a.apurar_r, a.decidir,
-                a.reordenado, a.comparar_reordenado)):
+                a.reordenado, a.resumo_reordenado, a.comparar_reordenado)):
         p.error("nada a fazer: --rodar, --julgar, --folha-i3, --apurar-i3, --folha-r, "
                 "--apurar-r ou --decidir")
     return 0

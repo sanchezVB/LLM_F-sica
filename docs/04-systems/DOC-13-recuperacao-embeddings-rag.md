@@ -408,6 +408,12 @@ as fontes que o modelo lê; IC 95% por bootstrap pareado da diferença para o si
   pares de 384 tokens (6 threads). O braço A iria de ~31 s para ~42 s por pergunta.
 - Nada disso tocou no teste. O próximo passo, se a §9.1 não disser "busca NÃO LIMITA" e o
   dono aceitar esta proposta, é a confirmação única do braço A' = A + ΦRank nos 650.
+- **O braço A′ rodou nos 650 itens em 2026-10-01/02.** Lido sem o juiz
+  (`avaliacao/assistente_bracos_A2.json`), primário: P entre as 6 fontes **0,818 contra
+  0,686** (+0,132 [+0,098; +0,166], 73 resgatados e 7 perdidos); P em primeiro, 0,616
+  contra 0,522; tempo pela regra **49,8 s ≤ 60 s** — o critério de tempo está cumprido.
+  O critério de acerto (IC de acerto_A′ − acerto_A inteiro acima de 0,03) é pelo juiz e
+  continua **lacrado até I3**: `--comparar-reordenado` recusa antes disso.
 - **Já no código, desligado por padrão** (`phifm.rag.reordenador`, `--reordenar` no
   `perguntar.py` e no `servir_busca.py`). O caminho do produto reproduz a exploração em
   15 de 15 perguntas de desenvolvimento (8 delas resgates do ΦRank); recuperação mediana

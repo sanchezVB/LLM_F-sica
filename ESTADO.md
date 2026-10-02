@@ -271,6 +271,17 @@ proposto: adota o ΦRank só se o IC de acerto_A′ − acerto_A ficar inteiro a
 (era 0), com até 60 s por pergunta. O braço A′ roda já, por decisão dele (~5 h de GPU); a
 comparação com A é pelo juiz e **só é lida depois de I3**.
 
+**O braço A′ rodou nos 650 itens** (2026-10-01/02; `avaliacao/assistente_bracos_A2.json`).
+O que se lê SEM o juiz, no primário: o artigo certo entre as 6 fontes em **0,818 contra
+0,686** (+0,132, IC [+0,098; +0,166]; 73 resgatados, 7 perdidos), em primeiro lugar em
+0,616 contra 0,522; tempo pela regra **49,8 s** (limite 60). No pós-corte, 0,853 contra
+0,727. O ganho na busca é maior que o do desenvolvimento (+0,093). **Falta o que decide:**
+se isso vira acerto na RESPOSTA por mais de 3 pontos — pelo juiz, lacrado até I3.
+
+⚠️ Três interrupções na rodada, nenhuma com perda (a rodada é retomável por item): o
+`llama-server` sumiu uma vez (o cliente agora o sobe de novo sozinho), e o app passou a
+encerrar comandos em segundo plano depois de 30 min, ou 2 h quando se pede mais.
+
 ## A BUSCA existe: 1,59 M artigos indexados, página local, 28 ms por consulta (2026-09-24)
 
 Até hoje o projeto media e escolhia o recuperador, e `src/phifm/retrieval` e

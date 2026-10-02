@@ -1,0 +1,47 @@
+{
+  "regra": "DOC-13 §9.2",
+  "sem_juiz": true,
+  "assinatura_bracos": "3ae312df14a2f64ffad8ab565ea4cd29e617d8dca2ee2a0c534da4a8838f8e9c",
+  "por_estrato": {
+    "primario": {
+      "itens": 500,
+      "p_entre_as_fontes_A": 0.686,
+      "p_entre_as_fontes_A2": 0.818,
+      "A2_menos_A": 0.132,
+      "ic95": [
+        0.098,
+        0.166
+      ],
+      "resgatados": 73,
+      "perdidos": 7,
+      "p_em_primeiro_A": 0.522,
+      "p_em_primeiro_A2": 0.616,
+      "p_citada_quando_presente_A2": 0.9829,
+      "respostas_iguais_as_de_A": 0,
+      "segundos_medianos_A": 31.3,
+      "segundos_medianos_recuperacao_A2": 18.5,
+      "tempo_mediano_A2_pela_regra": 49.8,
+      "tempo_maximo_s": 60.0
+    },
+    "pos_corte": {
+      "itens": 150,
+      "p_entre_as_fontes_A": 0.7267,
+      "p_entre_as_fontes_A2": 0.8533,
+      "A2_menos_A": 0.1267,
+      "ic95": [
+        0.0667,
+        0.1867
+      ],
+      "resgatados": 22,
+      "perdidos": 3,
+      "p_em_primeiro_A": 0.5467,
+      "p_em_primeiro_A2": 0.6733,
+      "p_citada_quando_presente_A2": 1.0,
+      "respostas_iguais_as_de_A": 0,
+      "segundos_medianos_A": 32.7,
+      "segundos_medianos_recuperacao_A2": 17.6,
+      "tempo_mediano_A2_pela_regra": 50.2,
+      "tempo_maximo_s": 60.0
+    }
+  }
+}
