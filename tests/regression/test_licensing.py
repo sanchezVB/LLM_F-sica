@@ -106,7 +106,7 @@ class TestVersaoETipo:
         assert r.attribution_required is False
 
     @pytest.mark.parametrize("url", [
-        "https://creativecommons.org/licenses/by-nd-nc/1.0/",   # a ordem da versão 1.0
+        "https://creativecommons.org/licenses/by-nc-nd/1.0/",   # URL que a CC nunca publicou
         "https://creativecommons.org/licenses/by-nc-sa/9.9/",   # versão que não existe
         "https://creativecommons.org/licenses/by-nc-sa/",       # sem versão
         "https://creativecommons.org/licenses/nc-sampling+/1.0/",
@@ -128,6 +128,13 @@ class TestVersaoETipo:
         assert r.spdx_id == "NOASSERTION"
         assert r.train_ok is True and r.redistributable is False
 
+    def test_a_nc_nd_da_versao_1_se_chama_by_nd_nc(self):
+        """Tabela fechada de pares, não produto livre: na 1.0 a ordem das cláusulas é outra."""
+        r = resolve("http://creativecommons.org/licenses/by-nd-nc/1.0/")
+        assert r.spdx_id == "CC-BY-NC-ND-1.0"
+        assert r.license_url.endswith("/licenses/by-nd-nc/1.0/"), "a URL não pode ser fabricada"
+        assert r.partition is Partition.EVAL_ONLY
+
     def test_as_dez_licencas_do_indice_tem_identificador(self):
         """A distribuição real, medida no índice em 2026-10-01: nenhuma cai em UNKNOWN."""
         observadas = [
@@ -145,6 +152,88 @@ class TestVersaoETipo:
         rotulos = [resolve(u).spdx_id for u in observadas]
         assert "NOASSERTION" not in rotulos
         assert len(set(rotulos)) == 9, "as duas grafias da licença padrão do arXiv são uma só"
+
+
+class TestNCGanhaDeTudo:
+    """Regressão de 2026-10-01, achada por revisão independente no mesmo dia.
+
+    A primeira versão do resolvedor por versão procurava a PRIMEIRA URL da Creative
+    Commons na string. Com duas licenças juntas — a aberta antes, a NC depois —,
+    o registro passou de `eval_only` para `train_open`: as regras antigas testavam
+    NC primeiro, e a nova parava na primeira ocorrência. NC no treino é o pior
+    erro que este módulo pode cometer (ADR-0001 §4).
+    """
+
+    @pytest.mark.parametrize("raw", [
+        "http://creativecommons.org/licenses/by/4.0/ http://creativecommons.org/licenses/by-nc/4.0/",
+        "http://creativecommons.org/licenses/by/4.0/; http://creativecommons.org/licenses/by-nc-nd/4.0/",
+        "http://creativecommons.org/licenses/by-sa/4.0/ | http://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "http://creativecommons.org/licenses/publicdomain/ http://creativecommons.org/licenses/by-nc-sa/3.0/",
+        "http://creativecommons.org/publicdomain/zero/1.0/ http://creativecommons.org/licenses/by-nc-sa/3.0/",
+        "http://creativecommons.org/licenses/by-nc/4.0/ http://creativecommons.org/licenses/by/4.0/",
+    ])
+    def test_duas_licencas_com_uma_nc_nao_treinam(self, raw):
+        r = resolve(raw)
+        assert r.train_ok is False and r.partition is Partition.EVAL_ONLY
+        assert r.spdx_id == "NOASSERTION", "duas licenças não são um identificador"
+
+    @pytest.mark.parametrize("raw", [
+        "CC-BY-NC-4.0", "CC BY-NC 4.0", "cc-by-nc", "cc-by-nc-nd", "CC-BY-NC-SA-3.0",
+        "https://creativecommons.org/licences/by-nc/4.0/",        # grafia britânica
+        "https://creativecommons.org/licenses//by-nc/4.0/",
+        "creativecommons.org/licenses/by_nc/4.0/",
+        "https://creativecommons.org/licenses/by%2Dnc/4.0/",
+        "http://creativecommons.org/licenses/by-nc-sa/2.0/uk/",    # versão portada
+        "https://creativecommons.org/licenses/by–nc/4.0/",         # travessão
+    ])
+    def test_nc_em_qualquer_forma_nao_treina(self, raw):
+        """Rótulo, grafia torta, jurisdição: a cláusula é o que decide, não a forma."""
+        assert resolve(raw).train_ok is False
+
+    def test_todo_registro_nc_do_catalogo_resolve_o_proprio_identificador(self):
+        """O registro grava `spdx_id` na tabela mestra; relido como entrada, não pode treinar."""
+        for chave, r in CATALOG.items():
+            volta = resolve(r.spdx_id)
+            assert volta.spdx_id == r.spdx_id, f"{chave}: o registro não lê o que escreve"
+            if r.non_commercial:
+                assert volta.train_ok is False
+
+    def test_a_licenca_padrao_do_arxiv_nao_e_lida_como_nc(self):
+        """`nonexclusive` contém as letras n-c; a guarda exige a palavra e o contexto CC."""
+        r = resolve("http://arxiv.org/licenses/nonexclusive-distrib/1.0/")
+        assert r.train_ok is True and r.non_commercial is False
+
+
+class TestSoSeAfirmaALicencaInteira:
+    """Sem identificador certo não há atribuição certa, e sem atribuição não se publica."""
+
+    @pytest.mark.parametrize("raw", [
+        "http://creativecommons.org/licenses/by/4.0/ http://creativecommons.org/licenses/by-sa/4.0/",
+        "https://notcreativecommons.org/licenses/by/4.0/",
+        "https://exemplo.org/redir?u=creativecommons.org/licenses/by/4.0/",
+        "not under http://creativecommons.org/licenses/by/4.0/ ; all rights reserved",
+        "https://creativecommons.org/licenses/by/4.0.1/",
+        "https://creativecommons.org/licenses/by/3.0abc",
+        "https://creativecommons.org/licenses/publicdomain/zero/",
+        "https://creativecommons.org/licenses/by/3.0/de/",         # CC-BY-3.0-DE é OUTRA licença
+        "cc-by",                                                    # rótulo sem versão
+    ])
+    def test_o_que_nao_e_uma_licenca_inteira_nao_e_redistribuido(self, raw):
+        r = resolve(raw)
+        assert r.spdx_id == "NOASSERTION"
+        assert r.redistributable is False and r.partition is Partition.TRAIN_ONLY
+
+    @pytest.mark.parametrize("raw, spdx", [
+        ("https://creativecommons.org/licenses/by/4.0/legalcode", "CC-BY-4.0"),
+        ("https://creativecommons.org/licenses/by-sa/4.0/deed.pt_BR", "CC-BY-SA-4.0"),
+        ("HTTP://CREATIVECOMMONS.ORG/LICENSES/BY-SA/2.5/", "CC-BY-SA-2.5"),
+        ("  http://creativecommons.org/licenses/by/3.0/  ", "CC-BY-3.0"),
+        ("creativecommons.org/licenses/by/4.0", "CC-BY-4.0"),
+        ("CC-BY-3.0", "CC-BY-3.0"),
+        ("https://creativecommons.org/publicdomain/zero/1.0/legalcode", "CC0-1.0"),
+    ])
+    def test_as_formas_que_a_propria_cc_serve_sao_aceitas(self, raw, spdx):
+        assert resolve(raw).spdx_id == spdx
 
 
 class TestObrasSobCopyright:

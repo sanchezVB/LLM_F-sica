@@ -28,9 +28,16 @@ A troca é por arquivo temporário e `replace`, e só acontece se, lido de volta
 2. a soma dos hashes de linha sobre as OUTRAS colunas é a mesma — nenhuma mudou;
 3. `spdx_id` e `partition` batem com o registro, licença por licença.
 
-E ele **recusa** qualquer plano em que um registro saia de `eval_only`. Tirar um
-documento da partição que nunca treina é decisão de ADR (ADR-0001 §4), não efeito
-colateral de uma correção de rótulo; se um dia for a intenção, que seja escrita.
+E ele **recusa** qualquer plano em que um registro que hoje não treina passe a
+treinar — `eval_only`, `excluded`, ou qualquer valor que não seja uma das duas
+partições de treino. Tirar um documento de fora do treino é decisão de ADR
+(ADR-0001 §4), não efeito colateral de uma correção de rótulo; se um dia for a
+intenção, que seja escrita. A recusa mora dentro de `gravar`, e não só no `main`:
+não existe caminho de gravação que não passe por ela. Partição **nula** não é
+recusada — rótulo ausente não é decisão de ninguém, e preenchê-lo é o serviço.
+
+A troca preserva o que o esquema não mostra: os metadados chave-valor do rodapé e
+as permissões do arquivo. Se o caminho é um elo simbólico, grava-se no alvo.
 
 ## Depois de gravar
 
@@ -43,6 +50,7 @@ pior que raiz nenhuma.
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
@@ -55,6 +63,7 @@ from phifm.core.licensing.registry import Partition, resolve  # noqa: E402
 
 SPINE = Path("data/processed/spine.parquet")
 RECALCULADAS = ("spdx_id", "partition")
+TREINA = [Partition.TRAIN_OPEN.value, Partition.TRAIN_ONLY.value]
 
 
 def _expr(coluna: str, distintas: list[str | None]) -> pl.Expr:
@@ -96,17 +105,25 @@ def mudancas(p: pl.DataFrame) -> pl.DataFrame:
                     | pl.col("spdx_id").is_null() | pl.col("partition").is_null())
 
 
-def recusar_saida_de_eval_only(p: pl.DataFrame) -> None:
-    sai = p.filter((pl.col("partition") == Partition.EVAL_ONLY.value)
-                   & (pl.col("partition_novo") != Partition.EVAL_ONLY.value))
+def recusar_volta_ao_treino(p: pl.DataFrame) -> None:
+    """Levanta se o plano leva ao treino um registro que hoje está fora dele.
+
+    Formulada pelo DESTINO, e não pela origem: uma guarda que só conhecesse a
+    string `eval_only` deixaria passar `excluded` — que o registro define e o
+    deduplicador usa — e qualquer grafia que alguém tenha gravado à mão.
+    """
+    sai = p.filter(pl.col("partition").is_not_null()
+                   & ~pl.col("partition").is_in(TREINA)
+                   & pl.col("partition_novo").is_in(TREINA))
     if sai.height:
         linhas = "\n".join(
-            f"  {r['license']!r}: {r['len']:,} registros, eval_only → {r['partition_novo']}"
+            f"  {r['license']!r}: {r['len']:,} registros, "
+            f"{r['partition']} → {r['partition_novo']}"
             for r in sai.iter_rows(named=True))
         raise SystemExit(
-            "RECUSADO: o plano tira registros de `eval_only`, a partição que nunca "
-            "treina.\n" + linhas + "\nIsso é decisão de ADR (ADR-0001 §4), não "
-            "correção de rótulo. Nada foi gravado.")
+            "RECUSADO: o plano leva ao treino registros que hoje estão fora dele.\n"
+            + linhas + "\nIsso é decisão de ADR (ADR-0001 §4), não correção de "
+            "rótulo. Nada foi gravado.")
 
 
 def _digesto(caminho: Path) -> tuple[int, int]:
@@ -119,15 +136,25 @@ def _digesto(caminho: Path) -> tuple[int, int]:
 
 
 def gravar(spine: Path) -> Path:
-    """Recalcula as duas colunas e troca o arquivo — só se as três conferências passarem."""
+    """Recalcula as duas colunas e troca o arquivo — só se as conferências passarem."""
+    spine = spine.resolve()          # elo simbólico: grava-se no alvo, não por cima do elo
+    recusar_volta_ao_treino(plano(spine))
+
     lf = pl.scan_parquet(spine)
     esquema = lf.collect_schema()
     distintas = lf.select("license").unique().collect()["license"].to_list()
+    # O esquema polars não vê os metadados chave-valor do rodapé; uma regravação
+    # ingênua os apagaria em silêncio. `ARROW:schema` é regerado pelo escritor.
+    extras = {k: v for k, v in pl.read_parquet_metadata(spine).items()
+              if k != "ARROW:schema"}
 
     tmp = spine.with_suffix(".parquet.tmp")
-    lf.with_columns(*(_expr(c, distintas) for c in RECALCULADAS)
-                    ).sink_parquet(tmp, compression="zstd")
     try:
+        # ⚠️ A escrita fica DENTRO do `try`. É a parte longa — 1 GB na tabela real —,
+        # e uma interrupção aqui deixava o temporário parcial em disco, sem aviso.
+        lf.with_columns(*(_expr(c, distintas) for c in RECALCULADAS)).sink_parquet(
+            tmp, compression="zstd", maintain_order=True, metadata=extras or None)
+
         novo = pl.scan_parquet(tmp)
         if novo.collect_schema() != esquema:
             raise SystemExit("ABORTADO: o esquema mudou. Nada foi trocado.")
@@ -142,10 +169,19 @@ def gravar(spine: Path) -> Path:
         if resto.height:
             raise SystemExit(f"ABORTADO: {resto['len'].sum():,} registros ainda divergem "
                              "do registro depois de recalculados. Nada foi trocado.")
+        perdidos = set(extras) - set(pl.read_parquet_metadata(tmp))
+        if perdidos:
+            raise SystemExit(f"ABORTADO: a regravação perderia os metadados "
+                             f"{sorted(perdidos)}. Nada foi trocado.")
+        shutil.copymode(spine, tmp)
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
+    elos = spine.stat().st_nlink
     tmp.replace(spine)
+    if elos > 1:
+        print(f"⚠️ O arquivo antigo tinha {elos} elos rígidos. A troca atualizou só "
+              f"este caminho; os outros {elos - 1} continuam com os rótulos antigos.")
     return spine
 
 
@@ -162,11 +198,14 @@ def _imprimir(p: pl.DataFrame, total: int) -> None:
         if r["partition"] != r["partition_novo"]:
             print(f"             partition  {r['partition']} → {r['partition_novo']}")
     print("\nPartições:")
-    antes = p.group_by("partition").agg(pl.col("len").sum()).sort("partition")
+    antes = dict(p.group_by("partition").agg(pl.col("len").sum()).iter_rows())
     depois = dict(p.group_by("partition_novo").agg(pl.col("len").sum()).iter_rows())
-    for parte, n in antes.iter_rows():
-        d = depois.get(parte, 0)
-        print(f"  {parte:11} {n:>9,} ({100 * n / total:5.2f}%)  →  "
+    # A união das duas, e `str` no nome: uma partição que só existe depois sumia do
+    # quadro, e uma partição NULA derrubava a impressão com TypeError — e o quadro é
+    # o que se lê antes de repetir com --gravar.
+    for parte in sorted({*antes, *depois}, key=str):
+        n, d = antes.get(parte, 0), depois.get(parte, 0)
+        print(f"  {str(parte):11} {n:>9,} ({100 * n / total:5.2f}%)  →  "
               f"{d:>9,} ({100 * d / total:5.2f}%)")
 
 
@@ -181,7 +220,7 @@ def main() -> int:
     p = plano(a.spine)
     total = int(p["len"].sum())
     _imprimir(p, total)
-    recusar_saida_de_eval_only(p)
+    recusar_volta_ao_treino(p)
     if not mudancas(p).height:
         return 0
     if not a.gravar:

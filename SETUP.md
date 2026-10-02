@@ -32,7 +32,7 @@ Verificar que funcionou:
 PYTHONPATH=src .venv/bin/python -m pytest tests/ -q
 ```
 
-Não deve haver falha. Em 2026-10-01 passam 1.092 testes e 22 são saltados — os que dependem de `torch` e vivem
+Não deve haver falha. Em 2026-10-01 passam 1.138 testes e 22 são saltados — os que dependem de `torch` e vivem
 na venv de treino (ver §1b). O salto é declarado com motivo, nunca silencioso:
 salto silencioso é ausência de erro lida como sucesso.
 
