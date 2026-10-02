@@ -56,6 +56,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
+    CondPageBreak,
     HRFlowable,
     KeepTogether,
     PageBreak,
@@ -74,6 +75,9 @@ MARGEM = 25 * mm
 LARGURA_UTIL = A4[0] - 2 * MARGEM
 CORPO = 12
 ENTRELINHA = 15.6
+# Um título só começa se couberem, abaixo dele, o próprio título e três linhas
+# de texto; senão vai para a página seguinte.
+ESPACO_APOS_TITULO = 5 * ENTRELINHA
 
 SERIFA = "Times-Roman"
 SERIFA_N = "Times-Bold"
@@ -146,15 +150,19 @@ def _estilos() -> dict[str, ParagraphStyle]:
         "meta": ParagraphStyle("meta", parent=s["Normal"], fontName=SERIFA,
                                fontSize=11, leading=14, textColor=TINTA,
                                alignment=TA_CENTER, spaceAfter=3),
+        # Sem `keepWithNext`: ele agrupa o título com o bloco seguinte INTEIRO, e
+        # um parágrafo longo que não cabe no resto da página arrasta o título e
+        # deixa o pé da página vazio. Quem impede o título órfão é o
+        # `CondPageBreak` que `montar` põe antes de cada um.
         "h1": ParagraphStyle("h1", parent=s["Heading1"], fontName=SERIFA_N,
                              fontSize=13, leading=16, textColor=TINTA,
-                             spaceBefore=16, spaceAfter=6, keepWithNext=True),
+                             spaceBefore=16, spaceAfter=6),
         "h2": ParagraphStyle("h2", parent=s["Heading2"], fontName=SERIFA_N,
                              fontSize=12, leading=15, textColor=TINTA,
-                             spaceBefore=12, spaceAfter=5, keepWithNext=True),
+                             spaceBefore=12, spaceAfter=5),
         "h3": ParagraphStyle("h3", parent=s["Heading3"], fontName=SERIFA_I,
                              fontSize=12, leading=15, textColor=TINTA,
-                             spaceBefore=10, spaceAfter=4, keepWithNext=True),
+                             spaceBefore=10, spaceAfter=4),
         "p": ParagraphStyle("p", parent=s["Normal"], fontName=SERIFA,
                             fontSize=CORPO, leading=ENTRELINHA, textColor=TINTA,
                             alignment=TA_JUSTIFY, firstLineIndent=0, spaceAfter=8),
@@ -165,7 +173,8 @@ def _estilos() -> dict[str, ParagraphStyle]:
         # Resumo e legenda: um corpo abaixo do texto, que é a convenção.
         "cita": ParagraphStyle("cita", parent=s["Normal"], fontName=SERIFA,
                                fontSize=11, leading=14, textColor=TINTA,
-                               alignment=TA_JUSTIFY, spaceAfter=6),
+                               alignment=TA_JUSTIFY, spaceAfter=6,
+                               leftIndent=10 * mm, rightIndent=10 * mm),
         "legenda": ParagraphStyle("legenda", parent=s["Normal"], fontName=SERIFA,
                                   fontSize=10.5, leading=13, textColor=TINTA,
                                   alignment=TA_JUSTIFY, spaceBefore=4, spaceAfter=4,
@@ -255,21 +264,17 @@ def bloco_codigo(linhas: list[str], estrito: bool = False) -> Table:
     return t
 
 
-def bloco_citacao(paragrafos: list[str], st: dict) -> Table:
+def bloco_citacao(paragrafos: list[str], st: dict) -> list[Paragraph]:
     """Bloco recuado — é o que carrega o Resumo e as citações em destaque.
 
     Recuo simétrico de 10 mm e um corpo abaixo do texto, sem fundo nem barra
     colorida: num artigo o Resumo se distingue por composição, não por adorno.
+
+    ⚠️ Parágrafos recuados, e não uma tabela de uma coluna. Célula de tabela não
+    parte entre páginas: um Resumo que não cabia no resto da página 1 saltava
+    inteiro para a 2, e um maior que uma página levantava `LayoutError`.
     """
-    celulas = [[Paragraph(_inline(p), st["cita"])] for p in paragrafos]
-    t = Table(celulas, colWidths=[LARGURA_UTIL - 20 * mm], hAlign="CENTER")
-    t.setStyle(TableStyle([
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-    ]))
-    return t
+    return [Paragraph(_inline(p), st["cita"]) for p in paragrafos]
 
 
 _NUMERICO = re.compile(r"^[−–—+±<>≈~]?[\d.,]+\s*(%|×|x|B|M|G|GB|MB|h|pt|s)?$|^—$|^-$|^$")
@@ -443,7 +448,7 @@ def montar(md: str, st: dict, estrito: bool) -> list:
                 i += 1
             if atual:
                 paragrafos.append(" ".join(atual))
-            flow += [bloco_citacao(paragrafos, st), Spacer(1, 8)]
+            flow += [*bloco_citacao(paragrafos, st), Spacer(1, 8)]
             continue
 
         # ── régua ──────────────────────────────────────────────────────────
@@ -465,6 +470,7 @@ def montar(md: str, st: dict, estrito: bool) -> list:
                 no_cabecalho = True
             else:
                 no_cabecalho = False
+                flow.append(CondPageBreak(ESPACO_APOS_TITULO))
                 flow.append(Paragraph(_inline(texto),
                                       st[{1: "h1", 2: "h1", 3: "h2"}.get(nivel, "h3")]))
             i += 1
@@ -515,8 +521,10 @@ LINHAS_QUE_CABEM_JUNTO = 8
 def _agrupar_titulos(flow: list) -> list:
     """Impede título órfão no pé da página, sem abrir meia página em branco.
 
-    `keepWithNext` cobre o caso de o próximo elemento ser um `Paragraph`; quando é
-    tabela, não — daí o `KeepTogether` explícito.
+    Antes de parágrafo, quem cobre é o `CondPageBreak` posto antes do título:
+    parágrafo parte entre páginas, então três linhas de folga bastam. Tabela não
+    parte no meio de uma linha, e a primeira linha de uma tabela pode ser alta —
+    daí o `KeepTogether` explícito.
 
     Mas só para tabela CURTA. A tabela de estado da §11 tem 15 linhas, e o
     `KeepTogether` a empurrava inteira para a página seguinte deixando dez

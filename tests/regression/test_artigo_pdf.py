@@ -131,6 +131,70 @@ def test_o_artigo_renderiza_inteiro(tmp_path):
     assert paginas >= 15, f"o artigo encolheu para {paginas} páginas — algum bloco sumiu"
 
 
+def _paragrafos_desenhados(mod, md: str, destino: Path) -> list[tuple[int, str, str]]:
+    """(página, estilo, texto) de cada parágrafo, na ordem em que é desenhado.
+
+    O pedaço de um parágrafo partido entre páginas devolve texto vazio em
+    `getPlainText`; o estilo é o que o identifica.
+    """
+    desenhados: list[tuple[int, str, str]] = []
+
+    class Doc(mod.SimpleDocTemplate):
+        def afterFlowable(self, flowable):
+            if isinstance(flowable, mod.Paragraph):
+                desenhados.append((self.page, flowable.style.name,
+                                   flowable.getPlainText()))
+
+    doc = Doc(str(destino), pagesize=mod.A4,
+              leftMargin=mod.MARGEM, rightMargin=mod.MARGEM,
+              topMargin=mod.MARGEM, bottomMargin=mod.MARGEM)
+    doc.build(mod.montar(md, mod._estilos(), estrito=True))
+    return desenhados
+
+
+def _o_que_segue(desenhados, titulo: str) -> tuple[int, int]:
+    """Página do título e página do primeiro parágrafo depois dele."""
+    i = next(j for j, (_, _, t) in enumerate(desenhados) if t == titulo)
+    return desenhados[i][0], desenhados[i + 1][0]
+
+
+def test_resumo_longo_comeca_na_primeira_pagina(tmp_path):
+    """Regressão de 2026-09-30: a v0.5 saía com a página 1 em branco abaixo do título.
+
+    Duas causas somadas. O Resumo ia numa célula de tabela, que não parte entre
+    páginas; e o título levava `keepWithNext`, que agrupa título e bloco seguinte
+    num `KeepTogether` — se o par não cabe no resto da página, os dois saltam
+    inteiros. Com um Resumo de 567 palavras, a página 1 ficava só com o título.
+    O mesmo salto abria buracos no pé de página antes de todo parágrafo longo.
+    E um Resumo maior que uma página nem renderizava: a célula única não cabe em
+    página nenhuma, e o reportlab levanta `LayoutError`.
+    """
+    mod = _modulo()
+    md = ("# Título do artigo\n\nAutor\n\n*Filiação*\n\n---\n\n## Resumo\n\n> "
+          + "palavra " * 700 + "\n\n## 1. Introdução\n\nTexto.\n")
+    titulo, texto = _o_que_segue(_paragrafos_desenhados(mod, md, tmp_path / "r.pdf"), "Resumo")
+    assert titulo == 1, f"o título Resumo saltou para a página {titulo}"
+    assert texto == 1, f"o texto do Resumo começou na página {texto}, e não abaixo do título"
+
+
+def test_titulo_nao_fica_orfao_no_pe_da_pagina(tmp_path):
+    """O que o `keepWithNext` protegia, e que a correção não pode perder.
+
+    A faixa de enchimento foi medida: sem o `CondPageBreak`, de 540 a 558 palavras
+    o título fica sozinho no pé da página 1. Uma faixa que não cruza esse ponto
+    passaria com ou sem a correção, e não testaria nada.
+    """
+    mod = _modulo()
+    for palavras in range(500, 600, 3):
+        md = (f"# Título\n\nAutor\n\n## Resumo\n\n{'enchimento ' * palavras}\n\n"
+              f"## Seção\n\n{'linha ' * 300}")
+        desenhados = _paragrafos_desenhados(mod, md, tmp_path / "o.pdf")
+        titulo, texto = _o_que_segue(desenhados, "Seção")
+        assert titulo == texto, (
+            f"com {palavras} palavras antes, o título ficou na página {titulo} e o "
+            f"texto dele começou na {texto}")
+
+
 def test_bloco_desconhecido_vira_paragrafo_e_nao_desaparece():
     """Markdown não suportado precisa APARECER torto, nunca sumir limpo."""
     mod = _modulo()
