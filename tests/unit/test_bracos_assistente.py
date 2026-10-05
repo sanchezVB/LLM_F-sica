@@ -287,3 +287,11 @@ def test_a_regra_da_9_2_adota_so_com_o_IC_inteiro_acima_de_3_pontos_e_dentro_do_
     # ganho grande, mas estoura os 60 s
     assert (b.comparar_reordenado(*_caso_reordenado(500, 300, 350, t_a=50.0))["decisao"]
             == "FICA O SISTEMA ATUAL")
+
+
+def test_decidir_relata_o_gerador_tambem_SEM_a_revisao_R():
+    """R é do Claude desde 2026-10-04: se a decisão depender dela, tem de aparecer."""
+    v = _veredictos(500, 0.85, 0.85, 0.2)
+    nao_certos = [k for k, x in v["B"].items() if x != "certo"]
+    r = b.decidir(v, dict.fromkeys(nao_certos, "juiz_errou"), {"passa": True})
+    assert (r["gerador"], r["gerador_sem_R"]) == ("BASTA", "LIMITA")

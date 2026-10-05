@@ -501,6 +501,17 @@ def decidir(veredictos: dict[str, dict[tuple, str]], revisao_r: dict[tuple, str]
     else:
         busca = "NÃO DECIDIDO"
 
+    # A mesma regra SEM a revisão R (só o juiz): relatada ao lado, não decide. Desde
+    # 2026-10-04 R é feita pelo Claude, que escreveu os itens — se a decisão do gerador
+    # depender de R, isto deixa à vista.
+    ic_sem_r = juiz["B"][1]
+    if ic_sem_r[0] >= LIMIAR_GERADOR:
+        gerador_sem_r = "BASTA"
+    elif ic_sem_r[1] < LIMIAR_GERADOR:
+        gerador_sem_r = "LIMITA"
+    else:
+        gerador_sem_r = "NÃO DECIDIDO"
+
     i2_valida = juiz["C"][0] < juiz["B"][0] - MARGEM_I2
     if not i3.get("passa"):
         situacao = "NÃO DECIDIDO pelo instrumento (I3: κ abaixo do mínimo)"
@@ -511,6 +522,7 @@ def decidir(veredictos: dict[str, dict[tuple, str]], revisao_r: dict[tuple, str]
     return {
         "estrato": estrato, "n_itens": len(ids), "situacao": situacao,
         "gerador": gerador if situacao == "válido" else "—",
+        "gerador_sem_R": gerador_sem_r if situacao == "válido" else "—",
         "busca": busca if situacao == "válido" else "—",
         "acerto_B_com_R": acerto_b, "ic_acerto_B_com_R": ic_b,
         "limiar_gerador": LIMIAR_GERADOR,

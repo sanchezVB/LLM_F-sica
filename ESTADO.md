@@ -231,8 +231,8 @@ custo, ou se o modelo aberto com a nossa busca já basta.
 | os itens | ✅ **500 do primário + 150 do pós-corte**, escritos pelo Claude só do resumo; 747 tentativas, 92 resumos sem fato verificável, 5 caídas nas guardas · sha256 em `avaliacao/assistente_itens_completa.json` |
 | braços A/B/C | ✅ os 650 itens, ~7 h de GPU (43 s por item; retomado 3× sem perda) |
 | o juiz | ✅ 1.497 textos distintos, 0 fora do formato · **os acertos não foram lidos**: esperam I3 |
-| I3 · o juiz concorda com o dono? | ⏳ **com o dono**: `assistente/folha_i3.html`, 100 respostas |
-| R · os erros de B são do modelo? | aguarda I3 |
+| I3 · o juiz concorda com um segundo julgador? | ⏳ **com o Claude, às cegas** — o dono decidiu não julgar (2026-10-04); desvio e fraquezas no DOC-13 §9.1 |
+| R · os erros de B são do modelo? | aguarda I3 · também com o Claude |
 
 Já se sabe, sem o juiz (`avaliacao/assistente_bracos.json`): **a busca traz o artigo certo
 entre as 6 fontes em 68,6%** das perguntas do primário (72,7% no pós-corte); quando ele

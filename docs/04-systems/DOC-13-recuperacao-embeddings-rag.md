@@ -326,6 +326,37 @@ fixava, e ficou fixado aqui antes de qualquer braço rodar:
   reprovado "antes de qualquer leitura"; o que sai antes são só as métricas mecânicas
   (P entre as 6, P citada, citações removidas, tempo) em `assistente_bracos.json`.
 
+#### ⚠️ Desvio de 2026-10-04: o dono não julga — I3 e R passam ao Claude
+
+Decisão do dono, registrada **antes de qualquer número do juiz ser lido**: ele não faz os
+100 julgamentos de I3 nem a revisão R. Entre três saídas (o Claude julga no lugar dele ·
+ler o juiz sem calibrar · parar no que é mecânico), escolheu a primeira.
+
+**O que muda:** I3 e R são feitos pelo Claude (Opus 5.5), não por uma pessoa.
+
+- **I3 às cegas de verdade.** O Claude recebe as 100 respostas como um arquivo com
+  pergunta, gabarito e resposta sem as marcas [n], numeradas — **sem o braço e sem o id**
+  (`--exportar-i3`) — e não abre o cache do juiz antes de entregar os veredictos. O
+  limiar é o mesmo (κ ≥ 0,6), na leitura já escrita acima: **certa × o resto** decide.
+- **R** segue como estava, com o Claude classificando: ele vê o veredicto do juiz, como
+  o dono veria.
+
+**O que isso enfraquece, e fica dito em todo lugar onde o resultado aparecer:**
+
+1. **O juiz fica calibrado contra outro modelo, não contra uma pessoa.** O DOC-11 §5 pede
+   concordância humana; o que se terá é a concordância de dois modelos de famílias
+   diferentes (Qwen3-8B e Claude). Erros que os dois cometem juntos não aparecem.
+2. **Conflito de interesse em R.** Quem classifica "o item é inválido" é quem escreveu as
+   perguntas e os gabaritos. O que segura: I1 foi HUMANA (40 de 40 válidas); cada "item
+   inválido" e cada "juiz errou" sai com a justificativa escrita; e o resultado é
+   publicado **com R e sem R** — se a decisão depender de R, isso fica à vista.
+3. **Um só julgador nas duas pontas.** O Claude escreveu os itens, calibra o juiz e
+   revisa os erros. Nenhum humano olhou uma resposta do assistente nesta medida.
+
+O resultado sai rotulado **"calibrado contra o Claude, sem revisão humana"**. Para a
+pergunta do ΦGen (US$ 120–240), isso sustenta uma leitura clara nos extremos e pede
+cautela perto do limiar.
+
 ### 9.2 Melhorar a busca do assistente — ACEITA em 2026-10-01, antes de o teste ser tocado
 
 > Proposta em 2026-09-29, antes de qualquer candidato rodar. **Aceita pelo dono em
