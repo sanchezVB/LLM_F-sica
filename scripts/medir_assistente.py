@@ -458,6 +458,11 @@ def main() -> int:
     p.add_argument("--apurar-i3", type=Path)
     p.add_argument("--folha-r", action="store_true")
     p.add_argument("--apurar-r", type=Path)
+    p.add_argument("--rodada", type=int, default=1,
+                   help="rodada de I3: a 2 é a amostra NOVA que valida o juiz consertado")
+    p.add_argument("--testar-juiz", action="store_true",
+                   help="roda o juiz ATUAL nas 100 da rodada 1 e compara com o Claude "
+                        "(desenvolvimento do conserto; GPU, ~7 min)")
     p.add_argument("--exportar-i3", action="store_true",
                    help="as 100 respostas de I3 SEM braço nem id, para o Claude julgar às cegas")
     p.add_argument("--apurar-i3-claude", type=Path,
@@ -514,13 +519,17 @@ def main() -> int:
             encoding="utf-8")
         print(json.dumps(r2, ensure_ascii=False, indent=1))
 
-    claude = a.exportar_i3 or a.apurar_i3_claude or a.exportar_r or a.apurar_r_claude
+    claude = (a.exportar_i3 or a.apurar_i3_claude or a.exportar_r or a.apurar_r_claude
+              or a.testar_juiz)
     if a.folha_i3 or a.apurar_i3 or a.folha_r or a.apurar_r or a.decidir or claude:
         respostas = b.ler_respostas(cache_b)
         if len({(r.estrato, r.arxiv_id) for r in respostas}) < len(itens):
             raise SystemExit("os braços não rodaram em todos os itens (--rodar).")
         julg = b.ler_julgamentos(cache_j)
-        veredictos = b.veredictos_por_braco(itens, respostas, julg)
+        # Exportar a amostra de I3 não precisa do juiz — e na rodada 2 acontece ANTES de
+        # o juiz consertado rodar. Só quem lê veredictos exige o cache completo.
+        veredictos = (b.veredictos_por_braco(itens, respostas, julg)
+                      if not (a.exportar_i3 or a.testar_juiz) else None)
         por_id = {(i["estrato"], i["arxiv_id"]): i for i in itens}
 
         def id_de(r) -> str:
@@ -558,17 +567,44 @@ def main() -> int:
                   f"{'PASSA' if r3['passa'] else 'NÃO PASSA'}")
 
     # ── o Claude no lugar do dono (DOC-13 §9.1, desvio de 2026-10-04) ──────────────────
+    sufixo = "" if a.rodada == 1 else f"_r{a.rodada}"
+    if a.testar_juiz:
+        # Desenvolvimento do conserto: o juiz de AGORA nas 100 respostas da rodada 1, que o
+        # Claude já julgou. Estas 100 deixam de valer como validação — a rodada 2 valida.
+        amostra = b.amostra_i3(respostas, rodada=1)
+        meus = {int(v["indice"]): v["veredicto"] for v in json.loads(
+            (DIR / "veredictos_i3_claude.json").read_text(encoding="utf-8"))}
+        modelo, _ = _modelo_e_assistente(a, com_busca=False)
+        try:
+            julg = b.julgar_todas(modelo, itens, amostra, cache_j)
+        finally:
+            modelo.parar()
+        juiz, motivos = [], []
+        for r in amostra:
+            it = por_id[(r.estrato, r.arxiv_id)]
+            d = julg[b.chave_do_julgamento(it["pergunta"], it["gabarito"], r.texto)]
+            juiz.append(d["veredicto"])
+            motivos.append(d["motivo"])
+        r3 = b.apurar_i3([meus[n] for n in range(len(amostra))], juiz)
+        print(f"juiz {aj[:12]} nas 100 da rodada 1: κ (certa × resto) = {r3['kappa_certo']} · "
+              f"κ nas 4 = {r3['kappa_4_categorias']}")
+        print(json.dumps(r3["matriz_humano_x_juiz"], ensure_ascii=False))
+        for n, (j, m) in enumerate(zip(juiz, motivos, strict=True)):
+            if (meus[n] == "certo") != (j == "certo"):
+                print(f"  {n}: Claude {meus[n]} · juiz {j} — {m}")
+
     if a.exportar_i3 or a.apurar_i3_claude:
-        amostra = b.amostra_i3(respostas)
+        amostra = b.amostra_i3(respostas, rodada=a.rodada)
         if a.exportar_i3:
             # Só o que o juiz viu, e um número: o `id` traz o braço, e fica de fora.
             dados = [{"indice": n, "pergunta": por_id[(r.estrato, r.arxiv_id)]["pergunta"],
                       "gabarito": por_id[(r.estrato, r.arxiv_id)]["gabarito"],
                       "resposta": b.sem_citacoes(r.texto).strip() or "(resposta vazia)"}
                      for n, r in enumerate(amostra)]
-            (DIR / "i3_para_julgar.json").write_text(
-                json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
-            print(f"{len(dados)} respostas → {DIR / 'i3_para_julgar.json'}")
+            destino = DIR / f"i3_para_julgar{sufixo}.json"
+            destino.write_text(json.dumps(dados, ensure_ascii=False, indent=1),
+                               encoding="utf-8")
+            print(f"{len(dados)} respostas (rodada {a.rodada}) → {destino}")
         else:
             lidos = json.loads(a.apurar_i3_claude.read_text(encoding="utf-8"))
             por_indice = {int(v["indice"]): v["veredicto"] for v in lidos}
@@ -580,7 +616,12 @@ def main() -> int:
             r3 = b.apurar_i3([por_indice[n] for n in range(len(amostra))], juiz)
             anterior = (json.loads(agregado_i3.read_text(encoding="utf-8"))
                         if agregado_i3.exists() else {})
+            if a.rodada > 1 and "rodada_1" not in anterior:
+                # A rodada 1 fica guardada como saiu: é o registro de que o primeiro juiz
+                # foi reprovado, e de que as 100 dela viraram desenvolvimento do conserto.
+                anterior = {"regra": anterior.get("regra"), "rodada_1": anterior}
             anterior.update(r3)
+            anterior["rodada"], anterior["assinatura_juiz"] = a.rodada, aj
             anterior["julgador"] = "claude-opus-5-5 (no lugar do dono; DOC-13 §9.1, desvio)"
             anterior["por_braco"] = {
                 x: b.apurar_i3([por_indice[n] for n, r in enumerate(amostra) if r.braco == x],

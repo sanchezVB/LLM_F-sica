@@ -63,7 +63,11 @@ SISTEMA_MEMORIA = (
     "If you do not know the answer, say so plainly instead of guessing. Answer clearly and "
     "concisely.")
 
-SISTEMA_JUIZ = (
+# O juiz da PRIMEIRA rodada. Reprovado em I3 (2026-10-04): κ 0,52 contra o Claude às
+# cegas. Nos 16 casos em que ele negou um `certo`, puniu informação a mais (5), a forma —
+# tradução, ordem, "alguns × 10⁻⁷" — (4) e complementos do gabarito que a pergunta não
+# pede (7). Fica aqui para o cache antigo (`juiz_b13c72b07dae.jsonl`) continuar legível.
+SISTEMA_JUIZ_V1 = (
     "You grade one answer given by a physics assistant, comparing it with a reference "
     "answer (the gabarito) taken from the paper that answers the question. The question, "
     "the gabarito and the answer may be in Portuguese.\n"
@@ -80,6 +84,43 @@ SISTEMA_JUIZ = (
     "available) and does not commit to an answer.\n"
     "Compare only with the gabarito: do not use your own knowledge to decide which is right.\n"
     'Output only one JSON object: {"motivo": "<one short sentence>", '
+    '"veredicto": "certo" | "parcial" | "errado" | "absteve"}')
+
+# Versão 2, o conserto. Três mudanças, uma para cada erro da v1: (1) a pergunta decide o
+# que é essencial — o NÚCLEO do gabarito —, e o juiz o escreve antes do veredicto;
+# (2) uma lista explícita do que NÃO baixa o veredicto (forma, ordem, arredondamento,
+# complemento ausente, informação a mais); (3) `errado` e `absteve` definidos nos casos
+# de fronteira. Desenvolvida nas 100 respostas da rodada 1 de I3; validada numa amostra
+# NOVA (rodada 2), julgada às cegas antes de esta versão rodar nela.
+SISTEMA_JUIZ = (
+    "You grade one answer given by a physics assistant against a reference answer (the "
+    "gabarito), which was written from the paper that answers the question. The question, "
+    "the gabarito and the answer may be in Portuguese.\n\n"
+    "What counts is ONE thing: does the answer give what the QUESTION asks for, as the "
+    "gabarito states it?\n\n"
+    "First find the CORE of the gabarito: the part that directly answers the question (a "
+    "value, a name, a direction of change, a yes or no with its reason). The gabarito often "
+    "adds complements beyond what was asked: a second number, an exception, a comparison, a "
+    "consequence, a clause after a dash or a semicolon or in parentheses. Complements are "
+    "NOT required.\n\n"
+    "Choose exactly one verdict:\n"
+    "- certo: the answer states the core and does not contradict the gabarito. None of the "
+    "following lowers the verdict: different wording or a paraphrase; a translation or an "
+    "English term; an awkward or slightly wrong word when the meaning is clear; a different "
+    "order; an equivalent or rounded number; a missing complement; extra information that "
+    "is not in the gabarito.\n"
+    "- parcial: the answer states only a piece of the core (one of two things the question "
+    "asks for), or only a vaguer version of it ('much larger' where the core is a factor), "
+    "without contradicting the gabarito.\n"
+    "- errado: the answer gives a different core, contradicts the gabarito, or answers "
+    "something else. An answer that first gives a wrong core and then also mentions the "
+    "right one is errado.\n"
+    "- absteve: the answer says it cannot answer (for example, that the sources do not "
+    "contain the information) and does not commit to an answer, even if it discusses the "
+    "topic around it.\n\n"
+    "Compare only with the gabarito: do not use your own knowledge to decide which is right.\n"
+    'Output only one JSON object: {"nucleo": "<the core of the gabarito, in a few words>", '
+    '"motivo": "<one short sentence>", '
     '"veredicto": "certo" | "parcial" | "errado" | "absteve"}')
 
 
@@ -229,7 +270,7 @@ def julgar(modelo, pergunta: str, gabarito: str, texto: str) -> tuple[str, str]:
         return "absteve", "resposta vazia"
     bruto = modelo.gerar(SISTEMA_JUIZ,
                          f"Question: {pergunta}\nGabarito: {gabarito}\nAnswer:\n{limpo}",
-                         max_tokens=200, temperatura=0.0, semente=SEMENTE)
+                         max_tokens=260, temperatura=0.0, semente=SEMENTE)
     return ler_veredicto(bruto)
 
 
@@ -355,15 +396,19 @@ def comparar_reordenado(veredictos: dict[str, dict[tuple, str]],
 # ── I3: a concordância do juiz com o dono ────────────────────────────────────
 
 
-def amostra_i3(respostas: list[RespostaDoBraco], semente: int = SEMENTE
+def amostra_i3(respostas: list[RespostaDoBraco], semente: int = SEMENTE, rodada: int = 1
                ) -> list[RespostaDoBraco]:
     """50 respostas de A e 50 de B, de itens DIFERENTES (onde B = A, o mesmo item daria
-    o mesmo texto duas vezes), embaralhadas: o dono não sabe o braço."""
+    o mesmo texto duas vezes), embaralhadas: quem julga não sabe o braço.
+
+    `rodada` anda na MESMA permutação de itens: a rodada 2 pega os 100 itens seguintes,
+    disjuntos dos da rodada 1 — é a amostra de validação de um juiz consertado com a 1."""
     itens = sorted({(r.estrato, r.arxiv_id) for r in respostas})
     rng = np.random.default_rng(semente + 3)
     perm = rng.permutation(len(itens))
-    de_a = {itens[j] for j in perm[:N_I3_POR_BRACO]}
-    de_b = {itens[j] for j in perm[N_I3_POR_BRACO:2 * N_I3_POR_BRACO]}
+    ini = (rodada - 1) * 2 * N_I3_POR_BRACO
+    de_a = {itens[j] for j in perm[ini:ini + N_I3_POR_BRACO]}
+    de_b = {itens[j] for j in perm[ini + N_I3_POR_BRACO:ini + 2 * N_I3_POR_BRACO]}
     amostra = [r for r in respostas
                if (r.braco == "A" and (r.estrato, r.arxiv_id) in de_a)
                or (r.braco == "B" and (r.estrato, r.arxiv_id) in de_b)]

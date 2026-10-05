@@ -357,6 +357,45 @@ O resultado sai rotulado **"calibrado contra o Claude, sem revisão humana"**. P
 pergunta do ΦGen (US$ 120–240), isso sustenta uma leitura clara nos extremos e pede
 cautela perto do limiar.
 
+#### I3, rodada 1 (2026-10-04): o juiz NÃO PASSOU — κ 0,52
+
+100 respostas julgadas pelo Claude às cegas, antes de abrir o cache do juiz
+(`avaliacao/assistente_i3.json`): κ em certa × resto **0,5195** (mínimo 0,6); nas quatro
+categorias, 0,4419. Nenhum acerto de braço foi lido.
+
+| | juiz: certo | juiz: outro |
+|---|---|---|
+| **Claude: certo** (83) | 67 | 16 (15 `parcial`, 1 `errado`) |
+| **Claude: outro** (17) | 2 | 15 |
+
+Os 16 em que o juiz negou um `certo`, pelo motivo que ele mesmo escreveu:
+
+- **5 — informação a mais**: "adiciona informações não presentes no gabarito". O prompt
+  dizia que isso não conta.
+- **4 — a forma**: "trapaça" por aprisionamento virou `errado`; ordem invertida;
+  "across o potencial"; "alguns × 10⁻⁷" lido como vago.
+- **7 — complemento do gabarito que a pergunta não pede**: o tempo de treino quando se
+  perguntou a amplitude; a exceção perto do ponto crítico quando se perguntou a lei.
+  ⚠️ Estes são meus também: escrevi gabaritos com mais do que a pergunta pedia, e a
+  regra "todos os elementos essenciais" não dizia quem decide o que é essencial.
+
+#### O conserto do juiz — escrito antes de validar
+
+- **O que muda:** o prompt (`SISTEMA_JUIZ`, versão 2). A pergunta decide o que é
+  essencial — o NÚCLEO do gabarito —, e o juiz escreve esse núcleo antes do veredicto;
+  uma lista explícita do que não baixa o veredicto (forma, ordem, arredondamento,
+  complemento ausente, informação a mais); `errado` e `absteve` definidos nos casos de
+  fronteira. A v1 fica no código (`SISTEMA_JUIZ_V1`) e o cache dela, intacto.
+- **Por que o prompt e não o modo de raciocínio**, que era o primeiro conserto escrito:
+  os erros são de aplicação da rubrica, e o raciocínio custaria ~11 h de GPU nos 2.055
+  textos contra ~2 h. Se a v2 não passar, o raciocínio é o próximo.
+- **As 100 da rodada 1 viram DESENVOLVIMENTO.** O prompt foi escrito olhando para elas, e
+  concordar com elas não prova nada. No máximo três versões do prompt, todas registradas.
+- **A validação é uma rodada 2:** outras 100 respostas (50 de A, 50 de B), dos 100 itens
+  SEGUINTES na mesma permutação — disjuntos dos da rodada 1 —, julgadas pelo Claude às
+  cegas **antes** de a v2 rodar nelas. Mesmo limiar: κ ≥ 0,6 em certa × resto.
+- Os veredictos do Claude na rodada 1 não mudam depois de vistos os do juiz.
+
 ### 9.2 Melhorar a busca do assistente — ACEITA em 2026-10-01, antes de o teste ser tocado
 
 > Proposta em 2026-09-29, antes de qualquer candidato rodar. **Aceita pelo dono em

@@ -1,0 +1,14 @@
+{
+  "regra": "DOC-13 §9.1 · I3, rodada 2 (validação do juiz consertado)",
+  "o_que_e": "hashes gravados ANTES de o juiz v2 rodar na amostra da rodada 2",
+  "amostra_sha256": "0b3afb71f14f8efa0570af641c76d02fad314ca4c48d21ee0838a49f7c90bc4b",
+  "veredictos_do_claude_sha256": "2f5ab1ce90ec68df9dfdcbd0e56bd95c752296436d4655e74a6ed2ec80a2a107",
+  "veredictos_do_claude": {
+    "certo": 85,
+    "errado": 9,
+    "absteve": 4,
+    "parcial": 2
+  },
+  "rodada_1_veredictos_sha256": "36645bb6d0187a6c6f1d8deef2ec3ac361c8b3ea1d0999782a625d891acd4130",
+  "gravado_em": "2026-10-04T23:35:58"
+}
