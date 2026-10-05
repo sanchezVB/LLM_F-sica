@@ -529,7 +529,8 @@ def main() -> int:
         # Exportar a amostra de I3 não precisa do juiz — e na rodada 2 acontece ANTES de
         # o juiz consertado rodar. Só quem lê veredictos exige o cache completo.
         veredictos = (b.veredictos_por_braco(itens, respostas, julg)
-                      if not (a.exportar_i3 or a.testar_juiz) else None)
+                      if not (a.exportar_i3 or a.testar_juiz or a.apurar_i3_claude)
+                      else None)
         por_id = {(i["estrato"], i["arxiv_id"]): i for i in itens}
 
         def id_de(r) -> str:
@@ -569,11 +570,12 @@ def main() -> int:
     # ── o Claude no lugar do dono (DOC-13 §9.1, desvio de 2026-10-04) ──────────────────
     sufixo = "" if a.rodada == 1 else f"_r{a.rodada}"
     if a.testar_juiz:
-        # Desenvolvimento do conserto: o juiz de AGORA nas 100 respostas da rodada 1, que o
-        # Claude já julgou. Estas 100 deixam de valer como validação — a rodada 2 valida.
-        amostra = b.amostra_i3(respostas, rodada=1)
+        # O juiz de AGORA só nas 100 respostas de uma rodada, contra o que o Claude já
+        # julgou. Na rodada 1 é desenvolvimento do conserto (aquelas 100 deixam de valer
+        # como validação); na rodada 2 é a validação, antes de gastar horas julgando tudo.
+        amostra = b.amostra_i3(respostas, rodada=a.rodada)
         meus = {int(v["indice"]): v["veredicto"] for v in json.loads(
-            (DIR / "veredictos_i3_claude.json").read_text(encoding="utf-8"))}
+            (DIR / f"veredictos_i3_claude{sufixo}.json").read_text(encoding="utf-8"))}
         modelo, _ = _modelo_e_assistente(a, com_busca=False)
         try:
             julg = b.julgar_todas(modelo, itens, amostra, cache_j)
@@ -586,7 +588,8 @@ def main() -> int:
             juiz.append(d["veredicto"])
             motivos.append(d["motivo"])
         r3 = b.apurar_i3([meus[n] for n in range(len(amostra))], juiz)
-        print(f"juiz {aj[:12]} nas 100 da rodada 1: κ (certa × resto) = {r3['kappa_certo']} · "
+        print(f"juiz {aj[:12]} nas 100 da rodada {a.rodada}: κ (certa × resto) = "
+              f"{r3['kappa_certo']} · "
               f"κ nas 4 = {r3['kappa_4_categorias']}")
         print(json.dumps(r3["matriz_humano_x_juiz"], ensure_ascii=False))
         for n, (j, m) in enumerate(zip(juiz, motivos, strict=True)):
@@ -612,7 +615,15 @@ def main() -> int:
                 raise SystemExit("os veredictos não cobrem exatamente a amostra de I3.")
             if any(v not in b.VEREDICTOS for v in por_indice.values()):
                 raise SystemExit("veredicto fora das quatro categorias.")
-            juiz = [veredictos[r.braco][(r.estrato, r.arxiv_id)] for r in amostra]
+            # Só a amostra precisa estar julgada: a validação vem ANTES de julgar tudo.
+            juiz = []
+            for r in amostra:
+                it = por_id[(r.estrato, r.arxiv_id)]
+                chave = b.chave_do_julgamento(it["pergunta"], it["gabarito"], r.texto)
+                if chave not in julg:
+                    raise SystemExit("a amostra ainda não foi julgada por este juiz "
+                                     "(--testar-juiz --rodada N).")
+                juiz.append(julg[chave]["veredicto"])
             r3 = b.apurar_i3([por_indice[n] for n in range(len(amostra))], juiz)
             anterior = (json.loads(agregado_i3.read_text(encoding="utf-8"))
                         if agregado_i3.exists() else {})

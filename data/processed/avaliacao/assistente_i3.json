@@ -1,46 +1,92 @@
 {
   "regra": "DOC-13 §9.1 · I3",
+  "rodada_1": {
+    "regra": "DOC-13 §9.1 · I3",
+    "n": 100,
+    "assinatura_folha": "5173ad580843a86f",
+    "assinatura_juiz": "b13c72b07daedf3713611e0361eacd49e794601931a419e98b2ffb62d64e771e",
+    "kappa_certo": 0.5195,
+    "kappa_4_categorias": 0.4419,
+    "concordancia_certo": 0.82,
+    "matriz_humano_x_juiz": {
+      "certo": {
+        "certo": 67,
+        "parcial": 15,
+        "errado": 1,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "parcial": {
+        "certo": 2,
+        "parcial": 1,
+        "errado": 1,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "errado": {
+        "certo": 0,
+        "parcial": 1,
+        "errado": 5,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "absteve": {
+        "certo": 0,
+        "parcial": 2,
+        "errado": 1,
+        "absteve": 4,
+        "ilegivel": 0
+      }
+    },
+    "minimo": 0.6,
+    "passa": false,
+    "julgador": "claude-opus-5-5 (no lugar do dono; DOC-13 §9.1, desvio)",
+    "por_braco": {
+      "A": 0.6218,
+      "B": 0.1245
+    }
+  },
   "n": 100,
-  "assinatura_folha": "5173ad580843a86f",
-  "assinatura_juiz": "b13c72b07daedf3713611e0361eacd49e794601931a419e98b2ffb62d64e771e",
-  "kappa_certo": 0.5195,
-  "kappa_4_categorias": 0.4419,
-  "concordancia_certo": 0.82,
+  "kappa_certo": 0.7647,
+  "kappa_4_categorias": 0.6639,
+  "concordancia_certo": 0.94,
   "matriz_humano_x_juiz": {
     "certo": {
-      "certo": 67,
-      "parcial": 15,
-      "errado": 1,
+      "certo": 82,
+      "parcial": 3,
+      "errado": 0,
       "absteve": 0,
       "ilegivel": 0
     },
     "parcial": {
       "certo": 2,
-      "parcial": 1,
-      "errado": 1,
+      "parcial": 0,
+      "errado": 0,
       "absteve": 0,
       "ilegivel": 0
     },
     "errado": {
-      "certo": 0,
+      "certo": 1,
       "parcial": 1,
-      "errado": 5,
+      "errado": 7,
       "absteve": 0,
       "ilegivel": 0
     },
     "absteve": {
       "certo": 0,
-      "parcial": 2,
-      "errado": 1,
-      "absteve": 4,
+      "parcial": 0,
+      "errado": 2,
+      "absteve": 2,
       "ilegivel": 0
     }
   },
   "minimo": 0.6,
-  "passa": false,
+  "passa": true,
+  "rodada": 2,
+  "assinatura_juiz": "eec4ca7975e9c9d5a3a62135d81ce5cbdda4c67b81c30518f235887c531d0665",
   "julgador": "claude-opus-5-5 (no lugar do dono; DOC-13 §9.1, desvio)",
   "por_braco": {
-    "A": 0.6218,
-    "B": 0.1245
+    "A": 0.9467,
+    "B": -0.0504
   }
 }
