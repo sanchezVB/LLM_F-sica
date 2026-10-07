@@ -553,10 +553,30 @@ as fontes que o modelo lê; IC 95% por bootstrap pareado da diferença para o si
   contra 0,522; tempo pela regra **49,8 s ≤ 60 s** — o critério de tempo está cumprido.
   O critério de acerto (IC de acerto_A′ − acerto_A inteiro acima de 0,03) é pelo juiz e
   continua **lacrado até I3**: `--comparar-reordenado` recusa antes disso.
-- **Já no código, desligado por padrão** (`phifm.rag.reordenador`, `--reordenar` no
-  `perguntar.py` e no `servir_busca.py`). O caminho do produto reproduz a exploração em
-  15 de 15 perguntas de desenvolvimento (8 delas resgates do ΦRank); recuperação mediana
-  de ~14 s com ele, contra ~3 s sem.
+- O caminho do produto (`phifm.rag.reordenador`) reproduz a exploração em 15 de 15
+  perguntas de desenvolvimento (8 delas resgates do ΦRank); recuperação mediana de ~14 s
+  com ele, contra ~3 s sem.
+
+#### O RESULTADO da §9.2 (2026-10-07) — ADOTA
+
+Aberto depois de I3 passar (rodada 2), com o mesmo juiz v2 nos dois braços.
+`avaliacao/assistente_reordenado.json`. **Calibrado contra o Claude, sem revisão humana.**
+
+| | A · hoje | A′ · com o ΦRank | A′ − A | IC 95% | ganha/perde |
+|---|---|---|---|---|---|
+| **primário (500) — decide** | 0,700 | **0,806** | **+0,106** | **[+0,072; +0,142]** | 68 / 15 |
+| pós-corte (150) | 0,747 | 0,847 | +0,100 | [+0,040; +0,160] | 19 / 4 |
+
+- **Acerto:** o IC fica inteiro acima de 0,03 — o limiar que o dono endureceu. ✅
+- **Tempo:** 49,8 s de mediana pela definição escrita antes (limite 60 s). ✅
+- **→ ADOTA.** Desde 2026-10-07 o `perguntar.py` e a página ligam o ΦRank por padrão
+  (`--sem-reordenar` desliga); sem os pesos em disco, o assistente avisa e segue sem ele.
+- Dos 13,2 pontos que o ΦRank ganhou em "P entre as 6 fontes", 10,6 viraram acerto na
+  resposta. E ele também perde: em 15 perguntas a resposta era certa e deixou de ser.
+- **A busca continua limitando:** com a fonte garantida o acerto é 0,944; com o ΦRank,
+  0,806. Sobram ~14 pontos — os artigos que não chegam nem aos 50 primeiros (14%) e os
+  que o ΦRank não sobe. O próximo passo é da representação (trechos do texto completo,
+  §3), não mais da ordem.
 
 ---
 

@@ -276,8 +276,15 @@ comparação com A é pelo juiz e **só é lida depois de I3**.
 O que se lê SEM o juiz, no primário: o artigo certo entre as 6 fontes em **0,818 contra
 0,686** (+0,132, IC [+0,098; +0,166]; 73 resgatados, 7 perdidos), em primeiro lugar em
 0,616 contra 0,522; tempo pela regra **49,8 s** (limite 60). No pós-corte, 0,853 contra
-0,727. O ganho na busca é maior que o do desenvolvimento (+0,093). **Falta o que decide:**
-se isso vira acerto na RESPOSTA por mais de 3 pontos — pelo juiz, lacrado até I3.
+0,727. O ganho na busca é maior que o do desenvolvimento (+0,093).
+
+**ΦRank ADOTADO em 2026-10-07** (`avaliacao/assistente_reordenado.json`), pela regra aceita
+antes: o acerto da RESPOSTA vai de **0,700 para 0,806** no primário — **+0,106, IC
+[+0,072; +0,142]**, inteiro acima dos 0,03 exigidos; 68 perguntas ganhas, 15 perdidas;
+pós-corte +0,100. Passou a vir ligado por padrão no `perguntar.py` e na página
+(`--sem-reordenar` desliga). **A busca ainda limita:** faltam ~14 pontos para os 0,944 do
+braço com a fonte garantida — isso já não é ordem, é representação (trechos do texto
+completo, DOC-13 §3).
 
 ⚠️ Três interrupções na rodada, nenhuma com perda (a rodada é retomável por item): o
 `llama-server` sumiu uma vez (o cliente agora o sobe de novo sozinho), e o app passou a

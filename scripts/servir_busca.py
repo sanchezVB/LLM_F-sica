@@ -38,8 +38,8 @@ def main() -> int:
                    help="liga a aba de perguntas (Qwen3-8B na GPU, sob demanda)")
     p.add_argument("--ocioso-min", type=int, default=10,
                    help="minutos sem pergunta até o modelo sair da GPU")
-    p.add_argument("--reordenar", action="store_true",
-                   help="reordena os 50 primeiros com o ΦRank (+~11 s na CPU; EXPLORATÓRIO — DOC-13 §9.2)")
+    p.add_argument("--sem-reordenar", action="store_true",
+                   help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
@@ -57,11 +57,9 @@ def main() -> int:
 
         modelo = ModeloSobDemanda(ModeloLocal(), log=RAIZ / "data/processed/llama_server.log",
                                   ocioso_s=a.ocioso_min * 60)
-        reordenador = None
-        if a.reordenar:
-            from phifm.rag.reordenador import Reordenador
+        from phifm.rag.reordenador import carregar_ou_avisar
 
-            reordenador = Reordenador()
+        reordenador = None if a.sem_reordenar else carregar_ou_avisar()
         assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador)
     servidor = criar_servidor(busca, porta=a.porta, assistente=assistente,
                               ocioso_min=a.ocioso_min)

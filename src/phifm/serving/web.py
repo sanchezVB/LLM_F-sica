@@ -193,7 +193,7 @@ async function estado() {
     if (!d.assistente) return;
     $("abas").hidden = false;
     $("dica-modelo").textContent = d.modelo_no_ar
-      ? "Modelo carregado: ~20–40 s por resposta."
+      ? "Modelo carregado: ~30–50 s por resposta."
       : "A primeira pergunta carrega o modelo na GPU (~1–2 min). Ele se desliga sozinho depois de "
         + d.ocioso_min + " min sem uso.";
   } catch (e) {}
