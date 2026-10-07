@@ -1,0 +1,11 @@
+{
+  "regra": "DOC-13 §9.1 · R",
+  "nao_certos_B_primario": 28,
+  "revisados": 28,
+  "julgador": "claude-opus-5-5 (no lugar do dono; DOC-13 §9.1, desvio)",
+  "por_classe": {
+    "modelo_errou": 12,
+    "juiz_errou": 15,
+    "item_invalido": 1
+  }
+}

@@ -396,6 +396,75 @@ Os 16 em que o juiz negou um `certo`, pelo motivo que ele mesmo escreveu:
   cegas **antes** de a v2 rodar nelas. Mesmo limiar: κ ≥ 0,6 em certa × resto.
 - Os veredictos do Claude na rodada 1 não mudam depois de vistos os do juiz.
 
+#### I3, rodada 2 (2026-10-04/05): o juiz consertado PASSOU — κ 0,76
+
+Uma só versão do conserto (a v2), κ 0,82 nas 100 de desenvolvimento. Na validação — 100
+respostas de itens disjuntos, julgadas pelo Claude às cegas, com o sha256 dos veredictos
+no repositório antes de o juiz rodar nelas (`assistente_i3_selo_r2.json`, commit
+`ee7e21d`) —, κ em certa × resto **0,7647** (mínimo 0,6); nas quatro categorias, 0,6639.
+
+| | juiz v2: certo | juiz v2: outro |
+|---|---|---|
+| **Claude: certo** (85) | 82 | 3 |
+| **Claude: outro** (15) | 3 | 12 |
+
+⚠️ Por braço o κ engana: em B quase tudo é certo, e o κ lá dentro sai perto de zero com
+93% de concordância bruta (96% em A), nas duas rodadas. O que importa para a regra: em
+**3 de 95** respostas de B que o juiz v2 deu como certas, o Claude não deu (3,2%). R não
+vê esses casos — só revê o que o juiz reprovou.
+
+#### O RESULTADO (2026-10-07) — gerador BASTA, busca LIMITA
+
+`avaliacao/assistente_resultado.json`. Primário, 500 itens, IC 95% por bootstrap pareado.
+**Calibrado contra o Claude, sem revisão humana** — ver o desvio acima.
+
+| braço | acerto pelo juiz | |
+|---|---|---|
+| **A · sistema** | **0,700** [0,660; 0,740] | certo 350 · parcial 43 · errado 87 · absteve 20 |
+| **B · fonte garantida** | **0,944** [0,924; 0,964] | certo 472 · parcial 18 · errado 10 · absteve 0 |
+| **C · sem fontes** | **0,168** [0,136; 0,202] | certo 84 · parcial 137 · errado 277 · absteve 2 |
+
+| eixo | medida | limiar | desfecho |
+|---|---|---|---|
+| **gerador** · acerto_B depois de R | **0,976** [0,962; 0,988] | IC inteiro ≥ 0,90 | **BASTA** |
+| **busca** · acerto_B − acerto_A | **0,244** [0,206; 0,282] | IC inteiro > 0,05 | **LIMITA** |
+| I2 · acerto_C < acerto_B − 0,10 | 0,168 < 0,844 | | válida |
+| I3 · κ certa × resto | 0,765 | ≥ 0,6 | passa (rodada 2) |
+
+**Pela tabela da regra: investir na busca — trechos do texto completo (§3), reordenador —,
+não no ΦGen.** Com a fonte certa no prompt, o Qwen3-8B aberto acerta 19 de cada 20; o
+que derruba o assistente para 70% é a busca não trazer o artigo em 31% das perguntas.
+
+**R, os 28 erros de B** (todos revistos pelo Claude, com justificativa em
+`assistente/classes_r_claude.json`): 12 o modelo errou · 15 o juiz errou · 1 item
+inválido (dois artigos do ISTRA+ com limites diferentes para o mesmo decaimento). Mesmo o
+juiz consertado ainda baixou pelo menos 5 respostas por "informação a mais".
+
+**O quanto o resultado depende de quem julgou — três contas:**
+
+| se… | acerto_B | passa de 0,90? |
+|---|---|---|
+| R como apurada | 0,976 [0,962; 0,988] | sim |
+| **sem R nenhuma** (só o juiz; `gerador_sem_R`) | 0,944 [0,924; 0,964] | **sim** |
+| R com os 3 `juiz errou` de fronteira contados contra o modelo | 0,970 | sim |
+| R, e descontando os 3,2% de falsos `certo` do juiz medidos em I3 | ≈ 0,945 (piso do IC ≈ 0,93) | sim |
+
+O desfecho do gerador não depende de R nem das chamadas de fronteira: passa só com o
+juiz. O da busca é pelo juiz nos dois braços, sem R, e a lacuna é cinco vezes o limiar.
+
+**Pós-corte** (150 itens, artigos que o Qwen3 não pode ter lido): A 0,747 · B 0,967 ·
+C 0,133. B se mantém e C cai — a resposta vem da fonte, não da memória.
+
+**Secundárias:** A − C = 0,532 [0,484; 0,580]: a busca atual já vale 53 pontos sobre a
+memória. P entre as 6 fontes em 0,686; em 343 de 500 itens B é a própria resposta de A.
+O acerto de A (0,700) fica um pouco acima disso: às vezes outra fonte responde.
+
+**Limites que ficam:** (1) nenhum humano julgou uma resposta do assistente; (2) as
+perguntas têm o estilo do Claude e saem de um fato do resumo — leitura de resumo, não
+raciocínio sobre o artigo; (3) o portão de citações não mede se a fonte sustenta a
+frase; (4) isto decide o ΦGen **para o assistente de literatura**, não para o resolvedor
+de problemas do G2.
+
 ### 9.2 Melhorar a busca do assistente — ACEITA em 2026-10-01, antes de o teste ser tocado
 
 > Proposta em 2026-09-29, antes de qualquer candidato rodar. **Aceita pelo dono em
