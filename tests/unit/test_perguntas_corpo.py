@@ -49,17 +49,31 @@ def _doc() -> str:
 
 
 def test_a_passagem_sai_do_corpo_e_de_uma_secao_so():
-    p = pc.passagem_de("1234.5678", _doc(), contar)
+    p = pc.passagem_de("1234.5678", _doc(), contar, regra=1)
     assert p["secao"] == "Setup" and p["n_tokens"] >= pc.MIN_TOKENS_PASSAGEM
     assert "i0" not in p["passagem"] and "z0" not in p["passagem"]
 
 
 def test_a_passagem_e_a_mesma_a_cada_sorteio_e_presa_ao_artigo():
-    a = [pc.passagem_de("1234.5678", _doc(), contar)["primeiro_trecho"] for _ in range(3)]
+    a = [pc.passagem_de("1234.5678", _doc(), contar, regra=1)["primeiro_trecho"] for _ in range(3)]
     assert len(set(a)) == 1
-    outros = {pc.passagem_de(f"2000.{i:05d}", _doc(), contar)["primeiro_trecho"] for i in range(30)}
+    outros = {pc.passagem_de(f"2000.{i:05d}", _doc(), contar, regra=1)["primeiro_trecho"]
+              for i in range(30)}
     assert len(outros) == 2          # as duas janelas da seção, cada artigo com a sua
 
 
 def test_artigo_sem_corpo_bastante_nao_tem_passagem():
     assert pc.passagem_de("1", r"\section{Introduction} curto demais.", contar) is None
+
+
+def test_a_regra_2_fica_com_a_janela_de_mais_numeros_fora_de_equacao():
+    def par(marca: str, extra: str = "") -> str:
+        return " ".join(f"{marca}{i}" for i in range(120)) + f" {extra}."
+
+    numeros = "mede 12,5 K a 300 mT com 47 amostras"
+    equacao = r"\begin{equation} 11 + 22 + 33 + 44 + 55 + 66 = 231 \end{equation}"
+    doc = (r"\section{Setup}" + par("a", equacao) + "\n\n" + par("b") + "\n\n" + par("c")
+           + "\n\n" + par("d") + "\n\n" + par("e", numeros))
+    p = pc.passagem_de("1234.5678", doc, contar, regra=2)
+    assert "47 amostras" in p["passagem"] and p["regra"] == 2
+    assert pc.numeros_fora_de_equacao(equacao + " e 99 fora") == 1

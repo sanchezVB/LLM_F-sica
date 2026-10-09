@@ -46,11 +46,11 @@ _ATALHOS = (("be", "ee"), ("beq", "eeq"), ("bea", "eea"), ("ba", "ea"), ("ben", 
             ("beqa", "eeqa"), ("beqn", "eeqn"), ("bdm", "edm"), ("bal", "eal"))
 # Tabelas e figuras: fica a legenda. As células de uma tabela são números soltos para um
 # encoder de 192 tokens, e uma tabela média não cabe num trecho.
-_FLUTUANTE = re.compile(r"\\begin\{((?:table|figure|sidewaystable|wrapfigure|longtable)\*?)\}"
-                        r".*?\\end\{\1\}", re.DOTALL)
+_FLUTUANTE = re.compile(r"\\begin\{((?:table|figure|sidewaystable|wrapfigure|longtable"
+                        r"|deluxetable)\*?)\}.*?\\end\{\1\}", re.DOTALL)
 _TABULAR = re.compile(r"\\begin\{(tabular[x*]?|ruledtabular|tikzpicture)\}.*?\\end\{\1\}",
                       re.DOTALL)
-_LEGENDA = re.compile(r"\\caption\s*(?:\[[^\]]*\]\s*)?\{")
+_LEGENDA = re.compile(r"\\(?:table)?caption\s*(?:\[[^\]]*\]\s*)?\{")
 _SECAO = re.compile(r"\\(section|subsection|subsubsection)\*?\s*\{((?:[^{}]|\{[^{}]*\})*)\}")
 _FIM_DO_CORPO = re.compile(r"\\begin\{thebibliography\}|\\bibliography\s*\{|\\begin\{references\}"
                            r"|\\printbibliography")

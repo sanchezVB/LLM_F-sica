@@ -46,6 +46,13 @@ N_CORPO = 150
 TRECHOS_POR_PASSAGEM = 3
 LIMITE_TRECHO = 160
 MIN_TOKENS_PASSAGEM = 300
+# A regra que escolhe a passagem dentro do artigo. A 1 sorteava a janela; nas 100 primeiras
+# passagens rendeu 38 itens, com 62 passagens de derivação ou de revisão de trabalhos
+# alheios, sem achado conferível. A 2 fica com a janela que tem mais NÚMEROS fora de
+# equação destacada (empate: sorteio). Trocada em 2026-10-09, antes de qualquer passagem
+# da regra 2 ser lida. ⚠️ Enviesa o estrato para o que é numérico — medidas, parâmetros
+# de simulação, montagem — e o agregado diz quantos itens vêm de cada regra.
+REGRA_PASSAGEM = 2
 
 # As regras com que o Claude escreve. São as do conjunto formal (`SISTEMA_PERGUNTA`: a
 # pergunta vale sozinha, o gabarito é o conteúdo específico) mais as três do estrato.
@@ -123,9 +130,20 @@ def ordem_corpo(pares_validacao: Path, spine: Path) -> list[str]:
             if a not in vistos and a in com_texto]
 
 
-def passagem_de(arxiv_id: str, texto: str, contar) -> dict | None:
+def numeros_fora_de_equacao(texto: str) -> int:
+    """Quantos números distintos o texto tem fora das equações destacadas."""
+    from phifm.retrieval.trechos import AMBIENTE, exibidas
+
+    texto = AMBIENTE.sub(" ", texto)
+    for a, b in reversed(exibidas(texto)[0]):
+        texto = texto[:a] + " " + texto[b:]
+    return len(numeros(texto))
+
+
+def passagem_de(arxiv_id: str, texto: str, contar, regra: int = REGRA_PASSAGEM) -> dict | None:
     """UMA passagem do corpo: `TRECHOS_POR_PASSAGEM` trechos seguidos da mesma seção, fora
-    da introdução e da conclusão, sorteada com semente presa ao artigo."""
+    da introdução e da conclusão. Regra 1: sorteada; regra 2: a de mais números fora de
+    equação, com sorteio no empate. A semente é presa ao artigo."""
     import numpy as np
 
     from phifm.retrieval.trechos import cortar
@@ -138,9 +156,12 @@ def passagem_de(arxiv_id: str, texto: str, contar) -> dict | None:
                and sum(t.n_tokens for t in ts[i:i + k]) >= MIN_TOKENS_PASSAGEM]
     if not janelas:
         return None
+    if regra == 2:
+        notas = [numeros_fora_de_equacao(" ".join(t.texto for t in ts[i:i + k])) for i in janelas]
+        janelas = [i for i, n in zip(janelas, notas, strict=True) if n == max(notas)]
     semente = int(hashlib.blake2b(arxiv_id.encode(), digest_size=4).hexdigest(), 16)
     i = janelas[int(np.random.default_rng([SEMENTE_CORPO, semente]).integers(len(janelas)))]
-    return {"secao": ts[i].secao, "primeiro_trecho": i,
+    return {"regra": regra, "secao": ts[i].secao, "primeiro_trecho": i,
             "passagem": " ".join(t.texto for t in ts[i:i + k]),
             "n_tokens": sum(t.n_tokens for t in ts[i:i + k])}
 
@@ -153,6 +174,19 @@ def sortear_passagens(n: int, pares_validacao: Path, spine: Path) -> None:
     ordem = ordem_corpo(pares_validacao, spine)
     if [x["arxiv_id"] for x in feitas] != ordem[:len(feitas)]:
         raise SystemExit(f"{PASSAGENS.name} não é um prefixo da ordem: o sorteio mudou.")
+    # Passagem já lida (com tentativa) não muda nunca. As outras são refeitas se a regra
+    # em vigor não é a que as escolheu.
+    tentadas = {t["arxiv_id"] for t in _ler(_cache())}
+    lidas = 1 + max((i for i, x in enumerate(feitas) if x["arxiv_id"] in tentadas), default=-1)
+    corte = next((i for i in range(lidas, len(feitas))
+                  if not feitas[i].get("sem_passagem")
+                  and feitas[i].get("regra", 1) != REGRA_PASSAGEM), len(feitas))
+    if corte < len(feitas):
+        print(f"{len(feitas) - corte} passagens ainda não lidas serão refeitas pela "
+              f"regra {REGRA_PASSAGEM}.")
+        feitas = feitas[:corte]
+        PASSAGENS.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in feitas),
+                             encoding="utf-8")
     faltam = ordem[len(feitas):n]
     if not faltam:
         print(f"{len(feitas)} passagens já sorteadas.")
@@ -275,7 +309,15 @@ def fechar() -> None:
         "autor": m.AUTOR, "semente": SEMENTE_CORPO, "cota": N_CORPO,
         "o_que_e": "perguntas cuja resposta está numa passagem do corpo do artigo e não no resumo",
         "passagem": f"{TRECHOS_POR_PASSAGEM} trechos seguidos de uma seção do corpo "
-                    f"(≥ {MIN_TOKENS_PASSAGEM} tokens), sorteada por artigo",
+                    f"(≥ {MIN_TOKENS_PASSAGEM} tokens), uma por artigo",
+        "regra_da_passagem": {
+            "1": "janela sorteada",
+            "2": "a janela com mais números fora de equação destacada (empate: sorteio) — "
+                 "enviesa para o que é numérico; adotada antes de qualquer passagem dela ser lida",
+            "aceitas_por_regra": dict(Counter(
+                str(passagens[t["arxiv_id"]].get("regra", 1)) for t in aceitas)),
+            "tentativas_por_regra": dict(Counter(
+                str(passagens[t["arxiv_id"]].get("regra", 1)) for t in usadas))},
         "disjunto_de": ["teste (650)", "desenvolvimento da busca (200)"],
         "artigos_andados": ultimo + 1, "artigos_sem_passagem": sem_passagem,
         "tentativas_por_situacao": dict(Counter(t["situacao"] for t in usadas)),

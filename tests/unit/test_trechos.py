@@ -117,6 +117,13 @@ def test_da_tabela_fica_a_legenda():
                                              "Depois."]
 
 
+def test_da_tabela_do_aastex_tambem_fica_so_a_legenda():
+    doc = ("Antes.\n\\begin{deluxetable}{lcc} \\tablecaption{Propriedades observadas} "
+           "\\tablehead{\\colhead{ID} & \\colhead{PA}} \\startdata J0009 & 23 \\\\ J0803 & 50 "
+           "\\enddata \\end{deluxetable}\nDepois.")
+    assert [b for b, _ in blocos(limpar(doc))] == ["Antes.", "Propriedades observadas", "Depois."]
+
+
 def test_dois_cifroes_colados_nao_sao_equacao_destacada():
     assert blocos(r"temos $a$$b$ e pronto") == [(r"temos $a$$b$ e pronto", False)]
     assert blocos("antes $$x = 1$$ depois") == [("antes", False), ("$$x = 1$$", True),
