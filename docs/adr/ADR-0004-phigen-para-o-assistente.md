@@ -1,6 +1,6 @@
 # ADR-0004 — O ΦGen deve ser treinado para o assistente de literatura?
 
-**Status:** **Proposto (2026-10-09)** — aguarda o aceite do dono do projeto.
+**Status:** **Aceito (2026-10-09)** pelo dono do projeto, na opção A, no mesmo dia em que foi proposto.
 **Contexto:** [DOC-07 §5](../02-models/DOC-07-familia-de-modelos.md) (ΦGen: CPT sobre Qwen3, 1,5 B e 8 B), [DOC-13 §6 e §9](../04-systems/DOC-13-recuperacao-embeddings-rag.md) (geração ancorada e a medida do assistente), [DOC-11 §5](../03-evaluation/DOC-11-physbench.md) (juiz automático e concordância humana).
 **Não revisa** a linha "Physics Generator — modelo próprio" do DOC-07: restringe o motivo pelo qual ele seria treinado.
 
@@ -76,7 +76,7 @@ de já ter devolvido 10.
 
 ---
 
-## 5. Recomendação (não decidida)
+## 5. Recomendação — aceita pelo dono em 2026-10-09
 
 **Opção A.** O assistente não é argumento para treinar o ΦGen. Se o ΦGen for treinado,
 que seja pela pergunta do G2 — raciocínio em Física sem a fonte no prompt —, com a medida

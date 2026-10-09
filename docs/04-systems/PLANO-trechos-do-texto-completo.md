@@ -1,7 +1,7 @@
 # Plano — indexar trechos do texto completo para o assistente
 
-**Status:** **Proposto (2026-10-09)** — nada foi executado. É um plano com custo, para o dono
-decidir antes de qualquer GPU ou disco.
+**Status:** **Etapa 0 autorizada pelo dono em 2026-10-09** — o piloto e o estrato "corpo", com a barra de
+5 pontos no desenvolvimento para construir. As etapas 1 e 2 continuam condicionadas ao piloto.
 **Contexto:** [DOC-13 §3](DOC-13-recuperacao-embeddings-rag.md) (regras de chunking), §9.1–§9.3
 (a medida do assistente e o que já foi tentado na busca), [ADR-0004](../adr/ADR-0004-phigen-para-o-assistente.md).
 
@@ -91,7 +91,7 @@ só concorre com os 300 da frente, não com o corpus inteiro.
 
 ### Etapa 1 · construir — só se o piloto passar a barra
 
-Barra proposta **[dono]**: a mesma da §9.2 — pelo menos **5 pontos** de ganho no
+Barra, **aceita pelo dono em 2026-10-09**: a mesma da §9.2 — pelo menos **5 pontos** de ganho no
 desenvolvimento sobre o sistema de hoje. Abaixo disso, a opção é C.
 
 - Se a opção **B** já der o ganho: construir B (~3,5 h de GPU, 4,5 GB). É o resultado mais
@@ -118,9 +118,9 @@ sempre vale (calibrado contra o Claude).
 
 | decisão | minha proposta |
 |---|---|
-| Fazer a etapa 0 (piloto)? | **Sim** — 2 h de GPU para não apostar 52 h às cegas |
-| A barra para construir | 5 pontos no desenvolvimento, como na §9.2 |
-| Escrever o estrato "corpo"? | **Sim** — é o que mede o benefício real |
+| Fazer a etapa 0 (piloto)? | **Sim** — 2 h de GPU para não apostar 52 h às cegas · ✅ aceito |
+| A barra para construir | 5 pontos no desenvolvimento, como na §9.2 · ✅ aceito |
+| Escrever o estrato "corpo"? | **Sim** — é o que mede o benefício real · ✅ aceito |
 | Estender a cobertura além de 52% (§6)? | **Não agora** — só depois de o piloto dizer que trechos funcionam |
 
 ---

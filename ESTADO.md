@@ -290,9 +290,9 @@ completo, DOC-13 §3).
 desenvolvimento, reordenar mais fundo (100, 200), dar 10 fontes ou usar 3 consultas
 hipotéticas rende de 0 a +2,7 pontos sobre o sistema adotado — abaixo da barra de 5, e
 nada foi ao teste. Cortar os pares do ΦRank em 256 tokens custa 6 pontos. A decisão sobre
-o ΦGen está proposta no **ADR-0004** (aguarda o aceite do dono).
+o ΦGen está no **ADR-0004, ACEITO pelo dono em 2026-10-09**: não se treina o ΦGen por causa do assistente.
 
-**O próximo passo da busca tem plano, não execução**
+**O próximo passo da busca: piloto autorizado em 2026-10-09** (barra de 5 pontos para construir)
 (`docs/04-systems/PLANO-trechos-do-texto-completo.md`, proposto em 2026-10-09). Medido: o
 texto completo em disco cobre **52%** do índice (quase nada de 2023 em diante); dos 91
 erros de busca de hoje no teste, 49 têm texto → teto de **+9,8 pontos**; indexar tudo
