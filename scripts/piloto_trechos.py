@@ -245,11 +245,12 @@ def cortar_tudo() -> None:
           f"(pedidos: {len(alvo):,})")
 
 
-def _mapa():
+def _mapa(colunas: list[str] | None = None):
     """Todos os trechos, na ordem dos arquivos: a linha é a posição do vetor."""
     import polars as pl
 
-    return pl.concat([pl.read_parquet(p) for p in sorted((PILOTO / "trechos").glob("part-*.parquet"))])
+    return pl.concat([pl.read_parquet(p, columns=colunas)
+                      for p in sorted((PILOTO / "trechos").glob("part-*.parquet"))])
 
 
 def embutir(lote: int = 64, bloco: int = 20_000) -> None:
@@ -308,7 +309,7 @@ def pontuar() -> None:
     prog = json.loads((PILOTO / "progresso.json").read_text(encoding="utf-8"))
     if prog["feitos"] != prog["n"]:
         raise SystemExit(f"faltam vetores: {prog['feitos']:,} de {prog['n']:,}. Rode --embutir.")
-    mapa = _mapa().select("arxiv_id", "tipo")
+    mapa = _mapa(["arxiv_id", "tipo"])
     ids = mapa["arxiv_id"].to_numpy()
     borda = np.flatnonzero(np.r_[True, ids[1:] != ids[:-1], True])
     faixa = {ids[a]: (int(a), int(b)) for a, b in zip(borda[:-1], borda[1:], strict=True)}
@@ -413,13 +414,20 @@ def reordenar() -> None:
 K_FONTES, K_REORDENA = 6, 50
 
 
+SEM_ESCORE = {"candidatos": 0}
+
+
 def _depois_do_phirank(d: dict, rr: dict[str, float], entram: np.ndarray) -> bool:
-    """P fica entre as `K_FONTES` depois de o ΦRank reordenar os candidatos `entram`?"""
+    """P fica entre as `K_FONTES` depois de o ΦRank reordenar os candidatos `entram`?
+
+    Um candidato que não recebeu escore do ΦRank (só os `N_PHIRANK` primeiros de cada
+    representação recebem) conta CONTRA P, e entra na conta de `SEM_ESCORE`."""
     ids = [d["ids"][j] for j in entram]
     p = d["arxiv_id"]
     if p not in ids:
         return False
-    return sum(rr.get(a, -np.inf) > rr[p] for a in ids if a != p) < K_FONTES
+    SEM_ESCORE["candidatos"] += sum(a not in rr for a in ids)
+    return sum(rr.get(a, np.inf) > rr[p] for a in ids if a != p) < K_FONTES
 
 
 def _por_escore(d: dict, f: np.ndarray, f_fora: np.ndarray,
@@ -497,7 +505,8 @@ def resumir() -> None:
                     pos = 1 if ip in entram else K_REORDENA + 1
                     ok = _depois_do_phirank(d, rr, entram)
                 ip = d["ids"].index(d["arxiv_id"])
-                linhas.append((pos <= K_REORDENA, ok, not np.isnan(d["c_max"][ip])))
+                linhas.append((pos <= K_REORDENA, ok, not np.isnan(d["c_max"][ip]),
+                               r["pos_base"] <= FUNDO))
             resultado.setdefault(familia, {})[nome] = linhas
 
     rng = np.random.default_rng(SEMENTE)
@@ -514,19 +523,25 @@ def resumir() -> None:
         for nome, linhas in cands.items():
             nos50 = np.array([x[0] for x in linhas], dtype=float)
             x = np.array([x[1] for x in linhas], dtype=float)
+            # duas fases: a busca pelo resumo traz os FUNDO primeiros e os trechos só
+            # reordenam esses — P além deles não é resgatado. Aqui o piloto é EXATO.
+            duas = np.array([x[1] and x[3] for x in linhas], dtype=float)
             dif = x - hoje
             reps = dif[rng.integers(0, len(dif), (5000, len(dif)))].mean(axis=1)
             lo, hi = np.percentile(reps, [2.5, 97.5])
             saida["familias"][familia][nome] = {
                 "p_nos_50": round(float(nos50.mean()), 4),
                 "p_nas_6_fontes": round(float(x.mean()), 4),
+                "p_nas_6_fontes_em_duas_fases": round(float(duas.mean()), 4),
+                "duas_fases_menos_hoje": round(float((duas - hoje).mean()), 4),
                 "menos_hoje": round(float(dif.mean()), 4),
                 "ic95": [round(float(lo), 4), round(float(hi), 4)],
                 "ganha": int((dif > 0).sum()), "perde": int((dif < 0).sum()),
                 "menos_hoje_P_com_trechos": round(float(dif[com_texto].mean()), 4),
                 "menos_hoje_P_sem_trechos": round(float(dif[~com_texto].mean()), 4)}
             c = saida["familias"][familia][nome]
-            print(f"  {nome:44s} @50 {c['p_nos_50']:.3f} · fontes {c['p_nas_6_fontes']:.3f}  "
+            print(f"  {nome:44s} @50 {c['p_nos_50']:.3f} · fontes {c['p_nas_6_fontes']:.3f} "
+                  f"(2 fases {c['p_nas_6_fontes_em_duas_fases']:.3f})  "
                   f"Δ {c['menos_hoje']:+.3f} [{c['ic95'][0]:+.3f}; {c['ic95'][1]:+.3f}]  "
                   f"+{c['ganha']}/−{c['perde']}  (com texto {c['menos_hoje_P_com_trechos']:+.3f} · "
                   f"sem {c['menos_hoje_P_sem_trechos']:+.3f})")
@@ -551,6 +566,8 @@ def resumir() -> None:
     diag["trecho_melhor_que_resumo"] = int((np.array(postos["c_max"]) < np.array(postos["s_abs"])).sum())
     diag["trecho_pior_que_resumo"] = int((np.array(postos["c_max"]) > np.array(postos["s_abs"])).sum())
     saida["diagnostico_so_entre_artigos_com_trechos"] = diag
+    saida["candidatos_sem_escore_do_phirank (contados contra P)"] = SEM_ESCORE["candidatos"]
+    saida["hoje_confere_com"] = "assistente_busca_dev2.json · primário · rr50 = 0,8267"
     print(f"\ndiagnóstico — o posto de P só entre os concorrentes com trechos (n={diag['n']}):")
     for k in postos:
         print(f"  {k:6s} mediana {diag[k]['mediana']:.0f} · 1º {diag[k]['em_1']:.3f} · "
