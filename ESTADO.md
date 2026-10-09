@@ -292,6 +292,14 @@ hipotéticas rende de 0 a +2,7 pontos sobre o sistema adotado — abaixo da barr
 nada foi ao teste. Cortar os pares do ΦRank em 256 tokens custa 6 pontos. A decisão sobre
 o ΦGen está proposta no **ADR-0004** (aguarda o aceite do dono).
 
+**O próximo passo da busca tem plano, não execução**
+(`docs/04-systems/PLANO-trechos-do-texto-completo.md`, proposto em 2026-10-09). Medido: o
+texto completo em disco cobre **52%** do índice (quase nada de 2023 em diante); dos 91
+erros de busca de hoje no teste, 49 têm texto → teto de **+9,8 pontos**; indexar tudo
+seriam ~87 M de trechos, ~67 GB e ~52 h de GPU; só introdução e conclusão, ~5,8 M, 4,5 GB
+e ~3,5 h. Recomendação: um piloto de ~2 h antes de construir, e um estrato de perguntas
+tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o benefício.
+
 ⚠️ Três interrupções na rodada, nenhuma com perda (a rodada é retomável por item): o
 `llama-server` sumiu uma vez (o cliente agora o sobe de novo sozinho), e o app passou a
 encerrar comandos em segundo plano depois de 30 min, ou 2 h quando se pede mais.

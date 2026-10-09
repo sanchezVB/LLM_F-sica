@@ -611,7 +611,10 @@ Exploratório, nas mesmas 200 perguntas de desenvolvimento, agora contra o siste
 **Leitura:** o que faltava na ORDEM dos resultados foi colhido com o ΦRank nos 50. Os ~14
 pontos que restam até o braço com a fonte garantida são de REPRESENTAÇÃO — o artigo certo
 não está perto da consulta no espaço do encoder — e o remédio previsto é indexar trechos
-do texto completo (§3), não mexer mais na ordem.
+do texto completo (§3), não mexer mais na ordem. O plano, com os custos medidos e um
+piloto antes de construir, está em
+[PLANO-trechos-do-texto-completo.md](PLANO-trechos-do-texto-completo.md) (proposto,
+aguarda o dono).
 
 ---
 
