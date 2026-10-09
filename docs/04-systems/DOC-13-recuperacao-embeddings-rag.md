@@ -578,6 +578,41 @@ Aberto depois de I3 passar (rodada 2), com o mesmo juiz v2 nos dois braços.
   que o ΦRank não sobe. O próximo passo é da representação (trechos do texto completo,
   §3), não mais da ordem.
 
+### 9.3 A ordem está esgotada — segunda leva no desenvolvimento (2026-10-09), NEGATIVA
+
+Exploratório, nas mesmas 200 perguntas de desenvolvimento, agora contra o sistema adotado
+(ΦRank nos 50, 6 fontes). `scripts/explorar_busca_dev.py --medir2`,
+`avaliacao/assistente_busca_dev2.json`. A barra para ir ao teste continua a da §9.2:
+5 pontos no primário.
+
+| candidato | primário (150) | Δ para hoje | ganha/perde |
+|---|---|---|---|
+| hoje · ΦRank nos 50, 6 fontes | 0,827 | — | — |
+| ΦRank nos 100 | 0,833 | +0,007 [−0,013; +0,033] | 2/1 |
+| ΦRank nos 200 | 0,827 | 0,000 [−0,027; +0,027] | 2/2 |
+| hoje, com 10 fontes | 0,833 | +0,007 [0,000; +0,020] | 1/0 |
+| ΦRank nos 200 e 10 fontes | 0,853 | +0,027 [+0,007; +0,053] | 4/0 |
+| ΦRank com a média de 3 consultas hipotéticas | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| busca com 3 consultas + ΦRank nos 50 | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| busca com 3 consultas + ΦRank nos 100 | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| ΦRank nos 50 com pares de **256 tokens** | 0,767 | **−0,060** [−0,107; −0,020] | 1/10 |
+
+- **Nenhum passa a barra. Nada foi ao teste.**
+- O ΦRank nos 50 já colhe quase tudo o que está ali: 0,827 de um teto de 0,847. Ir aos
+  200 sobe o teto para 0,893, mas o reordenador não sobe esses artigos — o que está fundo
+  na busca densa também é difícil para ele.
+- O melhor (200 + 10 fontes, +2,7) custaria 4× o tempo do ΦRank na CPU (~45 s só de
+  reordenação), fora dos 60 s da regra.
+- **Cortar os pares em 256 tokens custa 6 pontos**: o atalho para reordenar mais fundo no
+  mesmo tempo não existe. O ΦRank foi treinado com 384, e usa.
+- No pós-corte (50 itens) vários ganham 6–8 pontos, com ICs que encostam em zero; é o
+  estrato que não decide, e 50 itens não sustentam uma ida ao teste.
+
+**Leitura:** o que faltava na ORDEM dos resultados foi colhido com o ΦRank nos 50. Os ~14
+pontos que restam até o braço com a fonte garantida são de REPRESENTAÇÃO — o artigo certo
+não está perto da consulta no espaço do encoder — e o remédio previsto é indexar trechos
+do texto completo (§3), não mexer mais na ordem.
+
 ---
 
 ## 10. Riscos

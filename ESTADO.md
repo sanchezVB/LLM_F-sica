@@ -286,6 +286,12 @@ pós-corte +0,100. Passou a vir ligado por padrão no `perguntar.py` e na págin
 braço com a fonte garantida — isso já não é ordem, é representação (trechos do texto
 completo, DOC-13 §3).
 
+**A ordem está esgotada (2026-10-09, DOC-13 §9.3, negativo):** nas perguntas de
+desenvolvimento, reordenar mais fundo (100, 200), dar 10 fontes ou usar 3 consultas
+hipotéticas rende de 0 a +2,7 pontos sobre o sistema adotado — abaixo da barra de 5, e
+nada foi ao teste. Cortar os pares do ΦRank em 256 tokens custa 6 pontos. A decisão sobre
+o ΦGen está proposta no **ADR-0004** (aguarda o aceite do dono).
+
 ⚠️ Três interrupções na rodada, nenhuma com perda (a rodada é retomável por item): o
 `llama-server` sumiu uma vez (o cliente agora o sobe de novo sozinho), e o app passou a
 encerrar comandos em segundo plano depois de 30 min, ou 2 h quando se pede mais.

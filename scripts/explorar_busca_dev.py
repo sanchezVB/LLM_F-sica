@@ -228,8 +228,8 @@ def medir2(itens: list[dict], spine: Path, indice: Path) -> None:
     def pontuar(consulta: str, docs: list[str], max_len: int) -> np.ndarray:
         saida = []
         with torch.no_grad():
-            for i in range(0, len(docs), 25):
-                lote = docs[i:i + 25]
+            for i in range(0, len(docs), 8):   # 25 estourou a VRAM com a placa dividida
+                lote = docs[i:i + 8]
                 b = tok([consulta] * len(lote), lote, padding=True, truncation=True,
                         max_length=max_len, return_tensors="pt")
                 logit = mod(**{k: v.to(busca.dev) for k, v in b.items()}).logits
