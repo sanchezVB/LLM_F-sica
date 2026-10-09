@@ -300,6 +300,21 @@ seriam ~87 M de trechos, ~67 GB e ~52 h de GPU; só introdução e conclusão, ~
 e ~3,5 h. Recomendação: um piloto de ~2 h antes de construir, e um estrato de perguntas
 tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o benefício.
 
+**Etapa 0 em andamento (2026-10-09):**
+
+- **O cortador de trechos existe** (`phifm.retrieval.trechos`, DOC-13 §3.1): equação
+  indivisível, seção como fronteira, ~160 tokens. **M1:** 0 cortes em 10.000 trechos de
+  artigos íntegros; 11 em 5 artigos que já chegam com equação sem par (macro de autor sem
+  preâmbulo, ou caracteres que o RedPajama perdeu). A caixa da M1 fica aberta, com o dono.
+- **O estrato "corpo" existe:** 150 perguntas cuja resposta está numa passagem do corpo e
+  não no resumo (`assistente_itens_corpo.json`), escritas pelo Claude em 288 passagens de
+  297 artigos disjuntos do teste e do desenvolvimento. ⚠️ Sem revisão humana; 112 das 150
+  vêm da regra que escolhe a passagem de mais números — o estrato pende para medidas,
+  parâmetros e detalhes de método; em 29 a guarda numérica não tinha o que conferir.
+  **Ainda não foi medido** (os três braços nele são ~6 h de GPU).
+- **O piloto está rodando:** 28.743 artigos concorrentes das 150 perguntas de
+  desenvolvimento cortados em 3,1 M de trechos; os vetores estão sendo calculados.
+
 ⚠️ Três interrupções na rodada, nenhuma com perda (a rodada é retomável por item): o
 `llama-server` sumiu uma vez (o cliente agora o sobe de novo sozinho), e o app passou a
 encerrar comandos em segundo plano depois de 30 min, ou 2 h quando se pede mais.

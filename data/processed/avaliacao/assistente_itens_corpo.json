@@ -1,0 +1,41 @@
+{
+  "etapa": "corpo",
+  "regra": "PLANO-trechos-do-texto-completo §4 · estrato corpo",
+  "autor": "claude-opus-5-5",
+  "semente": 20261009,
+  "cota": 150,
+  "o_que_e": "perguntas cuja resposta está numa passagem do corpo do artigo e não no resumo",
+  "passagem": "3 trechos seguidos de uma seção do corpo (≥ 300 tokens), uma por artigo",
+  "regra_da_passagem": {
+    "1": "janela sorteada",
+    "2": "a janela com mais números fora de equação destacada (empate: sorteio) — enviesa para o que é numérico; adotada antes de qualquer passagem dela ser lida",
+    "aceitas_por_regra": {
+      "1": 38,
+      "2": 112
+    },
+    "tentativas_por_regra": {
+      "1": 100,
+      "2": 188
+    }
+  },
+  "disjunto_de": [
+    "teste (650)",
+    "desenvolvimento da busca (200)"
+  ],
+  "artigos_andados": 297,
+  "artigos_sem_passagem": 9,
+  "tentativas_por_situacao": {
+    "aceita": 150,
+    "nenhuma": 135,
+    "depende_do_artigo": 3
+  },
+  "guarda_numerica_das_aceitas": {
+    "ok": 121,
+    "sem_numero": 29
+  },
+  "sobreposicao_media_com_o_titulo": 0.0385,
+  "sem_revisao_humana": "escrito e conferido pelo Claude; o dono não julga amostras (decisão de 2026-10-04)",
+  "assinatura_regras": "88b80d4161caf6fb0f896d0c1b73f4c0c5f2538937834afd0dfc141e140ec56f",
+  "sha256_itens": "3272e424b992626cf22e35b11f2c347e3f830b74c842422cfc58f6f94a0af53e",
+  "sha256_passagens": "04b5df073d69103cf9933adaa56034b7025928ccb59b90ca78dc4c9666e07785"
+}

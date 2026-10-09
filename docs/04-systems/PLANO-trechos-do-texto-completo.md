@@ -114,6 +114,38 @@ sempre vale (calibrado contra o Claude).
 
 ---
 
+### O estrato "corpo" — feito em 2026-10-09
+
+`scripts/perguntas_corpo.py` · agregado em `data/processed/avaliacao/assistente_itens_corpo.json`
+· perguntas, gabaritos e passagens fora do git.
+
+| | |
+|---|---|
+| itens | **150**, um por artigo, em 297 artigos andados na permutação do conjunto formal |
+| disjunto de | teste (650) e desenvolvimento da busca (200) — conferido ao fechar |
+| de onde sai a pergunta | de UMA passagem do corpo: 3 trechos seguidos de uma seção, fora da introdução e da conclusão |
+| tentativas | 288 passagens lidas: 150 aceitas, 135 sem achado conferível, 3 caídas na guarda de dependência do artigo |
+| guarda numérica | 121 com número conferido (está na passagem, não está no resumo); **29 sem número** — ali só a leitura de quem escreveu |
+
+⚠️ **Três ressalvas, antes de qualquer número sair dele:**
+
+1. **Sem revisão humana.** Escrito e conferido pelo Claude; o dono não julga amostras.
+2. **A regra da passagem mudou no meio, e está dito no agregado.** Nas 100 primeiras
+   (janela sorteada) saíram 38 itens: o resto era derivação, notação ou revisão de trabalhos
+   alheios. Da 101ª em diante a passagem é a de **mais números fora de equação** — trocada
+   antes de qualquer passagem dela ser lida. 112 dos 150 itens vêm dessa regra: o estrato
+   pende para medidas, parâmetros de simulação e detalhes de montagem, e **não** representa
+   "uma pergunta qualquer sobre o corpo de um artigo".
+3. **Uma citação removida esconde de quem é o achado.** O cortador tira `\cite`; quando a
+   passagem atribuía um valor a outro trabalho só pela citação, isso não se vê. Passagens
+   assim foram descartadas quando o texto deixava claro, e algumas podem ter passado.
+
+Ainda **não medido**: os três braços (sistema de hoje · passagem garantida · sem fontes)
+nas 150 são ~6 h de GPU, e o braço da passagem garantida precisa de um pedaço de código
+(a passagem entra no lugar de uma das 6 fontes).
+
+---
+
 ## 5. O que o dono decide
 
 | decisão | minha proposta |
