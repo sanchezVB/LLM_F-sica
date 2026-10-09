@@ -64,6 +64,41 @@ Chunking por número fixo de tokens é o padrão da indústria e é **destrutivo
 
 Cada chunk carrega, herdado do `PhysicsDocumentRecord`: `doc_id`, seção, subárea, tipo de documento, nível, ano, **licença** e as equações canonicalizadas que contém.
 
+### 3.1 O cortador que existe (2026-10-09)
+
+`phifm.retrieval.trechos.cortar` — escrito para o piloto dos trechos
+([PLANO](PLANO-trechos-do-texto-completo.md), etapa 0), sobre o LaTeX do RedPajama.
+Cumpre as regras 1 a 3; nas outras duas, **desvia, e o desvio é declarado**:
+
+| regra | o que o cortador faz |
+|---|---|
+| 1 · equação | bloco indivisível: `equation`, `align`, `eqnarray`, `gather`, `multline`…, `\[…\]`, `$$…$$`. Maior que o trecho, sai inteira e marcada (`excede`), e o encoder trunca — 4,5% dos trechos |
+| 2 · contexto | a equação é empacotada com o parágrafo que a antecede; sem caber, o trecho novo abre com a última frase do anterior |
+| 3 · seção | nenhum trecho atravessa `\section` / `\subsection`; a subseção herda o tipo da seção (introdução · conclusão · corpo) |
+| 4 · tabelas | ⚠️ **desvio:** da tabela e da figura fica só a **legenda**. As células são números soltos para um encoder de 192 tokens, e a tabela média não cabe num trecho. Um valor que só existe numa célula não é recuperável |
+| 5 · tamanho | ⚠️ **desvio:** ~160 tokens de texto, e não 512. O encoder do sistema lê 192, e cada trecho vai com o título do artigo na frente (`título. trecho`, o formato do treino) |
+
+Antes de cortar, saem comentários, bibliografia, `\cite`/`\ref`/`\label`, a casca de
+formatação e os agradecimentos. O RedPajama corta o preâmbulo, então os atalhos de autor
+(`\be … \ee`) chegam sem definição: são devolvidos ao ambiente **só com prova no próprio
+documento** (abrem e fecham intercalados), porque `\ba` também é "a em negrito".
+
+**A auditoria M1** (`scripts/piloto_trechos.py --auditar`, agregado em
+`data/processed/avaliacao/trechos_auditoria_m1.json`): 10.000 trechos sorteados de 320
+artigos de 8 partes do corpus.
+
+| | |
+|---|---|
+| trechos com equação aberta ou fechada sem par | **11 de 10.000** |
+| …em artigo íntegro — o que a M1 cobra do cortador | **0** |
+| …em artigo que **já chega** com equação sem par | **11**, de 5 artigos (1,9% dos 320) |
+
+Os 5 artigos abrem equação com macro própria (`\eq{um} … \end{equation}`) ou perderam
+caracteres no RedPajama (o removedor de comentários dele comeu o caractere antes de cada
+`%`: `\begin{align}%` chegou como `\begin{align`). O cortador repara o que tem prova e
+não adivinha o resto. **A caixa da M1 (§11) fica aberta:** "zero em 10.000" não foi
+atingido no número bruto, e decidir se o dano de origem conta é do dono.
+
 ---
 
 ## 4. Busca híbrida
@@ -633,7 +668,7 @@ aguarda o dono).
 
 ## 11. Critérios de aceite do Stage-Gate 12
 
-- [ ] **M1** — Auditoria de chunking: zero cortes em ambiente matemático em 10.000 amostras
+- [ ] **M1** — Auditoria de chunking: zero cortes em ambiente matemático em 10.000 amostras · *medida em 2026-10-09 (§3.1): 0 em artigos íntegros; 11 em 10.000 em 5 artigos que já chegam com equação sem par — aberta, à espera do dono*
 - [ ] **M2** — Busca híbrida supera cada perna isolada, com ganho medido
 - [ ] **M3** — Perna de fórmula demonstrada em consultas por equação com variação notacional
 - [ ] **M4** — Precisão de citação ≥ 0,95; DOI alucinado = 0 (**G2.4**)

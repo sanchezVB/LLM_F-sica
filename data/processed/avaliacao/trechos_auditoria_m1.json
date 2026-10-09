@@ -1,0 +1,43 @@
+{
+  "regra": "DOC-13 §3 · M1: zero cortes dentro de ambiente matemático em 10.000 amostras",
+  "semente": 20261009,
+  "limite_tokens": 160,
+  "partes": [
+    "part-00009.parquet",
+    "part-00011.parquet",
+    "part-00016.parquet",
+    "part-00017.parquet",
+    "part-00022.parquet",
+    "part-00023.parquet",
+    "part-00025.parquet",
+    "part-00037.parquet"
+  ],
+  "documentos": 320,
+  "documentos_integros": 314,
+  "trechos_sorteados": 10000,
+  "trechos_com_equacao_sem_par": 11,
+  "…em_documento_integro (o que a M1 cobra)": 0,
+  "…em_documento_que_ja_chega_com_equacao_sem_par": 11,
+  "documentos_com_corte": [
+    "0711.2083",
+    "0804.1663",
+    "0809.3517",
+    "2004.02938",
+    "gr-qc/9911059"
+  ],
+  "trechos_com_equacao": 0.24,
+  "excedem_o_limite (equação maior que o trecho)": 0.0454,
+  "tokens": {
+    "media": 129.2,
+    "p10": 78,
+    "p50": 132,
+    "p90": 158,
+    "max": 1440
+  },
+  "trechos_por_documento": 104.1,
+  "tipos": {
+    "introducao": 1119,
+    "corpo": 7824,
+    "conclusao": 1057
+  }
+}
