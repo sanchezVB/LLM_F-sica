@@ -192,6 +192,139 @@ def medir(itens: list[dict], spine: Path, indice: Path) -> None:
     resumir(itens, feitos)
 
 
+# ── segunda leva (2026-10-09): depois de o ΦRank nos 50 ser adotado ───────────────────
+POSICOES2 = DIR / "dev_busca_posicoes2.jsonl"
+FUNDO = 200          # até onde o ΦRank é testado
+
+
+def medir2(itens: list[dict], spine: Path, indice: Path) -> None:
+    """Candidatos contra o sistema ADOTADO (ΦRank nos 50 primeiros, 6 fontes):
+
+    | campo | o quê |
+    |---|---|
+    | rr50 | o sistema de hoje |
+    | rr100, rr200 | reordenar mais fundo |
+    | rr50_256 | os 50, com os pares cortados em 256 tokens (mais barato) |
+    | rr50_q3 | os 50, com a média dos escores das 3 consultas hipotéticas |
+    | h3_rr50, h3_rr100 | a busca com a média dos 3 vetores, e o ΦRank por cima |
+
+    O cross-encoder pontua cada par (consulta, documento) sozinho: os escores dos 200
+    primeiros servem para os 50, os 100 e os 200."""
+    import polars as pl
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    from phifm.retrieval.indice import Busca
+    from phifm.training.pairs import textos_de_documentos
+
+    consultas = _ler_jsonl(CONSULTAS)
+    busca = Busca(indice, dispositivo="auto")
+    ids_docs = busca.docs["arxiv_id"].to_list()
+    linha = {a: i for i, a in enumerate(ids_docs)}
+    tok = AutoTokenizer.from_pretrained(PHIRANK)
+    mod = AutoModelForSequenceClassification.from_pretrained(PHIRANK).to(busca.dev).eval()
+    max_r = json.loads((PHIRANK / "phirank.json").read_text(encoding="utf-8"))["config"]["max_tokens"]
+
+    def pontuar(consulta: str, docs: list[str], max_len: int) -> np.ndarray:
+        saida = []
+        with torch.no_grad():
+            for i in range(0, len(docs), 25):
+                lote = docs[i:i + 25]
+                b = tok([consulta] * len(lote), lote, padding=True, truncation=True,
+                        max_length=max_len, return_tensors="pt")
+                logit = mod(**{k: v.to(busca.dev) for k, v in b.items()}).logits
+                saida.append(logit.float().view(-1).cpu().numpy())
+        return np.concatenate(saida)
+
+    def depois(ordem_ids: list[str], escores: np.ndarray, p_id: str, pos_fora: int) -> int:
+        """Posição de P depois de reordenar `ordem_ids` por `escores`; fora deles, a de antes."""
+        if p_id not in ordem_ids:
+            return pos_fora
+        i = ordem_ids.index(p_id)
+        return int((escores > escores[i]).sum()) + 1
+
+    feitos = _ler_jsonl(POSICOES2)
+    t0, n = time.perf_counter(), 0
+    with POSICOES2.open("a", encoding="utf-8") as f:
+        for it in itens:
+            chave = (it["estrato"], it["arxiv_id"])
+            if chave in feitos:
+                continue
+            cs, p_id = consultas[chave]["consultas"], it["arxiv_id"]
+            lp = linha[p_id]
+            vs = [busca.embutir(c) for c in cs]
+            s0 = busca.pontuar(vs[0])
+            media = np.mean(vs, axis=0)
+            s3 = busca.pontuar(media / np.linalg.norm(media))
+            pos0, pos3 = _posicao(s0, lp), _posicao(s3, lp)
+            topo0 = [ids_docs[j] for j in np.argsort(-s0)[:FUNDO]]
+            topo3 = [ids_docs[j] for j in np.argsort(-s3)[:100]]
+            todos = sorted(set(topo0) | set(topo3))
+            textos = dict(textos_de_documentos(pl.scan_parquet(spine)
+                                               .filter(pl.col("arxiv_id").is_in(todos)))
+                          .collect().iter_rows())
+            esc = dict(zip(todos, pontuar(cs[0], [textos.get(a, "") for a in todos], max_r),
+                           strict=True))
+            e0 = np.array([esc[a] for a in topo0])
+            e3 = np.array([esc[a] for a in topo3])
+            t50 = [textos.get(a, "") for a in topo0[:50]]
+            e256 = pontuar(cs[0], t50, 256)
+            eq3 = (e0[:50] + pontuar(cs[1], t50, max_r) + pontuar(cs[2], t50, max_r)) / 3
+            d = {"estrato": chave[0], "arxiv_id": p_id, "base": pos0, "hyde3": pos3,
+                 "rr50": depois(topo0[:50], e0[:50], p_id, pos0),
+                 "rr100": depois(topo0[:100], e0[:100], p_id, pos0),
+                 "rr200": depois(topo0, e0, p_id, pos0),
+                 "rr50_256": depois(topo0[:50], e256, p_id, pos0),
+                 "rr50_q3": depois(topo0[:50], eq3, p_id, pos0),
+                 "h3_rr50": depois(topo3[:50], e3[:50], p_id, pos3),
+                 "h3_rr100": depois(topo3, e3, p_id, pos3)}
+            f.write(json.dumps(d) + "\n")
+            f.flush()
+            feitos[chave] = d
+            n += 1
+            if n % 20 == 0:
+                print(f"{len(feitos)}/{len(itens)} · {(time.perf_counter() - t0) / n:.1f} s/item",
+                      flush=True)
+    resumir2(itens, feitos)
+
+
+def resumir2(itens: list[dict], feitos: dict[tuple, dict]) -> None:
+    candidatos = {"rr50 (hoje)": ("rr50", 6), "rr50 · 10 fontes": ("rr50", 10),
+                  "rr100": ("rr100", 6), "rr200": ("rr200", 6),
+                  "rr200 · 10 fontes": ("rr200", 10), "rr50 · 256 tokens": ("rr50_256", 6),
+                  "rr50 · 3 consultas": ("rr50_q3", 6), "hyde3 + rr50": ("h3_rr50", 6),
+                  "hyde3 + rr100": ("h3_rr100", 6)}
+    rng = np.random.default_rng(20261009)
+    saida = {"exploratorio": True, "conjunto": "desenvolvimento (DOC-13 §9.2/§9.3)",
+             "referencia": "rr50, o sistema adotado em 2026-10-07", "por_estrato": {}}
+    for estrato in ("primario", "pos_corte", "todos"):
+        ds = [feitos[(i["estrato"], i["arxiv_id"])] for i in itens
+              if estrato == "todos" or i["estrato"] == estrato]
+        ref = np.array([d["rr50"] <= 6 for d in ds], dtype=float)
+        tabela = {"n": len(ds), "teto_@50": round(float(np.mean([d["base"] <= 50 for d in ds])), 4),
+                  "teto_@200": round(float(np.mean([d["base"] <= 200 for d in ds])), 4)}
+        for nome, (campo, k) in candidatos.items():
+            x = np.array([d[campo] <= k for d in ds], dtype=float)
+            dif = x - ref
+            reps = dif[rng.integers(0, len(dif), (5000, len(dif)))].mean(axis=1)
+            lo, hi = np.percentile(reps, [2.5, 97.5])
+            tabela[nome] = {"recall": round(float(x.mean()), 4),
+                            "menos_hoje": round(float(dif.mean()), 4),
+                            "ic95": [round(float(lo), 4), round(float(hi), 4)],
+                            "ganha": int((dif > 0).sum()), "perde": int((dif < 0).sum())}
+        saida["por_estrato"][estrato] = tabela
+    arq = AVALIACAO / "assistente_busca_dev2.json"
+    arq.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
+    for estrato, tabela in saida["por_estrato"].items():
+        print(f"\n{estrato} (n={tabela['n']}, teto@50 {tabela['teto_@50']}, "
+              f"teto@200 {tabela['teto_@200']})")
+        for nome in candidatos:
+            c = tabela[nome]
+            print(f"  {nome:20s} {c['recall']:.3f}  Δ {c['menos_hoje']:+.3f} "
+                  f"[{c['ic95'][0]:+.3f}; {c['ic95'][1]:+.3f}]  +{c['ganha']}/−{c['perde']}")
+    print(f"→ {arq.relative_to(RAIZ)}")
+
+
 def resumir(itens: list[dict], feitos: dict[tuple, dict]) -> None:
     candidatos = {"base": ("base", 6), "k10": ("base", 10), "hyde3": ("hyde3", 6),
                   "phirank": ("phirank", 6), "gte": ("gte", 6), "fusao": ("fusao", 6)}
@@ -228,6 +361,8 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--gerar", action="store_true")
     p.add_argument("--medir", action="store_true")
+    p.add_argument("--medir2", action="store_true",
+                   help="segunda leva: candidatos contra o ΦRank já adotado")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     p.add_argument("--indice", type=Path, default=RAIZ / "data/processed/indice_busca")
     a = p.parse_args()
@@ -236,7 +371,9 @@ def main() -> int:
         gerar(itens)
     if a.medir:
         medir(itens, a.spine, a.indice)
-    if not (a.gerar or a.medir):
+    if a.medir2:
+        medir2(itens, a.spine, a.indice)
+    if not (a.gerar or a.medir or a.medir2):
         p.error("--gerar e/ou --medir")
     return 0
 
