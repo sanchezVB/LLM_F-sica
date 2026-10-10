@@ -378,6 +378,16 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                 for x in resultados]})
 
         def do_POST(self) -> None:  # noqa: N802
+            try:
+                tamanho = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                tamanho = -1
+            # ⚠️ O corpo é lido ANTES de qualquer recusa. Fechar a conexão com bytes do
+            # pedido ainda por ler faz o Windows mandar um RST, e o cliente recebe
+            # "conexão cancelada pelo host remoto" no lugar do 403/404/415 — às vezes: é
+            # uma corrida. Medido em 2026-10-09: 1 ou 2 dos 12 testes da página falhavam,
+            # diferentes a cada rodada.
+            bruto = self.rfile.read(tamanho) if 0 < tamanho <= MAX_CORPO else b""
             if not self._host_valido():
                 return
             if urlparse(self.path).path != "/api/perguntar" or assistente is None:
@@ -388,15 +398,11 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                 self._json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
                            {"erro": "o corpo tem de ser application/json"})
                 return
-            try:
-                tamanho = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                tamanho = -1
             if not 0 < tamanho <= MAX_CORPO:
                 self._json(HTTPStatus.BAD_REQUEST, {"erro": "corpo vazio ou grande demais"})
                 return
             try:
-                corpo = json.loads(self.rfile.read(tamanho))
+                corpo = json.loads(bruto)
                 pergunta = str(corpo.get("pergunta", "")).strip()
                 fluxo = bool(corpo.get("fluxo", False))
             except (json.JSONDecodeError, AttributeError, UnicodeDecodeError):
