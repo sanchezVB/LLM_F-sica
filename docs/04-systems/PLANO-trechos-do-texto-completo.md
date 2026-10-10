@@ -1,7 +1,9 @@
 # Plano — indexar trechos do texto completo para o assistente
 
-**Status:** **Etapa 0 autorizada pelo dono em 2026-10-09** — o piloto e o estrato "corpo", com a barra de
-5 pontos no desenvolvimento para construir. As etapas 1 e 2 continuam condicionadas ao piloto.
+**Status:** **Etapa 0 CONCLUÍDA em 2026-10-09 — o piloto NÃO passou a barra** (melhor
+combinação: +0,7 ponto, contra 5; [DOC-13 §9.4](DOC-13-recuperacao-embeddings-rag.md)). As
+etapas 1 e 2 não são disparadas. O estrato "corpo" existe e ainda não foi medido: é ele que
+decide se trechos têm outra razão de existir (§8).
 **Contexto:** [DOC-13 §3](DOC-13-recuperacao-embeddings-rag.md) (regras de chunking), §9.1–§9.3
 (a medida do assistente e o que já foi tentado na busca), [ADR-0004](../adr/ADR-0004-phigen-para-o-assistente.md).
 
@@ -177,3 +179,33 @@ nas 150 são ~6 h de GPU, e o braço da passagem garantida precisa de um pedaço
 | A consulta não parecer com trecho | a consulta é um *resumo* hipotético — desenhada para casar com resumos | direto; se for o caso, a saída é uma consulta hipotética no formato de trecho |
 | Concluir "não serve" por causa do teste | as perguntas atuais vêm do resumo | só o estrato "corpo" resolve |
 | A opção A não caber na máquina | 67 GB de vetores contra 16 GB de RAM | não diz — é o motivo de B vir primeiro |
+
+## 8. O que o piloto disse, e o que fica para o dono (2026-10-09)
+
+**O piloto** (DOC-13 §9.4): nas 150 perguntas de desenvolvimento, nenhuma das 36
+combinações de resumo com trecho passou a barra de 5 pontos. A melhor rendeu **+0,7 ponto**
+(0,827 → 0,833), e as opções A e B colheram o mesmo. Dos riscos da §7, dois se
+confirmaram: o ganho ficou abaixo do limiar, e a consulta — um resumo hipotético — parece
+mais com o resumo do artigo certo do que com qualquer trecho dele. Um terceiro apareceu
+sem estar na lista: **o trecho favorece o artigo comprido**, que tem mais chances de
+parecer com a consulta.
+
+**O que isso decide:** para achar o artigo de uma pergunta cujo fato está no resumo, não
+se constrói índice de trechos. Custo evitado: 3,5 h (B) a 52 h de GPU e 67 GB (A).
+
+**O que isso não decide:** se o assistente responde o que o resumo NÃO diz. Para isso há,
+desde hoje, as 150 perguntas do "corpo" — sem medida nenhuma.
+
+| decisão do dono | o que é | custo | minha recomendação |
+|---|---|---|---|
+| **Medir o "corpo" no sistema de hoje** | três braços nas 150: o assistente de hoje · a passagem garantida entre as fontes · sem fontes; mesmo juiz | ~6 h de GPU local · um pedaço de código para o braço da passagem | **Sim.** É a medida que falta: diz quanto o assistente perde por só ler resumos, e se o gerador acerta quando tem a passagem |
+| Piloto de busca para o "corpo" | o mesmo piloto de hoje, com os concorrentes das perguntas do corpo | ~2 h de GPU + as consultas hipotéticas | Só depois da linha de cima, e só se ela mostrar uma lacuna grande |
+| Parar aqui | ficar com 0,806 e registrar que perguntas sobre o corpo não são atendidas | 0 | É a opção de quem não quer mais GPU nisto |
+
+Se a primeira linha mostrar a lacuna, o desenho que o piloto sugere **não** é o da §3: é
+buscar o artigo pelo resumo, como hoje, e escolher os trechos só dentro dos artigos
+encontrados — sem índice de 87 M de vetores na memória.
+
+Os ~2,7 GB do piloto (trechos e vetores) estão em
+`data/processed/assistente/piloto_trechos/`; não servem ao "corpo" (são outros artigos) e
+podem ir para a lixeira quando o dono quiser.

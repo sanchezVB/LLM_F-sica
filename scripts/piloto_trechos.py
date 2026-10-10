@@ -443,6 +443,44 @@ def _por_escore(d: dict, f: np.ndarray, f_fora: np.ndarray,
     return pos, _depois_do_phirank(d, rr, np.argsort(-f)[:max(vagas, 1)])
 
 
+def _por_que(dados: list[dict]) -> dict:
+    """O que explica o resultado: de onde vem o melhor trecho de P, e quanto o trecho
+    levanta P e os concorrentes acima do resumo de cada um."""
+    from collections import Counter
+
+    mapa = _mapa(["arxiv_id", "tipo"])
+    tipos = mapa["tipo"].to_numpy()
+    n_trechos = dict(mapa.group_by("arxiv_id").len().iter_rows())
+    tipo_p: Counter = Counter()
+    ganho_p, ganho_outros, correl, s_p, c_p = [], [], [], [], []
+    for d in dados:
+        ip = d["ids"].index(d["arxiv_id"])
+        tem = ~np.isnan(d["c_max"])
+        idx = np.flatnonzero(tem)
+        ganho = d["c_max"] - d["s_abs"]
+        if len(idx) > 20:
+            n = np.array([n_trechos[d["ids"][j]] for j in idx])
+            correl.append(float(np.corrcoef(np.log(n), ganho[idx])[0, 1]))
+        ganho_outros.append(float(np.median(ganho[[j for j in idx if j != ip]])))
+        s_p.append(float(d["s_abs"][ip]))
+        if tem[ip]:
+            tipo_p[str(tipos[d["melhor"][ip]])] += 1
+            ganho_p.append(float(ganho[ip]))
+            c_p.append(float(d["c_max"][ip]))
+    por_tipo = Counter(tipos.tolist())
+    return {
+        "trechos_por_tipo": {k: round(v / mapa.height, 4) for k, v in sorted(por_tipo.items())},
+        "tipo_do_melhor_trecho_de_P": {k: round(v / sum(tipo_p.values()), 4)
+                                       for k, v in sorted(tipo_p.items())},
+        "melhor_trecho_menos_resumo, mediana": {
+            "P": round(float(np.median(ganho_p)), 4),
+            "concorrentes": round(float(np.median(ganho_outros)), 4)},
+        "correlacao_do_ganho_com_log_do_numero_de_trechos, mediana por pergunta": round(
+            float(np.median(correl)), 4),
+        "escore_de_P, mediana": {"resumo": round(float(np.median(s_p)), 4),
+                                 "melhor_trecho": round(float(np.median(c_p)), 4)}}
+
+
 def resumir() -> None:
     registros = {r["arxiv_id"]: r for r in
                  json.loads((PILOTO / "candidatos.json").read_text(encoding="utf-8"))}
@@ -459,11 +497,13 @@ def resumir() -> None:
     def candidatos_de(nome_c: str) -> dict:
         """As representações que usam o escore de trecho `nome_c`."""
         saida = {}
-        for delta in (0.0, 0.03, 0.06, 0.1, 0.15):
-            saida[f"máximo(resumo, trecho + {delta:.2f})"] = ("max", nome_c, delta)
-        for alfa in (0.25, 0.5, 1.0, 2.0):
+        # O melhor de ~100 trechos pontua, na mediana, 0,03 ACIMA do resumo do mesmo artigo:
+        # o desconto (delta negativo) é o que põe os dois na mesma régua.
+        for delta in (-0.10, -0.05, -0.03, 0.0, 0.03):
+            saida[f"máximo(resumo, trecho {delta:+.2f})"] = ("max", nome_c, delta)
+        for alfa in (0.1, 0.25, 0.5, 1.0):
             saida[f"resumo + {alfa:g} × trecho"] = ("soma", nome_c, alfa)
-        for metade in (25, 15):
+        for metade in (25, 15, 10):
             saida[f"união: {K_REORDENA - metade} do resumo + {metade} do trecho"] = (
                 "uniao", nome_c, metade)
         return saida
@@ -566,6 +606,8 @@ def resumir() -> None:
     diag["trecho_melhor_que_resumo"] = int((np.array(postos["c_max"]) < np.array(postos["s_abs"])).sum())
     diag["trecho_pior_que_resumo"] = int((np.array(postos["c_max"]) > np.array(postos["s_abs"])).sum())
     saida["diagnostico_so_entre_artigos_com_trechos"] = diag
+    saida["por_que"] = _por_que(dados)
+    print("\npor quê:", json.dumps(saida["por_que"], ensure_ascii=False, indent=1))
     saida["candidatos_sem_escore_do_phirank (contados contra P)"] = SEM_ESCORE["candidatos"]
     saida["hoje_confere_com"] = "assistente_busca_dev2.json · primário · rr50 = 0,8267"
     print(f"\ndiagnóstico — o posto de P só entre os concorrentes com trechos (n={diag['n']}):")

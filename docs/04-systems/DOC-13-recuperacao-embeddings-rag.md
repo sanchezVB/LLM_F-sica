@@ -651,6 +651,69 @@ piloto antes de construir, está em
 [PLANO-trechos-do-texto-completo.md](PLANO-trechos-do-texto-completo.md) (proposto,
 aguarda o dono).
 
+### 9.4 Trechos do texto completo — o piloto (2026-10-09), NEGATIVO nas perguntas do resumo
+
+Exploratório, nas 150 perguntas de desenvolvimento do primário; o teste não foi tocado.
+`scripts/piloto_trechos.py`, `avaliacao/assistente_piloto_trechos.json`. A barra, aceita
+pelo dono antes de o piloto rodar: **5 pontos** em "P entre as 6 fontes" sobre o sistema de
+hoje (0,827).
+
+**Como.** Para cada pergunta, os 300 primeiros artigos da busca de hoje (mais fundo quando P
+está mais longe, até 1.500) e o próprio P: 28.743 artigos com texto completo, cortados
+pelo cortador da §3.1 em **3.096.569 trechos**, embutidos como `título. trecho` pelo
+encoder do índice (1 h 50 na RX 7600, 467 trechos/s). P tem trechos em 104 das 150
+perguntas. Cada artigo com texto ganha, além do escore do resumo, o do seu melhor trecho;
+o ΦRank reordena os 50 primeiros e ficam 6, como no produto. A linha "hoje" reproduz o
+0,827 da §9.3.
+
+| representação do artigo | P nos 50 | P nas 6 fontes | Δ para hoje | ganha/perde |
+|---|---|---|---|---|
+| **hoje** · só o resumo | 0,847 | **0,827** | — | — |
+| A · máximo(resumo, melhor trecho − 0,10) | 0,860 | 0,833 | +0,007 [0,000; +0,020] | 1/0 |
+| A · máximo(resumo, melhor trecho − 0,03) | 0,873 | 0,833 | +0,007 [−0,013; +0,033] | 2/1 |
+| A · máximo(resumo, melhor trecho) | 0,853 | 0,820 | −0,007 [−0,040; +0,027] | 3/4 |
+| A · resumo + 0,5 × melhor trecho | 0,853 | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| A · união: 35 pelo resumo + 15 pelo trecho | 0,847 | 0,827 | 0,000 [−0,027; +0,027] | 2/2 |
+| A · média dos 3 melhores trechos (− 0,05) | 0,860 | 0,833 | +0,007 [−0,013; +0,027] | 2/1 |
+| B · só introdução e conclusão (− 0,05) | 0,860 | 0,833 | +0,007 [−0,013; +0,033] | 2/1 |
+| em duas fases — trechos só nos 300 do resumo | — | ≤ 0,827 | ≤ 0,000 | — |
+
+36 combinações no agregado; a tabela traz a melhor de cada família.
+
+- **Nenhuma passa a barra. Nada vai ao teste.** A melhor rende +0,7 ponto — uma pergunta
+  em 150 —, e com o desconto do trecho escolhido nestas mesmas perguntas. Pela barra
+  aceita, a opção do plano é a C: não construir o índice de trechos **para o que estas
+  perguntas medem**.
+- **O teto já era baixo antes do ΦRank:** a melhor combinação leva "P nos 50" de 0,847 a
+  0,873 (5 entram, 1 sai). O ΦRank só escolhe entre esses 50.
+
+**Por que não sobe** (só entre os concorrentes com trechos, n = 104):
+
+| | P em 1º | P até 6 | P até 50 |
+|---|---|---|---|
+| pelo resumo | **0,490** | **0,731** | 0,837 |
+| pelo melhor trecho | 0,308 | 0,635 | 0,837 |
+| pelo melhor de introdução/conclusão | 0,337 | 0,635 | 0,827 |
+
+- O melhor trecho põe P mais à frente que o resumo em 32 perguntas, e mais atrás em 43.
+- **O trecho levanta os concorrentes mais do que levanta P.** O melhor trecho de um
+  concorrente pontua, na mediana, 0,029 acima do resumo dele; o de P, 0,004. Um artigo com
+  ~90 trechos tem ~90 chances de parecer com a consulta, e o ganho cresce com o número de
+  trechos (correlação +0,27 com o log). Daí o desconto: sem ele, a combinação piora.
+- **O melhor trecho de P é de introdução ou conclusão em 65% dos casos** (elas são 19% dos
+  trechos): é onde o artigo repete o resumo. Por isso a opção B colhe o mesmo que a A.
+- **Quem não tem texto completo perde:** com o máximo sem desconto, as 46 perguntas cujo P
+  não tem trechos caem 4,3 pontos — e 48% do índice não tem texto.
+
+**Leitura.** As perguntas saem de um fato do RESUMO, e a consulta é um resumo hipotético:
+o resumo de P já é o texto mais parecido com ela (escore mediano 0,811, contra 0,802 do
+melhor trecho). O piloto confirma o aviso do plano (§2 dele) — este conjunto não enxerga
+o que trechos compram — e **não** diz que trechos não servem para responder o que o resumo
+não diz. Isso só o estrato "corpo" mede, e ele ainda não foi medido.
+
+⚠️ Limites: otimista num ponto (artigo fora dos concorrentes não é visto subindo); o
+desconto foi escolhido no próprio conjunto; mede posição do artigo, sem juiz.
+
 ---
 
 ## 10. Riscos

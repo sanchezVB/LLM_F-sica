@@ -300,7 +300,13 @@ seriam ~87 M de trechos, ~67 GB e ~52 h de GPU; só introdução e conclusão, ~
 e ~3,5 h. Recomendação: um piloto de ~2 h antes de construir, e um estrato de perguntas
 tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o benefício.
 
-**Etapa 0 em andamento (2026-10-09):**
+**Etapa 0 CONCLUÍDA (2026-10-09) — o piloto dos trechos NÃO passou a barra (DOC-13 §9.4):**
+nas 150 perguntas de desenvolvimento, a melhor de 36 combinações de resumo com trecho
+rende **+0,7 ponto** (0,827 → 0,833), contra a barra de 5. Nada foi ao teste; o índice de
+trechos não é construído para perguntas do resumo. Causa medida: o trecho levanta os
+concorrentes (+0,029 sobre o resumo deles) mais do que o artigo certo (+0,004) — a
+pergunta sai do resumo, e o resumo já é o texto mais parecido com a consulta. **Falta
+medir o "corpo"**, que é o que trechos atenderiam; a decisão é do dono (PLANO §8).
 
 - **O cortador de trechos existe** (`phifm.retrieval.trechos`, DOC-13 §3.1): equação
   indivisível, seção como fronteira, ~160 tokens. **M1:** 0 cortes em 10.000 trechos de
@@ -312,8 +318,12 @@ tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o b
   vêm da regra que escolhe a passagem de mais números — o estrato pende para medidas,
   parâmetros e detalhes de método; em 29 a guarda numérica não tinha o que conferir.
   **Ainda não foi medido** (os três braços nele são ~6 h de GPU).
-- **O piloto está rodando:** 28.743 artigos concorrentes das 150 perguntas de
-  desenvolvimento cortados em 3,1 M de trechos; os vetores estão sendo calculados.
+- **O piloto rodou:** 28.743 artigos concorrentes das 150 perguntas de desenvolvimento,
+  3.096.569 trechos, 1 h 50 de GPU para os vetores e ~10 min de ΦRank. ~2,7 GB
+  temporários em `data/processed/assistente/piloto_trechos/`.
+- **Página:** o servidor recusava um POST sem ler o corpo, e no Windows isso cortava a
+  conexão antes de o cliente ler a recusa (1 ou 2 dos 12 testes falhavam, ao acaso).
+  Consertado: o corpo é lido antes de qualquer recusa.
 
 ⚠️ Três interrupções na rodada, nenhuma com perda (a rodada é retomável por item): o
 `llama-server` sumiu uma vez (o cliente agora o sobe de novo sozinho), e o app passou a
