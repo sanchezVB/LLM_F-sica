@@ -714,6 +714,51 @@ não diz. Isso só o estrato "corpo" mede, e ele ainda não foi medido.
 ⚠️ Limites: otimista num ponto (artigo fora dos concorrentes não é visto subindo); o
 desconto foi escolhido no próprio conjunto; mede posição do artigo, sem juiz.
 
+### 9.5 A medida do estrato "corpo" — regra escrita em 2026-10-11, antes de rodar
+
+O dono mandou seguir com a medida recomendada no PLANO §8. **É uma medida, não uma
+decisão automática:** o que sair alimenta o PLANO §8 e, se for o caso, a cláusula de
+reabertura do ADR-0004 (§6 dele: "um conjunto de perguntas … em que o braço B caia abaixo
+de 0,90 — aí o gerador passa a limitar").
+
+**Itens.** Os 150 do estrato "corpo" (`avaliacao/assistente_itens_corpo.json`, com as
+ressalvas do PLANO: sem revisão humana, pende para o numérico). Os 150 entram; nada é
+ajustado neles. Um sistema que venha a ser desenvolvido PARA o corpo precisará de itens
+novos — estes passam a ser de quem os olhou.
+
+**Braços**, com o modelo, a configuração e a semente do produto:
+
+| braço | o que o modelo recebe |
+|---|---|
+| **A′** · o sistema de hoje | consulta hipotética → busca → ΦRank nos 50 → 6 fontes, cada uma com o resumo |
+| **Bp** · passagem garantida | as 6 fontes de A′, com a **passagem** de P no lugar do resumo de P; se P não veio, sai a 6ª e P entra, com a passagem, na posição sorteada da §9.1 |
+| **C** · sem fontes | a pergunta sozinha |
+
+**Juiz.** O da §9.1 na versão 2, o mesmo prompt e o mesmo cache. ⚠️ Ele foi calibrado em
+perguntas do resumo (κ 0,76 contra o Claude). Para este estrato há uma conferência
+própria, **I3c**: 40 respostas (20 de A′ e 20 de Bp, de itens diferentes, braço oculto)
+julgadas pelo Claude às cegas, com o hash dos veredictos versionado ANTES de o juiz rodar.
+Se o κ de `certo` contra o resto ficar abaixo de 0,6, os acertos saem rotulados "juiz não
+validado neste estrato" e não sustentam leitura nenhuma além da descritiva.
+
+**O que se lê, e com que régua** (IC 95% por bootstrap pareado, como na §9.1):
+
+1. **O gerador, com a passagem:** acerto de Bp. BASTA se o IC ficar inteiro ≥ 0,90 — o
+   limiar da §9.1. Abaixo disso, o gerador limita no corpo, e a cláusula do ADR-0004 vale.
+2. **A lacuna do corpo:** Bp − A′. É quanto o assistente perde por só ler resumos.
+3. **Onde está o problema:** em quantas das 150 o artigo P chega às 6 fontes de A′. Se P
+   chega e a resposta não, falta a passagem, não o artigo.
+
+**Guardas de validade:**
+
+- **I2c:** acerto de C < acerto de Bp − 0,10. Sem isso as perguntas se respondem de memória.
+- **Fora do resumo:** nos itens em que A′ teve o resumo de P entre as fontes, o acerto de
+  A′ tem de ficar ≤ 0,20. Acima disso, o estrato não é o que diz ser — o resumo responde —
+  e a lacuna do item 2 não vale como medida do corpo.
+
+Custo previsto: ~4 h de GPU para os braços e ~1 h para o juiz, locais, retomáveis.
+`scripts/medir_corpo.py`; agregado em `avaliacao/assistente_corpo.json`.
+
 ---
 
 ## 10. Riscos
