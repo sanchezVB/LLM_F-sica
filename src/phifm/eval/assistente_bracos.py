@@ -199,16 +199,21 @@ def rodar_item(assistente, item: dict) -> list[RespostaDoBraco]:
         b = assistente.responder_com(pergunta, fontes_b, a.consulta)
         rb = _registro(item, "B", b, time.perf_counter() - t0)
 
+    return [ra, rb, _sem_fontes(assistente, item)]
+
+
+def _sem_fontes(assistente, item: dict) -> RespostaDoBraco:
+    """O braço C: a pergunta sozinha, respondida de memória."""
+    pergunta = item["pergunta"]
     t0 = time.perf_counter()
     bruto = assistente.modelo.gerar(
         SISTEMA_MEMORIA, f"Question: {pergunta}\n\n{instrucao_de_idioma(pergunta)}",
         semente=assistente.semente)
     texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, 0)
-    rc = RespostaDoBraco(item["estrato"], item["ordem"], item["arxiv_id"], "C", texto,
-                         citadas=citadas, removidas=removidas,
-                         n_frases_sem_fonte=len(sem_fonte),
-                         segundos=round(time.perf_counter() - t0, 2))
-    return [ra, rb, rc]
+    return RespostaDoBraco(item["estrato"], item["ordem"], item["arxiv_id"], "C", texto,
+                           citadas=citadas, removidas=removidas,
+                           n_frases_sem_fonte=len(sem_fonte),
+                           segundos=round(time.perf_counter() - t0, 2))
 
 
 def ler_respostas(cache: Path) -> list[RespostaDoBraco]:
@@ -219,9 +224,12 @@ def ler_respostas(cache: Path) -> list[RespostaDoBraco]:
 
 
 def rodar(assistente, itens: list[dict], cache: Path, limite: int | None = None,
-          ao_terminar=None) -> list[RespostaDoBraco]:
+          ao_terminar=None, por_item=None) -> list[RespostaDoBraco]:
     """Os três braços em cada item, na ordem de `itens`. Retomável: os três registros de
-    um item vão ao cache JUNTOS, ao fim do item — um item nunca fica pela metade."""
+    um item vão ao cache JUNTOS, ao fim do item — um item nunca fica pela metade.
+
+    `por_item(assistente, item)` troca os braços: é como o estrato "corpo" (§9.5) entra."""
+    por_item = por_item or rodar_item
     feitos = {(r.estrato, r.arxiv_id) for r in ler_respostas(cache)}
     cache.parent.mkdir(parents=True, exist_ok=True)
     n = 0
@@ -231,7 +239,7 @@ def rodar(assistente, itens: list[dict], cache: Path, limite: int | None = None,
                 continue
             if limite is not None and n >= limite:
                 break
-            regs = rodar_item(assistente, item)
+            regs = por_item(assistente, item)
             f.write("".join(json.dumps(asdict(r), ensure_ascii=False) + "\n" for r in regs))
             f.flush()
             n += 1
@@ -391,6 +399,101 @@ def comparar_reordenado(veredictos: dict[str, dict[tuple, str]],
             "respostas_iguais_as_de_A": iguais,
             "tempo_mediano_s": tempo, "tempo_maximo_s": TEMPO_MAX_REORDENADO_S,
             "decisao": "ADOTA" if adota else "FICA O SISTEMA ATUAL"}
+
+
+# ── o estrato "corpo" (DOC-13 §9.5): o sistema de hoje, a passagem garantida, e C ──
+BRACO_PASSAGEM = "Bp"
+N_I3C_POR_BRACO = 20              # 20 de A′ + 20 de Bp, braço oculto
+MAX_ACERTO_SO_COM_O_RESUMO = 0.20  # guarda "fora do resumo"
+
+
+def fontes_com_passagem(fontes_a: list[Fonte], p: Fonte) -> list[Fonte]:
+    """As fontes do braço Bp. `p` é o artigo certo com a PASSAGEM no lugar do resumo. Se P
+    já está entre as fontes, a passagem toma o lugar do resumo dele, na mesma posição;
+    senão sai a última e P entra na posição sorteada — como no braço B da §9.1."""
+    for i, f in enumerate(fontes_a):
+        if f.arxiv_id == p.arxiv_id:
+            return [*fontes_a[:i], replace(p, numero=f.numero, escore=f.escore),
+                    *fontes_a[i + 1:]]
+    resto = fontes_a[:-1]
+    pos = posicao_sorteada(p.arxiv_id, len(fontes_a))
+    nova = resto[:pos - 1] + [p] + resto[pos - 1:]
+    return [replace(f, numero=i) for i, f in enumerate(nova, start=1)]
+
+
+def rodar_item_corpo(assistente, item: dict, passagem: str) -> list[RespostaDoBraco]:
+    """Os três braços de um item do corpo: A′ (o sistema de hoje, com o reordenador do
+    `assistente`), Bp e C. A consulta hipotética é uma só, a de A′."""
+    pergunta = item["pergunta"]
+    t0 = time.perf_counter()
+    consulta = assistente.consulta_hipotetica(pergunta)
+    fontes = assistente.recuperar(consulta)
+    t_rec = round(time.perf_counter() - t0, 2)
+    a = assistente.responder_com(pergunta, fontes, consulta)
+    ra = replace(_registro(item, BRACO_REORDENADO, a, time.perf_counter() - t0),
+                 segundos_recuperacao=t_rec)
+
+    p = replace(assistente.fonte(item["arxiv_id"], K_FONTES), resumo=passagem)
+    t0 = time.perf_counter()
+    b = assistente.responder_com(pergunta, fontes_com_passagem(a.fontes, p), consulta)
+    rb = _registro(item, BRACO_PASSAGEM, b, time.perf_counter() - t0)
+    return [ra, rb, _sem_fontes(assistente, item)]
+
+
+def amostra_i3c(respostas: list[RespostaDoBraco], semente: int = SEMENTE
+                ) -> list[RespostaDoBraco]:
+    """I3c: `N_I3C_POR_BRACO` respostas de A′ e outras tantas de Bp, de itens DIFERENTES,
+    embaralhadas — quem julga não sabe o braço."""
+    itens = sorted({(r.estrato, r.arxiv_id) for r in respostas})
+    rng = np.random.default_rng(semente + 5)
+    perm = rng.permutation(len(itens))
+    de_a = {itens[j] for j in perm[:N_I3C_POR_BRACO]}
+    de_b = {itens[j] for j in perm[N_I3C_POR_BRACO:2 * N_I3C_POR_BRACO]}
+    amostra = [r for r in respostas
+               if (r.braco == BRACO_REORDENADO and (r.estrato, r.arxiv_id) in de_a)
+               or (r.braco == BRACO_PASSAGEM and (r.estrato, r.arxiv_id) in de_b)]
+    amostra.sort(key=lambda r: (r.estrato, r.arxiv_id, r.braco))
+    return [amostra[j] for j in rng.permutation(len(amostra))]
+
+
+def resumo_corpo(veredictos: dict[str, dict[tuple, str]], respostas: list[RespostaDoBraco]
+                 ) -> dict:
+    """As leituras e as guardas da §9.5, nos itens do estrato "corpo"."""
+    ids = sorted(veredictos[BRACO_PASSAGEM])
+    certo = {b: np.array([veredictos[b][k] == "certo" for k in ids], dtype=float)
+             for b in (BRACO_REORDENADO, BRACO_PASSAGEM, "C")}
+    de_a = {(r.estrato, r.arxiv_id): r for r in respostas if r.braco == BRACO_REORDENADO}
+    p_veio = np.array([de_a[k].posicao_p is not None for k in ids])
+    acerto = {b: proporcao(certo[b]) for b in certo}
+    lacuna, ic_lacuna = diferenca_pareada(certo[BRACO_PASSAGEM], certo[BRACO_REORDENADO])
+    so_resumo = float(certo[BRACO_REORDENADO][p_veio].mean()) if p_veio.any() else float("nan")
+    return {
+        "n_itens": len(ids),
+        "acerto": {b: {"valor": v, "ic95": ic} for b, (v, ic) in acerto.items()},
+        "veredictos": {b: {v: sum(1 for k in ids if veredictos[b][k] == v)
+                           for v in (*VEREDICTOS, "ilegivel")} for b in certo},
+        "gerador_com_a_passagem": {
+            "acerto_Bp": acerto[BRACO_PASSAGEM][0], "ic95": acerto[BRACO_PASSAGEM][1],
+            "limiar": LIMIAR_GERADOR,
+            "desfecho": "BASTA" if acerto[BRACO_PASSAGEM][1][0] >= LIMIAR_GERADOR else "LIMITA"},
+        "lacuna_do_corpo": {"Bp_menos_A2": lacuna, "ic95": ic_lacuna,
+                            "ganha": int((certo[BRACO_PASSAGEM] > certo[BRACO_REORDENADO]).sum()),
+                            "perde": int((certo[BRACO_PASSAGEM] < certo[BRACO_REORDENADO]).sum())},
+        "p_nas_fontes_de_A2": {"itens": int(p_veio.sum()),
+                               "fracao": round(float(p_veio.mean()), 4)},
+        "guardas": {
+            "I2c": {"acerto_C": acerto["C"][0], "acerto_Bp": acerto[BRACO_PASSAGEM][0],
+                    "margem": MARGEM_I2,
+                    "valida": bool(acerto["C"][0] < acerto[BRACO_PASSAGEM][0] - MARGEM_I2)},
+            "fora_do_resumo": {
+                "itens_com_o_resumo_de_P_nas_fontes": int(p_veio.sum()),
+                "acerto_de_A2_neles": None if np.isnan(so_resumo) else round(so_resumo, 4),
+                "acerto_de_Bp_neles": round(float(certo[BRACO_PASSAGEM][p_veio].mean()), 4)
+                if p_veio.any() else None,
+                "maximo": MAX_ACERTO_SO_COM_O_RESUMO,
+                "valida": bool(np.isnan(so_resumo) or so_resumo <= MAX_ACERTO_SO_COM_O_RESUMO)}},
+        "acerto_de_Bp_onde_P_nao_veio": round(float(certo[BRACO_PASSAGEM][~p_veio].mean()), 4)
+        if (~p_veio).any() else None}
 
 
 # ── I3: a concordância do juiz com o dono ────────────────────────────────────

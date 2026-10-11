@@ -295,3 +295,78 @@ def test_decidir_relata_o_gerador_tambem_SEM_a_revisao_R():
     nao_certos = [k for k, x in v["B"].items() if x != "certo"]
     r = b.decidir(v, dict.fromkeys(nao_certos, "juiz_errou"), {"passa": True})
     assert (r["gerador"], r["gerador_sem_R"]) == ("BASTA", "LIMITA")
+
+
+# ── o estrato "corpo" (DOC-13 §9.5) ──────────────────────────────────────────
+
+
+def test_a_passagem_toma_o_lugar_do_resumo_de_p_onde_p_ja_veio():
+    fa = [_fonte(i, f"x{i}") for i in range(1, 7)]
+    p = Fonte(6, "x3", "T x3", 2020, "A PASSAGEM", float("nan"))
+    fb = b.fontes_com_passagem(fa, p)
+    assert [f.arxiv_id for f in fb] == [f.arxiv_id for f in fa]     # mesma ordem, mesmas 6
+    assert fb[2].resumo == "A PASSAGEM" and fb[2].numero == 3
+    assert fa[2].resumo == "R x3"                                   # as de A′ não mudam
+
+
+def test_a_passagem_entra_na_posicao_sorteada_quando_p_nao_veio():
+    fa = [_fonte(i, f"x{i}") for i in range(1, 7)]
+    fb = b.fontes_com_passagem(fa, Fonte(6, "P", "T P", 2020, "A PASSAGEM", float("nan")))
+    ids = [f.arxiv_id for f in fb]
+    assert ids.index("P") + 1 == b.posicao_sorteada("P", 6) and "x6" not in ids
+    assert [f.numero for f in fb] == list(range(1, 7))
+
+
+def test_item_do_corpo_tres_bracos_e_a_passagem_so_em_bp(tmp_path):
+    assistente, modelo, ids = _assistente(tmp_path, [f"2001.{i:05d}" for i in range(6)])
+    item = {"estrato": "corpo", "ordem": 0, "arxiv_id": "2001.00002",
+            "pergunta": "Qual é a espessura do alvo?"}
+    ra, rb, rc = b.rodar_item_corpo(assistente, item, "O alvo tem 460 nm de espessura.")
+    assert (ra.braco, rb.braco, rc.braco) == (b.BRACO_REORDENADO, b.BRACO_PASSAGEM, "C")
+    assert ra.posicao_p == 3 and rb.posicao_p == 3 and ra.fontes == rb.fontes
+    respostas = [u for s, u, _ in modelo.chamadas if s == SISTEMA_RESPOSTA]
+    assert len(respostas) == 2
+    assert "460 nm" not in respostas[0] and "Resumo de 2001.00002." in respostas[0]
+    assert "460 nm" in respostas[1] and "Resumo de 2001.00002." not in respostas[1]
+    assert sum(1 for s, _, _ in modelo.chamadas if s == SISTEMA_HYDE) == 1   # uma consulta só
+    memoria = [u for s, u, _ in modelo.chamadas if s == b.SISTEMA_MEMORIA]
+    assert len(memoria) == 1 and "Sources" not in memoria[0]
+
+
+def _respostas_do_corpo(n=60):
+    saida = []
+    for i in range(n):
+        for braco in (b.BRACO_REORDENADO, b.BRACO_PASSAGEM, "C"):
+            saida.append(b.RespostaDoBraco("corpo", i, f"a{i:03d}", braco, f"texto {braco} {i}",
+                                           posicao_p=1 if (i % 3 == 0 or braco == "Bp") else None))
+    return saida
+
+
+def test_amostra_i3c_tem_20_de_cada_braco_de_itens_diferentes():
+    amostra = b.amostra_i3c(_respostas_do_corpo())
+    assert len(amostra) == 2 * b.N_I3C_POR_BRACO
+    assert sum(r.braco == b.BRACO_REORDENADO for r in amostra) == b.N_I3C_POR_BRACO
+    assert len({r.arxiv_id for r in amostra}) == len(amostra)
+    assert [r.arxiv_id for r in amostra] == [r.arxiv_id for r in b.amostra_i3c(_respostas_do_corpo())]
+
+
+def test_resumo_do_corpo_as_leituras_e_as_duas_guardas():
+    respostas = _respostas_do_corpo(60)
+    ids = [("corpo", f"a{i:03d}") for i in range(60)]
+    v = {b.BRACO_PASSAGEM: dict.fromkeys(ids, "certo"),                      # Bp acerta tudo
+         b.BRACO_REORDENADO: {k: ("certo" if i < 6 else "absteve") for i, k in enumerate(ids)},
+         "C": dict.fromkeys(ids, "errado")}
+    r = b.resumo_corpo(v, respostas)
+    assert r["gerador_com_a_passagem"]["desfecho"] == "BASTA"
+    assert r["lacuna_do_corpo"]["Bp_menos_A2"] == 0.9 and r["lacuna_do_corpo"]["perde"] == 0
+    assert r["p_nas_fontes_de_A2"]["itens"] == 20
+    assert r["guardas"]["I2c"]["valida"] is True
+    # A′ acertou 2 dos 20 itens em que só tinha o resumo de P (i = 0 e 3): 0,10 ≤ 0,20
+    assert r["guardas"]["fora_do_resumo"]["acerto_de_A2_neles"] == 0.1
+    assert r["guardas"]["fora_do_resumo"]["valida"] is True
+    # se o resumo responde, a guarda cai
+    v[b.BRACO_REORDENADO] = dict.fromkeys(ids, "certo")
+    assert b.resumo_corpo(v, respostas)["guardas"]["fora_do_resumo"]["valida"] is False
+    # e C perto de Bp derruba a outra
+    v["C"] = dict.fromkeys(ids, "certo")
+    assert b.resumo_corpo(v, respostas)["guardas"]["I2c"]["valida"] is False
