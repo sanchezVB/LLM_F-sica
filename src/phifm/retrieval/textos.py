@@ -27,7 +27,6 @@ def construir(origem: Path, destino: Path, por_grupo: int = POR_GRUPO, ao_gravar
     Retomável por arquivo. Um artigo que aparece em dois arquivos fica com o primeiro —
     a mesma regra de quem lê a origem (`piloto_trechos`, `perguntas_corpo`)."""
     import polars as pl
-    import pyarrow as pa
     import pyarrow.parquet as pq
 
     destino.mkdir(parents=True, exist_ok=True)
@@ -41,18 +40,7 @@ def construir(origem: Path, destino: Path, por_grupo: int = POR_GRUPO, ao_gravar
         if alvo.exists():
             ids = pq.read_table(alvo, columns=["arxiv_id"]).column(0).to_pylist()
         else:
-            t = pq.read_table(p, columns=["arxiv_id", "texto"])
-            ids_origem = t.column(0).to_pylist()
-            fica, daqui = [], set()
-            for a in ids_origem:
-                fica.append(a not in vistos and a not in daqui)
-                daqui.add(a)
-            t = t.filter(pa.array(fica))
-            ids = t.column(0).to_pylist()
-            tmp = alvo.with_suffix(".tmp")
-            pq.write_table(t, tmp, row_group_size=por_grupo, compression="zstd")
-            tmp.rename(alvo)
-            del t
+            ids = _regravar(p, alvo, vistos, por_grupo)
         linhas += [(a, n, i) for i, a in enumerate(ids)]
         vistos.update(ids)
         if ao_gravar:
@@ -68,6 +56,44 @@ def construir(origem: Path, destino: Path, por_grupo: int = POR_GRUPO, ao_gravar
     (destino / NOME_MANIFESTO).write_text(json.dumps(manifesto, ensure_ascii=False, indent=2),
                                           encoding="utf-8")
     return manifesto
+
+
+def _regravar(origem: Path, alvo: Path, vistos: set[str], por_grupo: int) -> list[str]:
+    """Um arquivo da origem em grupos de `por_grupo` linhas, sem os artigos de `vistos`.
+    Devolve os ids gravados, na ordem das linhas.
+
+    Lê em lotes: o arquivo inteiro são ~1 GB descomprimidos, e esta máquina tem 16 GB com o
+    modelo de linguagem carregado. Cada gravação leva um múltiplo de `por_grupo` linhas —
+    só o ÚLTIMO grupo pode ser menor, e é disso que `Textos.ler` depende para achar o
+    grupo de uma linha com uma divisão."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    f = pq.ParquetFile(origem)
+    esquema = pa.schema([f.schema_arrow.field("arxiv_id"), f.schema_arrow.field("texto")])
+    ids: list[str] = []
+    daqui: set[str] = set()
+    pendentes: list[pa.RecordBatch] = []
+    tmp = alvo.with_suffix(".tmp")
+    with pq.ParquetWriter(tmp, esquema, compression="zstd") as w:
+        for lote in f.iter_batches(batch_size=8 * por_grupo, columns=["arxiv_id", "texto"]):
+            fica = []
+            for a in lote.column(0).to_pylist():
+                fica.append(a not in vistos and a not in daqui)
+                if fica[-1]:
+                    daqui.add(a)
+                    ids.append(a)
+            pendentes.append(lote.filter(pa.array(fica)))
+            n = sum(b.num_rows for b in pendentes) // por_grupo * por_grupo
+            if n:
+                t = pa.Table.from_batches(pendentes, schema=esquema)
+                w.write_table(t.slice(0, n), row_group_size=por_grupo)
+                pendentes = t.slice(n).to_batches()
+        if sum(b.num_rows for b in pendentes):
+            w.write_table(pa.Table.from_batches(pendentes, schema=esquema),
+                          row_group_size=por_grupo)
+    tmp.rename(alvo)
+    return ids
 
 
 class Textos:

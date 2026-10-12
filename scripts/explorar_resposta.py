@@ -362,6 +362,8 @@ def resumir() -> None:
     linhas = {}
     for c in todas:
         resps = respostas(c)
+        if not resps:
+            continue
         itens, base = conjunto(partes(c)[0])
         if len(resps) < len(itens):
             continue

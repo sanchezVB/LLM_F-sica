@@ -37,6 +37,26 @@ def test_le_cada_artigo_de_qualquer_grupo_e_arquivo(tmp_path):
     assert "c9" not in textos and textos.ler("c9") is None
 
 
+def test_so_o_ultimo_grupo_de_cada_arquivo_pode_ser_menor(tmp_path):
+    """`Textos.ler` acha o grupo de uma linha com uma divisão: um grupo menor no MEIO do
+    arquivo faria o índice apontar para o grupo errado. Com 70 artigos e lotes de 8 × 4
+    linhas, a gravação passa por vários lotes e pela sobra entre eles."""
+    import pyarrow.parquet as pq
+
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    ids = [f"a{i:02d}" for i in range(70)]
+    pl.DataFrame({"arxiv_id": [*ids, "a05", "a66"],                # dois repetidos no fim
+                  "texto": [f"texto de {a}" for a in [*ids, "X", "Y"]]}
+                 ).write_parquet(origem / "part-00000.parquet")
+    t.construir(origem, tmp_path / "destino", por_grupo=4)
+    meta = pq.ParquetFile(tmp_path / "destino" / "part-00000.parquet").metadata
+    grupos = [meta.row_group(i).num_rows for i in range(meta.num_row_groups)]
+    assert grupos == [4] * 17 + [2]
+    textos = t.Textos(tmp_path / "destino")
+    assert [textos.ler(a) for a in ids] == [f"texto de {a}" for a in ids]
+
+
 def test_a_construcao_retoma_sem_regravar_o_que_ja_existe(tmp_path):
     origem, destino = _origem(tmp_path), tmp_path / "destino"
     t.construir(origem, destino, por_grupo=4)
