@@ -811,6 +811,36 @@ corpo o assistente não tem chance, e com ele o modelo que já existe basta.** O
 não é modelo nem índice gigante — é o passo que escolhe a passagem dentro do artigo.
 A proposta está no [PLANO §9](PLANO-trechos-do-texto-completo.md), para o dono.
 
+#### Depois da medida (2026-10-12): quando as fontes não trazem a resposta, ele afirma em metade das vezes
+
+O item 2 acima ficou com 20 respostas. Para fechar o número, o Claude leu as 150 respostas
+de A′, sem o veredicto do juiz e sem o gabarito, com três classes escritas antes de ler
+(`scripts/contar_abstencoes.py`; agregado em `avaliacao/assistente_corpo_abstencao.json`).
+
+| nas 145 que o juiz não deu como certas | respostas | |
+|---|---|---|
+| **absteve** — diz que as fontes não trazem, e não dá resposta | 71 | 49% |
+| **afirmou** — dá uma resposta, sem ressalva | 62 | 43% |
+| **ressalva** — diz que as fontes não trazem de forma direta, e dá um valor mesmo assim | 12 | 8% |
+
+- **Afirma algo em 51% das vezes** (74 de 145). Das 62 afirmadas, 11 nem dão o que foi
+  pedido: repetem a pergunta, generalizam ou respondem outra coisa, sem avisar.
+- **Ter o artigo certo entre as fontes piora:** com o resumo de P no prompt, afirma em 58%
+  (52 de 90); sem ele, em 40% (22 de 55). O resumo de P traz uma grandeza vizinha, e o
+  modelo a entrega no lugar da que foi pedida.
+- **Ele não inventa número.** Só 5 das 79 respostas com afirmação têm um número que não
+  está em nenhuma fonte do prompt nem na pergunta. O erro é de ATRIBUIÇÃO — o valor existe
+  nas fontes, e é de outra grandeza ou de outro artigo. Um portão mecânico de "número sem
+  fonte" pegaria 5 de 79: não vale construir. O que pega isto é conferir o SENTIDO — o
+  *entailment* da §6.2, que continua sendo o limite declarado do portão.
+- **O juiz não separa mesmo:** das 71 abstenções, chamou 41 de `errado`. E a expressão com
+  que o portão de citações reconhece uma recusa casa com 30 das 71.
+
+⚠️ Uma leitura só, do Claude, sem segunda passada às cegas; as perguntas são agora de
+desenvolvimento. Três decisões foram tomadas ao ler e estão no agregado (resposta mista
+conta como `ressalva`; valor de grandeza vizinha citado como contexto, seguido de recusa,
+conta como `absteve`; a subdivisão "sem o pedido" foi criada depois de ler).
+
 ---
 
 ## 10. Riscos
