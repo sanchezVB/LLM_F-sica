@@ -128,6 +128,41 @@ def em_blocos(escolhidos: list[Escolhido]) -> dict[str, list[str]]:
     return saida
 
 
+class TrechosDoTexto:
+    """`trechos_de` para o produto: lê o texto completo (`phifm.retrieval.textos.Textos`) e
+    corta. Os últimos `guardados` artigos ficam cortados na memória — quem pergunta de novo
+    sobre o mesmo assunto recebe as mesmas fontes."""
+
+    def __init__(self, textos, contar: Callable[[list[str]], list[int]],
+                 limite: int = LIMITE_TRECHO, guardados: int = 64):
+        self.textos, self.contar, self.limite, self.guardados = textos, contar, limite, guardados
+        self._cache: dict[str, list[Trecho] | None] = {}
+
+    def __call__(self, arxiv_id: str) -> list[Trecho] | None:
+        from phifm.retrieval.trechos import cortar
+
+        if arxiv_id in self._cache:
+            self._cache[arxiv_id] = self._cache.pop(arxiv_id)      # vai para o fim da fila
+            return self._cache[arxiv_id]
+        texto = self.textos.ler(arxiv_id)
+        trechos = (None if texto is None
+                   else cortar(texto, self.contar, limite=self.limite, sobreposicao=0))
+        self._cache[arxiv_id] = trechos
+        while len(self._cache) > self.guardados:
+            del self._cache[next(iter(self._cache))]
+        return trechos
+
+
+def contador(tok) -> Callable[[list[str]], list[int]]:
+    """Textos → nº de tokens de cada um, pelo tokenizer do índice (o do corte medido)."""
+    def contar(textos: list[str]) -> list[int]:
+        if not textos:
+            return []
+        return [len(x) for x in tok(textos, add_special_tokens=False, verbose=False)["input_ids"]]
+
+    return contar
+
+
 class Passagens:
     """O passo que o `Assistente` chama depois da busca. `trechos_de(arxiv_id)` devolve os
     trechos do artigo, ou None se ele não tem texto completo — de onde eles vêm (o HD, um
@@ -147,9 +182,18 @@ class Passagens:
         trechos = {a: ts for a in ids if (ts := self.trechos_de(a))}
         return escolher(consulta, trechos, self.k, self.k * LIMITE_TRECHO)
 
+    def anexar_com_registro(self, pergunta: str, fontes: list, consulta: str | None = None
+                            ) -> tuple[list, list[Escolhido], str]:
+        """`anexar`, devolvendo também os trechos escolhidos e a consulta em inglês — é o
+        que a medida guarda para dizer, depois, se a passagem de onde a pergunta saiu foi
+        entregue, e com que palavras ela foi procurada."""
+        consulta = consulta or self.consulta(pergunta)
+        escolhidos = self.escolher(consulta, [f.arxiv_id for f in fontes])
+        blocos = em_blocos(escolhidos)
+        return ([replace(f, passagens=tuple(blocos.get(f.arxiv_id, ()))) for f in fontes],
+                escolhidos, consulta)
+
     def anexar(self, pergunta: str, fontes: list, consulta: str | None = None) -> list:
         """As mesmas fontes, na mesma ordem e com o mesmo número, cada uma com as suas
         passagens. Fonte sem texto completo, ou sem trecho escolhido, volta como veio."""
-        consulta = consulta or self.consulta(pergunta)
-        blocos = em_blocos(self.escolher(consulta, [f.arxiv_id for f in fontes]))
-        return [replace(f, passagens=tuple(blocos.get(f.arxiv_id, ()))) for f in fontes]
+        return self.anexar_com_registro(pergunta, fontes, consulta)[0]

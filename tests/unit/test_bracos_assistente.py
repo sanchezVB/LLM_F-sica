@@ -370,3 +370,139 @@ def test_resumo_do_corpo_as_leituras_e_as_duas_guardas():
     # e C perto de Bp derruba a outra
     v["C"] = dict.fromkeys(ids, "certo")
     assert b.resumo_corpo(v, respostas)["guardas"]["I2c"]["valida"] is False
+
+
+# ── as passagens sob demanda (DOC-13 §9.6) ───────────────────────────────────
+
+
+class PassoFalso:
+    """Anexa uma passagem à 2ª fonte — ou nada, se `vazio`."""
+
+    def __init__(self, vazio=False):
+        self.vazio = vazio
+
+    def anexar_com_registro(self, pergunta, fontes, consulta=None):
+        from dataclasses import replace
+
+        from phifm.rag.passagens import Escolhido
+
+        if self.vazio:
+            return list(fontes), [], "the question"
+        esc = [Escolhido(fontes[1].arxiv_id, 4, "Setup", "O alvo tem 460 nm.", 10, 1.0)]
+        return ([replace(f, passagens=("O alvo tem 460 nm.",)) if i == 1 else f
+                 for i, f in enumerate(fontes)], esc, "the question")
+
+
+def test_item_das_passagens_quatro_bracos_e_so_A3_le_o_trecho_escolhido(tmp_path):
+    assistente, modelo, ids = _assistente(tmp_path, [f"2001.{i:05d}" for i in range(6)])
+    item = {"estrato": "corpo", "ordem": 0, "arxiv_id": "2001.00002",
+            "pergunta": "Qual é a espessura do alvo?"}
+    ra, r3, rb, rc = b.rodar_item_passagens(assistente, PassoFalso(), item, "A PASSAGEM DE OURO.")
+    assert [r.braco for r in (ra, r3, rb, rc)] == [b.BRACO_REORDENADO, b.BRACO_PASSAGENS,
+                                                   b.BRACO_PASSAGEM, "C"]
+    assert ra.fontes == r3.fontes == rb.fontes and ra.consulta == r3.consulta
+    assert r3.passagens == [["2001.00001", 4]] and ra.passagens == []
+    assert r3.consulta_passagens == "the question" and ra.consulta_passagens == ""
+    assert r3.segundos >= r3.segundos_recuperacao >= 0
+    prompts = [u for s, u, _ in modelo.chamadas if s == SISTEMA_RESPOSTA]
+    assert len(prompts) == 3
+    assert "460 nm" not in prompts[0] and "460 nm" in prompts[1] and "460 nm" not in prompts[2]
+    assert "A PASSAGEM DE OURO." in prompts[2] and "A PASSAGEM DE OURO." not in prompts[1]
+    assert "Resumo de 2001.00001." in prompts[1]          # o resumo fica, com o trecho embaixo
+    assert sum(1 for s, _, _ in modelo.chamadas if s == SISTEMA_HYDE) == 1
+
+
+def test_A3_sobre_o_cache_de_A2_reaproveita_a_resposta_quando_nada_e_anexado(tmp_path):
+    assistente, modelo, ids = _assistente(tmp_path, [f"2001.{i:05d}" for i in range(6)])
+    itens = [{"estrato": "primario", "ordem": i, "arxiv_id": ids[i], "pergunta": f"P{i}?"}
+             for i in range(2)]
+    a2 = {("primario", it["arxiv_id"]): b.RespostaDoBraco(
+        "primario", it["ordem"], it["arxiv_id"], b.BRACO_REORDENADO, "resposta de A2 [1].",
+        fontes=ids[:6], posicao_p=1, consulta="hyde") for it in itens}
+
+    def fontes_de(lista):
+        return [_fonte(i, a) for i, a in enumerate(lista, start=1)]
+
+    regs = b.rodar_passagens_sobre_a2(assistente, PassoFalso(vazio=True), itens, a2, fontes_de,
+                                      tmp_path / "vazio.jsonl")
+    assert all(r.igual_a_A and r.texto == "resposta de A2 [1]." and r.braco == b.BRACO_PASSAGENS
+               for r in regs)
+    assert not any(s == SISTEMA_RESPOSTA for s, _, _ in modelo.chamadas)
+
+    regs = b.rodar_passagens_sobre_a2(assistente, PassoFalso(), itens, a2, fontes_de,
+                                      tmp_path / "com.jsonl", limite=1)
+    assert len(regs) == 1 and not regs[0].igual_a_A and regs[0].passagens == [[ids[1], 4]]
+    regs = b.rodar_passagens_sobre_a2(assistente, PassoFalso(), itens, a2, fontes_de,
+                                      tmp_path / "com.jsonl")
+    assert len(regs) == 2                                  # retomou, sem refazer o primeiro
+    assert sum(1 for s, _, _ in modelo.chamadas if s == SISTEMA_RESPOSTA) == 2
+
+
+def _caso_das_passagens(n=100, certos_a2=3, certos_a3=45, t_a3=55.0):
+    ids = [("corpo", f"a{i:03d}") for i in range(n)]
+    v = {b.BRACO_REORDENADO: {k: "certo" if i < certos_a2 else "absteve"
+                              for i, k in enumerate(ids)},
+         b.BRACO_PASSAGENS: {k: "certo" if i < certos_a3 else "errado" for i, k in enumerate(ids)},
+         b.BRACO_PASSAGEM: dict.fromkeys(ids, "certo"), "C": dict.fromkeys(ids, "errado")}
+    respostas = []
+    for i, (_, a) in enumerate(ids):
+        pos = 1 if i % 2 == 0 else None
+        respostas += [
+            b.RespostaDoBraco("corpo", i, a, b.BRACO_REORDENADO, "x", posicao_p=pos, segundos=50.0),
+            b.RespostaDoBraco("corpo", i, a, b.BRACO_PASSAGENS, "y", posicao_p=pos, segundos=t_a3,
+                              segundos_passagens=4.0),
+            b.RespostaDoBraco("corpo", i, a, b.BRACO_PASSAGEM, "z", posicao_p=1),
+            b.RespostaDoBraco("corpo", i, a, "C", "w")]
+    return v, respostas
+
+
+def test_o_ganho_no_corpo_passa_so_com_o_IC_inteiro_acima_do_limiar():
+    r = b.resumo_passagens(*_caso_das_passagens())
+    assert r["ganho_no_corpo"]["A3_menos_A2"] == 0.42 and r["ganho_no_corpo"]["passa"] is True
+    assert r["ganho_no_corpo"]["perde"] == 0 and r["tempo"]["passa"] is True
+    assert r["o_teto"]["fracao_do_teto_colhida"] == 0.45
+    assert all(g["valida"] for g in r["guardas"].values())
+    # +0,17 em 100 itens: o IC desce abaixo de 0,15, e não passa
+    assert b.resumo_passagens(*_caso_das_passagens(certos_a3=20))["ganho_no_corpo"]["passa"] is False
+    # e o tempo reprova sozinho
+    assert b.resumo_passagens(*_caso_das_passagens(t_a3=71.0))["tempo"]["passa"] is False
+
+
+def _caso_do_primario(n=500, perde=0, ganha=0):
+    ids = [("primario", f"p{i:03d}") for i in range(n)]
+    a2 = {k: "certo" if i < 400 else "errado" for i, k in enumerate(ids)}
+    a3 = dict(a2)
+    for k in ids[:perde]:
+        a3[k] = "errado"
+    for k in ids[400:400 + ganha]:
+        a3[k] = "certo"
+    respostas = [b.RespostaDoBraco("primario", i, a, b.BRACO_PASSAGENS, "y",
+                                   igual_a_A=i % 5 == 0, passagens=[] if i % 5 == 0 else [[a, 1]])
+                 for i, (_, a) in enumerate(ids)]
+    return {b.BRACO_REORDENADO: a2, b.BRACO_PASSAGENS: a3}, respostas
+
+
+def test_nao_piora_e_o_IC_inteiro_acima_de_menos_3_pontos():
+    r = b.nao_piora(*_caso_do_primario())
+    assert r["A3_menos_A2"] == 0.0 and r["passa"] is True
+    assert r["respostas_iguais_as_de_A2"] == 100 and r["com_passagem_anexada"] == 400
+    assert b.nao_piora(*_caso_do_primario(perde=10, ganha=6))["passa"] is True     # −0,008
+    assert b.nao_piora(*_caso_do_primario(perde=25))["passa"] is False             # −0,05
+
+
+def test_a_regra_da_9_6_adota_so_com_os_tres_eixos_e_fica_pendente_sem_o_primario():
+    corpo = b.resumo_passagens(*_caso_das_passagens())
+    passa, nao = b.nao_piora(*_caso_do_primario()), b.nao_piora(*_caso_do_primario(perde=25))
+    assert b.decidir_passagens(corpo, passa, {"passa": True})["decisao"] == "ADOTA"
+    assert b.decidir_passagens(corpo, nao, {"passa": True})["decisao"] == "FICA O SISTEMA ATUAL"
+    assert b.decidir_passagens(corpo, None, {"passa": True})["decisao"].startswith("PENDENTE")
+    assert b.decidir_passagens(corpo, passa, {"passa": False})["decisao"] == "—"
+    lento = b.resumo_passagens(*_caso_das_passagens(t_a3=71.0))
+    assert b.decidir_passagens(lento, passa, {"passa": True})["decisao"] == "FICA O SISTEMA ATUAL"
+
+
+def test_amostra_i3_da_9_6_troca_os_bracos_e_o_sorteio():
+    v, respostas = _caso_das_passagens(60)
+    amostra = b.amostra_i3c(respostas, bracos=(b.BRACO_PASSAGENS, b.BRACO_REORDENADO), salto=6)
+    assert sorted({r.braco for r in amostra}) == sorted([b.BRACO_PASSAGENS, b.BRACO_REORDENADO])
+    assert len(amostra) == 40 and len({r.arxiv_id for r in amostra}) == 40

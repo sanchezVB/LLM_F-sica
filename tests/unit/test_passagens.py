@@ -110,6 +110,29 @@ def test_anexar_mantem_ordem_e_numero_e_so_poe_passagem_em_quem_tem_texto():
     assert len(modelo.chamadas) == 1
 
 
+class TextosFalsos:
+    def __init__(self):
+        self.lidos = []
+
+    def ler(self, arxiv_id):
+        self.lidos.append(arxiv_id)
+        if arxiv_id == "sem":
+            return None
+        return (f"\\section{{Setup}} The sample {arxiv_id} was grown at 650 K on a sapphire "
+                "substrate and then annealed in oxygen for two hours before the measurement.")
+
+
+def test_trechos_do_texto_corta_uma_vez_e_guarda_os_ultimos():
+    textos = TextosFalsos()
+    de = p.TrechosDoTexto(textos, lambda xs: [len(x.split()) for x in xs], guardados=2)
+    ts = de("a")
+    assert ts and "650 K" in ts[0].texto and ts[0].secao == "Setup"
+    assert de("a") is ts and textos.lidos == ["a"]          # do cache, sem ler de novo
+    assert de("sem") is None and de("sem") is None and textos.lidos == ["a", "sem"]
+    de("a"), de("b")                                        # "sem" é o mais antigo: sai
+    assert de("sem") is None and textos.lidos == ["a", "sem", "b", "sem"]
+
+
 def test_traducao_vazia_cai_na_pergunta_como_veio():
     ps = p.Passagens(ModeloFalso(traducao="  "), lambda a: None)
     assert ps.consulta("What is the substrate temperature?") == "What is the substrate temperature?"

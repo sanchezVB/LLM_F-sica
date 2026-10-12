@@ -11,6 +11,7 @@ falta: escrito pelo Claude, como o formal, lendo o resumo e uma passagem do corp
     P --exportar -n 25         # o próximo lote: resumo + passagem, sem título
     P --importar <respostas>   # o lote escrito, pelas guardas
     P --fechar                 # as 150 primeiras aceitas, e o agregado
+    P --fechar-2               # as 100 aceitas seguintes: o conjunto da medida da §9.6
 
 Disjunto do teste e do desenvolvimento da busca: anda na MESMA permutação do conjunto
 formal, depois de tudo o que os dois tentaram, e só em artigos com texto completo.
@@ -41,8 +42,10 @@ TEXTOS = RAIZ / "data/processed/redpajama_fisica"
 INDICE = RAIZ / "data/processed/indice_busca"
 PASSAGENS = DIR / "corpo_passagens.jsonl"
 ITENS = DIR / "itens_corpo.json"
+ITENS_2 = DIR / "itens_corpo2.json"
 SEMENTE_CORPO = 20261009
 N_CORPO = 150
+N_CORPO_2 = 100          # o segundo conjunto, para a medida das passagens (DOC-13 §9.6)
 TRECHOS_POR_PASSAGEM = 3
 LIMITE_TRECHO = 160
 MIN_TOKENS_PASSAGEM = 300
@@ -333,6 +336,65 @@ def fechar() -> None:
     print(f"→ {ITENS.relative_to(RAIZ)} (fora do git) · {arq.relative_to(RAIZ)}")
 
 
+def fechar_2() -> None:
+    """O SEGUNDO conjunto do corpo: as `N_CORPO_2` aceitas seguintes, na mesma ordem. O
+    primeiro (150) virou desenvolvimento das passagens sob demanda — a regra de seleção foi
+    escolhida olhando para ele —, e a medida dela (DOC-13 §9.6) precisa de perguntas que
+    ninguém usou."""
+    from phifm.eval import assistente as m
+
+    tentativas = _ler(_cache())
+    aceitas = [t for t in tentativas if t["situacao"] == "aceita"]
+    primeiro = json.loads(ITENS.read_text(encoding="utf-8"))
+    if [t["arxiv_id"] for t in aceitas[:N_CORPO]] != [t["arxiv_id"] for t in primeiro]:
+        raise SystemExit("as 150 primeiras aceitas não são o conjunto fechado: o cache mudou.")
+    novas = aceitas[N_CORPO:N_CORPO + N_CORPO_2]
+    if len(novas) < N_CORPO_2:
+        raise SystemExit(f"{len(novas)} aceitas de {N_CORPO_2} — escreva mais lotes.")
+    corte, ultimo = primeiro[-1]["ordem"], novas[-1]["ordem"]
+    usadas = [t for t in tentativas if corte < t["ordem"] <= ultimo]
+    passagens = {x["arxiv_id"]: x for x in _ler(PASSAGENS)}
+    base = m.assinatura_autor()[:12]
+    vistos = ({a for _, a in m.ler_cache(DIR / f"tentativas_{m.AUTOR}_{base}_{m.SEMENTE}.jsonl")}
+              | {a for _, a in m.ler_cache(
+                  DIR / f"tentativas_devbusca_{m.AUTOR}_{base}_{m.SEMENTE}.jsonl")}
+              | {t["arxiv_id"] for t in primeiro})
+    if vistos & {t["arxiv_id"] for t in novas}:
+        raise SystemExit("o conjunto 2 não é disjunto do teste, do desenvolvimento e do corpo 1.")
+    ITENS_2.write_text(json.dumps(novas, ensure_ascii=False, indent=1), encoding="utf-8")
+    agregado = {
+        "etapa": "corpo-2", "regra": "DOC-13 §9.6 · itens novos para a medida das passagens",
+        "autor": m.AUTOR, "semente": SEMENTE_CORPO, "cota": N_CORPO_2,
+        "o_que_e": "perguntas cuja resposta está numa passagem do corpo do artigo e não no "
+                   "resumo — as aceitas seguintes às 150 do primeiro conjunto, na mesma ordem",
+        "passagem": f"{TRECHOS_POR_PASSAGEM} trechos seguidos de uma seção do corpo "
+                    f"(≥ {MIN_TOKENS_PASSAGEM} tokens), uma por artigo, pela regra 2",
+        "disjunto_de": ["teste (650)", "desenvolvimento da busca (200)", "corpo 1 (150)"],
+        "ordens": [corte + 1, ultimo],
+        "artigos_sem_passagem": sum(1 for x in passagens.values()
+                                    if x.get("sem_passagem") and corte < x["ordem"] <= ultimo),
+        "tentativas_por_situacao": dict(Counter(t["situacao"] for t in usadas)),
+        "guarda_numerica_das_aceitas": dict(Counter(t["critica"] for t in novas)),
+        "sobreposicao_media_com_o_titulo": round(
+            sum(t["sobreposicao"] for t in novas) / len(novas), 4),
+        "ressalvas": [
+            "escrito e conferido pelo Claude, sem revisão humana",
+            "a passagem é a de mais números do artigo: pende para medidas e detalhes de método",
+            "o autor das perguntas é quem escolheu a regra de seleção das passagens, e a "
+            "escreveu sabendo que ela é lexical; as regras de escrita são as do conjunto 1, "
+            "e a sobreposição de palavras entre pergunta e passagem é relatada na medida"],
+        "assinatura_regras": assinatura(),
+        "sha256_itens": hashlib.sha256(
+            json.dumps(novas, ensure_ascii=False).encode()).hexdigest(),
+        "sha256_passagens": hashlib.sha256(json.dumps(
+            [passagens[t["arxiv_id"]]["passagem"] for t in novas],
+            ensure_ascii=False).encode()).hexdigest()}
+    arq = AVALIACAO / "assistente_itens_corpo2.json"
+    arq.write_text(json.dumps(agregado, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(agregado, ensure_ascii=False, indent=2))
+    print(f"→ {ITENS_2.relative_to(RAIZ)} (fora do git) · {arq.relative_to(RAIZ)}")
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--passagens", type=int, help="sorteia até este número de artigos")
@@ -340,6 +402,7 @@ def main() -> int:
     p.add_argument("-n", type=int, default=25)
     p.add_argument("--importar", type=Path)
     p.add_argument("--fechar", action="store_true")
+    p.add_argument("--fechar-2", action="store_true")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     p.add_argument("--pares-validacao", type=Path,
                    default=RAIZ / "data/processed/pares/pares_validacao.parquet")
@@ -352,8 +415,10 @@ def main() -> int:
         importar(a.importar, a.spine)
     elif a.fechar:
         fechar()
+    elif a.fechar_2:
+        fechar_2()
     else:
-        p.error("--passagens, --exportar, --importar ou --fechar")
+        p.error("--passagens, --exportar, --importar, --fechar ou --fechar-2")
     return 0
 
 

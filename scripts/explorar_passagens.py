@@ -383,6 +383,52 @@ def medir() -> None:
          "posto_do_ouro": melhor_posto}, ensure_ascii=False), encoding="utf-8")
 
 
+# ── o outro lado: as perguntas do RESUMO não podem piorar ────────────────────────────
+ITENS_PRIMARIO = DIR / "itens_dev_busca.json"
+FONTES_PRIMARIO = SAIDA / "primario_fontes.jsonl"
+
+
+def _itens_primario() -> list[dict]:
+    return [i for i in json.loads(ITENS_PRIMARIO.read_text(encoding="utf-8"))
+            if i["estrato"] == "primario"]
+
+
+def fontes_primario() -> None:
+    """As 6 fontes de A′ para as 150 perguntas de desenvolvimento do primário: a consulta
+    hipotética do cache (a da semente do produto), a busca e o ΦRank. CPU, retomável."""
+    from phifm.eval.assistente import K_FONTES, SEMENTE
+    from phifm.rag.assistente import Assistente
+    from phifm.rag.reordenador import Reordenador
+    from phifm.retrieval.indice import Busca
+
+    itens = _itens_primario()
+    consultas = {d["arxiv_id"]: d["consultas"][0]
+                 for d in _ler_jsonl(DIR / "dev_busca_consultas.jsonl")
+                 if d["estrato"] == "primario"}
+    feitos = ({d["arxiv_id"] for d in _ler_jsonl(FONTES_PRIMARIO)}
+              if FONTES_PRIMARIO.exists() else set())
+    assistente = Assistente(Busca(INDICE, dispositivo="cpu"), None,
+                            RAIZ / "data/processed/spine.parquet", k=K_FONTES, semente=SEMENTE,
+                            reordenador=Reordenador())
+    t0, n = time.perf_counter(), 0
+    with FONTES_PRIMARIO.open("a", encoding="utf-8") as f:
+        for it in itens:
+            p = it["arxiv_id"]
+            if p in feitos:
+                continue
+            ids = [x.arxiv_id for x in assistente.recuperar(consultas[p])]
+            f.write(json.dumps({"arxiv_id": p, "consulta": consultas[p], "fontes": ids,
+                                "posicao_p": ids.index(p) + 1 if p in ids else None}) + "\n")
+            f.flush()
+            n += 1
+            if n % 10 == 0:
+                print(f"{len(feitos) + n}/{len(itens)} · {(time.perf_counter() - t0) / n:.1f} "
+                      "s por pergunta", flush=True)
+    todos = _ler_jsonl(FONTES_PRIMARIO)
+    print(f"{len(todos)} perguntas · P entre as 6 fontes em "
+          f"{sum(1 for d in todos if d['posicao_p'])}")
+
+
 # ── de ponta a ponta, no desenvolvimento: o assistente COM as passagens ──────────────
 BRACO_DEV = "A3"        # as fontes e a consulta de A′, mais as passagens escolhidas
 
@@ -567,6 +613,7 @@ def main() -> int:
     p.add_argument("--preparar", action="store_true")
     p.add_argument("--consultas", action="store_true")
     p.add_argument("--medir", action="store_true")
+    p.add_argument("--fontes-primario", action="store_true")
     p.add_argument("--responder", action="store_true")
     p.add_argument("--julgar", action="store_true")
     p.add_argument("--resumir", action="store_true")
@@ -579,6 +626,8 @@ def main() -> int:
         consultas()
     elif a.medir:
         medir()
+    elif a.fontes_primario:
+        fontes_primario()
     elif a.responder:
         responder(a.k, a.limite)
     elif a.julgar:

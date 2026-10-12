@@ -157,10 +157,13 @@ def bloco_de_fontes(fontes: list[Fonte]) -> str:
 
 class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
-                 reordenador=None, passagens=None):
+                 reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
         self.passagens = passagens
+        # A instrução da resposta. Trocá-la é trocar o sistema medido: só as explorações
+        # passam outra (`scripts/explorar_abstencao.py`).
+        self.sistema = sistema
         self._spine = pl.scan_parquet(spine)
         # O primeiro acesso ao parquet lê do HD frio (~16 s medidos); aquecer aqui tira
         # esse custo da primeira pergunta.
@@ -216,7 +219,7 @@ class Assistente:
 
     def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "") -> Resposta:
         """O passo 3 e o portão, com as fontes dadas — vindas da busca ou trocadas."""
-        bruto = self.modelo.gerar(SISTEMA_RESPOSTA, self._usuario(pergunta, fontes),
+        bruto = self.modelo.gerar(self.sistema, self._usuario(pergunta, fontes),
                                   semente=self.semente)
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
@@ -243,7 +246,7 @@ class Assistente:
         fontes = self.fontes_para(pergunta, consulta)
         yield "fontes", (consulta, fontes)
         partes = []
-        for pedaco in self.modelo.gerar_em_fluxo(SISTEMA_RESPOSTA,
+        for pedaco in self.modelo.gerar_em_fluxo(self.sistema,
                                                  self._usuario(pergunta, fontes),
                                                  semente=self.semente):
             partes.append(pedaco)

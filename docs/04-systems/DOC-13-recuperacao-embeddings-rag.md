@@ -841,6 +841,110 @@ desenvolvimento. Três decisões foram tomadas ao ler e estão no agregado (resp
 conta como `ressalva`; valor de grandeza vizinha citado como contexto, seguido de recusa,
 conta como `absteve`; a subdivisão "sem o pedido" foi criada depois de ler).
 
+### 9.6 Passagens sob demanda — PROPOSTA de 2026-10-12, escrita antes de os itens novos existirem
+
+O dono mandou construir e medir a proposta do PLANO §9. **Esta seção é a regra da medida.
+Ela é PROPOSTA até o dono aceitar** — e o conjunto de teste não é tocado antes disso
+(`REGRA_9_6_ACEITA`, em `phifm.eval.assistente_bracos`, trava o passo).
+
+**O sistema medido (A″).** O de hoje, com um passo a mais depois da busca
+(`phifm.rag.passagens`):
+
+1. o modelo traduz a pergunta para inglês (uma chamada curta);
+2. o texto completo de cada uma das 6 fontes que o tem é cortado pelo cortador da §3.1
+   (160 tokens, sem repetição);
+3. os trechos de todas as fontes competem entre si por BM25 contra a pergunta em inglês —
+   a frequência de documento sai só deles;
+4. os 9 melhores (no máximo 1.440 tokens) entram no prompt debaixo do resumo do artigo de
+   onde vieram, sob o MESMO número: citar a passagem é citar o artigo.
+
+A consulta hipotética, a busca, o ΦRank e a instrução da resposta não mudam. Fonte sem
+texto completo fica como hoje, só com o resumo.
+
+**De onde saiu a regra de seleção** — exploratório, nas 150 perguntas do corpo da §9.5,
+que por isso viraram desenvolvimento (`scripts/explorar_passagens.py`). Nas 94 em que o
+artigo certo estava entre as fontes, com que frequência a passagem de onde a pergunta saiu
+fica entre os 12 primeiros dos ~340 trechos:
+
+| consulta | ordem dos trechos | a passagem entre os 12 |
+|---|---|---|
+| a pergunta, como veio (português) | ΦEmb, cosseno | 0,33 |
+| a consulta hipotética da busca | ΦEmb, cosseno | 0,32 |
+| a consulta hipotética da busca | BM25 | 0,70 |
+| uma passagem hipotética, escrita pelo modelo | BM25 | 0,78 |
+| **a pergunta em inglês** | **BM25** | **0,85** |
+| a pergunta em inglês + a passagem hipotética | BM25 | 0,85 |
+
+O encoder do índice foi treinado em `título. resumo` e não acha um detalhe de método; a
+consulta hipotética imita um resumo e puxa a introdução. O risco que o PLANO §9 apontava
+("um encoder treinado em resumos") se confirmou — e a saída foi lexical: o que distingue a
+passagem são as palavras raras da pergunta. Fundir o denso com o lexical piorou; juntar os
+vizinhos de cada trecho, no mesmo orçamento, também.
+
+**Itens.**
+
+1. **Corpo 2** — 100 perguntas NOVAS: as aceitas seguintes às 150, na mesma permutação,
+   com as mesmas regras de escrita e a mesma regra de passagem
+   (`perguntas_corpo.py --fechar-2`). Disjuntas do teste, do desenvolvimento e do corpo 1.
+2. **Teste primário** — os 500 itens da §9.1, em que A′ já foi medido (0,806). Entram UMA
+   vez, só no eixo "não piora".
+
+**Braços**, com o modelo, a configuração e a semente do produto:
+
+| braço | o que o modelo recebe | onde roda |
+|---|---|---|
+| **A′** · o sistema de hoje | 6 fontes, cada uma com o resumo | corpo 2 · no teste, vem do cache da §9.2 |
+| **A″** · com as passagens | as MESMAS 6 fontes e a mesma consulta, mais os trechos escolhidos | corpo 2 e teste |
+| **Bp** · passagem garantida | as fontes de A′ com a passagem de P no lugar do resumo — o teto | corpo 2 |
+| **C** · sem fontes | a pergunta sozinha | corpo 2 |
+
+No teste, onde nenhuma passagem é anexada o prompt de A″ é o de A′, e a resposta de A′ é
+reaproveitada — como na §9.2.
+
+**Juiz.** O da §9.1, versão 2. **I3:** 40 respostas do corpo 2 (20 de A″ e 20 de A′, de
+itens diferentes, braço oculto) julgadas pelo Claude às cegas, com o hash dos veredictos
+versionado antes de o juiz rodar. κ de `certo` contra o resto abaixo de 0,6: o instrumento
+não decide.
+
+**A regra — ADOTA só com os três eixos**, IC 95% por bootstrap pareado por item:
+
+| eixo | medida | passa se |
+|---|---|---|
+| **ganho** | acerto de A″ − acerto de A′, nos 100 do corpo 2 | o IC fica INTEIRO acima de **0,15** |
+| **não piora** | acerto de A″ − acerto de A′, nos 500 do teste primário | o IC fica INTEIRO acima de **−0,03** |
+| **tempo** | mediana por pergunta de A″ no corpo 2, de ponta a ponta | **≤ 60 s** — o teto da §9.2 |
+
+Um eixo que não passa: fica o sistema atual. **Guardas**, as da §9.5 no corpo 2: C abaixo
+de Bp − 0,10, e A′ ≤ 0,20 onde teve o resumo de P; uma que caia invalida o eixo do ganho.
+
+De onde vêm os números: 0,15 é um quarto do teto estimado (0,59 = 0,627 de busca × 0,94 do
+gerador) — abaixo disso o passo não paga a cópia de 12 GB nem a chamada a mais. −0,03 é o
+limiar que o dono fixou na §9.2 para adotar o ΦRank, agora como o máximo que se aceita
+perder. 100 itens bastam: com A′ perto de 0,03, um ganho de 0,35 tem IC de ±0,10.
+
+**Relatadas, não decidem:** o alcance da seleção (a passagem de ouro entregue, onde P
+veio); o acerto de A″ onde P veio e onde não veio; a fração do teto colhida (A″ ÷ Bp); o
+tempo do passo sozinho; e a **sobreposição de palavras entre a pergunta em inglês e a
+passagem**, ao lado da do corpo 1 — ver o primeiro limite abaixo.
+
+⚠️ **Limites declarados antes de rodar:**
+
+1. **Quem escreve as perguntas novas escolheu a regra, e sabe que ela é lexical.** As
+   regras de escrita são as mesmas do corpo 1, escrito sem saber disso; se a sobreposição
+   de palavras do corpo 2 sair acima da do corpo 1, o ganho medido está inflado, e isso
+   vai dito com o número.
+2. **P sempre tem texto completo** — é assim que o estrato existe. No índice, 52% dos
+   artigos têm, e quase nada de 2023 em diante: para os outros 48%, nada muda. O ganho
+   medido é o de quando o texto existe.
+3. As ressalvas do estrato: sem revisão humana; a passagem é a de mais números do artigo.
+4. **O passo custa uma cópia do texto completo em disco** (~12 GB no HD,
+   `phifm.retrieval.textos`): os arquivos de hoje são um grupo de 20.000 artigos cada, e
+   ler um artigo leva 3,9 s. A cópia é derivada e pode ser apagada.
+
+**Custo previsto**, GPU local, retomável: corpo 2, ~2 h para os quatro braços e ~40 min de
+juiz; teste primário, ~1,5 h de respostas e ~50 min de juiz. `scripts/medir_passagens.py`;
+agregado em `avaliacao/assistente_passagens.json`.
+
 ---
 
 ## 10. Riscos

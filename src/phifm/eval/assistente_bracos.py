@@ -155,6 +155,10 @@ class RespostaDoBraco:
     consulta: str = ""            # a consulta hipotética (A e B)
     segundos: float = 0.0
     segundos_recuperacao: float = 0.0   # só no braço A′: busca + ΦRank
+    # só no braço A″ (§9.6): os trechos entregues, como [arxiv_id, posição no artigo]
+    passagens: list[list] = field(default_factory=list)
+    segundos_passagens: float = 0.0     # traduzir a pergunta, ler, cortar e escolher
+    consulta_passagens: str = ""        # a pergunta em inglês, com que os trechos foram procurados
 
 
 def posicao_sorteada(arxiv_id: str, k: int = K_FONTES) -> int:
@@ -440,18 +444,20 @@ def rodar_item_corpo(assistente, item: dict, passagem: str) -> list[RespostaDoBr
     return [ra, rb, _sem_fontes(assistente, item)]
 
 
-def amostra_i3c(respostas: list[RespostaDoBraco], semente: int = SEMENTE
+def amostra_i3c(respostas: list[RespostaDoBraco], semente: int = SEMENTE,
+                bracos: tuple[str, str] = (BRACO_REORDENADO, BRACO_PASSAGEM), salto: int = 5
                 ) -> list[RespostaDoBraco]:
-    """I3c: `N_I3C_POR_BRACO` respostas de A′ e outras tantas de Bp, de itens DIFERENTES,
-    embaralhadas — quem julga não sabe o braço."""
+    """I3c: `N_I3C_POR_BRACO` respostas de cada um dos dois `bracos` (A′ e Bp na §9.5),
+    de itens DIFERENTES, embaralhadas — quem julga não sabe o braço. `salto` separa os
+    sorteios de medidas diferentes."""
     itens = sorted({(r.estrato, r.arxiv_id) for r in respostas})
-    rng = np.random.default_rng(semente + 5)
+    rng = np.random.default_rng(semente + salto)
     perm = rng.permutation(len(itens))
     de_a = {itens[j] for j in perm[:N_I3C_POR_BRACO]}
     de_b = {itens[j] for j in perm[N_I3C_POR_BRACO:2 * N_I3C_POR_BRACO]}
     amostra = [r for r in respostas
-               if (r.braco == BRACO_REORDENADO and (r.estrato, r.arxiv_id) in de_a)
-               or (r.braco == BRACO_PASSAGEM and (r.estrato, r.arxiv_id) in de_b)]
+               if (r.braco == bracos[0] and (r.estrato, r.arxiv_id) in de_a)
+               or (r.braco == bracos[1] and (r.estrato, r.arxiv_id) in de_b)]
     amostra.sort(key=lambda r: (r.estrato, r.arxiv_id, r.braco))
     return [amostra[j] for j in rng.permutation(len(amostra))]
 
@@ -494,6 +500,177 @@ def resumo_corpo(veredictos: dict[str, dict[tuple, str]], respostas: list[Respos
                 "valida": bool(np.isnan(so_resumo) or so_resumo <= MAX_ACERTO_SO_COM_O_RESUMO)}},
         "acerto_de_Bp_onde_P_nao_veio": round(float(certo[BRACO_PASSAGEM][~p_veio].mean()), 4)
         if (~p_veio).any() else None}
+
+
+# ── as passagens sob demanda (DOC-13 §9.6): A′, A″ = A′ + passagens, Bp e C ──
+BRACO_PASSAGENS = "A3"
+# A §9.6 toca o conjunto de teste UMA vez, no eixo "não piora". PROPOSTA: fica False até o
+# dono aceitar a regra — `scripts/medir_passagens.py` recusa o teste enquanto isto for False.
+REGRA_9_6_ACEITA = False
+LIMIAR_GANHO_PASSAGENS = 0.15     # corpo: o IC de A″ − A′ tem de ficar INTEIRO acima
+MARGEM_NAO_PIORA = 0.03           # primário: o IC de A″ − A′, inteiro acima de −0,03
+TEMPO_MAX_PASSAGENS_S = 60.0      # mediana por pergunta, de ponta a ponta — o teto da §9.2
+
+
+def rodar_item_passagens(assistente, passo, item: dict, passagem: str) -> list[RespostaDoBraco]:
+    """Os quatro braços de um item do corpo 2. A consulta hipotética e as 6 fontes são as
+    mesmas em A′, A″ e Bp: de A′ para A″ só mudam as passagens que `passo` anexa. O tempo
+    de A″ é o do produto, de ponta a ponta: consulta, busca, passagens e resposta."""
+    pergunta = item["pergunta"]
+    t0 = time.perf_counter()
+    consulta = assistente.consulta_hipotetica(pergunta)
+    fontes = assistente.recuperar(consulta)
+    t_rec = time.perf_counter() - t0
+    t0 = time.perf_counter()
+    a = assistente.responder_com(pergunta, fontes, consulta)
+    ra = replace(_registro(item, BRACO_REORDENADO, a, t_rec + time.perf_counter() - t0),
+                 segundos_recuperacao=round(t_rec, 2))
+
+    t0 = time.perf_counter()
+    com, escolhidos, em_ingles = passo.anexar_com_registro(pergunta, fontes)
+    t_pas = time.perf_counter() - t0
+    t0 = time.perf_counter()
+    a3 = assistente.responder_com(pergunta, com, consulta)
+    r3 = replace(_registro(item, BRACO_PASSAGENS, a3,
+                           t_rec + t_pas + time.perf_counter() - t0),
+                 segundos_recuperacao=round(t_rec, 2), segundos_passagens=round(t_pas, 2),
+                 consulta_passagens=em_ingles,
+                 passagens=[[e.arxiv_id, e.posicao] for e in escolhidos])
+
+    p = replace(assistente.fonte(item["arxiv_id"], K_FONTES), resumo=passagem)
+    t0 = time.perf_counter()
+    bp = assistente.responder_com(pergunta, fontes_com_passagem(fontes, p), consulta)
+    rb = _registro(item, BRACO_PASSAGEM, bp, time.perf_counter() - t0)
+    return [ra, r3, rb, _sem_fontes(assistente, item)]
+
+
+def rodar_passagens_sobre_a2(assistente, passo, itens: list[dict],
+                             respostas_a2: dict[tuple, RespostaDoBraco], fontes_de,
+                             cache: Path, limite: int | None = None, ao_terminar=None
+                             ) -> list[RespostaDoBraco]:
+    """A″ onde A′ JÁ foi medido (o teste primário, §9.2): a consulta e as fontes de A′
+    vêm do cache — `fontes_de(ids)` as refaz — e só as passagens são novas. Onde nenhuma
+    passagem é anexada o prompt é o de A′, e a resposta de A′ é reaproveitada
+    (`igual_a_A`). Retomável."""
+    feitos = {(r.estrato, r.arxiv_id) for r in ler_respostas(cache)}
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with cache.open("a", encoding="utf-8") as f:
+        for item in itens:
+            chave = (item["estrato"], item["arxiv_id"])
+            if chave in feitos:
+                continue
+            if limite is not None and n >= limite:
+                break
+            ra = respostas_a2[chave]
+            t0 = time.perf_counter()
+            com, escolhidos, em_ingles = passo.anexar_com_registro(item["pergunta"],
+                                                                   fontes_de(ra.fontes))
+            t_pas = round(time.perf_counter() - t0, 2)
+            if not escolhidos:
+                reg = replace(ra, braco=BRACO_PASSAGENS, igual_a_A=True, segundos=t_pas)
+            else:
+                t0 = time.perf_counter()
+                r = assistente.responder_com(item["pergunta"], com, ra.consulta)
+                reg = replace(_registro(item, BRACO_PASSAGENS, r, time.perf_counter() - t0),
+                              passagens=[[e.arxiv_id, e.posicao] for e in escolhidos])
+            reg = replace(reg, segundos_passagens=t_pas, consulta_passagens=em_ingles)
+            f.write(json.dumps(asdict(reg), ensure_ascii=False) + "\n")
+            f.flush()
+            n += 1
+            if ao_terminar:
+                ao_terminar(item, reg)
+    return ler_respostas(cache)
+
+
+def resumo_passagens(veredictos: dict[str, dict[tuple, str]], respostas: list[RespostaDoBraco]
+                     ) -> dict:
+    """O eixo do GANHO da §9.6, nos itens do corpo 2, com as guardas da §9.5."""
+    ids = sorted(veredictos[BRACO_PASSAGENS])
+    bracos = (BRACO_REORDENADO, BRACO_PASSAGENS, BRACO_PASSAGEM, "C")
+    certo = {b: np.array([veredictos[b][k] == "certo" for k in ids], dtype=float)
+             for b in bracos}
+    de = {b: {(r.estrato, r.arxiv_id): r for r in respostas if r.braco == b} for b in bracos}
+    p_veio = np.array([de[BRACO_REORDENADO][k].posicao_p is not None for k in ids])
+    acerto = {b: proporcao(certo[b]) for b in bracos}
+    ganho, ic = diferenca_pareada(certo[BRACO_PASSAGENS], certo[BRACO_REORDENADO])
+    so_resumo = float(certo[BRACO_REORDENADO][p_veio].mean()) if p_veio.any() else float("nan")
+    tempo = {b: round(float(np.median([de[b][k].segundos for k in ids])), 1)
+             for b in (BRACO_REORDENADO, BRACO_PASSAGENS)}
+    t_pas = round(float(np.median([de[BRACO_PASSAGENS][k].segundos_passagens for k in ids])), 1)
+    return {
+        "n_itens": len(ids),
+        "acerto": {b: {"valor": v, "ic95": i} for b, (v, i) in acerto.items()},
+        "veredictos": {b: {v: sum(1 for k in ids if veredictos[b][k] == v)
+                           for v in (*VEREDICTOS, "ilegivel")} for b in bracos},
+        "ganho_no_corpo": {
+            "A3_menos_A2": ganho, "ic95": ic, "limiar": LIMIAR_GANHO_PASSAGENS,
+            "ganha": int((certo[BRACO_PASSAGENS] > certo[BRACO_REORDENADO]).sum()),
+            "perde": int((certo[BRACO_PASSAGENS] < certo[BRACO_REORDENADO]).sum()),
+            "passa": bool(ic[0] > LIMIAR_GANHO_PASSAGENS)},
+        "tempo": {"mediana_A2_s": tempo[BRACO_REORDENADO],
+                  "mediana_A3_s": tempo[BRACO_PASSAGENS], "das_quais_passagens_s": t_pas,
+                  "maximo_s": TEMPO_MAX_PASSAGENS_S,
+                  "passa": bool(tempo[BRACO_PASSAGENS] <= TEMPO_MAX_PASSAGENS_S)},
+        "p_nas_fontes": {"itens": int(p_veio.sum()), "fracao": round(float(p_veio.mean()), 4),
+                         "acerto_de_A3_neles": round(float(
+                             certo[BRACO_PASSAGENS][p_veio].mean()), 4) if p_veio.any() else None,
+                         "acerto_de_A3_fora": round(float(
+                             certo[BRACO_PASSAGENS][~p_veio].mean()), 4)
+                         if (~p_veio).any() else None},
+        "o_teto": {"acerto_Bp": acerto[BRACO_PASSAGEM][0],
+                   "fracao_do_teto_colhida": round(
+                       acerto[BRACO_PASSAGENS][0] / acerto[BRACO_PASSAGEM][0], 4)
+                   if acerto[BRACO_PASSAGEM][0] else None},
+        "guardas": {
+            "I2c": {"acerto_C": acerto["C"][0], "acerto_Bp": acerto[BRACO_PASSAGEM][0],
+                    "margem": MARGEM_I2,
+                    "valida": bool(acerto["C"][0] < acerto[BRACO_PASSAGEM][0] - MARGEM_I2)},
+            "fora_do_resumo": {
+                "itens_com_o_resumo_de_P_nas_fontes": int(p_veio.sum()),
+                "acerto_de_A2_neles": None if np.isnan(so_resumo) else round(so_resumo, 4),
+                "maximo": MAX_ACERTO_SO_COM_O_RESUMO,
+                "valida": bool(np.isnan(so_resumo) or so_resumo <= MAX_ACERTO_SO_COM_O_RESUMO)}}}
+
+
+def nao_piora(veredictos: dict[str, dict[tuple, str]], respostas: list[RespostaDoBraco],
+              estrato: str = "primario") -> dict:
+    """O eixo "NÃO PIORA" da §9.6: nas perguntas cuja resposta está no resumo, A″ − A′ pelo
+    juiz, pareado por item. Passa se o IC 95% ficar inteiro acima de −`MARGEM_NAO_PIORA`."""
+    ids = sorted(k for k in veredictos[BRACO_PASSAGENS] if k[0] == estrato)
+    a2 = np.array([veredictos[BRACO_REORDENADO][k] == "certo" for k in ids], dtype=float)
+    a3 = np.array([veredictos[BRACO_PASSAGENS][k] == "certo" for k in ids], dtype=float)
+    dif, ic = diferenca_pareada(a3, a2)
+    do_braco = [r for r in respostas if r.braco == BRACO_PASSAGENS and r.estrato == estrato]
+    return {"estrato": estrato, "n_itens": len(ids), "acerto_A2": round(float(a2.mean()), 4),
+            "acerto_A3": round(float(a3.mean()), 4), "A3_menos_A2": dif, "ic95": ic,
+            "margem": MARGEM_NAO_PIORA,
+            "ganha": int((a3 > a2).sum()), "perde": int((a3 < a2).sum()),
+            "respostas_iguais_as_de_A2": sum(1 for r in do_braco if r.igual_a_A),
+            "com_passagem_anexada": sum(1 for r in do_braco if r.passagens),
+            "passa": bool(ic[0] > -MARGEM_NAO_PIORA)}
+
+
+def decidir_passagens(corpo: dict, primario: dict | None, i3: dict) -> dict:
+    """A regra da §9.6. ADOTA só com os três eixos passando — ganho no corpo, não piorar o
+    primário e tempo — e com as guardas e o juiz válidos. Sem o eixo do primário (o teste
+    ainda não foi tocado), a decisão fica PENDENTE."""
+    guardas = all(g["valida"] for g in corpo["guardas"].values())
+    if not i3.get("passa"):
+        situacao = "NÃO DECIDIDO pelo instrumento (I3: κ abaixo do mínimo)"
+    elif not guardas:
+        situacao = "INVÁLIDO (uma guarda do estrato não vale)"
+    else:
+        situacao = "válido"
+    eixos = {"ganho_no_corpo": corpo["ganho_no_corpo"]["passa"], "tempo": corpo["tempo"]["passa"],
+             "nao_piora_o_primario": None if primario is None else primario["passa"]}
+    if situacao != "válido":
+        decisao = "—"
+    elif primario is None:
+        decisao = "PENDENTE (falta o eixo do primário)"
+    else:
+        decisao = "ADOTA" if all(eixos.values()) else "FICA O SISTEMA ATUAL"
+    return {"situacao": situacao, "eixos": eixos, "decisao": decisao}
 
 
 # ── I3: a concordância do juiz com o dono ────────────────────────────────────
