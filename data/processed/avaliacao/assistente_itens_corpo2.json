@@ -1,0 +1,37 @@
+{
+  "etapa": "corpo-2",
+  "regra": "DOC-13 §9.6 · itens novos para a medida das passagens",
+  "autor": "claude-opus-5-5",
+  "semente": 20261009,
+  "cota": 100,
+  "o_que_e": "perguntas cuja resposta está numa passagem do corpo do artigo e não no resumo — as aceitas seguintes às 150 do primeiro conjunto, na mesma ordem",
+  "passagem": "3 trechos seguidos de uma seção do corpo (≥ 300 tokens), uma por artigo, pela regra 2",
+  "disjunto_de": [
+    "teste (650)",
+    "desenvolvimento da busca (200)",
+    "corpo 1 (150)"
+  ],
+  "ordens": [
+    297,
+    474
+  ],
+  "artigos_sem_passagem": 9,
+  "tentativas_por_situacao": {
+    "nenhuma": 67,
+    "aceita": 100,
+    "depende_do_artigo": 2
+  },
+  "guarda_numerica_das_aceitas": {
+    "ok": 93,
+    "sem_numero": 7
+  },
+  "sobreposicao_media_com_o_titulo": 0.034,
+  "ressalvas": [
+    "escrito e conferido pelo Claude, sem revisão humana",
+    "a passagem é a de mais números do artigo: pende para medidas e detalhes de método",
+    "o autor das perguntas é quem escolheu a regra de seleção das passagens, e a escreveu sabendo que ela é lexical; as regras de escrita são as do conjunto 1, e a sobreposição de palavras entre pergunta e passagem é relatada na medida"
+  ],
+  "assinatura_regras": "88b80d4161caf6fb0f896d0c1b73f4c0c5f2538937834afd0dfc141e140ec56f",
+  "sha256_itens": "4b937dc7efdb7e6a23ae3241cb49373646982d03c4539c5579acca82d5ba9acb",
+  "sha256_passagens": "34d216a2447d647d3513aec0f045cbf0a961b235714b6ab9799f531f049d7071"
+}
