@@ -41,6 +41,10 @@ def main() -> int:
     p.add_argument("--sem-reordenar", action="store_true",
                    help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
+    p.add_argument("--passagens", action="store_true",
+                   help="EM MEDIÇÃO (DOC-13 §9.6), fora do padrão: o assistente lê também "
+                        "trechos do texto completo das fontes; pede scripts/indexar_textos.py")
+    p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
     a = p.parse_args()
@@ -60,7 +64,13 @@ def main() -> int:
         from phifm.rag.reordenador import carregar_ou_avisar
 
         reordenador = None if a.sem_reordenar else carregar_ou_avisar()
-        assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador)
+        passagens = None
+        if a.passagens:
+            from phifm.rag import passagens as ps
+
+            passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+        assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador,
+                                passagens=passagens)
     servidor = criar_servidor(busca, porta=a.porta, assistente=assistente,
                               ocioso_min=a.ocioso_min)
     url = f"http://127.0.0.1:{servidor.server_address[1]}"

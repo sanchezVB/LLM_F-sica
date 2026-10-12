@@ -38,7 +38,8 @@ def mostrar(r, consulta: bool) -> None:
     print("\n── fontes ──")
     for f in r.fontes:
         marca = "●" if f.numero in r.citadas else "○"
-        print(f"{marca} [{f.numero}] {f.titulo} ({f.ano or '—'}) · {f.link}")
+        trechos = f" · {len(f.passagens)} trecho(s) do texto completo" if f.passagens else ""
+        print(f"{marca} [{f.numero}] {f.titulo} ({f.ano or '—'}) · {f.link}{trechos}")
     if r.removidas:
         print(f"\n⚠️ citações removidas (fontes que não existiam): "
               f"{', '.join(f'[{n}]' for n in r.removidas)}")
@@ -59,6 +60,11 @@ def main() -> int:
                    help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--mostrar-consulta", action="store_true",
                    help="imprime o resumo hipotético que foi à busca")
+    p.add_argument("--passagens", action="store_true",
+                   help="EM MEDIÇÃO (DOC-13 §9.6), fora do padrão: anexa às fontes os trechos "
+                        "do texto completo escolhidos para a pergunta; pede a cópia de "
+                        "scripts/indexar_textos.py")
+    p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
     a = p.parse_args()
 
     from phifm.rag.assistente import Assistente
@@ -74,7 +80,13 @@ def main() -> int:
     from phifm.rag.reordenador import carregar_ou_avisar
 
     reordenador = None if a.sem_reordenar else carregar_ou_avisar()
-    assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador)
+    passagens = None
+    if a.passagens:
+        from phifm.rag import passagens as ps
+
+        passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+    assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador,
+                            passagens=passagens)
     print(f"pronto em {time.perf_counter() - t0:.1f} s · "
           f"{busca.vetores.shape[0]:,} artigos no índice")
     try:

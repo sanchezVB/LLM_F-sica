@@ -210,7 +210,10 @@ function htmlFontes(fontes, final) {
       [${f.numero}] <a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.titulo)}</a>
       <div class="meta">${esc(f.ano ?? "—")} · arXiv:${esc(f.arxiv_id)}${final
         ? " · " + (f.citada ? "citada na resposta" : "não citada") : ""}</div>
-      <details><summary>resumo</summary><p>${esc(f.resumo)}</p></details>
+      <details><summary>resumo</summary><p>${esc(f.resumo)}</p></details>${
+        (f.passagens || []).length ? `<details><summary>trechos do texto completo que o modelo
+        leu (${f.passagens.length})</summary>${f.passagens.map(p => "<p>" + esc(p) + "</p>").join("")}
+        </details>` : ""}
     </li>`).join("") + `</ol>`;
 }
 function mostrarFinal(d) {
@@ -292,6 +295,8 @@ class _BuscaTravada:
 def _fonte_json(f, citadas: list[int]) -> dict:
     return {"numero": f.numero, "arxiv_id": f.arxiv_id, "titulo": f.titulo, "ano": f.ano,
             "resumo": f.resumo, "link": f.link, "citada": f.numero in citadas,
+            # o que o modelo leu além do resumo: a página promete mostrar as fontes LIDAS
+            "passagens": list(f.passagens),
             "escore": None if math.isnan(f.escore) else round(f.escore, 4)}
 
 

@@ -135,22 +135,27 @@ class TrechosDoTexto:
 
     def __init__(self, textos, contar: Callable[[list[str]], list[int]],
                  limite: int = LIMITE_TRECHO, guardados: int = 64):
+        import threading
+
         self.textos, self.contar, self.limite, self.guardados = textos, contar, limite, guardados
         self._cache: dict[str, list[Trecho] | None] = {}
+        # A página atende pedidos em threads: duas perguntas não mexem na fila juntas.
+        self._trava = threading.Lock()
 
     def __call__(self, arxiv_id: str) -> list[Trecho] | None:
         from phifm.retrieval.trechos import cortar
 
-        if arxiv_id in self._cache:
-            self._cache[arxiv_id] = self._cache.pop(arxiv_id)      # vai para o fim da fila
-            return self._cache[arxiv_id]
-        texto = self.textos.ler(arxiv_id)
-        trechos = (None if texto is None
-                   else cortar(texto, self.contar, limite=self.limite, sobreposicao=0))
-        self._cache[arxiv_id] = trechos
-        while len(self._cache) > self.guardados:
-            del self._cache[next(iter(self._cache))]
-        return trechos
+        with self._trava:
+            if arxiv_id in self._cache:
+                self._cache[arxiv_id] = self._cache.pop(arxiv_id)   # vai para o fim da fila
+                return self._cache[arxiv_id]
+            texto = self.textos.ler(arxiv_id)
+            trechos = (None if texto is None
+                       else cortar(texto, self.contar, limite=self.limite, sobreposicao=0))
+            self._cache[arxiv_id] = trechos
+            while len(self._cache) > self.guardados:
+                del self._cache[next(iter(self._cache))]
+            return trechos
 
 
 def contador(tok) -> Callable[[list[str]], list[int]]:
@@ -161,6 +166,19 @@ def contador(tok) -> Callable[[list[str]], list[int]]:
         return [len(x) for x in tok(textos, add_special_tokens=False, verbose=False)["input_ids"]]
 
     return contar
+
+
+def carregar_ou_avisar(modelo, tok, pasta, semente: int | None = None) -> Passagens | None:
+    """O passo das passagens lendo o texto completo de `pasta`, ou None com um aviso se a
+    cópia em grupos pequenos não existe: o assistente segue só com os resumos."""
+    from phifm.retrieval.textos import Textos
+
+    try:
+        textos = Textos(pasta)
+    except FileNotFoundError as e:
+        print(f"⚠️ sem passagens do texto completo: {e}")
+        return None
+    return Passagens(modelo, TrechosDoTexto(textos, contador(tok)), semente=semente)
 
 
 class Passagens:
