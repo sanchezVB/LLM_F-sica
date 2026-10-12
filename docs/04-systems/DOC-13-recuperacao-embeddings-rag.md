@@ -945,6 +945,32 @@ passagem**, ao lado da do corpo 1 — ver o primeiro limite abaixo.
 juiz; teste primário, ~1,5 h de respostas e ~50 min de juiz. `scripts/medir_passagens.py`;
 agregado em `avaliacao/assistente_passagens.json`.
 
+#### O desenvolvimento, de ponta a ponta (2026-10-12) — exploratório, não decide
+
+Lido DEPOIS de a regra acima estar no git (`2ac9cdf`). Nas 150 perguntas do corpo 1, com a
+consulta hipotética e as 6 fontes de A′ do cache da §9.5 e só as passagens a mais
+(`explorar_passagens.py --responder`, juiz da §9.1):
+
+| onde | n | A′ | **com as passagens** | Bp (teto) |
+|---|---|---|---|---|
+| todas | 150 | 0,033 | **0,493** [0,413; 0,573] | 0,940 |
+| o artigo certo entre as fontes | 94 | 0,043 | **0,755** | 0,936 |
+| …e a passagem de ouro foi entregue | 78 | 0,038 | **0,897** | 0,974 |
+| …e NÃO foi entregue | 16 | 0,062 | 0,062 | 0,750 |
+| o artigo certo fora das fontes | 56 | 0,018 | 0,054 | 0,946 |
+
+- **A seleção entrega a passagem em 78 de 94** (0,83), e com ela na mão o modelo acerta
+  0,90 — perto dos 0,97 de quando ela vem sozinha, no lugar do resumo. Oito trechos de
+  outros lugares em volta custam pouco.
+- **O que sobra é da busca do artigo**: em 56 das 150 ele não está entre as fontes, e aí
+  nenhuma passagem ajuda. É o mesmo limite da §9.5 (0,627), agora o maior.
+- **O prompt cresce pouco**: 7,7 blocos de passagem por pergunta, em 2,6 das 6 fontes;
+  ~11.600 caracteres de fontes (máximo 15.800), ~3.000 tokens de um contexto de 8.192;
+  8,7 s por resposta.
+
+⚠️ Estas são as perguntas em que a regra foi escolhida. O número que vale é o do corpo 2 —
+100 perguntas escritas depois (`avaliacao/assistente_itens_corpo2.json`, `a1810e1`).
+
 ---
 
 ## 10. Riscos

@@ -300,6 +300,36 @@ seriam ~87 M de trechos, ~67 GB e ~52 h de GPU; só introdução e conclusão, ~
 e ~3,5 h. Recomendação: um piloto de ~2 h antes de construir, e um estrato de perguntas
 tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o benefício.
 
+**PASSAGENS SOB DEMANDA — construídas e no desenvolvimento (2026-10-12, DOC-13 §9.6; o dono
+mandou seguir com o item 1 do PLANO §9).** `phifm.rag.passagens`: depois da busca, o texto
+completo das 6 fontes é cortado e os 9 melhores trechos para a PERGUNTA entram no prompt,
+debaixo do resumo do artigo. Desligado por padrão — o produto não mudou.
+
+- **A regra de seleção é lexical**: BM25 com a pergunta traduzida para inglês pelo modelo.
+  A passagem de ouro fica entre os 12 primeiros de ~340 trechos em **0,85** das perguntas;
+  com o encoder do índice, em 0,33 (treinado em resumos, não acha detalhe de método).
+- **De ponta a ponta no desenvolvimento** (as 150 do corpo 1, exploratório): acerto de
+  0,033 para **0,493** [0,413; 0,573]; **0,755** onde o artigo certo veio; 0,897 onde a
+  passagem de ouro foi entregue (78 de 94). O que sobra é da busca do artigo (56 de 150
+  sem o artigo certo).
+- **A regra da medida está no DOC-13 §9.6, como PROPOSTA** — três eixos: ganho no corpo
+  (IC inteiro > 0,15, em 100 perguntas novas), não piorar o teste primário (IC inteiro
+  > −0,03, nos 500) e tempo (≤ 60 s). ⚠️ **O teste só é tocado depois do aceite do dono**
+  (`REGRA_9_6_ACEITA = False`). Custo: ~5 h de GPU local.
+- **O corpo 2 existe:** 100 perguntas novas (`assistente_itens_corpo2.json`), ordens 297 a
+  474, 169 passagens lidas, fechadas depois de a regra estar no git.
+- ⚠️ O passo pede uma **cópia do texto completo em grupos pequenos** (~12 GB no HD,
+  `scripts/indexar_textos.py`): hoje ler UM artigo custa 3,9 s. Derivada, apagável.
+
+**Quando as fontes não trazem a resposta, o assistente afirma em 51% das vezes
+(2026-10-12, item 2 do dono).** As 150 respostas de A′ lidas pelo Claude sem veredicto nem
+gabarito: nas 145 não certas, 71 abstenções, 62 afirmações, 12 ressalvas seguidas de valor.
+Com o resumo do artigo certo no prompt afirma MAIS (58% contra 40%). **Ele não inventa
+número** — 5 de 79 afirmações têm número fora das fontes: o erro é de atribuição (o valor é
+de outra grandeza ou de outro artigo), e um portão mecânico não o pegaria. Em andamento:
+uma instrução que nomeia esse erro (`explorar_resposta.py`, célula `v2`), medida também
+nas perguntas do resumo, que não podem piorar.
+
 **O "corpo" MEDIDO (2026-10-11, DOC-13 §9.5, regra escrita antes): o assistente não
 responde o que o resumo não diz — 0,033 [0,007; 0,067], 5 de 150 — e com a passagem certa
 entre as fontes acerta 0,940 [0,900; 0,973].** As três guardas valeram (C 0,060; com o

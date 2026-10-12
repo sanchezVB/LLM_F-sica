@@ -1,6 +1,9 @@
 # Plano — indexar trechos do texto completo para o assistente
 
-**Status:** **o "corpo" foi MEDIDO em 2026-10-11 e mudou a pergunta** (§9). O piloto da
+**Status:** **as passagens sob demanda da §9 foram CONSTRUÍDAS em 2026-10-12, por ordem do
+dono, e esperam o aceite da regra da medida** (§10; [DOC-13 §9.6](DOC-13-recuperacao-embeddings-rag.md)).
+No desenvolvimento o acerto no corpo foi de 0,033 para 0,493. Antes disso: **o "corpo" foi
+MEDIDO em 2026-10-11 e mudou a pergunta** (§9). O piloto da
 etapa 0 não passou a barra (+0,7 ponto contra 5; [DOC-13 §9.4](DOC-13-recuperacao-embeddings-rag.md)):
 índice de trechos para ACHAR o artigo não se constrói, e as etapas 1 e 2 não são
 disparadas. Mas nas perguntas cuja resposta está no corpo o assistente acerta 0,033, e com
@@ -265,3 +268,26 @@ problema é menor (não há o viés de tamanho, e o assunto já é o certo), mas
 | Parar e registrar o limite | 0 | A página passaria a dizer que só responde pelo resumo |
 | Um segundo juiz, maior e de outra família, no Colab | ~2 a 3 h de L4 · subir perguntas e respostas para o Drive do dono | Opcional. Não muda esta decisão (0,03 contra 0,94 não depende de juiz fino); serve à falta de revisão humana em geral |
 | Estender o texto completo além de 52% | download grande, com aval do dono | Só depois de as passagens provarem valor |
+
+## 10. O que foi construído, e o que o dono decide agora (2026-10-12)
+
+O dono mandou seguir com a primeira linha da tabela da §9. Feito:
+
+| | |
+|---|---|
+| o passo | `phifm.rag.passagens`: traduz a pergunta para inglês, corta o texto completo das 6 fontes, ordena os trechos por BM25 e anexa os 9 melhores debaixo do resumo do artigo. Desligado por padrão |
+| o risco da §9 | **se confirmou, e teve saída.** O encoder do índice acha a passagem em 0,33 das perguntas; o BM25 com a pergunta em inglês, em 0,85 |
+| no desenvolvimento | nas 150 do corpo 1, de 0,033 para **0,493**; 0,755 onde o artigo certo veio. O teto da §9 era ~0,59 |
+| o que limita agora | a busca do artigo: em 37% das perguntas do corpo ele não está entre as fontes |
+| a regra da medida | [DOC-13 §9.6](DOC-13-recuperacao-embeddings-rag.md), PROPOSTA, escrita antes de existirem as 100 perguntas novas |
+
+### O que o dono decide
+
+| decisão | o que é | minha recomendação |
+|---|---|---|
+| **Aceitar a regra da §9.6** | três eixos para ADOTAR: ganho no corpo 2 (IC inteiro > 0,15), não piorar o teste primário (IC inteiro > −0,03) e tempo (≤ 60 s). O segundo eixo toca o conjunto de teste, uma vez | **Sim.** Os limiares podem ser endurecidos antes do aceite, como na §9.2 |
+| **A cópia do texto completo** | ~12 GB no HD, ~20 min, derivada e apagável. Sem ela cada artigo lido custa 3,9 s, e são até 6 por pergunta | **Sim** — a medida do tempo só vale com ela |
+| O custo de GPU | ~5 h locais, retomáveis: ~2 h 40 no corpo 2 e ~2 h 20 no teste primário | maior que as ~3 h que eu tinha previsto na §9: o eixo "não piora" não estava na conta |
+
+A instrução que cobra o "não sei" (item 2 do dono) é medida à parte e não entra nesta
+regra: se valer a pena, terá a sua.
