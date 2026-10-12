@@ -1,0 +1,155 @@
+"""Passagens sob demanda: os trechos do texto completo dos artigos que a busca JÁ achou.
+
+O assistente só lia resumos, e a medida do corpo (DOC-13 §9.5) mostrou o custo: 0,033 de
+acerto no que o resumo não diz, 0,940 quando a passagem certa está no prompt. Aqui ela é
+procurada: o texto completo de cada fonte é cortado (`phifm.retrieval.trechos`), os trechos
+das fontes competem entre si pela PERGUNTA, e os melhores entram no prompt, debaixo do
+resumo do artigo de onde vieram. Não há índice de trechos do corpus: o que se corta são as
+6 fontes de uma pergunta, na hora.
+
+## A regra que escolhe — lexical, e com a pergunta em inglês
+
+Desenvolvida nas 150 perguntas do corpo (`scripts/explorar_passagens.py`, 2026-10-12), nas
+94 em que o artigo certo estava entre as fontes. Alcance = a passagem de onde a pergunta
+saiu está entre os 12 primeiros trechos:
+
+| consulta | ordem dos trechos | alcance |
+|---|---|---|
+| a pergunta, como veio (português) | ΦEmb (cosseno) | 0,33 |
+| a consulta hipotética da busca | ΦEmb | 0,32 |
+| a consulta hipotética da busca | BM25 | 0,70 |
+| **a pergunta traduzida para inglês** | **BM25** | **0,85** |
+
+O encoder foi treinado em `título. resumo` e não acha um detalhe de método; e a consulta
+hipotética imita um resumo, então puxa a introdução. O que distingue a passagem são as
+palavras RARAS da pergunta — o nome do instrumento, do parâmetro —, e para casá-las com um
+texto em inglês a pergunta tem de estar em inglês: uma chamada curta do modelo (~1 s).
+
+A frequência de documento do BM25 sai só dos trechos das fontes daquela pergunta. As
+fontes são do mesmo assunto; o que é raro ENTRE elas é o que separa a passagem.
+
+⚠️ O alcance é do desenvolvimento, em perguntas já olhadas e escritas pelo Claude. O que
+vale é a medida da §9.6, em perguntas novas.
+"""
+from __future__ import annotations
+
+import re
+from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+
+import numpy as np
+
+from phifm.retrieval.trechos import Trecho
+
+SISTEMA_TRADUCAO = (
+    "Translate the physics question into English. Keep every symbol, number, name and "
+    "technical term exactly. Output only the translated question.")
+LIMITE_TRECHO = 160      # o corte da auditoria M1 e das passagens do estrato "corpo"
+K_PASSAGENS = 9          # trechos entregues por pergunta, somadas as fontes
+# O orçamento é em TOKENS, não em trechos: uma equação maior que o limite sai num trecho
+# só (`excede`), e nove desses estourariam o contexto do modelo sem aviso.
+ORCAMENTO = K_PASSAGENS * LIMITE_TRECHO
+
+_PALAVRA = re.compile(r"[a-z][a-z0-9]+|\d+(?:\.\d+)?")
+
+
+def palavras(texto: str) -> list[str]:
+    """Minúsculas, palavras de duas letras ou mais e números (vírgula decimal vira ponto)."""
+    return _PALAVRA.findall(texto.lower().replace(",", "."))
+
+
+def bm25(consulta: str, docs: list[list[str]], k1: float = 1.2, b: float = 0.75) -> np.ndarray:
+    """O escore BM25 de cada documento para a consulta. A frequência de documento sai de
+    `docs` — aqui, os trechos das fontes de UMA pergunta."""
+    n = len(docs)
+    df = Counter(p for d in docs for p in set(d))
+    media = sum(len(d) for d in docs) / max(n, 1)
+    termos = set(palavras(consulta))
+    s = np.zeros(n, dtype=np.float32)
+    for j, d in enumerate(docs):
+        tf = Counter(d)
+        for t in termos & tf.keys():
+            idf = np.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5))
+            s[j] += idf * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * len(d) / media))
+    return s
+
+
+@dataclass
+class Escolhido:
+    arxiv_id: str
+    posicao: int          # o índice do trecho dentro do artigo
+    secao: str
+    texto: str
+    n_tokens: int
+    escore: float
+
+
+def escolher(consulta: str, trechos: dict[str, list[Trecho]], k: int = K_PASSAGENS,
+             orcamento: int = ORCAMENTO) -> list[Escolhido]:
+    """Os melhores trechos para a consulta, entre os de todos os artigos de `trechos`
+    (arxiv_id → trechos, na ordem do artigo). No máximo `k`, e sem passar do `orcamento`
+    de tokens; trecho que não casa com palavra nenhuma da consulta não entra. Devolve na
+    ordem do escore; empate fica com quem vem antes."""
+    todos = [(a, i, t) for a, ts in trechos.items() for i, t in enumerate(ts)]
+    if not todos:
+        return []
+    s = bm25(consulta, [palavras(t.texto) for _, _, t in todos])
+    saida: list[Escolhido] = []
+    gasto = 0
+    for j in np.argsort(-s, kind="stable"):
+        if len(saida) >= k or s[j] <= 0:
+            break
+        a, i, t = todos[j]
+        if gasto + t.n_tokens > orcamento:
+            continue
+        gasto += t.n_tokens
+        saida.append(Escolhido(a, i, t.secao, t.texto, t.n_tokens, float(s[j])))
+    return saida
+
+
+def em_blocos(escolhidos: list[Escolhido]) -> dict[str, list[str]]:
+    """arxiv_id → as passagens daquele artigo, na ordem do TEXTO, com os trechos vizinhos
+    colados num bloco só: o modelo lê um parágrafo e a continuação dele, não dois recortes."""
+    por_artigo: dict[str, list[Escolhido]] = {}
+    for e in escolhidos:
+        por_artigo.setdefault(e.arxiv_id, []).append(e)
+    saida: dict[str, list[str]] = {}
+    for a, es in por_artigo.items():
+        es.sort(key=lambda e: e.posicao)
+        blocos, anterior = [], None
+        for e in es:
+            if anterior is not None and e.posicao == anterior + 1:
+                blocos[-1] = f"{blocos[-1]} {e.texto}"
+            else:
+                blocos.append(e.texto)
+            anterior = e.posicao
+        saida[a] = blocos
+    return saida
+
+
+class Passagens:
+    """O passo que o `Assistente` chama depois da busca. `trechos_de(arxiv_id)` devolve os
+    trechos do artigo, ou None se ele não tem texto completo — de onde eles vêm (o HD, um
+    cache, um arquivo de medida) não é assunto daqui."""
+
+    def __init__(self, modelo, trechos_de: Callable[[str], list[Trecho] | None],
+                 k: int = K_PASSAGENS, semente: int | None = None):
+        self.modelo, self.trechos_de, self.k, self.semente = modelo, trechos_de, k, semente
+
+    def consulta(self, pergunta: str) -> str:
+        """A pergunta em inglês. Se o modelo devolver vazio, vale a pergunta como veio."""
+        texto = self.modelo.gerar(SISTEMA_TRADUCAO, pergunta, max_tokens=200, temperatura=0.3,
+                                  semente=self.semente)
+        return " ".join(texto.split()) or pergunta
+
+    def escolher(self, consulta: str, ids: list[str]) -> list[Escolhido]:
+        trechos = {a: ts for a in ids if (ts := self.trechos_de(a))}
+        return escolher(consulta, trechos, self.k, self.k * LIMITE_TRECHO)
+
+    def anexar(self, pergunta: str, fontes: list, consulta: str | None = None) -> list:
+        """As mesmas fontes, na mesma ordem e com o mesmo número, cada uma com as suas
+        passagens. Fonte sem texto completo, ou sem trecho escolhido, volta como veio."""
+        consulta = consulta or self.consulta(pergunta)
+        blocos = em_blocos(self.escolher(consulta, [f.arxiv_id for f in fontes]))
+        return [replace(f, passagens=tuple(blocos.get(f.arxiv_id, ()))) for f in fontes]

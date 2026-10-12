@@ -85,6 +85,9 @@ class Fonte:
     ano: int | None
     resumo: str
     escore: float
+    # Trechos do texto completo escolhidos para a pergunta (`phifm.rag.passagens`). Vazio
+    # é o assistente que só lê resumos — o medido nas §9.1 e §9.2 do DOC-13.
+    passagens: tuple[str, ...] = ()
 
     @property
     def link(self) -> str:
@@ -135,17 +138,29 @@ def sem_citacoes(texto: str) -> str:
     return re.sub(r"[ \t]+([.,;:])", r"\1", limpo)
 
 
+ROTULO_PASSAGENS = "Excerpts from the full text of this paper:"
+
+
 def bloco_de_fontes(fontes: list[Fonte]) -> str:
-    return "\n\n".join(
-        f"[{f.numero}] {f.titulo} ({f.ano or 'n.d.'}, arXiv:{f.arxiv_id})\n{f.resumo}"
-        for f in fontes)
+    """As fontes como o modelo as lê. Sem passagens, o bloco é byte a byte o das medidas
+    das §9.1 e §9.2; com elas, vêm debaixo do resumo do artigo, sob o MESMO número — citar
+    uma passagem é citar o artigo."""
+    blocos = []
+    for f in fontes:
+        b = f"[{f.numero}] {f.titulo} ({f.ano or 'n.d.'}, arXiv:{f.arxiv_id})\n{f.resumo}"
+        if f.passagens:
+            b += f"\n{ROTULO_PASSAGENS}\n" + "\n".join(
+                f"- {' '.join(p.split())}" for p in f.passagens)
+        blocos.append(b)
+    return "\n\n".join(blocos)
 
 
 class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
-                 reordenador=None):
+                 reordenador=None, passagens=None):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
+        self.passagens = passagens
         self._spine = pl.scan_parquet(spine)
         # O primeiro acesso ao parquet lê do HD frio (~16 s medidos); aquecer aqui tira
         # esse custo da primeira pergunta.
@@ -206,9 +221,15 @@ class Assistente:
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
 
+    def fontes_para(self, pergunta: str, consulta: str) -> list[Fonte]:
+        """As fontes de uma pergunta: a busca e, se houver `passagens`, os trechos do texto
+        completo dos artigos encontrados."""
+        fontes = self.recuperar(consulta)
+        return self.passagens.anexar(pergunta, fontes) if self.passagens else fontes
+
     def responder(self, pergunta: str) -> Resposta:
         consulta = self.consulta_hipotetica(pergunta)
-        return self.responder_com(pergunta, self.recuperar(consulta), consulta)
+        return self.responder_com(pergunta, self.fontes_para(pergunta, consulta), consulta)
 
     def responder_em_fluxo(self, pergunta: str):
         """A mesma resposta, em eventos para uma tela que mostra o texto enquanto ele é
@@ -219,7 +240,7 @@ class Assistente:
         escrita, e só o `fim` a tira. Quem mostra os pedaços tem de trocar o texto pelo do
         `fim` — a página faz isso."""
         consulta = self.consulta_hipotetica(pergunta)
-        fontes = self.recuperar(consulta)
+        fontes = self.fontes_para(pergunta, consulta)
         yield "fontes", (consulta, fontes)
         partes = []
         for pedaco in self.modelo.gerar_em_fluxo(SISTEMA_RESPOSTA,
