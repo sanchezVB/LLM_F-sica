@@ -1,9 +1,11 @@
 # Plano — indexar trechos do texto completo para o assistente
 
-**Status:** **Etapa 0 CONCLUÍDA em 2026-10-09 — o piloto NÃO passou a barra** (melhor
-combinação: +0,7 ponto, contra 5; [DOC-13 §9.4](DOC-13-recuperacao-embeddings-rag.md)). As
-etapas 1 e 2 não são disparadas. O estrato "corpo" existe e ainda não foi medido: é ele que
-decide se trechos têm outra razão de existir (§8).
+**Status:** **o "corpo" foi MEDIDO em 2026-10-11 e mudou a pergunta** (§9). O piloto da
+etapa 0 não passou a barra (+0,7 ponto contra 5; [DOC-13 §9.4](DOC-13-recuperacao-embeddings-rag.md)):
+índice de trechos para ACHAR o artigo não se constrói, e as etapas 1 e 2 não são
+disparadas. Mas nas perguntas cuja resposta está no corpo o assistente acerta 0,033, e com
+a passagem na mão 0,940 ([DOC-13 §9.5](DOC-13-recuperacao-embeddings-rag.md)): o que
+falta é escolher a passagem DENTRO do artigo já achado. A proposta, para o dono, é a §9.
 **Contexto:** [DOC-13 §3](DOC-13-recuperacao-embeddings-rag.md) (regras de chunking), §9.1–§9.3
 (a medida do assistente e o que já foi tentado na busca), [ADR-0004](../adr/ADR-0004-phigen-para-o-assistente.md).
 
@@ -209,3 +211,57 @@ encontrados — sem índice de 87 M de vetores na memória.
 Os ~2,7 GB do piloto (trechos e vetores) estão em
 `data/processed/assistente/piloto_trechos/`; não servem ao "corpo" (são outros artigos) e
 podem ir para a lixeira quando o dono quiser.
+
+## 9. O que a medida do "corpo" disse, e a proposta (2026-10-11)
+
+O dono mandou seguir com a primeira linha da tabela acima. Resultado, com a regra escrita
+antes (DOC-13 §9.5), nas 150 perguntas do corpo:
+
+| | acerto |
+|---|---|
+| o assistente de hoje | **0,033** [0,007; 0,067] — 5 de 150 |
+| o mesmo, com a passagem certa entre as fontes | **0,940** [0,900; 0,973] — 141 de 150 |
+| sem fonte nenhuma | 0,060 |
+
+As três guardas valeram (não se responde de memória; o resumo não responde — 4 de 94; o
+juiz concorda com o julgamento às cegas, κ 0,90).
+
+**O que isso decide:**
+
+- **O gerador basta também no corpo.** O Qwen3-8B lê LaTeX cru e acerta. O ADR-0004 fica
+  como está; treinar o ΦGen por causa disto não se justifica.
+- **O ponto cego é real e é quase total.** Tudo o que só está no corpo do artigo — um valor
+  de tabela descrito no texto, um parâmetro de simulação, um detalhe de montagem — o
+  assistente de hoje não responde. E em cerca de metade das vezes responde errado em vez
+  de dizer que não sabe.
+- **O desenho da §3 estava errado para este problema.** Um índice de 87 M de trechos serve
+  para achar o ARTIGO, e o piloto mostrou que para isso o resumo já é o melhor. O que falta
+  é a PASSAGEM, e em 63% das perguntas o artigo certo já está entre as 6 fontes.
+
+### A proposta: passagens sob demanda
+
+Buscar como hoje (resumo → ΦRank → 6 artigos). Para os artigos encontrados que têm texto
+completo, cortar com o cortador que já existe (§3.1 do DOC-13), embutir os ~600 trechos na
+hora, escolher os melhores para a PERGUNTA e entregá-los ao modelo junto com os resumos.
+
+| | |
+|---|---|
+| o que se constrói | a seleção de passagens e um índice de onde está o texto de cada artigo (os 12 GB já estão no HD) |
+| o que **não** se constrói | índice de trechos do corpus, busca aproximada, nada em nuvem |
+| custo de GPU | nenhum para construir; por pergunta, embutir ~600 trechos (a medir na CPU, com o modelo ocupando a placa) |
+| teto, neste estrato | ~0,59: o artigo chega em 0,627 e o modelo acerta 0,94 com a passagem — **se** a seleção acertar a passagem |
+| o que limita | **cobertura:** só 52% do índice tem texto completo, quase nada de 2023 em diante · **a busca do artigo:** em 37% das perguntas do corpo ele não chega às fontes |
+
+⚠️ **O risco que só a medida resolve:** Bp é o melhor caso — recebe a passagem de onde a
+pergunta saiu. Achar essa passagem entre ~100 trechos, com um encoder treinado em resumos,
+é exatamente o que o piloto mostrou ser difícil entre artigos. Dentro de UM artigo o
+problema é menor (não há o viés de tamanho, e o assunto já é o certo), mas é hipótese.
+
+### O que o dono decide
+
+| decisão | custo | minha recomendação |
+|---|---|---|
+| **Construir as passagens sob demanda e medir** | ~1 a 2 dias meus · ~150 perguntas NOVAS do corpo (as de hoje já foram olhadas) · ~3 h de GPU local para a medida, com a regra escrita antes | **Sim.** É barato, não exige nuvem, e ataca um ponto cego de 0,03 com teto perto de 0,6 |
+| Parar e registrar o limite | 0 | A página passaria a dizer que só responde pelo resumo |
+| Um segundo juiz, maior e de outra família, no Colab | ~2 a 3 h de L4 · subir perguntas e respostas para o Drive do dono | Opcional. Não muda esta decisão (0,03 contra 0,94 não depende de juiz fino); serve à falta de revisão humana em geral |
+| Estender o texto completo além de 52% | download grande, com aval do dono | Só depois de as passagens provarem valor |

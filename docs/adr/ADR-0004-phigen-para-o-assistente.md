@@ -98,6 +98,10 @@ Para o assistente, a ordem do investimento fica:
   abaixo de 0,90.
 - Um conjunto de perguntas que exija raciocínio sobre o texto (não um fato do resumo) em
   que o braço B caia abaixo de 0,90 — aí o gerador passa a limitar.
+  - *Medido em 2026-10-11 (DOC-13 §9.5), em parte:* 150 perguntas de FATO tirado do corpo
+    do artigo, com a passagem (LaTeX cru) entre as fontes — acerto **0,940** [0,900; 0,973].
+    Não reabre, com o limite inferior encostado no limiar. Perguntas que exijam RACIOCÍNIO
+    sobre o texto, ou juntar vários artigos, continuam sem medida.
 - A busca fechar a lacuna: com A perto de B, o que sobra é do gerador, e a conta do
   §3 muda de lado.
 

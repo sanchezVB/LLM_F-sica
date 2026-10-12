@@ -300,6 +300,16 @@ seriam ~87 M de trechos, ~67 GB e ~52 h de GPU; só introdução e conclusão, ~
 e ~3,5 h. Recomendação: um piloto de ~2 h antes de construir, e um estrato de perguntas
 tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o benefício.
 
+**O "corpo" MEDIDO (2026-10-11, DOC-13 §9.5, regra escrita antes): o assistente não
+responde o que o resumo não diz — 0,033 [0,007; 0,067], 5 de 150 — e com a passagem certa
+entre as fontes acerta 0,940 [0,900; 0,973].** As três guardas valeram (C 0,060; com o
+resumo de P no prompt, 4 de 94; juiz contra o julgamento às cegas, κ 0,90). O gerador
+BASTA também no corpo: o ADR-0004 não reabre. O artigo certo chega às fontes em 0,627. O
+que falta não é índice de trechos nem modelo: é escolher a passagem dentro do artigo já
+achado. Proposta para o dono no PLANO §9 (passagens sob demanda, sem nuvem). ⚠️ Bp é o
+melhor caso — achar a passagem não foi medido; o juiz confunde abstenção com erro neste
+estrato; 56 itens foram gerados duas vezes por um reinício do app (vale o primeiro registro).
+
 **Etapa 0 CONCLUÍDA (2026-10-09) — o piloto dos trechos NÃO passou a barra (DOC-13 §9.4):**
 nas 150 perguntas de desenvolvimento, a melhor de 36 combinações de resumo com trecho
 rende **+0,7 ponto** (0,827 → 0,833), contra a barra de 5. Nada foi ao teste; o índice de
@@ -317,7 +327,7 @@ medir o "corpo"**, que é o que trechos atenderiam; a decisão é do dono (PLANO
   297 artigos disjuntos do teste e do desenvolvimento. ⚠️ Sem revisão humana; 112 das 150
   vêm da regra que escolhe a passagem de mais números — o estrato pende para medidas,
   parâmetros e detalhes de método; em 29 a guarda numérica não tinha o que conferir.
-  **Ainda não foi medido** (os três braços nele são ~6 h de GPU).
+  **Medido em 2026-10-11** (acima): ~2 h de GPU para os braços, 18 min para o juiz.
 - **O piloto rodou:** 28.743 artigos concorrentes das 150 perguntas de desenvolvimento,
   3.096.569 trechos, 1 h 50 de GPU para os vetores e ~10 min de ΦRank. ~2,7 GB
   temporários em `data/processed/assistente/piloto_trechos/`.

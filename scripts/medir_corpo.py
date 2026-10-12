@@ -205,7 +205,19 @@ def resumir(itens, cache_b: Path, cache_j: Path, sha_itens: str, ab: str, aj: st
         "ressalvas": ["perguntas e passagens escolhidas e escritas pelo Claude, sem revisão humana",
                       "112 dos 150 itens vêm da passagem de mais números: pende para medidas e "
                       "detalhes de método",
-                      "juiz calibrado em perguntas do resumo; neste estrato vale I3c"],
+                      "juiz calibrado em perguntas do resumo; neste estrato vale I3c",
+                      "Bp recebe a passagem de onde a pergunta foi escrita: é o melhor caso; "
+                      "um sistema real teria de ACHAR essa passagem dentro do artigo",
+                      "o juiz confunde abstenção com erro neste estrato (7 das 9 abstenções da "
+                      "amostra às cegas saíram como `errado`): a divisão errado × absteve dos "
+                      "veredictos não vale; `certo` contra o resto vale (κ de I3c)"],
+        "ocorrencias": [
+            "2026-10-11: o app reiniciou a sessão e a rodada foi relançada sem que a anterior "
+            "tivesse parado; 56 itens foram gerados duas vezes. Vale o PRIMEIRO registro "
+            "gravado de cada (item, braço), regra fixada antes de qualquer veredicto. Das 168 "
+            "respostas repetidas, 126 saíram com texto diferente e 47 itens com fontes "
+            "diferentes: com dois clientes no mesmo servidor a geração não se repete bit a "
+            "bit. O arquivo com as duas cópias ficou guardado (.bruto), fora do git."],
         "sha256_itens": sha_itens, "assinatura_bracos": ab, "assinatura_juiz": aj,
         "bracos": {b.BRACO_REORDENADO: "o sistema de hoje (ΦRank nos 50, 6 fontes com o resumo)",
                    b.BRACO_PASSAGEM: "as fontes de A′ com a passagem de P garantida",

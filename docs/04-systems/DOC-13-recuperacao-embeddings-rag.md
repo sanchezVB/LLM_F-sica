@@ -759,6 +759,58 @@ validado neste estrato" e não sustentam leitura nenhuma além da descritiva.
 Custo previsto: ~4 h de GPU para os braços e ~1 h para o juiz, locais, retomáveis.
 `scripts/medir_corpo.py`; agregado em `avaliacao/assistente_corpo.json`.
 
+#### RESULTADO (2026-10-11): o assistente não responde o corpo; com a passagem, responde
+
+| braço | acerto | IC 95% | certo · parcial · errado · absteve |
+|---|---|---|---|
+| **A′** · o sistema de hoje | **0,033** | [0,007; 0,067] | 5 · 28 · 87 · 30 |
+| **Bp** · passagem garantida | **0,940** | [0,900; 0,973] | 141 · 5 · 4 · 0 |
+| **C** · sem fontes | 0,060 | [0,027; 0,100] | 9 · 35 · 96 · 10 |
+
+| leitura | medida | régua | desfecho |
+|---|---|---|---|
+| o gerador, com a passagem | Bp = 0,940 [0,900; 0,973] | IC inteiro ≥ 0,90 | **BASTA** — com o limite inferior encostado no limiar |
+| a lacuna do corpo | Bp − A′ = **0,907** [0,860; 0,953] · 136 ganhos, 0 perdas | — | o assistente perde quase tudo por só ler resumos |
+| onde está o problema | P chega às 6 fontes de A′ em **94 de 150** (0,627) | — | em 63% falta só a passagem; em 37% falta também o artigo |
+
+| guarda | medida | vale? |
+|---|---|---|
+| I2c · não se responde de memória | C = 0,060 < Bp − 0,10 = 0,840 | ✅ |
+| fora do resumo | onde A′ teve o resumo de P: acerto **0,043** (4 de 94) ≤ 0,20 | ✅ |
+| I3c · o juiz neste estrato | κ de `certo` contra o resto **0,90** em 40 respostas; concordância 38/40 | ✅ |
+
+- **O ponto cego é quase total.** De 150 perguntas cuja resposta está no corpo do artigo, o
+  assistente de hoje acerta 5 — o mesmo que sem fonte nenhuma (9). Ter o artigo certo entre
+  as fontes não ajuda: com o resumo de P no prompt, acerta 4 de 94.
+- **O modelo aberto dá conta do texto de corpo.** Com a passagem (LaTeX cru, ~450 tokens),
+  o Qwen3-8B acerta 141 de 150, igual onde P veio pela busca (0,936) e onde entrou na
+  posição sorteada (0,946). A cláusula de reabertura do ADR-0004 **não** é acionada: o
+  gerador não limita aqui.
+- **A busca do artigo vai pior que nas perguntas do resumo** — 0,627 contra 0,818 no teste
+  da §9.2. Uma pergunta sobre um detalhe de método parece menos com o resumo.
+
+⚠️ **O que este resultado não mede, e é o que falta para um produto:**
+
+1. **Bp é o melhor caso.** Ele recebe a passagem de onde a pergunta foi escrita. Um sistema
+   real tem de ACHAR essa passagem entre os ~100 trechos do artigo — e isso não foi medido.
+2. **O juiz não separa abstenção de erro neste estrato.** Das 9 respostas que o julgamento
+   às cegas deu como abstenção, o juiz chamou 7 de `errado`. Os "87 errados" de A′ incluem
+   muita recusa honesta; na amostra às cegas de A′ (20 respostas) foram 8 abstenções e 10
+   respostas erradas afirmadas — **metade das vezes ele responde errado em vez de dizer que
+   não sabe**, e 20 respostas é pouco para cravar o número.
+3. **As ressalvas do estrato:** perguntas e passagens escolhidas e escritas pelo Claude,
+   sem revisão humana; 112 das 150 vêm da passagem de mais números.
+4. **Uma ocorrência de operação**, declarada no agregado: o app reiniciou a sessão e 56
+   itens foram gerados duas vezes; vale o primeiro registro gravado, regra fixada antes de
+   qualquer veredicto. Com dois clientes no servidor, 126 das 168 respostas repetidas
+   saíram com texto diferente — a geração não se repete bit a bit nessa condição.
+
+**Leitura.** O piloto da §9.4 disse que trechos não ajudam a achar o artigo de uma pergunta
+do resumo. Esta medida diz a outra metade: **para o que o resumo não diz, sem o texto do
+corpo o assistente não tem chance, e com ele o modelo que já existe basta.** O que falta
+não é modelo nem índice gigante — é o passo que escolhe a passagem dentro do artigo.
+A proposta está no [PLANO §9](PLANO-trechos-do-texto-completo.md), para o dono.
+
 ---
 
 ## 10. Riscos
