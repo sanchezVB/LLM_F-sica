@@ -315,6 +315,42 @@ def _alcance(itens, ouro, respostas) -> dict:
             "o_que_e_ouro": "pelo menos um dos 3 trechos da passagem de onde a pergunta saiu"}
 
 
+def _sobreposicao(itens, ouro, em_ingles: dict[str, str]) -> dict:
+    """Que fração das palavras da pergunta em inglês está na passagem de onde ela saiu. É
+    o que a regra lexical explora — e o que denunciaria perguntas escritas para ela."""
+    import numpy as np
+
+    from phifm.rag.passagens import palavras
+
+    v = []
+    for i in itens:
+        q = set(palavras(em_ingles[i["arxiv_id"]]))
+        if q:
+            v.append(len(q & set(palavras(ouro[i["arxiv_id"]]["passagem"]))) / len(q))
+    return {"n": len(v), "media": round(float(np.mean(v)), 4),
+            "mediana": round(float(np.median(v)), 4)}
+
+
+def _sobreposicoes(itens, ouro, respostas) -> dict:
+    """A do corpo 2, com a consulta que a rodada gravou, ao lado da do corpo 1 — escrito
+    antes de o autor saber que a regra seria lexical."""
+    from phifm.eval import assistente_bracos as b
+
+    saida = {"o_que_e": "fração das palavras da pergunta em inglês presentes na passagem de ouro",
+             "corpo_2": _sobreposicao(itens, ouro, {
+                 r.arxiv_id: r.consulta_passagens for r in respostas
+                 if r.braco == b.BRACO_PASSAGENS})}
+    dev = DIR / "passagens_dev/consultas_ingles.json"
+    if dev.exists():
+        itens_1 = json.loads((DIR / "itens_corpo.json").read_text(encoding="utf-8"))
+        lista = json.loads(dev.read_text(encoding="utf-8"))
+        saida["corpo_1"] = _sobreposicao(itens_1, ouro, {
+            i["arxiv_id"]: t for i, t in zip(itens_1, lista, strict=True)})
+        saida["corpo_2_menos_corpo_1"] = round(
+            saida["corpo_2"]["media"] - saida["corpo_1"]["media"], 4)
+    return saida
+
+
 def resumir(itens, ouro, cache: Path, sha: str) -> None:
     from phifm.eval import assistente_bracos as b
 
@@ -355,6 +391,7 @@ def resumir(itens, ouro, cache: Path, sha: str) -> None:
                    b.BRACO_PASSAGEM: "as fontes de A′ com a passagem de P garantida — o teto",
                    "C": "sem fontes"},
         "I3": i3, "corpo_2": corpo, "alcance_da_selecao": _alcance(itens, ouro, respostas),
+        "sobreposicao_pergunta_x_passagem": _sobreposicoes(itens, ouro, respostas),
         "teste_primario": prim if prim else "ainda não rodado (--primario, depois do aceite)",
         "decisao": b.decidir_passagens(corpo, prim, i3)}
     AGREGADO.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
