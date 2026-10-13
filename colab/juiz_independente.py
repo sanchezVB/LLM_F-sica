@@ -240,7 +240,19 @@ if not Path("/content/modelo/.sha_conferido").exists():
     Path("/content/modelo/.sha_conferido").write_text(h.hexdigest())
 print(f"✅ {GGUF.name} conferido por sha256 · {(time.perf_counter() - t0) / 60:.1f} min")
 
-URL = "http://127.0.0.1:8080"
+# ⚠️ A porta é uma das LIVRES, pedida ao sistema: a 8080 é do próprio Colab, e o servidor
+# sai com "couldn't bind HTTP server socket" (2026-10-13, na primeira sessão).
+import socket
+
+
+def porta_livre() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+PORTA = globals().get("PORTA") or porta_livre()
+URL = f"http://127.0.0.1:{PORTA}"
 LOG_SERVIDOR = Path("/content/llama-server.log")
 processo = globals().get("processo")
 
@@ -262,7 +274,7 @@ def subir_servidor(espera_s: int = 420) -> None:
         processo.kill()
     processo = subprocess.Popen(
         [str(SERVIDOR), "-m", str(GGUF), "-ngl", "99", "-c", str(ji.CONTEXTO), "-np", "1",
-         "--jinja", "--host", "127.0.0.1", "--port", "8080"],
+         "--jinja", "--host", "127.0.0.1", "--port", str(PORTA)],
         stdout=open(LOG_SERVIDOR, "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
         env=AMBIENTE)
     t = time.time()

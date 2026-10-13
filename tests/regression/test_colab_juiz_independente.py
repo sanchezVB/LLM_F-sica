@@ -77,6 +77,10 @@ def test_o_llama_cpp_e_o_binario_oficial_do_build_local_e_o_modelo_vai_para_a_GP
     # o binário baixado vem antes de compilar, e o servidor sobe com as bibliotecas dele
     assert cel.SETUP.index("ji.LLAMA_BINARIOS") < cel.SETUP.index('"-DGGML_CUDA=ON"')
     assert "env=AMBIENTE)" in cel.MODELO
+    # a 8080 é do próprio Colab: o servidor sobe numa porta livre, pedida ao sistema
+    assert "8080" not in "\n".join(cel.CELULAS)
+    assert "PORTA = globals().get(\"PORTA\") or porta_livre()" in cel.MODELO
+    assert '"--port", str(PORTA)' in cel.MODELO and 'URL = f"http://127.0.0.1:{PORTA}"' in cel.MODELO
     # sem CUDA o servidor sobe na CPU calado: cobra-se a lista de dispositivos e a memória
     assert '"--list-devices"' in cel.SETUP and '"CUDA" in r.stdout + r.stderr' in cel.SETUP
     assert "usada >= 12000" in cel.MODELO
