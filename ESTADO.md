@@ -311,6 +311,16 @@ menos, a escolha da passagem (12 de 70). O dono autorizou a cópia do texto comp
 (`data/processed/textos_por_artigo/`, 12,7 GB no HD: ler um artigo foi de 3,9 s a 24 ms) e
 o custo de GPU.
 
+⚠️ **O ensaio nas perguntas do RESUMO (desenvolvimento, 2026-10-13) mostrou o preço: com as
+passagens, 0,833 → 0,800** (−0,033 [−0,073; +0,007]; 2 ganhos, 7 perdas — 6 delas `certo`
+virando `parcial` por troca de palavras, 1 erro de verdade). Com A″ como definido, o eixo
+"não piora" provavelmente não passaria no teste. **Emenda proposta à §9.6** (no git antes
+de rodar): o candidato ao teste passa a ser A‴ = passagens + a instrução da §9.7. No
+desenvolvimento do resumo ela dá 0,820 (−0,013 [−0,047; +0,020]); no corpo 2, **0,520**
+[0,420; 0,620] — ganho e tempo passam de novo (segunda leitura do conjunto, declarada).
+**O dono escolhe:** A‴ vai ao teste (recomendado) · A″ vai, como estava · o teste não é
+tocado e as passagens ficam opcionais.
+
 **Como foi construído (o dono mandou seguir com o item 1 do PLANO §9).**
 `phifm.rag.passagens`: depois da busca, o texto completo das 6 fontes é cortado e os 9
 melhores trechos para a PERGUNTA entram no prompt, debaixo do resumo do artigo. Desligado
@@ -340,9 +350,15 @@ por padrão — o produto não mudou; `--passagens` liga, no `perguntar.py` e na
 gabarito: nas 145 não certas, 71 abstenções, 62 afirmações, 12 ressalvas seguidas de valor.
 Com o resumo do artigo certo no prompt afirma MAIS (58% contra 40%). **Ele não inventa
 número** — 5 de 79 afirmações têm número fora das fontes: o erro é de atribuição (o valor é
-de outra grandeza ou de outro artigo), e um portão mecânico não o pegaria. Em andamento:
-uma instrução que nomeia esse erro (`explorar_resposta.py`, célula `v2`), medida também
-nas perguntas do resumo, que não podem piorar.
+de outra grandeza ou de outro artigo), e um portão mecânico não o pegaria.
+
+**A instrução que nomeia esse erro existe e foi medida no desenvolvimento (DOC-13 §9.7,
+`SISTEMA_RESPOSTA_V2`, fora do padrão):** corta entre um quarto e um terço das afirmações
+erradas, com e sem passagens (no corpo: 0,560 → 0,373 sozinha; 0,300 → 0,227 com
+passagens). ⚠️ Sozinha, custa nas perguntas do resumo — 0,833 → 0,813 (−0,020
+[−0,053; +0,007]); com as passagens, devolve mais do que tira. Não resolve: com o artigo
+errado na mão o modelo ainda afirma em um quinto a um terço das vezes. Instrumento: um
+classificador de abstenção conferido contra as 150 classes do Claude (κ 0,81; otimista).
 
 **O "corpo" MEDIDO (2026-10-11, DOC-13 §9.5, regra escrita antes): o assistente não
 responde o que o resumo não diz — 0,033 [0,007; 0,067], 5 de 150 — e com a passagem certa

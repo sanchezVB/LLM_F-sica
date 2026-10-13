@@ -303,3 +303,19 @@ sobretudo a busca do artigo (30 perguntas sem ele entre as fontes).
 Sem ele não há como dizer se o passo pode ser ligado para todo mundo: a maioria das
 perguntas medidas até hoje se responde pelo resumo, e é nelas que o prompt maior pode
 atrapalhar.
+
+### O ensaio desse eixo no desenvolvimento, e a emenda (2026-10-13)
+
+Atrapalha, um pouco: nas 150 perguntas de desenvolvimento do resumo, as passagens levam o
+acerto de 0,833 para 0,800 (−0,033 [−0,073; +0,007]). Lidas as 7 perdas, 6 são a mesma
+resposta com outras palavras, que o juiz rebaixa; 1 é erro de verdade. Com a instrução que
+cobra a coisa específica (DOC-13 §9.7), 0,820.
+
+| decisão do dono, antes do teste | o que acontece | minha recomendação |
+|---|---|---|
+| **(a) passagens + instrução vão ao teste** | ~2 h 20 de GPU; nas 100 perguntas novas essa combinação deu 0,520, e no ensaio do resumo −0,013 | **Sim.** É a que tem mais chance de passar os três eixos |
+| (b) só as passagens vão, como na proposta original | ~2 h 20 de GPU; o ensaio indica que o eixo "não piora" não passa | Só se o dono quiser a regra original sem emenda |
+| (c) não tocar o teste | as passagens ficam como modo opcional (`--passagens`), onde estão hoje | É a saída de quem prefere não gastar o teste nisso |
+
+Qualquer que seja, o limite seguinte já está à vista: em 30% a 37% das perguntas do corpo
+o artigo certo não chega às fontes, e nenhuma passagem conserta isso.

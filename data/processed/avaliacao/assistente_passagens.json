@@ -183,6 +183,49 @@
     },
     "corpo_2_menos_corpo_1": -0.005
   },
+  "emenda_instrucao_v2": {
+    "o_que_e": "A‴ = as fontes e as passagens de A″, com a instrução candidata (SISTEMA_RESPOSTA_V2), escolhida só no desenvolvimento; o corpo 2 já tinha sido lido uma vez, com A″, quando este braço rodou",
+    "resultado": {
+      "n_itens": 100,
+      "acerto_A4": {
+        "valor": 0.52,
+        "ic95": [
+          0.42,
+          0.62
+        ]
+      },
+      "veredictos_A4": {
+        "certo": 52,
+        "parcial": 6,
+        "errado": 23,
+        "absteve": 19,
+        "ilegivel": 0
+      },
+      "ganho_no_corpo": {
+        "A4_menos_A2": 0.52,
+        "ic95": [
+          0.42,
+          0.62
+        ],
+        "limiar": 0.15,
+        "passa": true
+      },
+      "A4_menos_A3": {
+        "valor": 0.02,
+        "ic95": [
+          0.0,
+          0.05
+        ],
+        "ganha": 2,
+        "perde": 0
+      },
+      "tempo": {
+        "mediana_A4_s": 46.3,
+        "maximo_s": 60.0,
+        "passa": true
+      }
+    }
+  },
   "teste_primario": "ainda não rodado (--primario, depois do aceite)",
   "decisao": {
     "situacao": "válido",

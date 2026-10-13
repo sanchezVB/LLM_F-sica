@@ -1059,6 +1059,24 @@ O dono escolhe, antes do teste: **(a)** A‴ vai ao teste — é o que eu recome
 vai, como na proposta original, sabendo do ensaio; **(c)** o teste não é tocado e as
 passagens ficam como modo opcional (`--passagens`), que é onde estão hoje.
 
+**A‴ no corpo 2 (2026-10-13, rodado depois de a emenda estar no git, `c6f9252`):**
+
+| braço | acerto | IC 95% | certo · parcial · errado · absteve |
+|---|---|---|---|
+| A′ · o sistema de hoje | 0,000 | 0 de 100 | 0 · 14 · 61 · 25 |
+| A″ · com as passagens | 0,500 | [0,400; 0,600] | 50 · 15 · 30 · 5 |
+| **A‴ · passagens e a instrução** | **0,520** | [0,420; 0,620] | 52 · 6 · 23 · 19 |
+
+| eixo, para A‴ | medida | desfecho |
+|---|---|---|
+| ganho | A‴ − A′ = **+0,520** [0,420; 0,620] | **PASSA** (> 0,15) — ⚠️ segunda leitura do conjunto |
+| tempo | mediana de 46,3 s | **PASSA** (≤ 60 s) |
+| não piora | — | **não rodado**: espera o aceite |
+
+A instrução não custa acerto no corpo (A‴ − A″ = +0,020 [0,000; 0,050]; 2 ganhos, nenhuma
+perda) e muda o que acontece quando o modelo não acerta: menos resposta errada ou pela
+metade, mais recusa — pelos rótulos do juiz, que nessa divisão valem pouco (I3).
+
 ### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
 
 O dono pediu, junto com as passagens, o que desse para fazer de "ensinar o assistente a
@@ -1080,22 +1098,30 @@ quem já tinha visto essas 150: o κ é otimista, e o que ele mede aqui é desen
 | | acerto | afirma errado | …onde o artigo certo não veio |
 |---|---|---|---|
 | **corpo** (150) · hoje | 0,033 | 0,560 | 25 de 56 |
+| corpo · só a instrução | 0,020 | 0,373 | 14 de 56 |
 | corpo · passagens | 0,493 | 0,300 | 24 de 56 |
-| corpo · passagens + instrução | 0,493 | **0,227** | **18 de 56** |
+| corpo · passagens + instrução | 0,493 | **0,227** | 18 de 56 |
 | **resumo** (150) · hoje | 0,833 | 0,100 | 10 de 26 |
+| resumo · só a instrução | 0,813 | **0,073** | **5 de 26** |
 | resumo · passagens | 0,800 | 0,127 | 10 de 26 |
-| resumo · passagens + instrução | 0,820 | **0,087** | **7 de 26** |
+| resumo · passagens + instrução | 0,820 | 0,087 | 7 de 26 |
 
 - **As passagens sozinhas não mexem no problema**: onde o artigo certo não veio, o modelo
   afirma errado na mesma proporção com e sem elas.
-- **A instrução corta cerca de um quarto das afirmações erradas** nos dois conjuntos, sem
-  custar acerto no corpo e devolvendo parte do que as passagens tiram no resumo.
-- **Ela não resolve**: com o artigo errado na mão, o modelo ainda afirma em um terço das
-  vezes. O que pega o resto é conferir o sentido (o *entailment* da §6.2).
+- **A instrução corta entre um quarto e um terço das afirmações erradas**, com e sem
+  passagens. No corpo sem passagens, onde quase nunca há resposta nas fontes, as recusas
+  vão de 61 para 91.
+- **Sozinha, ela tem um preço nas perguntas do resumo**: 0,833 → 0,813 (−0,020
+  [−0,053; +0,007]; 1 ganho, 4 perdas) — recusa algumas que o sistema de hoje acerta. Não
+  é significativo em 150 perguntas, e também não é zero.
+- **Com as passagens, ela devolve mais do que tira** (0,800 → 0,820 no resumo). É nessa
+  combinação que ela faz mais sentido, e é a da emenda da §9.6.
+- **Ela não resolve**: com o artigo errado na mão, o modelo ainda afirma em um quinto a um
+  terço das vezes. O que pega o resto é conferir o sentido (o *entailment* da §6.2).
 
-Falta a instrução SEM as passagens (as células `*_res_v2`), que é o que valeria se as
-passagens não forem adotadas. Nada disto toca o teste; se a instrução for ao produto, vai
-pela emenda da §9.6 ou por regra própria.
+Nada disto toca o teste. Se a instrução for ao produto, vai pela emenda da §9.6 (com as
+passagens) ou, sozinha, por uma regra própria — com o eixo "não piora" como o da §9.6,
+porque o ensaio acima diz que é aí que ela pode custar.
 
 ---
 
