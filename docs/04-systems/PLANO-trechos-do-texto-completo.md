@@ -319,3 +319,26 @@ cobra a coisa específica (DOC-13 §9.7), 0,820.
 
 Qualquer que seja, o limite seguinte já está à vista: em 30% a 37% das perguntas do corpo
 o artigo certo não chega às fontes, e nenhuma passagem conserta isso.
+
+## 11. O teste (2026-10-13): as passagens NÃO viram padrão
+
+O dono escolheu (a) e aceitou a regra, com um juiz independente para conferir. Rodou:
+
+| | sistema de hoje | passagens + instrução | |
+|---|---|---|---|
+| 100 perguntas novas do corpo | 0,000 | 0,520 | ganho **passa** |
+| tempo por pergunta (mediana) | 42,1 s | 46,3 s | tempo **passa** |
+| **500 perguntas do teste (resumo)** | **0,806** | **0,778** | −0,028 [−0,052; −0,004] — **não passa** |
+
+A regra pede os três eixos: **fica o sistema atual**, e as passagens continuam como modo
+opcional (`--passagens`). A perda nas perguntas do resumo aparece justamente onde o trecho
+do artigo certo entra no prompt (−0,048 em 250 perguntas): o modo que responde o corpo do
+artigo desvia a resposta do que o resumo diz. Detalhe no DOC-13 §9.6.
+
+O que isto deixa em aberto, para o dono:
+
+| caminho | custo | o que resolveria |
+|---|---|---|
+| Conferência do juiz independente (já decidida) | ~2,5 h de L4 no Colab | Diz se a perda de 2,8 pontos depende de quem corrige. Não muda a decisão da regra; se ele discordar, o resultado fica marcado como frágil e a adoção volta ao dono |
+| Deixar como está | 0 | O assistente responde pelo resumo; quem precisa do corpo liga `--passagens` sabendo do preço |
+| Ligar as passagens só quando a pergunta pede o corpo | um classificador de pergunta, ou um botão na página; medida nova, com regra nova | Colher o ganho do corpo sem pagar no resumo. É hipótese: nada disso foi medido |

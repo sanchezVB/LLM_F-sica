@@ -1,0 +1,50 @@
+{
+  "o_que_e": "o pacote do juiz independente (DOC-13 §9.6): pergunta, gabarito e resposta sem as marcas [n], um texto distinto por linha, sem braço e sem artigo. O conteúdo fica fora do git; aqui vai o hash.",
+  "arquivo": "pacote_juiz2.json",
+  "sha256": "80657ed41899477c79f86ae2a582a272e479777ec940b21560aaf7e73940c736",
+  "bytes": 1115615,
+  "textos": 1379,
+  "grupos": {
+    "teste_A2": {
+      "textos": 500,
+      "novos_no_pacote": 500
+    },
+    "teste_A4": {
+      "textos": 500,
+      "novos_no_pacote": 461
+    },
+    "corpo2_A2": {
+      "textos": 100,
+      "novos_no_pacote": 100
+    },
+    "corpo2_A3": {
+      "textos": 100,
+      "novos_no_pacote": 100
+    },
+    "corpo2_A4": {
+      "textos": 100,
+      "novos_no_pacote": 89
+    },
+    "selados_9.1_rodada_2": {
+      "textos": 100,
+      "novos_no_pacote": 89
+    },
+    "selados_9.5_corpo_1": {
+      "textos": 40,
+      "novos_no_pacote": 40
+    },
+    "selados_9.6_corpo_2": {
+      "textos": 40,
+      "novos_no_pacote": 0
+    }
+  },
+  "modelo": {
+    "repo": "bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+    "arquivo": "mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "revisao": "b3592d09be469bedab6be51f577824b3b6b76ba1",
+    "bytes": 14333915264,
+    "sha256": "80f5bda68f156f12650ca03a0a2dbfae06a215ac41caa773b8631a479f82415e",
+    "llama_cpp": "b11159"
+  },
+  "empacotado_em": "2026-10-13T17:10:35"
+}

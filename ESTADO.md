@@ -328,7 +328,18 @@ o mesmo leitor do juiz da regra. A regra dele está no DOC-13 §9.6, no git ante
 vale com κ ≥ 0,6 contra os 180 veredictos que o Claude selou; a decisão continua a do juiz
 da regra; desfecho diferente em algum eixo = FRÁGIL, e a adoção volta ao dono.
 `scripts/conferencia_do_juiz.py` (empacota e apura) e `colab/juiz_independente.py`.
-⏳ **O teste está rodando** (`medir_passagens.py --primario`, ~3 h, retomável).
+
+🔴 **O TESTE RODOU (2026-10-13): o eixo "não piora" NÃO PASSA — FICA O SISTEMA ATUAL.**
+Nos 500 do teste primário, A′ 0,806 e A‴ 0,778: **−0,028 [−0,052; −0,004]**, 12 ganhos e
+26 perdas. A estimativa cabe na margem de −0,03, o intervalo não (e fica inteiro abaixo de
+zero). Ganho (+0,520 no corpo 2) e tempo (46,3 s) passam; a regra pede os três. **As
+passagens e a instrução continuam fora do padrão; `--passagens` segue opcional.** A perda
+está onde o passo funcionou: com um trecho do artigo certo anexado (250 itens), −0,048;
+sem trecho dele, −0,013; com o artigo certo fora das fontes, zero. 15 das 26 perdas são
+`certo` → `parcial`, 9 são `certo` → `errado`. Agregado em
+`avaliacao/assistente_passagens.json`; tabelas no DOC-13 §9.6.
+⏳ **Falta a conferência do juiz independente** (Colab, ~2,5 h de L4, do dono): pela regra
+ela não muda a decisão — desfecho diferente a marca como FRÁGIL e devolve a adoção ao dono.
 
 **Como foi construído (o dono mandou seguir com o item 1 do PLANO §9).**
 `phifm.rag.passagens`: depois da busca, o texto completo das 6 fontes é cortado e os 9

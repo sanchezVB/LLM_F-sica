@@ -1,6 +1,7 @@
 {
   "regra": "DOC-13 §9.6, escrita antes de os itens do corpo 2 existirem",
-  "regra_aceita_pelo_dono": false,
+  "regra_aceita_pelo_dono": true,
+  "aceite": "2026-10-13, com a emenda: o braço que vai ao teste é A‴ (A4), e um juiz independente confere (regra escrita antes de o teste rodar)",
   "ressalvas": [
     "perguntas e passagens escolhidas e escritas pelo Claude, sem revisão humana; a passagem é a de mais números do artigo",
     "o autor das perguntas é quem escolheu a regra de seleção, lexical",
@@ -226,14 +227,54 @@
       }
     }
   },
-  "teste_primario": "ainda não rodado (--primario, depois do aceite)",
+  "teste_primario": {
+    "estrato": "primario",
+    "braco": "A4",
+    "n_itens": 500,
+    "acerto_A2": 0.806,
+    "acerto_A4": 0.778,
+    "A4_menos_A2": -0.028,
+    "ic95": [
+      -0.052,
+      -0.004
+    ],
+    "margem": 0.03,
+    "ganha": 12,
+    "perde": 26,
+    "veredictos": {
+      "A2": {
+        "certo": 403,
+        "parcial": 38,
+        "errado": 41,
+        "absteve": 18,
+        "ilegivel": 0
+      },
+      "A4": {
+        "certo": 389,
+        "parcial": 31,
+        "errado": 54,
+        "absteve": 26,
+        "ilegivel": 0
+      }
+    },
+    "respostas_iguais_as_de_A2": 0,
+    "com_passagem_anexada": 484,
+    "passa": false,
+    "tempo_mediana_s": {
+      "A2": 28.3,
+      "A4": 32.0,
+      "das_quais_passagens": 1.4,
+      "nota": "relatado; o eixo do tempo é o do corpo 2"
+    }
+  },
   "decisao": {
+    "candidato": "A4",
     "situacao": "válido",
     "eixos": {
       "ganho_no_corpo": true,
       "tempo": true,
-      "nao_piora_o_primario": null
+      "nao_piora_o_primario": false
     },
-    "decisao": "PENDENTE (falta o eixo do primário)"
+    "decisao": "FICA O SISTEMA ATUAL"
   }
 }

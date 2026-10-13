@@ -1145,6 +1145,57 @@ os gabaritos e as respostas sobem para o Drive do dono, por decisão dele; não 
 `colab/juiz_independente.py` (as células) e `scripts/conferencia_do_juiz.py` (empacota e
 apura); ~2,5 h de L4.
 
+#### O RESULTADO do teste (2026-10-13) — o eixo "não piora" NÃO PASSA: fica o sistema atual
+
+Os 500 itens do teste primário, respondidos por A‴ sobre a consulta e as fontes de A′
+(~1 h 50 min de respostas, 19 min de juiz; nenhuma queda). 484 dos 500 receberam passagem.
+
+| nos 500 do teste | acerto | certo · parcial · errado · absteve |
+|---|---|---|
+| A′ · o sistema de hoje | 0,806 | 403 · 38 · 41 · 18 |
+| A‴ · passagens e a instrução | 0,778 | 389 · 31 · 54 · 26 |
+
+| eixo | medida | desfecho |
+|---|---|---|
+| ganho (corpo 2) | A‴ − A′ = +0,520 [0,420; 0,620] | PASSA (> 0,15) |
+| tempo (corpo 2) | mediana de 46,3 s | PASSA (≤ 60 s) |
+| **não piora (teste)** | A‴ − A′ = **−0,028 [−0,052; −0,004]** · ganha 12, perde 26 | **NÃO PASSA** (o IC não fica inteiro acima de −0,03) |
+
+**Decisão pela regra: FICA O SISTEMA ATUAL.** As passagens e a instrução continuam fora do
+padrão; `--passagens` segue como modo opcional. A estimativa (−0,028) cabe na margem, mas o
+intervalo não — e ele fica inteiro abaixo de zero: nas perguntas que o resumo responde,
+A‴ é pior que o sistema de hoje, pelo juiz da regra. O ensaio no desenvolvimento (−0,013
+em 150) foi otimista.
+
+O que as perdas são, sem ler as respostas (`avaliacao/assistente_passagens.json` e a
+contagem abaixo, descritiva, feita depois do resultado):
+
+| de A′ para A‴ | certo | parcial | errado | absteve |
+|---|---|---|---|---|
+| era **certo** (403) | 377 | 15 | 9 | 2 |
+| era parcial (38) | 10 | 14 | 9 | 5 |
+| era errado (41) | 2 | 1 | 32 | 6 |
+| era absteve (18) | 0 | 1 | 4 | 13 |
+
+| recorte | n | A′ | A‴ | diferença | ganha · perde |
+|---|---|---|---|---|---|
+| o artigo certo entre as fontes | 409 | 0,956 | 0,922 | −0,034 | 8 · 22 |
+| …e um trecho DELE anexado | 250 | 0,960 | 0,912 | **−0,048** | 4 · 16 |
+| …e nenhum trecho dele anexado | 159 | 0,950 | 0,937 | −0,013 | 4 · 6 |
+| o artigo certo fora das fontes | 91 | 0,132 | 0,132 | 0,000 | 4 · 4 |
+
+- **A perda está onde o passo funcionou**: com o trecho do artigo certo no prompt, o
+  acerto cai 4,8 pontos. O gabarito foi escrito do resumo; com o corpo do artigo ao lado,
+  a resposta deixa de ser a do resumo.
+- **15 das 26 perdas são `certo` → `parcial`** — o padrão que, no ensaio, era troca de
+  redação. **9 são `certo` → `errado`**, e isso o ensaio não tinha mostrado (1 em 7).
+- Onde o artigo certo não veio, nada muda no acerto (4 ganhos, 4 perdas).
+- No teste a mediana por pergunta foi de 28,3 s (A′) para 32,0 s (A‴); o passo, 1,4 s.
+
+⚠️ Tudo isto é pelo juiz da regra. Se as 15 quedas para `parcial` são erro de quem
+corrige, é o juiz independente que diz — e pela regra dele isso não muda a decisão: um
+desfecho diferente a marca como FRÁGIL e devolve a adoção ao dono.
+
 ### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
 
 O dono pediu, junto com as passagens, o que desse para fazer de "ensinar o assistente a
