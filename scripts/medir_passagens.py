@@ -7,11 +7,13 @@ fontes, o assistente passa a responder o que o resumo não diz — sem piorar o 
     P --exportar-i3              # 40 respostas (A″ e A′), braço oculto, para o Claude julgar
     P --selar-i3 <veredictos>    # o hash dos veredictos — vai ao git ANTES de o juiz rodar
     P --julgar                   # o juiz no corpo 2 (GPU, ~40 min); recusa sem o selo
-    P --primario [--limite N]    # A″ nos 500 do TESTE primário e o juiz (GPU, ~2,5 h)
+    P --instrucao-v2             # A‴ (A″ com a instrução v2) no corpo 2 e o juiz (~25 min)
+    P --primario [--limite N]    # A‴ nos 500 do TESTE primário e o juiz (GPU, ~3 h, retomável)
     P --resumir                  # os três eixos da regra, as guardas e a decisão
 
 `--primario` toca o conjunto de teste, uma vez: recusa enquanto a regra for PROPOSTA
-(`REGRA_9_6_ACEITA` em `phifm.eval.assistente_bracos`).
+(`REGRA_9_6_ACEITA` em `phifm.eval.assistente_bracos`). O dono a aceitou em 2026-10-13,
+com a emenda: o braço que vai ao teste é A‴.
 
 Respostas, julgamentos e a amostra ficam em `data/processed/assistente/`, fora do git
 (DOC-11 §8.1). Vão para o git o selo e o agregado, em `data/processed/avaliacao/`.
@@ -219,18 +221,25 @@ def julgar(a, itens, cache: Path) -> None:
     print(f"{len(julg)} textos no cache do juiz")
 
 
-# ── o teste primário: A″ sobre o cache de A′ ─────────────────────────────────────────
+# ── o teste primário: A‴ sobre o cache de A′ ─────────────────────────────────────────
+ESTRATO_DO_TESTE = "primario"     # os 500 da §9.1; o pós-corte (150) não entra na regra
+
+
 def _teste_primario():
-    """`(itens, A′ por item, cache de A″)` do estrato primário do conjunto de teste."""
+    """`(itens, A′ por item, cache de A‴)` do estrato primário do conjunto de teste. O
+    braço que vai ao teste é o da emenda aceita em 2026-10-13: A″ com a instrução v2."""
     import medir_assistente as ma
     from phifm.eval import assistente_bracos as b
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2
 
     itens, sha = ma.carregar_itens()
     _, _, ab, _ = ma.caminhos(sha)
     a2 = {(r.estrato, r.arxiv_id): r
-          for r in b.ler_respostas(DIR / f"bracos_A2_{ab[:12]}.jsonl")}
+          for r in b.ler_respostas(DIR / f"bracos_A2_{ab[:12]}.jsonl")
+          if r.estrato == ESTRATO_DO_TESTE}
     itens = [i for i in itens if (i["estrato"], i["arxiv_id"]) in a2]
-    return itens, a2, DIR / f"bracos_A3_{assinatura(sha)[:12]}.jsonl"
+    return itens, a2, DIR / (f"bracos_{b.BRACO_PASSAGENS_V2}_"
+                             f"{_sha(assinatura(sha) + SISTEMA_RESPOSTA_V2)[:12]}.jsonl")
 
 
 def _refazer_fontes(a2: dict, indice: Path, spine: Path):
@@ -261,7 +270,7 @@ def primario(a) -> None:
     from medir_assistente import _modelo_e_assistente
     from phifm.eval import assistente_bracos as b
     from phifm.eval.assistente import K_FONTES, SEMENTE
-    from phifm.rag.assistente import Assistente
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
 
     if not b.REGRA_9_6_ACEITA:
         raise SystemExit("a §9.6 do DOC-13 ainda é PROPOSTA: o conjunto de teste não é tocado "
@@ -273,23 +282,38 @@ def primario(a) -> None:
         modelo, _ = _modelo_e_assistente(a, com_busca=False)
         caminho = json.loads((a.indice / "manifesto.json").read_text(encoding="utf-8"))["modelo"]
         passo = _passo(modelo, AutoTokenizer.from_pretrained(caminho))
-        assistente = Assistente(None, modelo, a.spine, k=K_FONTES, semente=SEMENTE)
+        assistente = Assistente(None, modelo, a.spine, k=K_FONTES, semente=SEMENTE,
+                                sistema=SISTEMA_RESPOSTA_V2)
+        feitos0 = len(b.ler_respostas(cache))
         t0, n = time.perf_counter(), [0]
 
         def ao_terminar(item, reg):
             n[0] += 1
             if n[0] % 10 == 0:
-                print(f"[A″ {n[0]}] {(time.perf_counter() - t0) / n[0]:.1f} s/item", flush=True)
+                s = (time.perf_counter() - t0) / n[0]
+                falta = len(itens) - feitos0 - n[0]
+                print(f"[A‴ {feitos0 + n[0]}/{len(itens)}] {s:.1f} s/item · "
+                      f"faltam ~{falta * s / 60:.0f} min", flush=True)
+
+        def ao_julgar(r, d):
+            n[0] += 1
+            if n[0] % 25 == 0:
+                print(f"[juiz {n[0]}] {(time.perf_counter() - t0) / n[0]:.1f} s/texto",
+                      flush=True)
 
         try:
-            respostas = b.rodar_passagens_sobre_a2(assistente, passo, itens, a2, fontes_de,
-                                                   cache, a.limite, ao_terminar)
+            # Com a instrução v2 o prompt muda mesmo sem passagem: nada é reaproveitado de A′.
+            respostas = b.rodar_passagens_sobre_a2(
+                assistente, passo, itens, a2, fontes_de, cache, a.limite, ao_terminar,
+                braco=b.BRACO_PASSAGENS_V2, reaproveitar=False)
             if len(respostas) == len(itens):
-                b.julgar_todas(modelo, itens, respostas, _cache_do_juiz())
+                t0, n[0] = time.perf_counter(), 0
+                b.julgar_todas(modelo, itens, [*a2.values(), *respostas], _cache_do_juiz(),
+                               ao_julgar)
         finally:
             modelo.parar()
-    print(f"A″ no teste primário: {len(respostas)} de {len(itens)} itens · "
-          f"{sum(1 for r in respostas if r.igual_a_A)} iguais a A′")
+    print(f"A‴ no teste primário: {len(respostas)} de {len(itens)} itens · "
+          f"{sum(1 for r in respostas if r.passagens)} com passagem anexada")
 
 
 # ── a emenda: A″ com a instrução candidata (A‴) ──────────────────────────────────────
@@ -398,6 +422,8 @@ def _sobreposicoes(itens, ouro, respostas) -> dict:
 
 
 def resumir(itens, ouro, cache: Path, sha: str) -> None:
+    import numpy as np
+
     from phifm.eval import assistente_bracos as b
 
     respostas = b.ler_respostas(cache)
@@ -422,16 +448,25 @@ def resumir(itens, ouro, cache: Path, sha: str) -> None:
         v4 = b.veredictos_por_braco(itens, r4, julg)[b.BRACO_PASSAGENS_V2]
         emenda = b.comparar_instrucao({**veredictos, b.BRACO_PASSAGENS_V2: v4}, r4)
 
+    # O eixo do teste, com o braço da emenda aceita: A‴ − A′ nos 500 do primário.
     prim = None
     itens_t, a2, cache_t = _teste_primario()
-    r3 = b.ler_respostas(cache_t)
-    if len(r3) == len(itens_t):
-        v_t = b.veredictos_por_braco(itens_t, [*a2.values(), *r3], julg)
-        prim = b.nao_piora(v_t, r3)
+    r4t = b.ler_respostas(cache_t)
+    if len(r4t) == len(itens_t):
+        v_t = b.veredictos_por_braco(itens_t, [*a2.values(), *r4t], julg)
+        prim = b.nao_piora(v_t, r4t, ESTRATO_DO_TESTE, b.BRACO_PASSAGENS_V2)
+        prim["tempo_mediana_s"] = {
+            "A2": round(float(np.median([r.segundos for r in a2.values()])), 1),
+            b.BRACO_PASSAGENS_V2: round(float(np.median([r.segundos for r in r4t])), 1),
+            "das_quais_passagens": round(float(np.median(
+                [r.segundos_passagens for r in r4t])), 1),
+            "nota": "relatado; o eixo do tempo é o do corpo 2"}
 
     saida = {
         "regra": "DOC-13 §9.6, escrita antes de os itens do corpo 2 existirem",
         "regra_aceita_pelo_dono": b.REGRA_9_6_ACEITA,
+        "aceite": "2026-10-13, com a emenda: o braço que vai ao teste é A‴ (A4), e um juiz "
+                  "independente confere (regra escrita antes de o teste rodar)",
         "ressalvas": ["perguntas e passagens escolhidas e escritas pelo Claude, sem revisão "
                       "humana; a passagem é a de mais números do artigo",
                       "o autor das perguntas é quem escolheu a regra de seleção, lexical",
@@ -456,8 +491,9 @@ def resumir(itens, ouro, cache: Path, sha: str) -> None:
                        "(SISTEMA_RESPOSTA_V2), escolhida só no desenvolvimento; o corpo 2 já "
                        "tinha sido lido uma vez, com A″, quando este braço rodou",
             "resultado": emenda},
-        "teste_primario": prim if prim else "ainda não rodado (--primario, depois do aceite)",
-        "decisao": b.decidir_passagens(corpo, prim, i3)}
+        "teste_primario": prim if prim else "ainda não rodado (--primario)",
+        "decisao": b.decidir_passagens(corpo, prim, i3,
+                                       candidato=emenda if isinstance(emenda, dict) else None)}
     AGREGADO.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({k: v for k, v in saida.items()
                       if k not in ("ressalvas", "bracos", "sha256_itens", "assinatura")},

@@ -847,6 +847,10 @@ O dono mandou construir e medir a proposta do PLANO §9. **Esta seção é a reg
 Ela é PROPOSTA até o dono aceitar** — e o conjunto de teste não é tocado antes disso
 (`REGRA_9_6_ACEITA`, em `phifm.eval.assistente_bracos`, trava o passo).
 
+> **ACEITA pelo dono em 2026-10-13**, com a emenda escrita mais abaixo: o braço que vai ao
+> teste é A‴ (as passagens com a instrução da §9.7), e um juiz independente confere. O
+> texto da proposta fica como foi escrito.
+
 **O sistema medido (A″).** O de hoje, com um passo a mais depois da busca
 (`phifm.rag.passagens`):
 
@@ -1076,6 +1080,69 @@ passagens ficam como modo opcional (`--passagens`), que é onde estão hoje.
 A instrução não custa acerto no corpo (A‴ − A″ = +0,020 [0,000; 0,050]; 2 ganhos, nenhuma
 perda) e muda o que acontece quando o modelo não acerta: menos resposta errada ou pela
 metade, mais recusa — pelos rótulos do juiz, que nessa divisão valem pouco (I3).
+
+#### O ACEITE (2026-10-13) — a regra vale, com a emenda; o que roda no teste
+
+O dono, com os números acima na mão: **"aceito a regra, opção 1, juiz sim"**. Ou seja: a
+regra desta seção vale como escrita; o braço que vai ao teste é **A‴** (caminho (a) da
+emenda); e um juiz independente confere o resultado (abaixo). `REGRA_9_6_ACEITA` passa a
+`True` no mesmo commit que este texto, **antes** de o teste rodar.
+
+Como A‴ roda no teste — escrito antes de rodar (`medir_passagens.py --primario`):
+
+- **Só o estrato primário**, os 500 itens. Os 150 do pós-corte não entram na regra e não
+  são tocados.
+- A consulta e as 6 fontes de cada item são as de A′, do cache da §9.2. O passo das
+  passagens roda como no produto (a pergunta traduzida, o BM25, até 9 trechos).
+- **Nenhuma resposta de A′ é reaproveitada.** Na proposta original, onde nenhuma passagem
+  fosse anexada o prompt seria o de A′. Com a instrução v2 o prompt muda sempre: os 500
+  itens são respondidos de novo.
+- O juiz é o da §9.1, versão 2, o mesmo que julgou A′. Ele foi conferido às cegas em
+  respostas escritas com a instrução de hoje (§9.1, κ 0,76) e nas do corpo 2 (κ 1,0);
+  respostas da instrução v2 a perguntas do resumo ele nunca teve conferidas — é um dos
+  motivos do juiz independente.
+- O eixo é A‴ − A′, pareado, IC 95%; passa se ficar inteiro acima de −0,03. O tempo no
+  teste é relatado; o eixo do tempo é o do corpo 2 (46,3 s, passa).
+
+Decisão pela regra: **ADOTA** se o eixo passar (ganho e tempo já passaram); senão **fica o
+sistema atual**, e as passagens continuam como modo opcional.
+
+#### O juiz independente — regra escrita antes de o teste rodar (2026-10-13)
+
+O juiz da regra é o Qwen3-8B, o mesmo modelo que escreve as respostas, conferido só pelo
+Claude, que também escreveu as perguntas. No eixo "não piora" a diferença esperada (−0,01
+a −0,03) é do tamanho do erro desse juiz (≈ 3% para cada lado, §9.1), e no ensaio 6 das 7
+perdas foram `certo` → `parcial` por redação. Um segundo modelo corrige as mesmas
+respostas para dizer se o desfecho depende de quem corrige.
+
+- **O modelo:** Mistral Small 3.2 (24B, Instruct 2506), GGUF Q4_K_M
+  (`bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF`, 14,3 GB, Apache-2.0) —
+  três vezes maior, de outra família, nem Qwen nem Claude. llama.cpp `b11159`, o mesmo
+  build da máquina local, com CUDA, numa L4 do Colab. Se ele não rodar lá, a troca de
+  modelo é registrada aqui antes de qualquer veredicto dele ser lido.
+- **O que não muda:** o prompt (`SISTEMA_JUIZ`, v2), a entrada (pergunta, gabarito e a
+  resposta sem as marcas [n]), temperatura 0, a semente e o leitor do veredicto — o código
+  do commit exato. Muda o modelo e o formato de conversa dele.
+- **O que ele julga:** (1) A′ e A‴ nos 500 do teste; (2) A′, A″ e A‴ nos 100 do corpo 2;
+  (3) as 180 respostas que o Claude julgou às cegas e selou antes de o juiz da regra rodar
+  nelas (§9.1 rodada 2: 100; §9.5: 40; §9.6: 40). A rodada 1 da §9.1 fica fora: o prompt
+  foi consertado nela.
+- **Ele vale?** κ de `certo` contra o resto, dele contra os 180 veredictos selados, ≥ 0,6
+  — o mínimo de I3. Abaixo disso a conferência não vale e é relatada assim; o prompt não é
+  ajustado para ele.
+- **Como se lê.** A decisão da regra é a do juiz da regra. Com o juiz independente
+  refaz-se cada eixo que depende de juiz (ganho e "não piora"), com a mesma estatística e
+  os mesmos limiares. Mesmo desfecho nos dois juízes: **robusto**. Desfecho diferente em
+  algum eixo: **FRÁGIL** — escrito ao lado da decisão, e a adoção volta ao dono com os
+  dois números.
+- **Relatado:** o κ entre os dois juízes em todos os textos comuns, e a tabela de onde
+  discordam.
+
+⚠️ **Limites.** Continua sendo um modelo corrigindo outro, e a régua dele são os
+veredictos do Claude. Ele roda depois do teste (precisa das respostas), quando o número do
+juiz da regra já terá sido lido — por isso esta regra entra no git antes. As perguntas,
+os gabaritos e as respostas sobem para o Drive do dono, por decisão dele; não vão ao git.
+`colab/juiz_independente.py`; ~2 h de L4.
 
 ### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
 

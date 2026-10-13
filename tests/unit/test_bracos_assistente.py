@@ -569,6 +569,51 @@ def test_A4_so_troca_a_instrucao_e_recusa_selecao_diferente_da_de_A3(tmp_path):
                                    fontes_de, tmp_path / "outro.jsonl")
 
 
+def test_A4_no_teste_responde_todo_item_mesmo_sem_passagem(tmp_path):
+    """Com outra instrução o prompt muda mesmo sem passagem: nada de A′ é reaproveitado."""
+    assistente, modelo, ids = _assistente(tmp_path, [f"2001.{i:05d}" for i in range(6)])
+    itens = [{"estrato": "primario", "ordem": i, "arxiv_id": ids[i], "pergunta": f"P{i}?"}
+             for i in range(2)]
+    a2 = {("primario", it["arxiv_id"]): b.RespostaDoBraco(
+        "primario", it["ordem"], it["arxiv_id"], b.BRACO_REORDENADO, "resposta de A2 [1].",
+        fontes=ids[:6], posicao_p=1, consulta="hyde", segundos_recuperacao=20.0)
+        for it in itens}
+
+    def fontes_de(lista):
+        return [_fonte(i, a) for i, a in enumerate(lista, start=1)]
+
+    regs = b.rodar_passagens_sobre_a2(
+        assistente, PassoFalso(vazio=True), itens, a2, fontes_de, tmp_path / "a4.jsonl",
+        braco=b.BRACO_PASSAGENS_V2, reaproveitar=False)
+    assert [r.braco for r in regs] == [b.BRACO_PASSAGENS_V2] * 2
+    assert not any(r.igual_a_A for r in regs) and all(r.passagens == [] for r in regs)
+    assert all(r.segundos >= 20.0 and r.segundos_recuperacao == 20.0 for r in regs)
+    assert all(r.consulta_passagens == "the question" for r in regs)
+    assert sum(1 for s, _, _ in modelo.chamadas if s == assistente.sistema) == 2
+
+
+def test_o_eixo_do_teste_e_a_decisao_valem_para_o_braco_da_emenda():
+    v, respostas = _caso_do_primario(perde=10, ganha=6)
+    v4 = {b.BRACO_REORDENADO: v[b.BRACO_REORDENADO], b.BRACO_PASSAGENS_V2: v[b.BRACO_PASSAGENS]}
+    r4 = [b.RespostaDoBraco(r.estrato, r.ordem, r.arxiv_id, b.BRACO_PASSAGENS_V2, r.texto,
+                            passagens=r.passagens) for r in respostas]
+    prim = b.nao_piora(v4, r4, braco=b.BRACO_PASSAGENS_V2)
+    assert prim["braco"] == "A4" and prim["A4_menos_A2"] == -0.008 and prim["passa"] is True
+    assert prim["veredictos"]["A4"]["certo"] == 396 and prim["veredictos"]["A2"]["certo"] == 400
+    assert prim["com_passagem_anexada"] == 400
+
+    # A″ reprova o ganho no corpo; o candidato é A‴, e são os eixos DELE que decidem.
+    corpo = b.resumo_passagens(*_caso_das_passagens(certos_a3=10))
+    assert corpo["ganho_no_corpo"]["passa"] is False
+    passa = {"ganho_no_corpo": {"passa": True}, "tempo": {"passa": True}}
+    d = b.decidir_passagens(corpo, prim, {"passa": True}, candidato=passa)
+    assert (d["candidato"], d["decisao"]) == ("A4", "ADOTA")
+    lento = {"ganho_no_corpo": {"passa": True}, "tempo": {"passa": False}}
+    assert b.decidir_passagens(corpo, prim, {"passa": True}, candidato=lento)["decisao"] \
+        == "FICA O SISTEMA ATUAL"
+    assert b.decidir_passagens(corpo, prim, {"passa": True})["candidato"] == "A3"
+
+
 def test_comparar_instrucao_e_pareada_contra_A2_e_contra_A3():
     v, respostas = _caso_das_passagens(100, certos_a2=3, certos_a3=45)
     ids = sorted(v[b.BRACO_PASSAGENS])
