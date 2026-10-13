@@ -38,6 +38,20 @@ SISTEMA_RESPOSTA = (
     "or [2][4]. Do not cite a source that does not support the claim, and never invent "
     "sources. If the sources do not contain enough information to answer, say so plainly "
     "instead of guessing. Answer clearly and concisely.")
+# CANDIDATA, fora do padrão (DOC-13 §9.7). A instrução acima diz "se as fontes não bastam,
+# diga"; nas 145 respostas do corpo em que elas não bastavam, o modelo afirmou em 74 —
+# quase sempre um valor que ESTÁ nas fontes, de outra grandeza ou de outro artigo. Esta
+# nomeia esse erro. Só passa a valer com medida e aceite, como o ΦRank.
+SISTEMA_RESPOSTA_V2 = (
+    "You are a physics research assistant. Answer the question using ONLY the numbered "
+    "sources below. After each factual claim, cite the source(s) that support it, like [1] "
+    "or [2][4]. Do not cite a source that does not support the claim, and never invent "
+    "sources. First check whether a source states the SPECIFIC thing the question asks for "
+    "— that quantity or fact, for that system and under those conditions. If none does, say "
+    "plainly that the sources do not contain it and stop there: do not offer a related "
+    "quantity, a value from a different system, or a general statement in its place. If the "
+    "sources answer only part of the question, answer that part and say which part they do "
+    "not cover. Answer clearly and concisely.")
 _PORTUGUES = re.compile(r"[ãõçáéíóúâêôà]|\b(que|qual|quais|como|por|porque|são|não|é|um|uma"
                         r"|dos|das|na|no|em)\b", re.IGNORECASE)
 

@@ -44,7 +44,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 sys.path.insert(0, str(RAIZ / "scripts"))
 
 from phifm.core.console import utf8  # noqa: E402
-from phifm.rag.assistente import SISTEMA_RESPOSTA  # noqa: E402
+from phifm.rag.assistente import SISTEMA_RESPOSTA, SISTEMA_RESPOSTA_V2  # noqa: E402
 
 utf8()
 
@@ -54,19 +54,8 @@ TEXTOS = RAIZ / "data/processed/redpajama_fisica"
 INDICE = RAIZ / "data/processed/indice_busca"
 K = 9
 
-# A instrução de hoje diz "se as fontes não bastam, diga". Nas 145 respostas do corpo em
-# que elas não bastavam, o modelo afirmou em 74 — quase sempre um valor que ESTÁ nas
-# fontes, de outra grandeza ou de outro artigo (DOC-13 §9.5). A v2 nomeia esse erro.
-SISTEMA_RESPOSTA_V2 = (
-    "You are a physics research assistant. Answer the question using ONLY the numbered "
-    "sources below. After each factual claim, cite the source(s) that support it, like [1] "
-    "or [2][4]. Do not cite a source that does not support the claim, and never invent "
-    "sources. First check whether a source states the SPECIFIC thing the question asks for "
-    "— that quantity or fact, for that system and under those conditions. If none does, say "
-    "plainly that the sources do not contain it and stop there: do not offer a related "
-    "quantity, a value from a different system, or a general statement in its place. If the "
-    "sources answer only part of the question, answer that part and say which part they do "
-    "not cover. Answer clearly and concisely.")
+# A v2 (em `phifm.rag.assistente`) nomeia o erro que a contagem da §9.5 achou: entregar um
+# valor que está nas fontes, mas é de outra grandeza ou de outro artigo.
 INSTRUCOES = {"v1": SISTEMA_RESPOSTA, "v2": SISTEMA_RESPOSTA_V2}
 
 # O que a resposta FAZ, sem gabarito: as três classes de `contar_abstencoes.py`.

@@ -506,3 +506,78 @@ def test_amostra_i3_da_9_6_troca_os_bracos_e_o_sorteio():
     amostra = b.amostra_i3c(respostas, bracos=(b.BRACO_PASSAGENS, b.BRACO_REORDENADO), salto=6)
     assert sorted({r.braco for r in amostra}) == sorted([b.BRACO_PASSAGENS, b.BRACO_REORDENADO])
     assert len(amostra) == 40 and len({r.arxiv_id for r in amostra}) == 40
+
+
+# ── a emenda da §9.6: A″ com a instrução candidata (A‴) ──────────────────────
+
+
+class PassoQueRepete:
+    """Devolve sempre a mesma seleção — a que o braço A″ gravou, ou outra, se `mudou`."""
+
+    def __init__(self, mudou=False):
+        self.mudou, self.consultas = mudou, []
+
+    def anexar_com_registro(self, pergunta, fontes, consulta=None):
+        from dataclasses import replace
+
+        from phifm.rag.passagens import Escolhido
+
+        self.consultas.append(consulta)
+        esc = [Escolhido(fontes[0].arxiv_id, 9 if self.mudou else 4, "s", "O alvo tem 460 nm.",
+                         10, 1.0)]
+        return ([replace(fontes[0], passagens=("O alvo tem 460 nm.",)), *fontes[1:]], esc,
+                consulta)
+
+
+def test_A4_so_troca_a_instrucao_e_recusa_selecao_diferente_da_de_A3(tmp_path):
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2
+
+    ids = [f"2001.{i:05d}" for i in range(10)]
+    pl.DataFrame({"arxiv_id": ids, "title": [f"Título {a}" for a in ids],
+                  "abstract": [f"Resumo de {a}." for a in ids],
+                  "year": [2020] * 10}).write_parquet(tmp_path / "spine.parquet")
+
+    class ModeloV2(ModeloFalso):
+        def gerar(self, sistema, usuario, **kw):
+            self.chamadas.append((sistema, usuario, kw))
+            return "As fontes não trazem a espessura."
+
+    modelo = ModeloV2()
+    assistente = Assistente(None, modelo, tmp_path / "spine.parquet", k=6, semente=7,
+                            sistema=SISTEMA_RESPOSTA_V2)
+    item = {"estrato": "corpo", "ordem": 0, "arxiv_id": ids[2], "pergunta": "Qual a espessura?"}
+    a3 = {("corpo", ids[2]): b.RespostaDoBraco(
+        "corpo", 0, ids[2], b.BRACO_PASSAGENS, "resposta de A3 [1].", fontes=ids[:6],
+        posicao_p=3, consulta="hyde", segundos=50.0, segundos_recuperacao=30.0,
+        segundos_passagens=2.0, consulta_passagens="what is the thickness",
+        passagens=[[ids[0], 4]])}
+
+    def fontes_de(lista):
+        return [_fonte(i, x) for i, x in enumerate(lista, start=1)]
+
+    passo = PassoQueRepete()
+    (r4,) = b.rodar_instrucao_sobre_a3(assistente, passo, [item], a3, fontes_de,
+                                       tmp_path / "a4.jsonl")
+    assert r4.braco == b.BRACO_PASSAGENS_V2 and r4.passagens == [[ids[0], 4]]
+    assert r4.fontes == ids[:6] and r4.consulta == "hyde"
+    assert passo.consultas == ["what is the thickness"]        # a consulta de A″, sem traduzir
+    sistema, usuario, _ = modelo.chamadas[-1]
+    assert sistema == SISTEMA_RESPOSTA_V2 and "460 nm" in usuario
+    assert r4.segundos >= 32.0 and r4.segundos_passagens == 2.0  # o tempo de A″ até a resposta
+    with pytest.raises(RuntimeError, match="não é a que A″ gravou"):
+        b.rodar_instrucao_sobre_a3(assistente, PassoQueRepete(mudou=True), [item], a3,
+                                   fontes_de, tmp_path / "outro.jsonl")
+
+
+def test_comparar_instrucao_e_pareada_contra_A2_e_contra_A3():
+    v, respostas = _caso_das_passagens(100, certos_a2=3, certos_a3=45)
+    ids = sorted(v[b.BRACO_PASSAGENS])
+    v[b.BRACO_PASSAGENS_V2] = {k: "certo" if 2 <= i < 49 else "absteve"
+                               for i, k in enumerate(ids)}                # 47 certos
+    respostas += [b.RespostaDoBraco("corpo", i, a, b.BRACO_PASSAGENS_V2, "v", segundos=48.0)
+                  for i, (_, a) in enumerate(ids)]
+    r = b.comparar_instrucao(v, respostas)
+    assert r["acerto_A4"]["valor"] == 0.47 and r["ganho_no_corpo"]["A4_menos_A2"] == 0.44
+    assert r["ganho_no_corpo"]["passa"] is True and r["tempo"]["passa"] is True
+    assert (r["A4_menos_A3"]["valor"], r["A4_menos_A3"]["ganha"], r["A4_menos_A3"]["perde"]) \
+        == (0.02, 4, 2)

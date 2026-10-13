@@ -1021,6 +1021,82 @@ o eixo "não piora", que toca o teste — ainda não veio. Rodou o que não depe
    1,3 GB de memória comprometida livre na máquina. Entra nos tempos como está; a mediana
    não se move, o máximo sim (413 s).
 
+#### O ensaio nas perguntas do resumo (desenvolvimento, 2026-10-13) — e a EMENDA proposta
+
+Antes de pedir o teste, o eixo "não piora" foi ensaiado nas 150 perguntas de
+desenvolvimento do primário (`explorar_resposta.py`; mesma consulta e mesmas fontes nos
+três braços, juiz da §9.1):
+
+| nas 150 do resumo (desenvolvimento) | acerto | contra o sistema de hoje |
+|---|---|---|
+| o sistema de hoje | 0,833 [0,773; 0,893] | — |
+| com as passagens (A″) | 0,800 [0,733; 0,860] | **−0,033** [−0,073; +0,007] · ganha 2, perde 7 |
+| com as passagens e a instrução da §9.7 (A‴) | 0,820 [0,760; 0,880] | −0,013 [−0,047; +0,020] · ganha 2, perde 4 |
+
+- **As passagens custam nas perguntas do resumo.** A estimativa (−0,033) já está abaixo
+  da margem de −0,03 da regra: com A″ como definido, o eixo "não piora" provavelmente não
+  passaria no teste.
+- **O que são as 7 perdas**, lidas uma a uma: em 6 o veredicto foi de `certo` para
+  `parcial` — a resposta diz o mesmo núcleo com palavras tiradas das passagens, e perde um
+  termo que o gabarito, escrito do resumo, tem ("resultado de Cardy" virou "a probabilidade
+  de travessia da percolação"). Em 1, o artigo certo não estava entre as fontes e um trecho
+  de OUTRO artigo deu um número diferente — erro de verdade.
+- **A instrução que cobra a coisa específica devolve boa parte**: 6 ganhos e 3 perdas
+  sobre A″, sem mexer no acerto do corpo (0,493 nos dois, §9.7).
+
+**Emenda proposta — escrita antes de o teste ser tocado e antes de A‴ rodar no corpo 2.**
+O sistema que vai ao teste passa a ser **A‴ = A″ com a instrução `SISTEMA_RESPOSTA_V2`**
+(`phifm.rag.assistente`). Os três eixos e os limiares não mudam; o que muda é o braço:
+
+- **ganho**: A‴ − A′ nos mesmos 100 itens do corpo 2. ⚠️ O corpo 2 já foi lido uma vez,
+  com A″. A instrução foi escolhida só no desenvolvimento (corpo 1 e as 150 do resumo),
+  sem olhar nenhum item do corpo 2 — mas o conjunto deixa de ser de primeira leitura, e
+  isso fica dito ao lado do número (`--instrucao-v2`, braço `A4`).
+- **não piora**: A‴ − A′ nos 500 do teste primário.
+- **tempo**: o de A″ até a resposta mais o da resposta de A‴.
+
+O dono escolhe, antes do teste: **(a)** A‴ vai ao teste — é o que eu recomendo; **(b)** A″
+vai, como na proposta original, sabendo do ensaio; **(c)** o teste não é tocado e as
+passagens ficam como modo opcional (`--passagens`), que é onde estão hoje.
+
+### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
+
+O dono pediu, junto com as passagens, o que desse para fazer de "ensinar o assistente a
+dizer não sei". A contagem da §9.5 disse onde está o erro: ele não inventa número — entrega
+um valor que está nas fontes e é de outra grandeza ou de outro artigo. A instrução
+candidata (`SISTEMA_RESPOSTA_V2`) é a de hoje com esse erro nomeado: conferir se uma fonte
+diz a coisa ESPECÍFICA pedida; se nenhuma diz, dizer isso e parar, sem oferecer grandeza
+vizinha, valor de outro sistema ou generalidade; se dizem só uma parte, responder essa
+parte e apontar a que falta.
+
+**O instrumento.** O juiz não separa abstenção de erro. Um classificador à parte (o mesmo
+modelo, sem gabarito, três classes) foi conferido contra as 150 respostas que o Claude
+classificou à mão: `absteve` contra o resto, concordância **0,907**, κ **0,81** — ele é
+mais duro, e chama de "ressalva" 12 das 71 abstenções. ⚠️ O prompt dele foi escrito por
+quem já tinha visto essas 150: o κ é otimista, e o que ele mede aqui é desenvolvimento.
+
+"Afirma errado" = a resposta não é `certo` pelo juiz e não é `absteve` pelo classificador.
+
+| | acerto | afirma errado | …onde o artigo certo não veio |
+|---|---|---|---|
+| **corpo** (150) · hoje | 0,033 | 0,560 | 25 de 56 |
+| corpo · passagens | 0,493 | 0,300 | 24 de 56 |
+| corpo · passagens + instrução | 0,493 | **0,227** | **18 de 56** |
+| **resumo** (150) · hoje | 0,833 | 0,100 | 10 de 26 |
+| resumo · passagens | 0,800 | 0,127 | 10 de 26 |
+| resumo · passagens + instrução | 0,820 | **0,087** | **7 de 26** |
+
+- **As passagens sozinhas não mexem no problema**: onde o artigo certo não veio, o modelo
+  afirma errado na mesma proporção com e sem elas.
+- **A instrução corta cerca de um quarto das afirmações erradas** nos dois conjuntos, sem
+  custar acerto no corpo e devolvendo parte do que as passagens tiram no resumo.
+- **Ela não resolve**: com o artigo errado na mão, o modelo ainda afirma em um terço das
+  vezes. O que pega o resto é conferir o sentido (o *entailment* da §6.2).
+
+Falta a instrução SEM as passagens (as células `*_res_v2`), que é o que valeria se as
+passagens não forem adotadas. Nada disto toca o teste; se a instrução for ao produto, vai
+pela emenda da §9.6 ou por regra própria.
+
 ---
 
 ## 10. Riscos

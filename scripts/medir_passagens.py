@@ -292,6 +292,52 @@ def primario(a) -> None:
           f"{sum(1 for r in respostas if r.igual_a_A)} iguais a A′")
 
 
+# ── a emenda: A″ com a instrução candidata (A‴) ──────────────────────────────────────
+def _cache_v2(sha: str) -> Path:
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2
+
+    return DIR / f"bracos_corpo2_A4_{_sha(assinatura(sha) + SISTEMA_RESPOSTA_V2)[:12]}.jsonl"
+
+
+def instrucao_v2(a, itens, cache: Path, sha: str) -> None:
+    """A‴ no corpo 2: as fontes e as passagens de A″, do cache, com a instrução v2. Só a
+    resposta é nova (~10 s por item); o juiz roda em seguida, no mesmo comando."""
+    from transformers import AutoTokenizer
+
+    from medir_assistente import _modelo_e_assistente
+    from phifm.eval import assistente_bracos as b
+    from phifm.eval.assistente import K_FONTES, SEMENTE
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
+
+    _veredictos_selados()
+    a3 = {(r.estrato, r.arxiv_id): r for r in b.ler_respostas(cache)
+          if r.braco == b.BRACO_PASSAGENS}
+    if len(a3) < len(itens):
+        raise SystemExit("o braço A″ não rodou em todos os itens (--rodar).")
+    with trava("medir_passagens"):
+        fontes_de = _refazer_fontes(a3, a.indice, a.spine)
+        modelo, _ = _modelo_e_assistente(a, com_busca=False)
+        caminho = json.loads((a.indice / "manifesto.json").read_text(encoding="utf-8"))["modelo"]
+        passo = _passo(modelo, AutoTokenizer.from_pretrained(caminho))
+        assistente = Assistente(None, modelo, a.spine, k=K_FONTES, semente=SEMENTE,
+                                sistema=SISTEMA_RESPOSTA_V2)
+        t0, n = time.perf_counter(), [0]
+
+        def ao_terminar(item, reg):
+            n[0] += 1
+            if n[0] % 10 == 0:
+                print(f"[A‴ {n[0]}] {(time.perf_counter() - t0) / n[0]:.1f} s/item", flush=True)
+
+        try:
+            respostas = b.rodar_instrucao_sobre_a3(assistente, passo, itens, a3, fontes_de,
+                                                   _cache_v2(sha), a.limite, ao_terminar)
+            if len(respostas) == len(itens):
+                b.julgar_todas(modelo, itens, respostas, _cache_do_juiz())
+        finally:
+            modelo.parar()
+    print(f"A‴ no corpo 2: {len(respostas)} de {len(itens)} itens")
+
+
 # ── o resumo ─────────────────────────────────────────────────────────────────────────
 def _alcance(itens, ouro, respostas) -> dict:
     """Onde a passagem de onde a pergunta saiu foi ENTREGUE — o que a seleção fez, sem juiz."""
@@ -369,6 +415,13 @@ def resumir(itens, ouro, cache: Path, sha: str) -> None:
                for c in chave]
     i3 = b.apurar_i3([meus[c["id"]] for c in chave], do_juiz)
 
+    # A emenda (§9.6, 2026-10-13): A″ com a instrução candidata, nos mesmos itens.
+    emenda = "não rodado (--instrucao-v2)"
+    r4 = b.ler_respostas(_cache_v2(sha))
+    if len(r4) == len(itens):
+        v4 = b.veredictos_por_braco(itens, r4, julg)[b.BRACO_PASSAGENS_V2]
+        emenda = b.comparar_instrucao({**veredictos, b.BRACO_PASSAGENS_V2: v4}, r4)
+
     prim = None
     itens_t, a2, cache_t = _teste_primario()
     r3 = b.ler_respostas(cache_t)
@@ -398,6 +451,11 @@ def resumir(itens, ouro, cache: Path, sha: str) -> None:
                    "C": "sem fontes"},
         "I3": i3, "corpo_2": corpo, "alcance_da_selecao": _alcance(itens, ouro, respostas),
         "sobreposicao_pergunta_x_passagem": _sobreposicoes(itens, ouro, respostas),
+        "emenda_instrucao_v2": {
+            "o_que_e": "A‴ = as fontes e as passagens de A″, com a instrução candidata "
+                       "(SISTEMA_RESPOSTA_V2), escolhida só no desenvolvimento; o corpo 2 já "
+                       "tinha sido lido uma vez, com A″, quando este braço rodou",
+            "resultado": emenda},
         "teste_primario": prim if prim else "ainda não rodado (--primario, depois do aceite)",
         "decisao": b.decidir_passagens(corpo, prim, i3)}
     AGREGADO.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -414,6 +472,8 @@ def main() -> int:
     p.add_argument("--exportar-i3", action="store_true")
     p.add_argument("--selar-i3", type=Path)
     p.add_argument("--julgar", action="store_true")
+    p.add_argument("--instrucao-v2", action="store_true",
+                   help="a emenda: A″ com a instrução candidata, no corpo 2, e o juiz")
     p.add_argument("--primario", action="store_true")
     p.add_argument("--resumir", action="store_true")
     p.add_argument("--indice", type=Path, default=RAIZ / "data/processed/indice_busca")
@@ -433,6 +493,8 @@ def main() -> int:
         selar_i3(args.selar_i3)
     elif args.julgar:
         julgar(a, itens, cache)
+    elif args.instrucao_v2:
+        instrucao_v2(a, itens, cache, sha)
     elif args.resumir:
         resumir(itens, ouro, cache, sha)
     else:

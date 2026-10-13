@@ -583,6 +583,76 @@ def rodar_passagens_sobre_a2(assistente, passo, itens: list[dict],
     return ler_respostas(cache)
 
 
+BRACO_PASSAGENS_V2 = "A4"         # A″ com a instrução candidata (emenda à §9.6, §9.7)
+
+
+def rodar_instrucao_sobre_a3(assistente, passo, itens: list[dict],
+                             respostas_a3: dict[tuple, RespostaDoBraco], fontes_de,
+                             cache: Path, limite: int | None = None, ao_terminar=None
+                             ) -> list[RespostaDoBraco]:
+    """O braço A‴: as fontes e as passagens de A″, do cache, respondidas por um
+    `assistente` com OUTRA instrução. De A″ para cá só muda a instrução — e por isso a
+    seleção refeita tem de bater, trecho a trecho, com a que A″ gravou. O tempo é o de A″
+    até a resposta (consulta, busca, passagens) mais o desta resposta. Retomável."""
+    feitos = {(r.estrato, r.arxiv_id) for r in ler_respostas(cache)}
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with cache.open("a", encoding="utf-8") as f:
+        for item in itens:
+            chave = (item["estrato"], item["arxiv_id"])
+            if chave in feitos:
+                continue
+            if limite is not None and n >= limite:
+                break
+            r3 = respostas_a3[chave]
+            com, escolhidos, _ = passo.anexar_com_registro(
+                item["pergunta"], fontes_de(r3.fontes), consulta=r3.consulta_passagens)
+            if [[e.arxiv_id, e.posicao] for e in escolhidos] != r3.passagens:
+                raise RuntimeError(f"a seleção de passagens de {item['arxiv_id']} não é a "
+                                   "que A″ gravou: o texto ou a regra mudou.")
+            t0 = time.perf_counter()
+            r = assistente.responder_com(item["pergunta"], com, r3.consulta)
+            dt = time.perf_counter() - t0
+            reg = replace(_registro(item, BRACO_PASSAGENS_V2, r,
+                                    r3.segundos_recuperacao + r3.segundos_passagens + dt),
+                          segundos_recuperacao=r3.segundos_recuperacao,
+                          segundos_passagens=r3.segundos_passagens,
+                          consulta_passagens=r3.consulta_passagens, passagens=r3.passagens)
+            f.write(json.dumps(asdict(reg), ensure_ascii=False) + "\n")
+            f.flush()
+            n += 1
+            if ao_terminar:
+                ao_terminar(item, reg)
+    return ler_respostas(cache)
+
+
+def comparar_instrucao(veredictos: dict[str, dict[tuple, str]],
+                       respostas: list[RespostaDoBraco]) -> dict:
+    """A‴ ao lado de A′ e de A″ nos mesmos itens: o ganho sobre o sistema de hoje, o que a
+    instrução muda sobre A″, e o tempo."""
+    ids = sorted(veredictos[BRACO_PASSAGENS_V2])
+    certo = {b: np.array([veredictos[b][k] == "certo" for k in ids], dtype=float)
+             for b in (BRACO_REORDENADO, BRACO_PASSAGENS, BRACO_PASSAGENS_V2)}
+    v, ic = proporcao(certo[BRACO_PASSAGENS_V2])
+    ganho, ic_g = diferenca_pareada(certo[BRACO_PASSAGENS_V2], certo[BRACO_REORDENADO])
+    dif, ic_d = diferenca_pareada(certo[BRACO_PASSAGENS_V2], certo[BRACO_PASSAGENS])
+    tempo = round(float(np.median([r.segundos for r in respostas
+                                   if r.braco == BRACO_PASSAGENS_V2])), 1)
+    return {"n_itens": len(ids), "acerto_A4": {"valor": v, "ic95": ic},
+            "veredictos_A4": {x: sum(1 for k in ids if veredictos[BRACO_PASSAGENS_V2][k] == x)
+                              for x in (*VEREDICTOS, "ilegivel")},
+            "ganho_no_corpo": {"A4_menos_A2": ganho, "ic95": ic_g,
+                               "limiar": LIMIAR_GANHO_PASSAGENS,
+                               "passa": bool(ic_g[0] > LIMIAR_GANHO_PASSAGENS)},
+            "A4_menos_A3": {"valor": dif, "ic95": ic_d,
+                            "ganha": int((certo[BRACO_PASSAGENS_V2]
+                                          > certo[BRACO_PASSAGENS]).sum()),
+                            "perde": int((certo[BRACO_PASSAGENS_V2]
+                                          < certo[BRACO_PASSAGENS]).sum())},
+            "tempo": {"mediana_A4_s": tempo, "maximo_s": TEMPO_MAX_PASSAGENS_S,
+                      "passa": bool(tempo <= TEMPO_MAX_PASSAGENS_S)}}
+
+
 def resumo_passagens(veredictos: dict[str, dict[tuple, str]], respostas: list[RespostaDoBraco]
                      ) -> dict:
     """O eixo do GANHO da §9.6, nos itens do corpo 2, com as guardas da §9.5."""
