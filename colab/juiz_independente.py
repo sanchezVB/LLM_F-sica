@@ -8,7 +8,7 @@ testável. `scripts/gerar_notebook_colab.py --celulas juiz_independente` monta o
 O juiz da regra, linha por linha — `assistente_bracos.julgar`, do commit exato: o mesmo
 prompt, a mesma entrada, temperatura 0, a mesma semente e o mesmo leitor de veredicto —
 com OUTRO modelo: Mistral Small 3.2 (24B), GGUF Q4_K_M, no `llama-server` do llama.cpp
-`b11159` (o build da máquina local) compilado com CUDA.
+`b11159` (o build da máquina local), no binário oficial para Linux com CUDA.
 
 ## O que sobe e o que desce
 
@@ -19,10 +19,11 @@ não estiver no Drive, e confere o sha256 contra o versionado. Desce um arquivo:
 
 ## ⚠️ ~2,5 h de L4, com a aba aberta
 
-~10 min para compilar o llama.cpp (o binário fica no Drive, e a segunda sessão não
-compila), ~5 min para baixar o modelo (14,3 GB, para o disco da sessão) e ~6 s por texto.
-Os veredictos vão para o Drive um a um: se a sessão cair, rodar tudo de novo continua de
-onde parou. A última célula desliga a sessão sozinha.
+~1 min para baixar o llama.cpp (730 MB, conferidos por sha256; nada é compilado, a não
+ser que o binário oficial não rode na imagem do dia), ~5 min para baixar o modelo (14,3 GB,
+para o disco da sessão) e ~6 s por texto. Os veredictos vão para o Drive um a um: se a
+sessão cair, rodar tudo de novo continua de onde parou. A última célula desliga a sessão
+sozinha.
 """
 from __future__ import annotations
 
@@ -134,34 +135,71 @@ from phifm.eval import juiz_independente as ji
 from phifm.eval.assistente import SEMENTE
 print(f"código em {CODIGO} · SHA {SHA[:7]}")
 
-# ── O llama.cpp, do mesmo build da máquina local, com CUDA ─────────────────
+# ── O llama.cpp: o binário oficial do build da máquina local, com CUDA ─────
 LLAMA = ji.LLAMA_CPP
+DIR_LLAMA = Path("/content/llama")
 FONTE_LLAMA = Path("/content/llama.cpp")
-SERVIDOR = FONTE_LLAMA / "build/bin/llama-server"
-GUARDADO = PASTA / f"llama-server-{LLAMA}-cuda"
+AMBIENTE = dict(os.environ)
 
 
-def servidor_roda() -> bool:
+def localizar(raiz: Path):
+    """O `llama-server` debaixo de `raiz`, com as bibliotecas dele (e as do CUDA, que vêm
+    no segundo arquivo) no caminho de busca. None se não houver."""
+    achados = sorted(p for p in raiz.rglob("llama-server") if p.is_file())
+    if not achados:
+        return None
+    pastas = sorted({str(p.parent) for p in raiz.rglob("*.so*")})
+    AMBIENTE["LD_LIBRARY_PATH"] = ":".join(
+        [*pastas, os.environ.get("LD_LIBRARY_PATH", "")]).strip(":")
+    os.chmod(achados[0], 0o755)
+    return achados[0]
+
+
+def servidor_roda(servidor) -> bool:
+    """O binário executa E enxerga a placa pelo CUDA. Sem as bibliotecas certas ele roda
+    na CPU sem reclamar — por isso a lista de dispositivos, e não só `--version`."""
+    if servidor is None:
+        return False
     try:
-        return subprocess.run([str(SERVIDOR), "--version"], capture_output=True,
-                              timeout=60).returncode == 0
+        r = subprocess.run([str(servidor), "--list-devices"], capture_output=True, text=True,
+                           timeout=120, env=AMBIENTE)
     except (OSError, subprocess.TimeoutExpired):
         return False
+    return r.returncode == 0 and "CUDA" in r.stdout + r.stderr
 
 
-if not servidor_roda() and GUARDADO.exists():
-    SERVIDOR.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(GUARDADO, SERVIDOR)
-    os.chmod(SERVIDOR, 0o755)
-if not servidor_roda():
+SERVIDOR = localizar(DIR_LLAMA) if DIR_LLAMA.exists() else None
+if not servidor_roda(SERVIDOR):
     t0 = time.perf_counter()
-    print(f"compilando o llama.cpp {LLAMA} com CUDA (~10 min)...", flush=True)
+    shutil.rmtree(DIR_LLAMA, ignore_errors=True)
+    DIR_LLAMA.mkdir(parents=True)
+    for nome, esperado in ji.LLAMA_BINARIOS.items():
+        alvo = Path("/content") / nome
+        urllib.request.urlretrieve(
+            f"https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA}/{nome}", alvo)
+        h = hashlib.sha256()
+        with open(alvo, "rb") as f:
+            while bloco := f.read(1 << 24):
+                h.update(bloco)
+        assert h.hexdigest() == esperado, (
+            f"{nome}: sha256 {h.hexdigest()[:16]}… e a release declara {esperado[:16]}….")
+        subprocess.run(["tar", "-xzf", str(alvo), "-C", str(DIR_LLAMA)], check=True)
+        alvo.unlink()
+    SERVIDOR = localizar(DIR_LLAMA)
+    print(f"llama.cpp {LLAMA} baixado e conferido em {time.perf_counter() - t0:.0f} s")
+
+if not servidor_roda(SERVIDOR):
+    # O binário oficial não roda nesta imagem (outra versão do CUDA, outra glibc): compila
+    # o mesmo build aqui. ~10 a 15 min; é o caminho de reserva, e avisa que foi usado.
+    t0 = time.perf_counter()
+    print(f"⚠️ o binário oficial não rodou; compilando o llama.cpp {LLAMA} com CUDA...",
+          flush=True)
     shutil.rmtree(FONTE_LLAMA, ignore_errors=True)
     passos = [
         ["git", "clone", "--quiet", "--depth", "1", "--branch", LLAMA,
          "https://github.com/ggml-org/llama.cpp", str(FONTE_LLAMA)],
         ["cmake", "-S", str(FONTE_LLAMA), "-B", str(FONTE_LLAMA / "build"),
-         "-DGGML_CUDA=ON", "-DBUILD_SHARED_LIBS=OFF", "-DLLAMA_CURL=OFF",
+         "-DGGML_CUDA=ON", "-DBUILD_SHARED_LIBS=OFF", "-DLLAMA_OPENSSL=OFF",
          "-DCMAKE_BUILD_TYPE=Release"],
         ["cmake", "--build", str(FONTE_LLAMA / "build"), "--config", "Release",
          "-j", str(os.cpu_count() or 4), "--target", "llama-server"]]
@@ -173,12 +211,13 @@ if not servidor_roda():
                 print(open("/content/llama_build.log").read()[-4000:])
                 raise AssertionError(f"`{' '.join(passo[:3])} …` saiu com {r.returncode}; "
                                      "o fim do log está acima.")
-    assert servidor_roda(), "o llama-server compilou e não roda"
-    shutil.copy2(SERVIDOR, GUARDADO)
-    print(f"compilado em {(time.perf_counter() - t0) / 60:.1f} min · cópia em {GUARDADO}")
-VERSAO_LLAMA = subprocess.run([str(SERVIDOR), "--version"], capture_output=True,
-                              text=True).stderr.strip() or "?"
-print(f"✅ llama-server {LLAMA} pronto")
+    AMBIENTE = dict(os.environ)
+    SERVIDOR = localizar(FONTE_LLAMA / "build")
+    assert servidor_roda(SERVIDOR), "o llama-server compilou e não roda"
+    print(f"compilado em {(time.perf_counter() - t0) / 60:.1f} min")
+VERSAO_LLAMA = subprocess.run([str(SERVIDOR), "--version"], capture_output=True, text=True,
+                              env=AMBIENTE).stderr.strip() or "?"
+print(f"✅ llama-server {LLAMA} pronto · {VERSAO_LLAMA.splitlines()[0] if VERSAO_LLAMA else ''}")
 '''
 
 MODELO = r'''
@@ -224,7 +263,8 @@ def subir_servidor(espera_s: int = 420) -> None:
     processo = subprocess.Popen(
         [str(SERVIDOR), "-m", str(GGUF), "-ngl", "99", "-c", str(ji.CONTEXTO), "-np", "1",
          "--jinja", "--host", "127.0.0.1", "--port", "8080"],
-        stdout=open(LOG_SERVIDOR, "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        stdout=open(LOG_SERVIDOR, "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+        env=AMBIENTE)
     t = time.time()
     while time.time() - t < espera_s:
         assert processo.poll() is None, (
@@ -239,6 +279,16 @@ def subir_servidor(espera_s: int = 420) -> None:
 
 subir_servidor()
 modelo = ji.ModeloDeConversa(URL)
+
+# O modelo tem de estar NA GPU: sem as bibliotecas do CUDA o servidor sobe na CPU sem
+# reclamar, e 24B na CPU levaria dias.
+usada = int(subprocess.run(["nvidia-smi", "--query-gpu=memory.used",
+                            "--format=csv,noheader,nounits"], capture_output=True,
+                           text=True).stdout.strip().splitlines()[0])
+assert usada >= 12000, (
+    f"só {usada} MiB da GPU em uso: o modelo não foi para a placa. O fim do log:\n"
+    + LOG_SERVIDOR.read_text(errors="replace")[-3000:])
+print(f"✅ modelo na GPU · {usada / 1024:.1f} GB em uso")
 
 # O prompt como o servidor o monta para este modelo — fica na saída, para o registro.
 try:
@@ -255,20 +305,25 @@ print("formato de conversa:", repr(FORMATO))
 # ── Ensaio: três casos que não são do pacote, de veredicto óbvio ───────────
 # Se o juiz erra um destes, o defeito é de montagem (o formato, o modelo), e duas horas
 # de GPU não valem a pena. Não é ajuste de prompt: o prompt é o da regra e não muda.
-ENSAIO = (("A carga do elétron é −1,602 × 10⁻¹⁹ C.", "certo"),
-          ("A carga do elétron é +3,2 × 10⁻¹⁹ C.", "errado"),
-          ("As fontes não trazem o valor da carga do elétron.", "absteve"))
-for resposta, esperado in ENSAIO:
+# Cobra-se o que a regra usa — `certo` contra o resto. Entre `errado` e `absteve` o
+# próprio juiz da regra troca (deu `errado` no terceiro caso), e isso não muda número.
+ENSAIO = (("A carga do elétron é −1,602 × 10⁻¹⁹ C.", True),
+          ("A carga do elétron é +3,2 × 10⁻¹⁹ C.", False),
+          ("As fontes não trazem o valor da carga do elétron.", False))
+for resposta, e_certo in ENSAIO:
     t = time.perf_counter()
     bruto = modelo.gerar(b.SISTEMA_JUIZ,
                          "Question: Qual é a carga do elétron?\n"
                          f"Gabarito: −1,602 × 10⁻¹⁹ C.\nAnswer:\n{resposta}",
                          max_tokens=260, temperatura=0.0, semente=SEMENTE)
     veredicto, _ = b.ler_veredicto(bruto)
-    print(f"  {esperado:<8} → {veredicto:<8} {time.perf_counter() - t:4.1f} s · {bruto[:160]!r}")
-    assert "{" in bruto and veredicto == esperado, (
-        f"o ensaio esperava `{esperado}` e veio `{veredicto}`: confira o formato acima. "
-        "Nada foi julgado.")
+    print(f"  {'certo' if e_certo else 'não certo':<9} → {veredicto:<8} "
+          f"{time.perf_counter() - t:4.1f} s · {bruto[:160]!r}")
+    assert "{" in bruto and veredicto in b.VEREDICTOS, (
+        f"o juiz não devolveu um veredicto legível: {bruto[:300]!r}. Nada foi julgado.")
+    assert (veredicto == "certo") == e_certo, (
+        f"o ensaio esperava {'certo' if e_certo else 'outro que não certo'} e veio "
+        f"`{veredicto}`: confira o formato acima. Nada foi julgado.")
 print("✅ ensaio de 3 casos: formato e leitor funcionam")
 '''
 

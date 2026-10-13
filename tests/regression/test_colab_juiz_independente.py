@@ -66,6 +66,22 @@ def test_o_modelo_e_o_fixado_antes_do_teste_e_e_conferido():
     assert "Qwen" not in ji.MODELO_REPO and "Qwen" not in ji.MODELO_ARQUIVO
 
 
+def test_o_llama_cpp_e_o_binario_oficial_do_build_local_e_o_modelo_vai_para_a_GPU():
+    # o servidor e as bibliotecas do CUDA, do mesmo build, com o sha256 da release
+    assert len(ji.LLAMA_BINARIOS) == 2
+    assert all(ji.LLAMA_CPP in nome and "cuda" in nome and len(sha) == 64
+               for nome, sha in ji.LLAMA_BINARIOS.items())
+    assert "for nome, esperado in ji.LLAMA_BINARIOS.items()" in cel.SETUP
+    assert "h.hexdigest() == esperado" in cel.SETUP
+    assert "releases/download/{LLAMA}/{nome}" in cel.SETUP
+    # o binário baixado vem antes de compilar, e o servidor sobe com as bibliotecas dele
+    assert cel.SETUP.index("ji.LLAMA_BINARIOS") < cel.SETUP.index('"-DGGML_CUDA=ON"')
+    assert "env=AMBIENTE)" in cel.MODELO
+    # sem CUDA o servidor sobe na CPU calado: cobra-se a lista de dispositivos e a memória
+    assert '"--list-devices"' in cel.SETUP and '"CUDA" in r.stdout + r.stderr' in cel.SETUP
+    assert "usada >= 12000" in cel.MODELO
+
+
 def test_o_pacote_e_conferido_e_o_notebook_nao_imprime_acerto():
     assert 'sha_pacote != HASHES["pacote_juiz2.json"]' in cel.SETUP
     assert "HASHES = __HASHES__" in cel.SETUP
@@ -77,7 +93,9 @@ def test_ABORTA_sem_L4_RETOMA_e_o_ensaio_vem_antes_de_julgar():
     assert cel.GPU == "L4" and "int(MEM_GPU) >= 20000" in cel.SETUP
     assert "len(ji.ler(SAIDA))" in cel.JULGAR and "subir_servidor()" in cel.JULGAR
     assert cel.CELULAS.index(cel.MODELO) < cel.CELULAS.index(cel.JULGAR)
-    assert "veredicto == esperado" in cel.MODELO and "Nada foi julgado" in cel.MODELO
+    # o ensaio cobra o que a regra usa: `certo` contra o resto, e um veredicto legível
+    assert '(veredicto == "certo") == e_certo' in cel.MODELO
+    assert "veredicto in b.VEREDICTOS" in cel.MODELO and "Nada foi julgado" in cel.MODELO
 
 
 def test_a_regra_esta_escrita_ANTES_e_diz_como_se_le():

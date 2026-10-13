@@ -33,6 +33,14 @@ MODELO_REVISAO = "b3592d09be469bedab6be51f577824b3b6b76ba1"
 MODELO_BYTES = 14_333_915_264
 MODELO_SHA256 = "80f5bda68f156f12650ca03a0a2dbfae06a215ac41caa773b8631a479f82415e"
 LLAMA_CPP = "b11159"              # o mesmo build do `llama-server` local
+# Os binários oficiais desse build para Linux com CUDA 12 (o servidor e as bibliotecas do
+# CUDA), com o sha256 que a release declara: no Colab nada é compilado.
+LLAMA_BINARIOS = {
+    "llama-b11159-bin-ubuntu-cuda-12.8-x64.tar.gz":
+        "5840b0f87ec10400d7eea2f36138a45ddd9bdd6a794eb81d20a7f150d09c66bd",
+    "cudart-llama-b11159-bin-ubuntu-cuda-12.8-x64.tar.gz":
+        "f79ae034d707096f825be4b512366253950d3fa4895921a8c2577d4271ff8a18",
+}
 CONTEXTO = 8192
 
 
