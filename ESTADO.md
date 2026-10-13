@@ -321,6 +321,15 @@ desenvolvimento do resumo ela dá 0,820 (−0,013 [−0,047; +0,020]); no corpo 
 **O dono escolhe:** A‴ vai ao teste (recomendado) · A″ vai, como estava · o teste não é
 tocado e as passagens ficam opcionais.
 
+✅ **O dono ACEITOU a regra em 2026-10-13: "aceito a regra, opção 1, juiz sim".** A‴ vai
+aos 500 do teste primário (`REGRA_9_6_ACEITA = True`, commit `e1bb21b`, antes de rodar), e
+um **juiz independente** confere — Mistral Small 3.2 (24B), no Colab, com o mesmo prompt e
+o mesmo leitor do juiz da regra. A regra dele está no DOC-13 §9.6, no git antes do teste:
+vale com κ ≥ 0,6 contra os 180 veredictos que o Claude selou; a decisão continua a do juiz
+da regra; desfecho diferente em algum eixo = FRÁGIL, e a adoção volta ao dono.
+`scripts/conferencia_do_juiz.py` (empacota e apura) e `colab/juiz_independente.py`.
+⏳ **O teste está rodando** (`medir_passagens.py --primario`, ~3 h, retomável).
+
 **Como foi construído (o dono mandou seguir com o item 1 do PLANO §9).**
 `phifm.rag.passagens`: depois da busca, o texto completo das 6 fontes é cortado e os 9
 melhores trechos para a PERGUNTA entram no prompt, debaixo do resumo do artigo. Desligado

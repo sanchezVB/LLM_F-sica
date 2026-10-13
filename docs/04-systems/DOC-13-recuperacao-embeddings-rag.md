@@ -1142,7 +1142,8 @@ respostas para dizer se o desfecho depende de quem corrige.
 veredictos do Claude. Ele roda depois do teste (precisa das respostas), quando o número do
 juiz da regra já terá sido lido — por isso esta regra entra no git antes. As perguntas,
 os gabaritos e as respostas sobem para o Drive do dono, por decisão dele; não vão ao git.
-`colab/juiz_independente.py`; ~2 h de L4.
+`colab/juiz_independente.py` (as células) e `scripts/conferencia_do_juiz.py` (empacota e
+apura); ~2,5 h de L4.
 
 ### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
 
