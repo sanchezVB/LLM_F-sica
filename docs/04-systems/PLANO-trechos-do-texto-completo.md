@@ -285,9 +285,21 @@ O dono mandou seguir com a primeira linha da tabela da §9. Feito:
 
 | decisão | o que é | minha recomendação |
 |---|---|---|
-| **Aceitar a regra da §9.6** | três eixos para ADOTAR: ganho no corpo 2 (IC inteiro > 0,15), não piorar o teste primário (IC inteiro > −0,03) e tempo (≤ 60 s). O segundo eixo toca o conjunto de teste, uma vez | **Sim.** Os limiares podem ser endurecidos antes do aceite, como na §9.2 |
-| **A cópia do texto completo** | ~12 GB no HD, ~20 min, derivada e apagável. Sem ela cada artigo lido custa 3,9 s, e são até 6 por pergunta | **Sim** — a medida do tempo só vale com ela |
-| O custo de GPU | ~5 h locais, retomáveis: ~2 h 40 no corpo 2 e ~2 h 20 no teste primário | maior que as ~3 h que eu tinha previsto na §9: o eixo "não piora" não estava na conta |
+| **Aceitar a regra da §9.6** | três eixos para ADOTAR: ganho no corpo 2 (IC inteiro > 0,15), não piorar o teste primário (IC inteiro > −0,03) e tempo (≤ 60 s). O segundo eixo toca o conjunto de teste, uma vez | **Sim.** Os limiares podem ser endurecidos antes do aceite, como na §9.2 · ⏳ **sem resposta ainda** |
+| **A cópia do texto completo** | ~12 GB no HD, ~20 min, derivada e apagável. Sem ela cada artigo lido custa 3,9 s, e são até 6 por pergunta | ✅ **autorizada em 2026-10-12** e feita: 12,7 GB, 6 min, 24 ms por artigo |
+| O custo de GPU | ~5 h locais, retomáveis: ~2 h 40 no corpo 2 e ~2 h 20 no teste primário | ✅ **aceito em 2026-10-12** |
 
 A instrução que cobra o "não sei" (item 2 do dono) é medida à parte e não entra nesta
 regra: se valer a pena, terá a sua.
+
+### O que a medida disse no corpo 2 (2026-10-12)
+
+Nas 100 perguntas novas: **0 de 100 para o assistente de hoje, 50 de 100 com as passagens**
+(+0,500 [0,400; 0,600]), em 46,5 s por pergunta. Dois dos três eixos passam; guardas e juiz
+válidos. O teto continua longe — 99 de 100 com a passagem dada —, e o que o separa dos 50 é
+sobretudo a busca do artigo (30 perguntas sem ele entre as fontes).
+
+**Falta o terceiro eixo**, nas 500 perguntas do teste, e ele só roda com o aceite da regra.
+Sem ele não há como dizer se o passo pode ser ligado para todo mundo: a maioria das
+perguntas medidas até hoje se responde pelo resumo, e é nelas que o prompt maior pode
+atrapalhar.

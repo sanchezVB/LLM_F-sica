@@ -971,6 +971,56 @@ consulta hipotética e as 6 fontes de A′ do cache da §9.5 e só as passagens 
 ⚠️ Estas são as perguntas em que a regra foi escolhida. O número que vale é o do corpo 2 —
 100 perguntas escritas depois (`avaliacao/assistente_itens_corpo2.json`, `a1810e1`).
 
+#### RESULTADO no corpo 2 (2026-10-12): dois eixos PASSAM; o terceiro espera o aceite da regra
+
+O dono autorizou a cópia do texto completo e o custo de GPU; o aceite da regra — e com ele
+o eixo "não piora", que toca o teste — ainda não veio. Rodou o que não depende dele
+(`avaliacao/assistente_passagens.json`).
+
+| braço | acerto | IC 95% | certo · parcial · errado · absteve |
+|---|---|---|---|
+| **A′** · o sistema de hoje | **0,000** | 0 de 100 | 0 · 14 · 61 · 25 |
+| **A″** · com as passagens | **0,500** | [0,400; 0,600] | 50 · 15 · 30 · 5 |
+| **Bp** · passagem garantida | 0,990 | [0,970; 1,000] | 99 · 1 · 0 · 0 |
+| **C** · sem fontes | 0,010 | [0,000; 0,030] | 1 · 15 · 69 · 15 |
+
+| eixo | medida | passa se | desfecho |
+|---|---|---|---|
+| **ganho** | A″ − A′ = **+0,500** [0,400; 0,600] · 50 ganhos, 0 perdas | IC inteiro > 0,15 | **PASSA** |
+| **tempo** | mediana de A″ **46,5 s** (A′ 42,1 s; o passo sozinho, 2,5 s) | ≤ 60 s | **PASSA** |
+| **não piora** | A″ − A′ nos 500 do teste primário | IC inteiro > −0,03 | **não rodado** — espera o aceite |
+
+| guarda | medida | vale? |
+|---|---|---|
+| I2c · não se responde de memória | C = 0,010 < Bp − 0,10 = 0,890 | ✅ |
+| fora do resumo | onde A′ teve o resumo de P: 0 de 70 ≤ 0,20 | ✅ |
+| I3 · o juiz | 40 respostas às cegas, seladas antes (`c3b37b1`): `certo` contra o resto, **40 de 40**, κ 1,00 | ✅ |
+
+- **O ganho do desenvolvimento se repetiu em perguntas novas**: 0,493 lá, 0,500 aqui.
+- **A conta fecha pelas mesmas duas frações.** O artigo certo chegou às fontes em 70 das
+  100; a passagem de ouro foi entregue em 58 dessas 70 (0,83, o mesmo do desenvolvimento);
+  onde o artigo veio, A″ acerta 0,70 — e onde não veio, 1 de 30.
+- **Metade do teto.** Com a passagem dada de graça o modelo acerta 99 de 100; com ela
+  procurada, 50. O que falta está quase todo na busca do ARTIGO (30 perguntas), não na
+  escolha da passagem (12) nem no gerador.
+- **As perguntas novas não foram escritas a favor da regra**: a fração das palavras da
+  pergunta em inglês presentes na passagem é 0,573, contra 0,578 no corpo 1, escrito antes
+  de a regra existir.
+- **O passo custa 2,5 s** (mediana; 4 s a mais de ponta a ponta, com o prompt maior).
+
+⚠️ O que este resultado não diz:
+
+1. **Nada sobre as perguntas do resumo**, que são a maioria do uso medido até aqui. É o
+   eixo que falta, e sem ele a decisão é PENDENTE.
+2. **O juiz continua sem separar abstenção de erro**: das 15 respostas que o julgamento às
+   cegas deu como abstenção, chamou 7 de `errado` e 2 de `parcial` (κ de quatro categorias
+   0,66). `certo` contra o resto vale; a divisão dos "30 errados" de A″, não.
+3. As ressalvas do estrato, as mesmas: perguntas e passagens do Claude, sem revisão humana;
+   passagem de mais números; P sempre com texto completo (52% do índice).
+4. **Uma ocorrência de operação:** a 44ª pergunta levou 397 s na busca, com a GPU parada e
+   1,3 GB de memória comprometida livre na máquina. Entra nos tempos como está; a mediana
+   não se move, o máximo sim (413 s).
+
 ---
 
 ## 10. Riscos

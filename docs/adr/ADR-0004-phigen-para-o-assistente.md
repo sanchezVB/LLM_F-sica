@@ -102,6 +102,10 @@ Para o assistente, a ordem do investimento fica:
     do artigo, com a passagem (LaTeX cru) entre as fontes — acerto **0,940** [0,900; 0,973].
     Não reabre, com o limite inferior encostado no limiar. Perguntas que exijam RACIOCÍNIO
     sobre o texto, ou juntar vários artigos, continuam sem medida.
+  - *Medido de novo em 2026-10-12 (DOC-13 §9.6), em 100 perguntas NOVAS do mesmo tipo:*
+    com a passagem entre as fontes, **0,990** [0,970; 1,000] — longe do limiar. E com a
+    passagem PROCURADA no texto das fontes (o passo das passagens sob demanda), 0,500
+    contra 0,000 do sistema de hoje: o que separa 0,50 de 0,99 é a busca, não o gerador.
 - A busca fechar a lacuna: com A perto de B, o que sobra é do gerador, e a conta do
   §3 muda de lado.
 

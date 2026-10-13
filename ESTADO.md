@@ -300,10 +300,21 @@ seriam ~87 M de trechos, ~67 GB e ~52 h de GPU; só introdução e conclusão, ~
 e ~3,5 h. Recomendação: um piloto de ~2 h antes de construir, e um estrato de perguntas
 tiradas do corpo do artigo — as 650 de hoje vêm do resumo e não enxergam o benefício.
 
-**PASSAGENS SOB DEMANDA — construídas e no desenvolvimento (2026-10-12, DOC-13 §9.6; o dono
-mandou seguir com o item 1 do PLANO §9).** `phifm.rag.passagens`: depois da busca, o texto
-completo das 6 fontes é cortado e os 9 melhores trechos para a PERGUNTA entram no prompt,
-debaixo do resumo do artigo. Desligado por padrão — o produto não mudou.
+**PASSAGENS SOB DEMANDA — MEDIDAS em 100 perguntas novas (2026-10-12, DOC-13 §9.6): o
+assistente de hoje acerta 0 de 100; com as passagens, 50 — +0,500 [0,400; 0,600].** Dois
+eixos da regra PASSAM (ganho > 0,15; tempo 46,5 s ≤ 60 s). ⚠️ **A decisão é PENDENTE: falta
+o eixo "não piora" nas 500 perguntas do teste, que espera o dono aceitar a regra**
+(`REGRA_9_6_ACEITA = False`). Guardas válidas (C 0,010; A′ com o resumo de P, 0 de 70); o
+juiz concordou com o julgamento às cegas em 40 de 40. Com a passagem dada de graça o modelo
+acerta 99 de 100: o que falta é a busca do ARTIGO (30 das 100 sem ele entre as fontes) e,
+menos, a escolha da passagem (12 de 70). O dono autorizou a cópia do texto completo
+(`data/processed/textos_por_artigo/`, 12,7 GB no HD: ler um artigo foi de 3,9 s a 24 ms) e
+o custo de GPU.
+
+**Como foi construído (o dono mandou seguir com o item 1 do PLANO §9).**
+`phifm.rag.passagens`: depois da busca, o texto completo das 6 fontes é cortado e os 9
+melhores trechos para a PERGUNTA entram no prompt, debaixo do resumo do artigo. Desligado
+por padrão — o produto não mudou; `--passagens` liga, no `perguntar.py` e na página.
 
 - **A regra de seleção é lexical**: BM25 com a pergunta traduzida para inglês pelo modelo.
   A passagem de ouro fica entre os 12 primeiros de ~340 trechos em **0,85** das perguntas;
@@ -318,8 +329,11 @@ debaixo do resumo do artigo. Desligado por padrão — o produto não mudou.
   (`REGRA_9_6_ACEITA = False`). Custo: ~5 h de GPU local.
 - **O corpo 2 existe:** 100 perguntas novas (`assistente_itens_corpo2.json`), ordens 297 a
   474, 169 passagens lidas, fechadas depois de a regra estar no git.
-- ⚠️ O passo pede uma **cópia do texto completo em grupos pequenos** (~12 GB no HD,
-  `scripts/indexar_textos.py`): hoje ler UM artigo custa 3,9 s. Derivada, apagável.
+- **A cópia do texto completo em grupos pequenos existe** (`scripts/indexar_textos.py`,
+  6 min, 828.601 artigos). Derivada, fora do git, apagável.
+- ⚠️ **A máquina tem 16 GB**: `llama-server` e outra rodada pesada em paralelo travam as
+  duas (aconteceu duas vezes em 2026-10-12). Rodadas pesadas vão em fila;
+  `medir_passagens.py` segura uma trava do sistema contra rodada em dobro.
 
 **Quando as fontes não trazem a resposta, o assistente afirma em 51% das vezes
 (2026-10-12, item 2 do dono).** As 150 respostas de A′ lidas pelo Claude sem veredicto nem

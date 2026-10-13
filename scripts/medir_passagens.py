@@ -383,7 +383,13 @@ def resumir(itens, ouro, cache: Path, sha: str) -> None:
                       "humana; a passagem é a de mais números do artigo",
                       "o autor das perguntas é quem escolheu a regra de seleção, lexical",
                       "só entram artigos com texto completo como P: o ganho vale para os 52% "
-                      "do índice que o têm"],
+                      "do índice que o têm",
+                      "o juiz não separa abstenção de erro neste estrato: vale `certo` contra "
+                      "o resto (I3), não a divisão errado × absteve"],
+        "ocorrencias": [
+            "2026-10-12: o 44º item (1507.02461) levou 397 s na busca, com a GPU parada e "
+            "1,3 GB de memória comprometida livre na máquina; os tempos entram como foram "
+            "medidos — a mediana não se move, o máximo (413 s) sim."],
         "sha256_itens": sha, "assinatura": assinatura(sha),
         "bracos": {b.BRACO_REORDENADO: "o sistema de hoje (ΦRank nos 50, 6 fontes com o resumo)",
                    b.BRACO_PASSAGENS: "o mesmo, com os trechos do texto completo das fontes "
