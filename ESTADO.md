@@ -338,8 +338,11 @@ está onde o passo funcionou: com um trecho do artigo certo anexado (250 itens),
 sem trecho dele, −0,013; com o artigo certo fora das fontes, zero. 15 das 26 perdas são
 `certo` → `parcial`, 9 são `certo` → `errado`. Agregado em
 `avaliacao/assistente_passagens.json`; tabelas no DOC-13 §9.6.
-⏳ **Falta a conferência do juiz independente** (Colab, ~2,5 h de L4, do dono): pela regra
-ela não muda a decisão — desfecho diferente a marca como FRÁGIL e devolve a adoção ao dono.
+✅ **O juiz independente CONFIRMA (2026-10-14): ROBUSTO.** Mistral Small 3.2 (24B), no Colab:
+vale (κ 0,914 contra os 180 veredictos selados do Claude) e dá o mesmo desfecho nos dois
+eixos — ganho +0,530 passa; "não piora" −0,024 [−0,052; +0,004] não passa. Entre os dois
+juízes, κ 0,886 em 1.300 textos. **A decisão está fechada: fica o sistema atual;
+`--passagens` segue opcional.** Agregado em `avaliacao/assistente_juiz_independente.json`.
 
 **Como foi construído (o dono mandou seguir com o item 1 do PLANO §9).**
 `phifm.rag.passagens`: depois da busca, o texto completo das 6 fontes é cortado e os 9

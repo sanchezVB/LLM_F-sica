@@ -335,10 +335,13 @@ opcional (`--passagens`). A perda nas perguntas do resumo aparece justamente ond
 do artigo certo entra no prompt (−0,048 em 250 perguntas): o modo que responde o corpo do
 artigo desvia a resposta do que o resumo diz. Detalhe no DOC-13 §9.6.
 
+**O juiz independente confirmou (2026-10-14): robusto.** Um modelo de outra família, três
+vezes maior, corrigiu as mesmas respostas e chegou ao mesmo desfecho: ganho no corpo
++0,530, perda no resumo −0,024 [−0,052; +0,004]. A perda não é implicância do corretor.
+
 O que isto deixa em aberto, para o dono:
 
 | caminho | custo | o que resolveria |
 |---|---|---|
-| Conferência do juiz independente (já decidida) | ~2,5 h de L4 no Colab | Diz se a perda de 2,8 pontos depende de quem corrige. Não muda a decisão da regra; se ele discordar, o resultado fica marcado como frágil e a adoção volta ao dono |
 | Deixar como está | 0 | O assistente responde pelo resumo; quem precisa do corpo liga `--passagens` sabendo do preço |
 | Ligar as passagens só quando a pergunta pede o corpo | um classificador de pergunta, ou um botão na página; medida nova, com regra nova | Colher o ganho do corpo sem pagar no resumo. É hipótese: nada disso foi medido |

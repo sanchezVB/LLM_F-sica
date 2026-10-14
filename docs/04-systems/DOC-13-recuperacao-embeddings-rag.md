@@ -1196,6 +1196,37 @@ contagem abaixo, descritiva, feita depois do resultado):
 corrige, é o juiz independente que diz — e pela regra dele isso não muda a decisão: um
 desfecho diferente a marca como FRÁGIL e devolve a adoção ao dono.
 
+#### A conferência do juiz independente (2026-10-13/14): ROBUSTO
+
+Mistral Small 3.2 (24B, Q4_K_M), llama.cpp b11159 (o binário oficial com CUDA), numa L4
+do Colab: 1.379 textos em ~1 h 40, mediana de 4,1 s, nenhum ilegível. O servidor montou o
+formato de conversa do próprio modelo (`[SYSTEM_PROMPT]…[/SYSTEM_PROMPT][INST]…[/INST]`).
+Os veredictos (sha256 `becfa5cf…`) voltaram do Drive e foram conferidos contra o resumo da
+rodada antes de qualquer conta. A primeira sessão não julgou nada: o servidor não subiu na
+porta 8080, que é do Colab (corrigido em `caefb20`, o commit que rodou).
+
+**Ele vale:** κ de `certo` contra o resto, contra os 180 veredictos selados do Claude,
+**0,914** (concordância 0,961; mínimo 0,6) — 0,777 nos 100 da §9.1, 0,950 nos 40 da §9.5,
+1,000 nos 40 da §9.6. Como o juiz da regra, ele chama de `errado` boa parte do que o Claude
+marcou `absteve` (11 de 28) — a divisão que não conta.
+
+| eixo | juiz da regra (Qwen3-8B) | juiz independente (Mistral 24B) | mesmo desfecho? |
+|---|---|---|---|
+| ganho no corpo 2 | +0,520 [0,420; 0,620] · passa | +0,530 [0,430; 0,630] · passa | sim |
+| **não piora (teste)** | A′ 0,806 → A‴ 0,778 · **−0,028 [−0,052; −0,004]** · não passa | A′ 0,790 → A‴ 0,766 · **−0,024 [−0,052; +0,004]** · não passa | **sim** |
+
+**Leitura pela regra: ROBUSTO.** A decisão — fica o sistema atual — não depende de quem
+corrige. O que muda com o outro juiz é só o lado de cima do intervalo: para ele a perda
+pode ser zero (+0,004); para os dois ela pode chegar a 5,2 pontos, e é isso que a margem
+de −0,03 não aceita. Ele vê mais trocas nos dois sentidos (19 ganhos e 31 perdas, contra
+12 e 26) e a mesma direção.
+
+Entre os dois juízes, nos 1.300 textos do teste e do corpo 2: κ de `certo` contra o resto
+**0,886** (0,828 só no teste); 38 textos só o da regra deu `certo`, 26 só o independente.
+
+Agregado: `avaliacao/assistente_juiz_independente.json`; a rodada, em
+`avaliacao/juiz_independente_rodada.json`.
+
 ### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
 
 O dono pediu, junto com as passagens, o que desse para fazer de "ensinar o assistente a
