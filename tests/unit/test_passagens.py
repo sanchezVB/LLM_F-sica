@@ -181,3 +181,33 @@ def test_o_assistente_so_usa_passagens_quando_recebe_o_passo(tmp_path):
     # o fluxo da página entrega as fontes já com as passagens
     eventos = dict(com.responder_em_fluxo("qual a temperatura do substrato?"))
     assert eventos["fontes"][1][1].passagens and eventos["fim"].fontes[1].passagens
+
+
+def test_a_pagina_escolhe_pergunta_a_pergunta_e_com_passagens_a_instrucao_e_a_v2(tmp_path):
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2
+
+    pl.DataFrame({"arxiv_id": ["0704.0001", "x1", "x2"], "title": ["t0", "t1", "t2"],
+                  "abstract": ["r0", "r1", "r2"], "year": [2007, 2020, 2021]}
+                 ).write_parquet(tmp_path / "spine.parquet")
+    textos = {"x2": [_t("the substrate temperature was 650 K during growth")]}
+    modelo = ModeloFalso()
+    a = Assistente(BuscaFalsa(), modelo, tmp_path / "spine.parquet", k=2, semente=7,
+                   passagens=p.Passagens(modelo, textos.get, semente=7),
+                   sistema_com_passagens=SISTEMA_RESPOSTA_V2)
+    # desmarcado: o sistema de sempre, sem tradução, sem trechos, com a instrução de hoje
+    r = a.responder("qual a temperatura do substrato?", com_passagens=False)
+    assert all(f.passagens == () for f in r.fontes)
+    assert [s for s, _, _ in modelo.chamadas if s != SISTEMA_HYDE] == [SISTEMA_RESPOSTA]
+    # marcado: os trechos E a instrução v2 — a dupla medida (A‴)
+    modelo.chamadas.clear()
+    r = a.responder("qual a temperatura do substrato?", com_passagens=True)
+    assert r.fontes[1].passagens
+    assert [s for s, _, _ in modelo.chamadas if s != SISTEMA_HYDE] == [
+        p.SISTEMA_TRADUCAO, SISTEMA_RESPOSTA_V2]
+    # o fluxo da página segue a mesma escolha
+    modelo.chamadas.clear()
+    eventos = dict(a.responder_em_fluxo("qual a temperatura do substrato?", com_passagens=False))
+    assert not any(f.passagens for f in eventos["fim"].fontes)
+    assert not any(s == p.SISTEMA_TRADUCAO for s, _, _ in modelo.chamadas)
+    # sem dizer nada, o comportamento de antes: usa se tiver (perguntar.py --passagens)
+    assert a.responder("qual a temperatura do substrato?").fontes[1].passagens

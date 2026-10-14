@@ -41,9 +41,10 @@ def main() -> int:
     p.add_argument("--sem-reordenar", action="store_true",
                    help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
-    p.add_argument("--passagens", action="store_true",
-                   help="EM MEDIÇÃO (DOC-13 §9.6), fora do padrão: o assistente lê também "
-                        "trechos do texto completo das fontes; pede scripts/indexar_textos.py")
+    p.add_argument("--sem-passagens", action="store_true",
+                   help="tira da página a opção de ler o texto completo das fontes (que vem "
+                        "desmarcada: DOC-13 §9.6 — ganha no corpo do artigo, perde um pouco no "
+                        "resumo); sem a cópia de scripts/indexar_textos.py ela já não aparece")
     p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
@@ -56,7 +57,7 @@ def main() -> int:
     busca = Busca(a.indice, dispositivo=a.dispositivo or ("cpu" if a.assistente else "auto"))
     assistente = modelo = None
     if a.assistente:
-        from phifm.rag.assistente import Assistente
+        from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
         from phifm.rag.llm import ModeloLocal, ModeloSobDemanda
 
         modelo = ModeloSobDemanda(ModeloLocal(), log=RAIZ / "data/processed/llama_server.log",
@@ -65,12 +66,14 @@ def main() -> int:
 
         reordenador = None if a.sem_reordenar else carregar_ou_avisar()
         passagens = None
-        if a.passagens:
+        if not a.sem_passagens:
             from phifm.rag import passagens as ps
 
             passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+        # Com o texto completo marcado, a resposta é a da dupla medida (A‴: passagens e a
+        # instrução v2); desmarcado, é o sistema de sempre, byte a byte.
         assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador,
-                                passagens=passagens)
+                                passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2)
     servidor = criar_servidor(busca, porta=a.porta, assistente=assistente,
                               ocioso_min=a.ocioso_min)
     url = f"http://127.0.0.1:{servidor.server_address[1]}"
@@ -79,6 +82,8 @@ def main() -> int:
     if a.assistente:
         print(f"assistente ligado: o modelo sobe na primeira pergunta e sai da GPU depois "
               f"de {a.ocioso_min} min sem uso")
+        print("texto completo: " + ("opção na página, desmarcada por padrão"
+                                    if assistente.passagens is not None else "indisponível"))
     print(f"no ar em {url}  (Ctrl+C encerra)")
     if not a.sem_navegador:
         webbrowser.open(url)

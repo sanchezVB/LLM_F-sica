@@ -61,13 +61,14 @@ def main() -> int:
     p.add_argument("--mostrar-consulta", action="store_true",
                    help="imprime o resumo hipotético que foi à busca")
     p.add_argument("--passagens", action="store_true",
-                   help="EM MEDIÇÃO (DOC-13 §9.6), fora do padrão: anexa às fontes os trechos "
-                        "do texto completo escolhidos para a pergunta; pede a cópia de "
-                        "scripts/indexar_textos.py")
+                   help="OPCIONAL (DOC-13 §9.6: ganha no corpo do artigo, perde um pouco no "
+                        "resumo — não é o padrão): anexa às fontes os trechos do texto "
+                        "completo escolhidos para a pergunta, com a instrução v2; pede a "
+                        "cópia de scripts/indexar_textos.py")
     p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
     a = p.parse_args()
 
-    from phifm.rag.assistente import Assistente
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
     from phifm.rag.llm import ModeloLocal
     from phifm.retrieval.indice import Busca
 
@@ -85,8 +86,9 @@ def main() -> int:
         from phifm.rag import passagens as ps
 
         passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+    # Com --passagens, a dupla medida (A‴): os trechos e a instrução v2.
     assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador,
-                            passagens=passagens)
+                            passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2)
     print(f"pronto em {time.perf_counter() - t0:.1f} s · "
           f"{busca.vetores.shape[0]:,} artigos no índice")
     try:

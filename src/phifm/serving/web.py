@@ -7,9 +7,12 @@ dependência sem ganho para um usuário local. O índice carrega uma vez e fica 
 
 - `GET /` — a página: aba de busca e, com assistente, aba de pergunta;
 - `GET /api/buscar?q=…&k=…` — os artigos mais próximos;
-- `GET /api/estado` — se há assistente e se o modelo está carregado;
-- `POST /api/perguntar` (JSON `{"pergunta": …}`) — a resposta com fontes, citações
-  conferidas pelo portão e as frases sem fonte. Só existe com assistente.
+- `GET /api/estado` — se há assistente, se o modelo está carregado e se o texto completo
+  está disponível;
+- `POST /api/perguntar` (JSON `{"pergunta": …, "passagens": false}`) — a resposta com
+  fontes, citações conferidas pelo portão e as frases sem fonte. Só existe com assistente.
+  `"passagens": true` lê também o texto completo das fontes (opcional, pergunta a
+  pergunta: DOC-13 §9.6 mediu que ganha no corpo do artigo e perde um pouco no resumo).
 
 ## Segurança — local não quer dizer que só você chama
 
@@ -102,6 +105,10 @@ PAGINA = r"""<!doctype html>
   .aviso { border-left: 3px solid var(--alerta); padding: 8px 12px; margin: 12px 0;
            font-size: .92rem; background: var(--cartao); border-radius: 0 8px 8px 0; }
   .aviso ul { margin: 6px 0 0; padding-left: 18px; }
+  .opcao { padding: 2px 0 0; }
+  .opcao label { cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .opcao input { width: 16px; height: 16px; margin: 0; accent-color: var(--destaque); }
+  .opcao .dica { margin: 2px 0 0 24px; max-width: 62ch; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -132,6 +139,12 @@ PAGINA = r"""<!doctype html>
       <div class="linha">
         <button class="acao" id="bp" type="submit">Perguntar</button>
         <span class="dica" id="dica-modelo"></span>
+      </div>
+      <div class="opcao" id="op-passagens" __PASSAGENS__>
+        <label><input type="checkbox" id="cp"><span>Ler também o <b>texto completo</b> dos artigos</span></label>
+        <div class="dica">Para detalhes que o resumo não traz — método, números, condições
+          do experimento. Nas perguntas que o resumo já responde, acerta um pouco menos.
+          Só vale para os artigos com texto completo disponível (cerca de metade).</div>
       </div>
     </form>
     <div class="aviso">O assistente responde só com os artigos que a busca achou, e cita
@@ -226,8 +239,15 @@ function mostrarFinal(d) {
     nelas sem conferir:<ul>${d.frases_sem_fonte.map(f => "<li>" + esc(f) + "</li>").join("")}</ul></div>`;
   $("rp").innerHTML = html + htmlFontes(d.fontes, true);
   formulas($("rp"));
-  $("estado-p").textContent = "Respondida em " + d.segundos.toFixed(0) + " s";
+  $("estado-p").textContent = "Respondida em " + d.segundos.toFixed(0) + " s" +
+    (d.com_passagens ? " · com o texto completo" : "");
 }
+// ── o texto completo: opcional, pergunta a pergunta; a escolha fica neste navegador ──
+function comTextoCompleto() { return !$("op-passagens").hidden && $("cp").checked; }
+try { $("cp").checked = localStorage.getItem("texto-completo") === "1"; } catch (e) {}
+$("cp").addEventListener("change", () => {
+  try { localStorage.setItem("texto-completo", $("cp").checked ? "1" : "0"); } catch (e) {}
+});
 $("fp").addEventListener("submit", async (e) => {
   e.preventDefault();
   const pergunta = $("qp").value.trim();
@@ -239,7 +259,8 @@ $("fp").addEventListener("submit", async (e) => {
     fase + " " + Math.round((performance.now() - t0) / 1000) + " s"; }, 500);
   try {
     const resp = await fetch("/api/perguntar", {method: "POST",
-      headers: {"Content-Type": "application/json"}, body: JSON.stringify({pergunta, fluxo: true})});
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({pergunta, fluxo: true, passagens: comTextoCompleto()})});
     if (!resp.ok) { const d = await resp.json(); throw new Error(d.erro || resp.status); }
     const leitor = resp.body.getReader(), dec = new TextDecoder();
     let resto = "", caixa = null, terminou = false;
@@ -300,11 +321,12 @@ def _fonte_json(f, citadas: list[int]) -> dict:
             "escore": None if math.isnan(f.escore) else round(f.escore, 4)}
 
 
-def _resposta_json(r, segundos: float) -> dict:
+def _resposta_json(r, segundos: float, com_passagens: bool = False) -> dict:
     return {"pergunta": r.pergunta, "texto": r.texto, "consulta": r.consulta,
             "fontes": [_fonte_json(f, r.citadas) for f in r.fontes],
             "citadas": r.citadas, "removidas": r.removidas,
-            "frases_sem_fonte": r.frases_sem_fonte, "segundos": round(segundos, 1)}
+            "frases_sem_fonte": r.frases_sem_fonte, "segundos": round(segundos, 1),
+            "com_passagens": com_passagens}
 
 
 def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente=None,
@@ -315,10 +337,14 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
     `responder(pergunta)` e `busca`); sem ele, a página é só a busca, como antes.
     """
     trava_busca, trava_pergunta = threading.Lock(), threading.Lock()
+    # O texto completo é OPCIONAL e por pergunta (DOC-13 §9.6: ganha no corpo do artigo,
+    # perde um pouco no resumo — não virou padrão). Só aparece se o assistente o tiver.
+    passagens = getattr(assistente, "passagens", None) is not None
     # As abas vêm no HTML, e não depois de `/api/estado`: com o modelo desligado, essa rota
     # espera a recusa da porta dele (~2 s no Windows), e a aba aparecia atrasada.
     pagina = (PAGINA.replace("__N__", f"{busca.vetores.shape[0]:,}".replace(",", "."))
-              .replace("__ABAS__", "" if assistente is not None else "hidden"))
+              .replace("__ABAS__", "" if assistente is not None else "hidden")
+              .replace("__PASSAGENS__", "" if passagens else "hidden"))
     if assistente is not None:
         assistente.busca = _BuscaTravada(assistente.busca, trava_busca)
 
@@ -355,7 +381,7 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                 self._json(HTTPStatus.OK, {
                     "assistente": assistente is not None,
                     "modelo_no_ar": bool(modelo is not None and modelo.no_ar()),
-                    "ocioso_min": ocioso_min})
+                    "ocioso_min": ocioso_min, "passagens": passagens})
                 return
             if url.path != "/api/buscar":
                 self._json(HTTPStatus.NOT_FOUND, {"erro": "rota desconhecida"})
@@ -410,6 +436,7 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                 corpo = json.loads(bruto)
                 pergunta = str(corpo.get("pergunta", "")).strip()
                 fluxo = bool(corpo.get("fluxo", False))
+                pediu_passagens = corpo.get("passagens", False) is True
             except (json.JSONDecodeError, AttributeError, UnicodeDecodeError):
                 self._json(HTTPStatus.BAD_REQUEST, {"erro": "JSON inválido"})
                 return
@@ -417,19 +444,23 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                 self._json(HTTPStatus.BAD_REQUEST,
                            {"erro": f"pergunta vazia ou com mais de {MAX_PERGUNTA} caracteres"})
                 return
+            # Com o texto completo carregado, a escolha vai SEMPRE explícita: sem ela, o
+            # assistente usaria as passagens em toda pergunta — e o padrão é não usar.
+            com = pediu_passagens and passagens
+            modo = {"com_passagens": com} if passagens else {}
             if fluxo and hasattr(assistente, "responder_em_fluxo"):
-                self._responder_em_fluxo(pergunta)
+                self._responder_em_fluxo(pergunta, modo, com)
                 return
             t0 = time.perf_counter()
             try:
                 with trava_pergunta:
-                    r = assistente.responder(pergunta)
+                    r = assistente.responder(pergunta, **modo)
             except SystemExit as e:  # o cliente do modelo sinaliza servidor travado assim
                 self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"erro": str(e)})
                 return
-            self._json(HTTPStatus.OK, _resposta_json(r, time.perf_counter() - t0))
+            self._json(HTTPStatus.OK, _resposta_json(r, time.perf_counter() - t0, com))
 
-        def _responder_em_fluxo(self, pergunta: str) -> None:
+        def _responder_em_fluxo(self, pergunta: str, modo: dict, com: bool) -> None:
             """Uma linha JSON por evento (NDJSON), escrita assim que o evento sai. Sem
             `Content-Length`: o corpo termina quando a conexão fecha (HTTP/1.0). Se o
             navegador desconectar no meio, o gerador é FECHADO — ele segura a trava do
@@ -445,7 +476,7 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
 
             t0 = time.perf_counter()
             with trava_pergunta:
-                eventos = assistente.responder_em_fluxo(pergunta)
+                eventos = assistente.responder_em_fluxo(pergunta, **modo)
                 try:
                     for tipo, dado in eventos:
                         if tipo == "fontes":
@@ -456,7 +487,7 @@ def criar_servidor(busca, porta: int = 8765, host: str = "127.0.0.1", assistente
                             enviar({"tipo": "pedaco", "texto": dado})
                         else:
                             enviar({"tipo": "fim", **_resposta_json(
-                                dado, time.perf_counter() - t0)})
+                                dado, time.perf_counter() - t0, com)})
                 except SystemExit as e:
                     enviar({"tipo": "erro", "erro": str(e)})
                 except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):

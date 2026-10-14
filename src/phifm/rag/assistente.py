@@ -171,13 +171,18 @@ def bloco_de_fontes(fontes: list[Fonte]) -> str:
 
 class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
-                 reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA):
+                 reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA,
+                 sistema_com_passagens: str | None = None):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
         self.passagens = passagens
         # A instrução da resposta. Trocá-la é trocar o sistema medido: só as explorações
         # passam outra (`scripts/explorar_abstencao.py`).
         self.sistema = sistema
+        # A instrução de quando as passagens estão ligadas. None: a mesma de sempre (é o
+        # que as medidas usam). O modo opcional do produto passa a v2, porque o que se
+        # mediu como candidato foi a dupla (A‴, DOC-13 §9.6), e não as passagens sozinhas.
+        self.sistema_com_passagens = sistema_com_passagens
         self._spine = pl.scan_parquet(spine)
         # O primeiro acesso ao parquet lê do HD frio (~16 s medidos); aquecer aqui tira
         # esse custo da primeira pergunta.
@@ -231,24 +236,35 @@ class Assistente:
         return (f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}\n\n"
                 f"{instrucao_de_idioma(pergunta)}")
 
-    def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "") -> Resposta:
+    def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "",
+                      sistema: str | None = None) -> Resposta:
         """O passo 3 e o portão, com as fontes dadas — vindas da busca ou trocadas."""
-        bruto = self.modelo.gerar(self.sistema, self._usuario(pergunta, fontes),
+        bruto = self.modelo.gerar(sistema or self.sistema, self._usuario(pergunta, fontes),
                                   semente=self.semente)
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
 
-    def fontes_para(self, pergunta: str, consulta: str) -> list[Fonte]:
-        """As fontes de uma pergunta: a busca e, se houver `passagens`, os trechos do texto
-        completo dos artigos encontrados."""
+    def _modo(self, com_passagens: bool | None) -> tuple[bool, str]:
+        """`(usa as passagens?, a instrução)`. `com_passagens=None` é o comportamento de
+        sempre: usa se houver. A página pede explicitamente, pergunta a pergunta."""
+        usa = self.passagens is not None and (com_passagens is None or com_passagens)
+        return usa, (self.sistema_com_passagens or self.sistema) if usa else self.sistema
+
+    def fontes_para(self, pergunta: str, consulta: str,
+                    com_passagens: bool | None = None) -> list[Fonte]:
+        """As fontes de uma pergunta: a busca e, se as passagens estiverem ligadas, os
+        trechos do texto completo dos artigos encontrados."""
         fontes = self.recuperar(consulta)
-        return self.passagens.anexar(pergunta, fontes) if self.passagens else fontes
+        usa, _ = self._modo(com_passagens)
+        return self.passagens.anexar(pergunta, fontes) if usa else fontes
 
-    def responder(self, pergunta: str) -> Resposta:
+    def responder(self, pergunta: str, com_passagens: bool | None = None) -> Resposta:
         consulta = self.consulta_hipotetica(pergunta)
-        return self.responder_com(pergunta, self.fontes_para(pergunta, consulta), consulta)
+        _, sistema = self._modo(com_passagens)
+        return self.responder_com(pergunta, self.fontes_para(pergunta, consulta, com_passagens),
+                                  consulta, sistema)
 
-    def responder_em_fluxo(self, pergunta: str):
+    def responder_em_fluxo(self, pergunta: str, com_passagens: bool | None = None):
         """A mesma resposta, em eventos para uma tela que mostra o texto enquanto ele é
         escrito: `("fontes", (consulta, fontes))` depois da busca, `("pedaco", texto)` a
         cada pedaço, e `("fim", Resposta)` com o texto que PASSOU pelo portão.
@@ -257,10 +273,11 @@ class Assistente:
         escrita, e só o `fim` a tira. Quem mostra os pedaços tem de trocar o texto pelo do
         `fim` — a página faz isso."""
         consulta = self.consulta_hipotetica(pergunta)
-        fontes = self.fontes_para(pergunta, consulta)
+        _, sistema = self._modo(com_passagens)
+        fontes = self.fontes_para(pergunta, consulta, com_passagens)
         yield "fontes", (consulta, fontes)
         partes = []
-        for pedaco in self.modelo.gerar_em_fluxo(self.sistema,
+        for pedaco in self.modelo.gerar_em_fluxo(sistema,
                                                  self._usuario(pergunta, fontes),
                                                  semente=self.semente):
             partes.append(pedaco)
