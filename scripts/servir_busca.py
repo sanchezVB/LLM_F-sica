@@ -46,10 +46,11 @@ def main() -> int:
                         "desmarcada: DOC-13 §9.6 — ganha no corpo do artigo, perde um pouco no "
                         "resumo); sem a cópia de scripts/indexar_textos.py ela já não aparece")
     p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
-    p.add_argument("--busca-lexical", action="store_true",
-                   help="EM MEDIÇÃO (DOC-13 §9.9), fora do padrão: o assistente funde a busca "
-                        "densa com o BM25 da pergunta em inglês; pede "
-                        "scripts/explorar_busca_lexical.py --indexar")
+    p.add_argument("--sem-busca-lexical", action="store_true",
+                   help="desliga a fusão da busca densa com o BM25 da pergunta em inglês "
+                        "(adotada em 2026-10-15, DOC-13 §9.9: +6,4 pontos de acerto, ~+2 s); "
+                        "sem o índice de scripts/explorar_busca_lexical.py --indexar, ela já "
+                        "fica desligada, com aviso")
     p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
@@ -76,7 +77,7 @@ def main() -> int:
 
             passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
         lexica = None
-        if a.busca_lexical:
+        if not a.sem_busca_lexical:
             from phifm.retrieval.lexical import carregar_ou_avisar as carregar_lexica
 
             lexica = carregar_lexica(a.lexico, busca.docs["arxiv_id"].to_list())
@@ -95,6 +96,8 @@ def main() -> int:
               f"de {a.ocioso_min} min sem uso")
         print("texto completo: " + ("opção na página, desmarcada por padrão"
                                     if assistente.passagens is not None else "indisponível"))
+        print("busca: " + ("fundida com o BM25 (DOC-13 §9.9)" if assistente.lexica is not None
+                           else "só o encoder"))
     print(f"no ar em {url}  (Ctrl+C encerra)")
     if not a.sem_navegador:
         webbrowser.open(url)

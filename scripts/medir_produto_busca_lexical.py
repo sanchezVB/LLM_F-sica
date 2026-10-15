@@ -29,8 +29,48 @@ utf8()
 AGREGADO = RAIZ / "data/processed/avaliacao/assistente_busca_lexical_produto.json"
 
 
-def memoria() -> dict:
-    """Memória livre da máquina e a deste processo (Windows), em GB."""
+class _Contadores:
+    """`PROCESS_MEMORY_COUNTERS` do Windows, montado na primeira chamada."""
+
+    tipo = None
+
+    @classmethod
+    def ler(cls, pid: int | None = None) -> dict:
+        import ctypes
+        from ctypes import wintypes
+
+        if cls.tipo is None:
+            class C(ctypes.Structure):
+                _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                            ("PeakWorkingSetSize", ctypes.c_size_t),
+                            ("WorkingSetSize", ctypes.c_size_t),
+                            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                            ("PagefileUsage", ctypes.c_size_t),
+                            ("PeakPagefileUsage", ctypes.c_size_t)]
+            cls.tipo = C
+            cls.k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            cls.psapi = ctypes.WinDLL("psapi", use_last_error=True)
+            cls.k32.GetCurrentProcess.restype = wintypes.HANDLE
+            cls.k32.OpenProcess.restype = wintypes.HANDLE
+            cls.k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            cls.psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(C),
+                                                       wintypes.DWORD]
+        c = cls.tipo()
+        c.cb = ctypes.sizeof(c)
+        h = (cls.k32.GetCurrentProcess() if pid is None
+             else cls.k32.OpenProcess(0x1000 | 0x0010, False, pid))   # consulta + leitura
+        if not h or not cls.psapi.GetProcessMemoryInfo(h, ctypes.byref(c), c.cb):
+            return {"ws_gb": None, "privado_gb": None, "faltas": None}
+        if pid is not None:
+            cls.k32.CloseHandle(h)
+        return {"ws_gb": round(c.WorkingSetSize / 2**30, 2),
+                "privado_gb": round(c.PagefileUsage / 2**30, 2), "faltas": int(c.PageFaultCount)}
+
+
+def livre_gb() -> float:
     import ctypes
     from ctypes import wintypes
 
@@ -43,26 +83,10 @@ def memoria() -> dict:
                     ("ullAvailVirtual", ctypes.c_ulonglong),
                     ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
 
-    class Contadores(ctypes.Structure):
-        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
-                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
-                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
-
     e = Estado()
     e.dwLength = ctypes.sizeof(e)
     ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(e))
-    c = Contadores()
-    c.cb = ctypes.sizeof(c)
-    ctypes.windll.psapi.GetProcessMemoryInfo(ctypes.windll.kernel32.GetCurrentProcess(),
-                                             ctypes.byref(c), c.cb)
-    return {"livre_gb": round(e.ullAvailPhys / 2**30, 2),
-            "processo_ws_gb": round(c.WorkingSetSize / 2**30, 2),
-            "processo_privado_gb": round(c.PagefileUsage / 2**30, 2),
-            "faltas_de_pagina": int(c.PageFaultCount)}
+    return round(e.ullAvailPhys / 2**30, 2)
 
 
 def main() -> int:
@@ -96,20 +120,43 @@ def main() -> int:
              "sistema_com_passagens": SISTEMA_RESPOSTA_V2}
     sem = Assistente(busca, modelo, e.SPINE, **comum)
     com = Assistente(busca, modelo, e.SPINE, lexica=lexica, **comum)
-    inicio = memoria()
+    pid_llama = modelo._processo.pid if modelo._processo is not None else None
+
+    def foto() -> dict:
+        return {"livre_gb": livre_gb(), "python": _Contadores.ler(),
+                "llama": _Contadores.ler(pid_llama) if pid_llama else None}
+
+    inicio = foto()
     print(f"carregado em {time.perf_counter() - t0:.0f} s · {inicio}", flush=True)
     linhas = []
+
+    def faltas(m1, m0, quem):
+        a, b = (m1[quem] or {}).get("faltas"), (m0[quem] or {}).get("faltas")
+        return None if a is None or b is None else a - b
+
     try:
         for n, (conjunto, pergunta) in enumerate(perguntas, start=1):
-            for rotulo, ass in (("sem", sem), ("com", com)) if n % 2 else (("com", com), ("sem", sem)):
-                m0, t = memoria(), time.perf_counter()
-                ass.responder(pergunta, com_passagens=False)
-                m1 = memoria()
-                linhas.append({"conjunto": conjunto, "busca": rotulo,
-                               "segundos": round(time.perf_counter() - t, 1),
-                               "livre_gb": m1["livre_gb"], "ws_gb": m1["processo_ws_gb"],
-                               "faltas": m1["faltas_de_pagina"] - m0["faltas_de_pagina"]})
-                print(f"[{n}/{len(perguntas)}] {rotulo}: {linhas[-1]}", flush=True)
+            ordem = (("sem", sem), ("com", com)) if n % 2 else (("com", com), ("sem", sem))
+            for rotulo, ass in ordem:
+                m0, t = foto(), time.perf_counter()
+                consulta = ass.consulta_hipotetica(pergunta)
+                t_hyde = time.perf_counter()
+                ingles = ass.em_ingles(pergunta) if ass.lexica is not None else None
+                t_trad = time.perf_counter()
+                fontes = ass.recuperar(consulta, ingles)
+                t_busca = time.perf_counter()
+                ass.responder_com(pergunta, fontes, consulta)
+                t_fim = time.perf_counter()
+                m1 = foto()
+                linhas.append({
+                    "n": n, "conjunto": conjunto, "busca": rotulo,
+                    "segundos": round(t_fim - t, 1), "hyde_s": round(t_hyde - t, 1),
+                    "traducao_s": round(t_trad - t_hyde, 1), "busca_s": round(t_busca - t_trad, 1),
+                    "resposta_s": round(t_fim - t_busca, 1), "livre_gb": m1["livre_gb"],
+                    "python_ws_gb": m1["python"]["ws_gb"],
+                    "faltas_python": faltas(m1, m0, "python"),
+                    "faltas_llama": faltas(m1, m0, "llama")})
+                print(f"[{n}/{len(perguntas)}] {linhas[-1]}", flush=True)
     finally:
         modelo.parar()
     resumo = {"o_que_e": "o produto como a página, na máquina do dono: índice denso e ΦRank "
@@ -118,10 +165,14 @@ def main() -> int:
               "inicio": inicio, "perguntas": len(perguntas)}
     for rotulo in ("sem", "com"):
         xs = [x for x in linhas if x["busca"] == rotulo]
-        resumo[rotulo] = {"mediana_s": round(float(np.median([x["segundos"] for x in xs])), 1),
-                          "maximo_s": max(x["segundos"] for x in xs),
-                          "livre_min_gb": min(x["livre_gb"] for x in xs),
-                          "faltas_de_pagina_mediana": int(np.median([x["faltas"] for x in xs]))}
+        resumo[rotulo] = {k: round(float(np.median([x[k] for x in xs])), 1)
+                          for k in ("segundos", "hyde_s", "traducao_s", "busca_s", "resposta_s")}
+        resumo[rotulo].update({
+            "maximo_s": max(x["segundos"] for x in xs),
+            "livre_min_gb": min(x["livre_gb"] for x in xs),
+            "faltas_python_mediana": int(np.median([x["faltas_python"] or 0 for x in xs])),
+            "faltas_llama_mediana": int(np.median([x["faltas_llama"] or 0 for x in xs]))})
+    resumo["por_pergunta"] = linhas
     AGREGADO.write_text(json.dumps(resumo, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(resumo, ensure_ascii=False, indent=1))
     return 0

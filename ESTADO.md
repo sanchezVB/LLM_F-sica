@@ -348,6 +348,11 @@ Nos 500 do teste primário: acerto **0,806 → 0,870, +0,064 [+0,034; +0,094]**,
 0,4 ponto), e as perguntas favorecem a busca por palavra. **Condição declarada antes do
 resultado:** vira padrão depois de o produto rodar nesta máquina sem paginar (índice
 lexical lido do disco sob demanda), com o tempo medido de novo.
+✅ **Padrão desde 2026-10-15** (`--sem-busca-lexical` desliga): o índice lexical, lido do
+disco sob demanda, ocupa 0,06 GB e não muda o tempo (76,1 s sem, 77,6 s com, nas mesmas 20
+perguntas). ⚠️ **Problema à parte, para o dono: o produto pagina nesta máquina com ou sem
+ela** — ~76 s por pergunta, milhões de faltas de página, memória livre a 0,6 GB. A busca
+densa na CPU ocupa 2,8 GB e o llama-server ~6 GB (DOC-13 §9.9).
 
 🟢 **Item 2 do dono — a busca LEXICAL do artigo, no desenvolvimento (2026-10-14, DOC-13
 §9.8, exploratório):** BM25 sobre título + resumo (910 MB, 2 min para construir), fundido

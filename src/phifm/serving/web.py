@@ -235,6 +235,9 @@ function mostrarFinal(d) {
   let html = `<div class="resposta">${comCitacoes(d.texto, d.fontes.length)}</div>`;
   if (d.removidas.length) html += `<div class="aviso">O portão removeu citações a fontes
     que não existiam: ${d.removidas.map(k => "[" + k + "]").join(", ")}.</div>`;
+  if (d.com_passagens && !d.fontes.some(f => (f.passagens || []).length)) html += `<div
+    class="aviso">Nenhuma das fontes tem o texto completo guardado (só cerca de metade dos
+    artigos do índice tem): esta resposta saiu só dos resumos.</div>`;
   if (d.frases_sem_fonte.length) html += `<div class="aviso">Frases sem citação — não confie
     nelas sem conferir:<ul>${d.frases_sem_fonte.map(f => "<li>" + esc(f) + "</li>").join("")}</ul></div>`;
   $("rp").innerHTML = html + htmlFontes(d.fontes, true);

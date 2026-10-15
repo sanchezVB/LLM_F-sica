@@ -66,10 +66,11 @@ def main() -> int:
                         "completo escolhidos para a pergunta, com a instrução v2; pede a "
                         "cópia de scripts/indexar_textos.py")
     p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
-    p.add_argument("--busca-lexical", action="store_true",
-                   help="EM MEDIÇÃO (DOC-13 §9.9), fora do padrão: funde a busca densa com o "
-                        "BM25 da pergunta em inglês sobre título + resumo; pede "
-                        "scripts/explorar_busca_lexical.py --indexar")
+    p.add_argument("--sem-busca-lexical", action="store_true",
+                   help="desliga a fusão da busca densa com o BM25 da pergunta em inglês "
+                        "(adotada em 2026-10-15, DOC-13 §9.9: +6,4 pontos de acerto, ~+2 s); "
+                        "sem o índice de scripts/explorar_busca_lexical.py --indexar, ela já "
+                        "fica desligada, com aviso")
     p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
     a = p.parse_args()
 
@@ -92,7 +93,7 @@ def main() -> int:
 
         passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
     lexica = None
-    if a.busca_lexical:
+    if not a.sem_busca_lexical:
         from phifm.retrieval.lexical import carregar_ou_avisar as carregar_lexica
 
         lexica = carregar_lexica(a.lexico, busca.docs["arxiv_id"].to_list())

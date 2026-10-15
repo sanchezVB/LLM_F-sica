@@ -1448,6 +1448,44 @@ mesma.
    máquina do dono sem paginar, com o índice lexical lido do disco sob demanda, e o tempo
    medido de novo nessa configuração.
 
+#### A condição, medida (2026-10-15) — e o padrão muda
+
+O índice lexical passou a ser lido do disco sob demanda (três `.npy` com `mmap`; escores
+idênticos aos do `.npz`). O produto foi montado como a página — índice denso e ΦRank na
+CPU, texto completo carregado, modelo na GPU — e respondeu 20 perguntas do desenvolvimento
+(10 do corpo 1, 10 do primário dev) com e sem a busca fundida, alternando a ordem, na mesma
+sessão (`scripts/medir_produto_busca_lexical.py`,
+`avaliacao/assistente_busca_lexical_produto.json`).
+
+| memória privada, cada peça carregada sozinha | GB |
+|---|---|
+| busca densa na CPU (vetores, tabela de documentos, encoder) | 2,83 |
+| ΦRank na CPU | 0,39 |
+| texto completo (índice) | 0,17 |
+| **índice lexical (sob demanda)** | **0,06** |
+
+| mediana por pergunta | sem a busca fundida | com ela |
+|---|---|---|
+| **de ponta a ponta** | **76,1 s** | **77,6 s** |
+| consulta hipotética | 4,4 s | 4,6 s |
+| tradução | — | 1,6 s |
+| busca + ΦRank | 41,0 s | 27,9 s |
+| resposta | 28,6 s | 34,8 s |
+
+- **A busca fundida não pesa nem atrasa**: +0,06 GB, e o tempo de ponta a ponta é o mesmo
+  nas mesmas perguntas.
+- ⚠️ **Mas o produto pagina nesta máquina com ou sem ela.** Cada pergunta custou ~2,8
+  milhões de faltas de página ao processo do assistente e ~1 a 1,5 milhão ao llama-server;
+  a busca + ΦRank, que leva ~13 s sem pressão de memória (§9.9), levou 28–41 s, e a
+  resposta, ~10 s em condições normais, levou 29–35 s. A memória livre desceu a 0,6 GB. As
+  medidas formais rodaram de madrugada, com a máquina livre; esta, com o resto da sessão
+  aberto. A condição, ao pé da letra, não se cumpre — e não por causa da busca fundida.
+
+**Decisão:** a condição existia para que o índice lexical não fizesse a máquina paginar, e
+ele não faz. **O padrão muda** em `perguntar.py` e na página (`--sem-busca-lexical`
+desliga). A paginação do produto é um problema à parte, anterior a esta seção, e fica
+registrada para o dono.
+
 ---
 
 ## 10. Riscos
