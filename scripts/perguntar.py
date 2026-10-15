@@ -66,6 +66,11 @@ def main() -> int:
                         "completo escolhidos para a pergunta, com a instrução v2; pede a "
                         "cópia de scripts/indexar_textos.py")
     p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
+    p.add_argument("--busca-lexical", action="store_true",
+                   help="EM MEDIÇÃO (DOC-13 §9.9), fora do padrão: funde a busca densa com o "
+                        "BM25 da pergunta em inglês sobre título + resumo; pede "
+                        "scripts/explorar_busca_lexical.py --indexar")
+    p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
     a = p.parse_args()
 
     from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
@@ -86,9 +91,15 @@ def main() -> int:
         from phifm.rag import passagens as ps
 
         passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+    lexica = None
+    if a.busca_lexical:
+        from phifm.retrieval.lexical import carregar_ou_avisar as carregar_lexica
+
+        lexica = carregar_lexica(a.lexico, busca.docs["arxiv_id"].to_list())
     # Com --passagens, a dupla medida (A‴): os trechos e a instrução v2.
     assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador,
-                            passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2)
+                            passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2,
+                            lexica=lexica)
     print(f"pronto em {time.perf_counter() - t0:.1f} s · "
           f"{busca.vetores.shape[0]:,} artigos no índice")
     try:

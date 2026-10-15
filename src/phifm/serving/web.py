@@ -309,6 +309,10 @@ class _BuscaTravada:
         with self._trava:
             return self._busca.buscar(*a, **kw)
 
+    def buscar_hibrido(self, *a, **kw):
+        with self._trava:
+            return self._busca.buscar_hibrido(*a, **kw)
+
     def __getattr__(self, nome):
         return getattr(self._busca, nome)
 

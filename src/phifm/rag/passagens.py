@@ -54,6 +54,14 @@ ORCAMENTO = K_PASSAGENS * LIMITE_TRECHO
 _PALAVRA = re.compile(r"[a-z][a-z0-9]+|\d+(?:\.\d+)?")
 
 
+def traduzir(modelo, pergunta: str, semente: int | None = None) -> str:
+    """A pergunta em inglês, para as buscas por palavra (os trechos aqui; o artigo, na
+    §9.8 do DOC-13). Se o modelo devolver vazio, vale a pergunta como veio."""
+    texto = modelo.gerar(SISTEMA_TRADUCAO, pergunta, max_tokens=200, temperatura=0.3,
+                         semente=semente)
+    return " ".join(texto.split()) or pergunta
+
+
 def palavras(texto: str) -> list[str]:
     """Minúsculas, palavras de duas letras ou mais e números (vírgula decimal vira ponto)."""
     return _PALAVRA.findall(texto.lower().replace(",", "."))
@@ -192,9 +200,7 @@ class Passagens:
 
     def consulta(self, pergunta: str) -> str:
         """A pergunta em inglês. Se o modelo devolver vazio, vale a pergunta como veio."""
-        texto = self.modelo.gerar(SISTEMA_TRADUCAO, pergunta, max_tokens=200, temperatura=0.3,
-                                  semente=self.semente)
-        return " ".join(texto.split()) or pergunta
+        return traduzir(self.modelo, pergunta, self.semente)
 
     def escolher(self, consulta: str, ids: list[str]) -> list[Escolhido]:
         trechos = {a: ts for a in ids if (ts := self.trechos_de(a))}

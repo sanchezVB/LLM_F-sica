@@ -405,6 +405,89 @@ def comparar_reordenado(veredictos: dict[str, dict[tuple, str]],
             "decisao": "ADOTA" if adota else "FICA O SISTEMA ATUAL"}
 
 
+# ── a busca fundida com o BM25 (DOC-13 §9.9): A5 = A′ com outra busca ──────────
+BRACO_BUSCA_LEXICA = "A5"
+# A §9.9 toca o conjunto de teste uma vez. PROPOSTA: fica False até o dono aceitar a regra
+# — `scripts/medir_busca_lexical.py` recusa o teste enquanto isto for False.
+REGRA_9_9_ACEITA = False
+LIMIAR_ADOCAO_BUSCA_LEXICA = 0.03  # o IC de acerto_A5 − acerto_A′ tem de ficar INTEIRO acima
+TEMPO_MAX_BUSCA_LEXICA_S = 60.0    # mediana por pergunta, pela conta da §9.2
+
+
+def rodar_busca_lexica_sobre_a2(assistente, itens: list[dict],
+                                respostas_a2: dict[tuple, RespostaDoBraco], cache: Path,
+                                limite: int | None = None, ao_terminar=None
+                                ) -> list[RespostaDoBraco]:
+    """O braço A5: a MESMA consulta hipotética de A′ (do cache), a pergunta traduzida para
+    inglês e a busca fundida com o BM25, com o ΦRank por cima — `assistente.recuperar`,
+    o caminho do produto. Onde as 6 fontes saem iguais às de A′, na mesma ordem, o prompt
+    é o de A′ e a resposta de A′ é reaproveitada (`igual_a_A`). O tempo de recuperação
+    inclui a tradução. Retomável."""
+    feitos = {(r.estrato, r.arxiv_id) for r in ler_respostas(cache)}
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with cache.open("a", encoding="utf-8") as f:
+        for item in itens:
+            chave = (item["estrato"], item["arxiv_id"])
+            if chave in feitos:
+                continue
+            if limite is not None and n >= limite:
+                break
+            ra = respostas_a2[chave]
+            t0 = time.perf_counter()
+            ingles = assistente.em_ingles(item["pergunta"])
+            fontes = assistente.recuperar(ra.consulta, ingles)
+            t_rec = round(time.perf_counter() - t0, 2)
+            if [x.arxiv_id for x in fontes] == ra.fontes:
+                reg = replace(ra, braco=BRACO_BUSCA_LEXICA, igual_a_A=True, segundos=t_rec)
+            else:
+                r = assistente.responder_com(item["pergunta"], fontes, ra.consulta)
+                reg = _registro(item, BRACO_BUSCA_LEXICA, r, time.perf_counter() - t0)
+            reg = replace(reg, segundos_recuperacao=t_rec, consulta_passagens=ingles)
+            f.write(json.dumps(asdict(reg), ensure_ascii=False) + "\n")
+            f.flush()
+            n += 1
+            if ao_terminar:
+                ao_terminar(item, reg)
+    return ler_respostas(cache)
+
+
+def comparar_busca_lexica(veredictos: dict[str, dict[tuple, str]],
+                          respostas: list[RespostaDoBraco], tempo_a_s: float,
+                          estrato: str = "primario") -> dict:
+    """A regra da §9.9 no estrato: acerto_A5 − acerto_A′ pelo juiz, pareado por item, e o
+    tempo. ADOTA se o IC 95% ficar inteiro acima de `LIMIAR_ADOCAO_BUSCA_LEXICA` e o tempo
+    couber em `TEMPO_MAX_BUSCA_LEXICA_S`.
+
+    O tempo é o da §9.2 com A5 no lugar de A′: a mediana de A de ponta a ponta
+    (`tempo_a_s`) mais a mediana da recuperação de A5 — tradução, as duas buscas, a fusão
+    e o ΦRank. Conta a busca simples duas vezes: erra para o lado de reprovar."""
+    ids = sorted(k for k in veredictos[BRACO_BUSCA_LEXICA] if k[0] == estrato)
+    a2 = np.array([veredictos[BRACO_REORDENADO][k] == "certo" for k in ids], dtype=float)
+    a5 = np.array([veredictos[BRACO_BUSCA_LEXICA][k] == "certo" for k in ids], dtype=float)
+    dif, ic = diferenca_pareada(a5, a2)
+    de = {b: {(r.estrato, r.arxiv_id): r for r in respostas if r.braco == b and r.estrato == estrato}
+          for b in (BRACO_REORDENADO, BRACO_BUSCA_LEXICA)}
+    p6 = {b: np.array([de[b][k].posicao_p is not None for k in ids], dtype=float) for b in de}
+    dif_p, ic_p = diferenca_pareada(p6[BRACO_BUSCA_LEXICA], p6[BRACO_REORDENADO])
+    t_rec = float(np.median([r.segundos_recuperacao for r in de[BRACO_BUSCA_LEXICA].values()]))
+    tempo = round(tempo_a_s + t_rec, 1)
+    adota = ic[0] > LIMIAR_ADOCAO_BUSCA_LEXICA and tempo <= TEMPO_MAX_BUSCA_LEXICA_S
+    return {"estrato": estrato, "n_itens": len(ids),
+            "acerto_A2": round(float(a2.mean()), 4), "acerto_A5": round(float(a5.mean()), 4),
+            "A5_menos_A2": dif, "ic95": ic, "limiar": LIMIAR_ADOCAO_BUSCA_LEXICA,
+            "ganha": int((a5 > a2).sum()), "perde": int((a5 < a2).sum()),
+            "P_nas_6_fontes": {"A2": round(float(p6[BRACO_REORDENADO].mean()), 4),
+                               "A5": round(float(p6[BRACO_BUSCA_LEXICA].mean()), 4),
+                               "A5_menos_A2": dif_p, "ic95": ic_p},
+            "respostas_iguais_as_de_A2": sum(1 for r in de[BRACO_BUSCA_LEXICA].values()
+                                             if r.igual_a_A),
+            "tempo": {"mediana_A_ponta_a_ponta_s": round(tempo_a_s, 1),
+                      "mediana_recuperacao_A5_s": round(t_rec, 1), "regra_s": tempo,
+                      "maximo_s": TEMPO_MAX_BUSCA_LEXICA_S},
+            "decisao": "ADOTA" if adota else "FICA O SISTEMA ATUAL"}
+
+
 # ── o estrato "corpo" (DOC-13 §9.5): o sistema de hoje, a passagem garantida, e C ──
 BRACO_PASSAGEM = "Bp"
 N_I3C_POR_BRACO = 20              # 20 de A′ + 20 de Bp, braço oculto

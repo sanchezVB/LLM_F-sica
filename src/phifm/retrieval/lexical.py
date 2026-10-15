@@ -148,6 +148,15 @@ class Lexica:
         return s
 
 
+def carregar_ou_avisar(pasta: Path, ids: list[str]) -> Lexica | None:
+    """O índice lexical, ou None com um aviso se ele não existir: a busca segue densa."""
+    try:
+        return Lexica(pasta, ids)
+    except FileNotFoundError as e:
+        print(f"⚠️ {e} A busca segue só com o encoder.")
+        return None
+
+
 def posicao(escores: np.ndarray, i: int) -> int:
     """A posição (1 = primeiro) do documento `i`: quantos têm escore MAIOR, mais um."""
     return int((escores > escores[i]).sum()) + 1

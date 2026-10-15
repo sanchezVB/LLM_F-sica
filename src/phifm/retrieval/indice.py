@@ -247,6 +247,20 @@ class Busca:
             for a in excluir:
                 if a in self._posicao:
                     s[self._posicao[a]] = -np.inf
+        return self._resultados(s, k)
+
+    def buscar_hibrido(self, consulta: str, lexica, consulta_lexica: str, k: int = 10,
+                       c: int = 60) -> list[Resultado]:
+        """A busca densa (`consulta`) e o BM25 de `lexica` (`consulta_lexica`), fundidos
+        pela posição (RRF, DOC-13 §9.8). O escore devolvido é o da fusão. `lexica` tem de
+        estar na ordem deste índice — `phifm.retrieval.lexical.Lexica` confere."""
+        from phifm.retrieval.lexical import posicoes_de, rrf
+
+        s = rrf(posicoes_de(self.pontuar(self.embutir(consulta))),
+                posicoes_de(lexica.pontuar(consulta_lexica)), c=c)
+        return self._resultados(s, k)
+
+    def _resultados(self, s: np.ndarray, k: int) -> list[Resultado]:
         k = min(k, s.size)
         idx = np.argpartition(-s, k - 1)[:k]
         ordem = idx[np.argsort(-s[idx], kind="stable")]

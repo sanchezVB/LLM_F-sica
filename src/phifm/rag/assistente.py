@@ -172,10 +172,13 @@ def bloco_de_fontes(fontes: list[Fonte]) -> str:
 class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
                  reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA,
-                 sistema_com_passagens: str | None = None):
+                 sistema_com_passagens: str | None = None, lexica=None):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
         self.passagens = passagens
+        # A busca por palavra (BM25 em título + resumo, `phifm.retrieval.lexical`), fundida
+        # com a densa pela posição (DOC-13 §9.8). None: a busca de sempre.
+        self.lexica = lexica
         # A instrução da resposta. Trocá-la é trocar o sistema medido: só as explorações
         # passam outra (`scripts/explorar_abstencao.py`).
         self.sistema = sistema
@@ -199,16 +202,29 @@ class Assistente:
         texto = " ".join(texto.split())
         return texto or pergunta
 
-    def recuperar(self, consulta: str) -> list[Fonte]:
+    def _buscar(self, consulta: str, em_ingles: str | None, k: int):
+        """A busca densa com a consulta hipotética; com `lexica` e a pergunta em inglês, a
+        fusão dela com o BM25 (DOC-13 §9.8)."""
+        if self.lexica is not None and em_ingles:
+            return self.busca.buscar_hibrido(consulta, self.lexica, em_ingles, k=k)
+        return self.busca.buscar(consulta, k=k)
+
+    def em_ingles(self, pergunta: str) -> str:
+        from phifm.rag.passagens import traduzir
+
+        return traduzir(self.modelo, pergunta, self.semente)
+
+    def recuperar(self, consulta: str, em_ingles: str | None = None) -> list[Fonte]:
         """Os `k` primeiros da busca — ou, com reordenador, os `k` primeiros depois de ele
-        reordenar os `profundidade` primeiros (DOC-13 §9.2)."""
+        reordenar os `profundidade` primeiros (DOC-13 §9.2). Com `lexica` e `em_ingles`, a
+        busca é a fundida com o BM25."""
         if self.reordenador is None:
-            resultados = self.busca.buscar(consulta, k=self.k)
+            resultados = self._buscar(consulta, em_ingles, self.k)
             resumos = self._resumos([r.arxiv_id for r in resultados])
         else:
             from phifm.training.pairs import textos_de_documentos
 
-            candidatos = self.busca.buscar(consulta, k=self.reordenador.profundidade)
+            candidatos = self._buscar(consulta, em_ingles, self.reordenador.profundidade)
             ids = [r.arxiv_id for r in candidatos]
             # Uma leitura do spine só (~2 s no HD): o texto do reordenador e os resumos
             # das fontes saem das mesmas linhas.
@@ -254,9 +270,14 @@ class Assistente:
                     com_passagens: bool | None = None) -> list[Fonte]:
         """As fontes de uma pergunta: a busca e, se as passagens estiverem ligadas, os
         trechos do texto completo dos artigos encontrados."""
-        fontes = self.recuperar(consulta)
         usa, _ = self._modo(com_passagens)
-        return self.passagens.anexar(pergunta, fontes) if usa else fontes
+        # A pergunta em inglês serve às duas buscas por palavra: a do artigo e a dos
+        # trechos. Uma chamada só ao modelo, e só se alguma das duas estiver ligada.
+        # Com as passagens, a tradução é a delas, como sempre foi (a semente é a do passo).
+        ingles = (self.passagens.consulta(pergunta) if usa
+                  else self.em_ingles(pergunta) if self.lexica is not None else None)
+        fontes = self.recuperar(consulta, ingles)
+        return self.passagens.anexar(pergunta, fontes, consulta=ingles) if usa else fontes
 
     def responder(self, pergunta: str, com_passagens: bool | None = None) -> Resposta:
         consulta = self.consulta_hipotetica(pergunta)

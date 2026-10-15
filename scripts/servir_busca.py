@@ -46,6 +46,11 @@ def main() -> int:
                         "desmarcada: DOC-13 §9.6 — ganha no corpo do artigo, perde um pouco no "
                         "resumo); sem a cópia de scripts/indexar_textos.py ela já não aparece")
     p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
+    p.add_argument("--busca-lexical", action="store_true",
+                   help="EM MEDIÇÃO (DOC-13 §9.9), fora do padrão: o assistente funde a busca "
+                        "densa com o BM25 da pergunta em inglês; pede "
+                        "scripts/explorar_busca_lexical.py --indexar")
+    p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
     a = p.parse_args()
@@ -70,10 +75,16 @@ def main() -> int:
             from phifm.rag import passagens as ps
 
             passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+        lexica = None
+        if a.busca_lexical:
+            from phifm.retrieval.lexical import carregar_ou_avisar as carregar_lexica
+
+            lexica = carregar_lexica(a.lexico, busca.docs["arxiv_id"].to_list())
         # Com o texto completo marcado, a resposta é a da dupla medida (A‴: passagens e a
         # instrução v2); desmarcado, é o sistema de sempre, byte a byte.
         assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador,
-                                passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2)
+                                passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2,
+                                lexica=lexica)
     servidor = criar_servidor(busca, porta=a.porta, assistente=assistente,
                               ocioso_min=a.ocioso_min)
     url = f"http://127.0.0.1:{servidor.server_address[1]}"

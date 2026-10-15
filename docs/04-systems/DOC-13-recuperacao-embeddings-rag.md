@@ -1334,6 +1334,65 @@ da §9.3 em 150 de 150 (o ΦRank rodou na GPU; lá, na CPU).
 
 `avaliacao/assistente_busca_lexical_dev.json`. Nada tocou o teste.
 
+### 9.9 A busca fundida com o BM25 — PROPOSTA de 2026-10-14, escrita antes de A5 rodar
+
+O dono mandou seguir com o item 2 e escolheu **reaproveitar os 650 do teste** (pergunta de
+2026-10-14) em vez de escrever perguntas novas. **Esta seção é a regra da medida e é
+PROPOSTA até o dono aceitar** (`REGRA_9_9_ACEITA`, em `phifm.eval.assistente_bracos`,
+trava o passo).
+
+**O sistema medido (A5).** O de hoje (A′: consulta hipotética → busca densa → ΦRank nos 50
+→ 6 fontes), com a busca trocada:
+
+1. a pergunta é traduzida para inglês — a mesma chamada da §9.6 (`SISTEMA_TRADUCAO`);
+2. a busca densa com a consulta hipotética e o BM25 sobre título + resumo com a pergunta em
+   inglês dão, cada um, a posição de todos os artigos; a fusão por posição (RRF, c = 60)
+   ordena (`Busca.buscar_hibrido`);
+3. o ΦRank reordena os 50 primeiros da fusão, e ficam 6.
+
+Instrução, modelo e semente: os de hoje; sem passagens. O candidato saiu do
+desenvolvimento (§9.8): a fusão que ganhou nos dois conjuntos quase sem perder. O caminho do
+produto (`Assistente(lexica=…)`) reproduz a exploração em 12 de 12 perguntas conferidas.
+
+**Itens.** Os 650 do teste (500 do primário, 150 do pós-corte), em que A′ já foi medido.
+**Decide o primário.** Esses itens já decidiram a §9.1, a §9.2 e a §9.6; a busca lexical
+foi escolhida sem olhar nenhum deles.
+
+**Como roda** (`scripts/medir_busca_lexical.py --rodar`): a consulta hipotética e as fontes
+de A′ vêm do cache; a tradução é nova. Onde as 6 fontes de A5 saem iguais às de A′, na mesma
+ordem, o prompt é o mesmo e a resposta de A′ é reaproveitada — como na §9.2. Busca e ΦRank
+na CPU, como no produto com o modelo na GPU.
+
+**Juiz.** O da §9.1, versão 2, o mesmo cache. I3 não é refeito: o juiz foi conferido neste
+conjunto (κ 0,76 contra o Claude, §9.1) e por um segundo modelo (κ 0,914, §9.6), e as
+respostas de A5 têm a mesma instrução das de A′ — só as fontes mudam.
+
+**A regra — a da §9.2, com A5 no lugar de A′:** ADOTA se o IC 95% (bootstrap pareado por
+item) de acerto_A5 − acerto_A′ no primário ficar **inteiro acima de 0,03** e o tempo
+mediano couber em **60 s**. O tempo é a mediana de A de ponta a ponta mais a mediana da
+recuperação de A5 (tradução, as duas buscas, a fusão e o ΦRank): conta a busca simples duas
+vezes e erra para o lado de reprovar. Fora disso, fica o sistema atual, e a busca fundida
+segue como opção (`--busca-lexical`).
+
+De onde vem 0,03: é o limiar que o dono fixou para o ΦRank na §9.2. A busca nova custa
+menos que ele (~2 s e ~1 GB de memória, contra ~11 s), mas mexe em todas as respostas.
+
+**Relatadas, não decidem:** P nas 6 fontes nos dois braços; o pós-corte; o corpo 2 (100
+perguntas do corpo, nunca usadas para escolher a busca) — só P nas 6 fontes, sem juiz nem
+modelo; quantas traduções saíram iguais às da §9.6.
+
+⚠️ **Limites declarados antes de rodar:**
+
+1. As perguntas foram escritas lendo o resumo (72% das palavras da pergunta estão no resumo
+   de P, §9.8). Isso favorece o BM25: o ganho com perguntas de usuários de verdade pode ser
+   menor, e esta medida não diz quanto.
+2. É o quarto uso deste conjunto de teste.
+3. Sem revisão humana, como todo o resto da §9.
+
+**Custo previsto:** ~3 a 4 h locais para os 650 (a maior parte é o ΦRank na CPU e as
+respostas onde as fontes mudam), ~10 min de juiz e ~20 min do corpo 2. Agregado em
+`avaliacao/assistente_busca_lexical.json`.
+
 ---
 
 ## 10. Riscos
