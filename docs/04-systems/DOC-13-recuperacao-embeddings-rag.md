@@ -1341,6 +1341,8 @@ O dono mandou seguir com o item 2 e escolheu **reaproveitar os 650 do teste** (p
 PROPOSTA até o dono aceitar** (`REGRA_9_9_ACEITA`, em `phifm.eval.assistente_bracos`,
 trava o passo).
 
+> **ACEITA pelo dono em 2026-10-14, como escrita** ("Aceito a regra"), antes de A5 rodar.
+
 **O sistema medido (A5).** O de hoje (A′: consulta hipotética → busca densa → ΦRank nos 50
 → 6 fontes), com a busca trocada:
 

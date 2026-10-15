@@ -407,9 +407,9 @@ def comparar_reordenado(veredictos: dict[str, dict[tuple, str]],
 
 # ── a busca fundida com o BM25 (DOC-13 §9.9): A5 = A′ com outra busca ──────────
 BRACO_BUSCA_LEXICA = "A5"
-# A §9.9 toca o conjunto de teste uma vez. PROPOSTA: fica False até o dono aceitar a regra
-# — `scripts/medir_busca_lexical.py` recusa o teste enquanto isto for False.
-REGRA_9_9_ACEITA = False
+# A §9.9 toca o conjunto de teste uma vez — `scripts/medir_busca_lexical.py` recusa o teste
+# enquanto isto for False. ACEITA pelo dono em 2026-10-14, como escrita.
+REGRA_9_9_ACEITA = True
 LIMIAR_ADOCAO_BUSCA_LEXICA = 0.03  # o IC de acerto_A5 − acerto_A′ tem de ficar INTEIRO acima
 TEMPO_MAX_BUSCA_LEXICA_S = 60.0    # mediana por pergunta, pela conta da §9.2
 
