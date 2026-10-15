@@ -37,7 +37,27 @@ def test_o_peso_guardado_e_o_bm25_da_formula(tmp_path):
     esperado = idf * tf * (lx.K1 + 1) / (tf + lx.K1 * (1 - lx.B + lx.B * dl / man["comprimento_medio"]))
     assert s[1] == pytest.approx(esperado, rel=1e-5)
     assert s[0] == s[2] == s[3] == 0
-    assert man["documentos"] == 4 and man["celulas"] == idx.matriz.nnz
+    assert man["documentos"] == 4 and man["celulas"] == len(idx.data)
+    assert isinstance(idx.data, np.memmap)            # do disco, sob demanda
+
+
+def test_o_npz_antigo_ainda_abre_e_vira_partes(tmp_path):
+    from scipy import sparse
+
+    ids, _ = _construir(tmp_path)
+    novo = lx.Lexica(tmp_path, ids).pontuar("graphene copper")
+    indptr = np.load(tmp_path / lx.PARTES["indptr"])
+    m = sparse.csc_matrix((np.load(tmp_path / lx.PARTES["data"]),
+                           np.load(tmp_path / lx.PARTES["indices"]), indptr),
+                          shape=(4, len(indptr) - 1))
+    sparse.save_npz(tmp_path / lx.NOME_MATRIZ, m, compressed=False)
+    for arq in lx.PARTES.values():
+        (tmp_path / arq).unlink()
+    antigo = lx.Lexica(tmp_path, ids)
+    assert not isinstance(antigo.data, np.memmap)
+    assert np.array_equal(antigo.pontuar("graphene copper"), novo)
+    lx.converter_para_partes(tmp_path)
+    assert np.array_equal(lx.Lexica(tmp_path, ids).pontuar("graphene copper"), novo)
 
 
 def test_a_palavra_rara_acha_o_artigo_e_termo_desconhecido_nao_quebra(tmp_path):

@@ -28,6 +28,10 @@ import numpy as np
 
 K1, B = 1.2, 0.75
 NOME_MATRIZ, NOME_TERMOS, NOME_MANIFESTO = "pesos_csc.npz", "termos.txt", "manifesto.json"
+# A matriz em três arrays soltos, lidos do disco SOB DEMANDA (`mmap`): uma consulta toca só
+# as colunas dos seus termos. Inteira na memória ela custava ~1 GB, e com o modelo e a
+# busca densa juntos a máquina de 16 GB paginava (DOC-13 §9.9, 2026-10-14).
+PARTES = {"indptr": "csc_indptr.npy", "indices": "csc_indices.npy", "data": "csc_data.npy"}
 _PALAVRA = re.compile(r"[a-z][a-z0-9]+|\d+(?:\.\d+)?")
 # Só as palavras de função mais comuns do inglês: tiradas do índice, encurtam a matriz em
 # ~40% e não mudam ordem nenhuma (o idf delas é perto de zero). Nada de física aqui.
@@ -102,7 +106,7 @@ def construir(ids: list[str], textos, destino: Path, ao_lote=None) -> dict:
     del pesos, indices
 
     destino.mkdir(parents=True, exist_ok=True)
-    sparse.save_npz(destino / NOME_MATRIZ, matriz, compressed=False)
+    gravar_partes(destino, matriz)
     termos_ordenados = [""] * len(vocab)
     for t, j in vocab.items():
         termos_ordenados[j] = t
@@ -118,12 +122,25 @@ def construir(ids: list[str], textos, destino: Path, ao_lote=None) -> dict:
     return manifesto
 
 
+def gravar_partes(destino: Path, matriz) -> None:
+    """A matriz CSC em três `.npy`, que `Lexica` abre sob demanda."""
+    for nome, arq in PARTES.items():
+        np.save(destino / arq, np.ascontiguousarray(getattr(matriz, nome)))
+
+
+def converter_para_partes(pasta: Path) -> None:
+    """O índice gravado como `.npz` (o formato até 2026-10-15), reescrito em partes."""
+    from scipy import sparse
+
+    gravar_partes(pasta, sparse.load_npz(pasta / NOME_MATRIZ).tocsc())
+
+
 class Lexica:
-    """O índice carregado. `pontuar(consulta)` devolve o escore BM25 de cada documento."""
+    """O índice aberto. `pontuar(consulta)` devolve o escore BM25 de cada documento. A
+    matriz fica no disco e só as colunas consultadas sobem (`mmap`); sem as partes, o
+    `.npz` antigo vai inteiro para a memória."""
 
     def __init__(self, pasta: Path, ids: list[str] | None = None):
-        from scipy import sparse
-
         man = pasta / NOME_MANIFESTO
         if not man.exists():
             raise FileNotFoundError(f"{pasta} não tem {NOME_MANIFESTO}: rode a indexação "
@@ -132,19 +149,26 @@ class Lexica:
         if ids is not None and hash_da_ordem(ids) != self.manifesto["hash_da_ordem"]:
             raise SystemExit("a ordem dos documentos do índice lexical não é a do índice "
                              "denso: fundir os dois somaria escores de artigos diferentes.")
-        self.matriz = sparse.load_npz(pasta / NOME_MATRIZ).tocsc()   # já é CSC: sem cópia
+        if all((pasta / arq).exists() for arq in PARTES.values()):
+            self.indptr, self.indices, self.data = (
+                np.load(pasta / PARTES[n], mmap_mode="r") for n in ("indptr", "indices", "data"))
+        else:
+            from scipy import sparse
+
+            m = sparse.load_npz(pasta / NOME_MATRIZ).tocsc()
+            self.indptr, self.indices, self.data = m.indptr, m.indices, m.data
+        self.n = int(self.manifesto["documentos"])
         self.vocab = {t: j for j, t in enumerate(
             (pasta / NOME_TERMOS).read_text(encoding="utf-8").split("\n"))}
 
     def pontuar(self, consulta: str) -> np.ndarray:
-        m = self.matriz
-        s = np.zeros(m.shape[0], dtype=np.float32)
+        s = np.zeros(self.n, dtype=np.float32)
         for t in set(termos(consulta)):
             j = self.vocab.get(t)
             if j is None:
                 continue
-            a, b = m.indptr[j], m.indptr[j + 1]
-            s[m.indices[a:b]] += m.data[a:b]       # numa coluna cada linha aparece 1 vez
+            a, b = int(self.indptr[j]), int(self.indptr[j + 1])
+            s[self.indices[a:b]] += self.data[a:b]   # numa coluna cada linha aparece 1 vez
         return s
 
 
