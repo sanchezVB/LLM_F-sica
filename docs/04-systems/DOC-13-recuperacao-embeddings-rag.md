@@ -1409,6 +1409,45 @@ modelo; quantas traduções saíram iguais às da §9.6.
 respostas onde as fontes mudam), ~10 min de juiz e ~20 min do corpo 2. Agregado em
 `avaliacao/assistente_busca_lexical.json`.
 
+#### O RESULTADO (2026-10-15) — ADOTA
+
+Em três fases, das 22h54 às 4h51: tradução 12 min, busca + ΦRank na CPU 2 h 41 (com o
+corpo 2), respostas e juiz 3 h 04. Nenhuma queda.
+
+| no primário (500) — decide | A′ · hoje | A5 · busca fundida | A5 − A′ | IC 95% | ganha/perde |
+|---|---|---|---|---|---|
+| **acerto pelo juiz** | 0,806 | **0,870** | **+0,064** | **[+0,034; +0,094]** | 46 / 14 |
+| P entre as 6 fontes (sem juiz) | 0,818 | 0,892 | +0,074 | [+0,048; +0,100] | — |
+
+| eixo | medida | limiar | desfecho |
+|---|---|---|---|
+| acerto | IC de A5 − A′ inteiro acima de 0,03 | [+0,034; +0,094] | **PASSA** — por 0,4 ponto no limite de baixo |
+| tempo | mediana de A (31,3 s) + recuperação de A5 (13,5 s) = **44,8 s** | ≤ 60 s | **PASSA** |
+
+**→ ADOTA pela regra.** Em 101 dos 500 as 6 fontes saíram iguais às de A′ e a resposta é a
+mesma.
+
+**Relatadas:**
+
+- **Pós-corte (150):** 0,847 → 0,913, +0,067 [+0,027; +0,113], 11 ganhos e 1 perda. Vale
+  também para artigos que o modelo não pode ter lido.
+- **Corpo 2 (100, só P nas 6 fontes):** 0,70 → 0,74, +0,04 [0,00; +0,09], 5 resgates e 1
+  perda — bem menos que no desenvolvimento do corpo (+0,107).
+- **A tradução** saiu igual à da §9.6 em 431 de 500: a geração com semente fixa não se
+  repete bit a bit entre sessões do servidor.
+
+⚠️ **Leitura com os limites:**
+
+1. **A margem é fina**: o limite de baixo passa o limiar por 0,4 ponto. O ganho mecânico
+   (+0,074 em P nas 6 fontes, IC inteiro acima de +0,048) não depende do juiz e aponta
+   para o mesmo lado.
+2. **As perguntas foram escritas lendo o resumo**, o que favorece a busca por palavra; com
+   perguntas de usuários o ganho pode ser menor (§9.8). No corpo 2, escrito a partir do
+   corpo do artigo, o ganho em P foi de 4 pontos.
+3. **A condição declarada no desvio vale:** o padrão só muda depois de o produto rodar na
+   máquina do dono sem paginar, com o índice lexical lido do disco sob demanda, e o tempo
+   medido de novo nessa configuração.
+
 ---
 
 ## 10. Riscos

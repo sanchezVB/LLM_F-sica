@@ -341,6 +341,14 @@ sem trecho dele, −0,013; com o artigo certo fora das fontes, zero. 15 das 26 p
 ✅ **A opção "Ler também o texto completo" está na página (2026-10-14)**, desmarcada: marcada,
 a resposta é a de A‴; desmarcada, a de sempre. `--sem-passagens` a tira.
 
+✅ **A BUSCA FUNDIDA COM O BM25 É ADOTADA (2026-10-15, DOC-13 §9.9, regra aceita antes).**
+Nos 500 do teste primário: acerto **0,806 → 0,870, +0,064 [+0,034; +0,094]**, 46 ganhos e
+14 perdas; o artigo certo nas 6 fontes 0,818 → 0,892; tempo pela regra 44,8 s. Pós-corte
++0,067; corpo 2, P nas fontes +0,04. ⚠️ Margem fina (o limite de baixo passa o 0,03 por
+0,4 ponto), e as perguntas favorecem a busca por palavra. **Condição declarada antes do
+resultado:** vira padrão depois de o produto rodar nesta máquina sem paginar (índice
+lexical lido do disco sob demanda), com o tempo medido de novo.
+
 🟢 **Item 2 do dono — a busca LEXICAL do artigo, no desenvolvimento (2026-10-14, DOC-13
 §9.8, exploratório):** BM25 sobre título + resumo (910 MB, 2 min para construir), fundido
 por posição com a busca de hoje, com a pergunta traduzida para inglês. Nas 6 fontes, com o
