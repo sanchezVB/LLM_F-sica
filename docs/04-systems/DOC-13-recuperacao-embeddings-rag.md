@@ -1342,6 +1342,20 @@ PROPOSTA até o dono aceitar** (`REGRA_9_9_ACEITA`, em `phifm.eval.assistente_br
 trava o passo).
 
 > **ACEITA pelo dono em 2026-10-14, como escrita** ("Aceito a regra"), antes de A5 rodar.
+>
+> ⚠️ **Desvio operacional (2026-10-14, 22h51), antes de qualquer resposta ser lida ou
+> julgada.** A primeira rodada juntou num processo só o modelo, a busca densa na CPU e o
+> índice lexical, e a máquina de 16 GB paginou: 113 s por item (~20 h para os 650). Foi
+> parada com 11 itens, que ficaram de lado sem leitura nem juiz
+> (`bracos_A5_….jsonl.descartado_paginacao`). A medida passa a rodar em **três fases** com o
+> MESMO sistema: (1) só o modelo — a tradução, a mesma chamada; (2) sem o modelo — a busca
+> fundida e o ΦRank, na CPU como no produto; (3) só o modelo — a resposta onde as fontes
+> mudam, com as fontes montadas como `Assistente.recuperar` as monta, e o juiz. O tempo de
+> recuperação de A5 é a tradução mais a busca, cada uma medida na sua fase.
+> **Consequência para o produto, declarada agora:** com o modelo, a busca na CPU e o índice
+> lexical carregados juntos, esta máquina pagina. Se A5 for adotado, o padrão só muda
+> depois de o produto rodar nela sem paginar — o índice lexical lido do disco sob demanda,
+> e não inteiro na memória —, com o tempo medido de novo.
 
 **O sistema medido (A5).** O de hoje (A′: consulta hipotética → busca densa → ΦRank nos 50
 → 6 fontes), com a busca trocada:
