@@ -1273,6 +1273,67 @@ Nada disto toca o teste. Se a instrução for ao produto, vai pela emenda da §9
 passagens) ou, sozinha, por uma regra própria — com o eixo "não piora" como o da §9.6,
 porque o ensaio acima diz que é aí que ela pode custar.
 
+### 9.8 A busca lexical do artigo — desenvolvimento (2026-10-14), exploratório
+
+Item 2 do dono, depois da §9.6: melhorar a busca do ARTIGO, o maior limite que sobra (com
+a fonte garantida o gerador acerta 0,94–0,99; o artigo certo chega às 6 fontes em 0,818 das
+perguntas do resumo e em 0,63–0,70 das do corpo). A ordem já tinha sido esgotada (§9.3) e
+trechos densos não acharam o artigo (§9.4). O que nunca tinha sido tentado é a busca
+**lexical** — a ideia que achou a passagem dentro do artigo na §9.6 (BM25 0,85 contra 0,33).
+
+**O índice** (`phifm.retrieval.lexical`, `scripts/explorar_busca_lexical.py --indexar`):
+BM25 (k1 1,2, b 0,75) sobre `título. resumo` dos 1.594.338 artigos, na ordem do índice
+denso (hash conferido). 500 mil termos, 119 milhões de células, **910 MB**, 2 min de CPU.
+
+**Os conjuntos**, os dois já lidos (desenvolvimento): as 150 perguntas do corpo da §9.5
+(**corpo 1**) e as 150 do resumo do desenvolvimento da §9.2 (**primário dev**). A consulta
+hipotética é a gravada; a pergunta em inglês, a das §9.6/9.7. Mede-se a POSIÇÃO do artigo
+de onde a pergunta saiu (P), sem juiz. Fusão = RRF (c = 60) das posições.
+
+**Antes do ΦRank** — P entre os 50 primeiros, o que o reordenador recebe:
+
+| busca | corpo 1 | primário dev |
+|---|---|---|
+| **hoje** · encoder com a consulta hipotética | 0,720 | 0,847 |
+| encoder com a pergunta em inglês | 0,773 | 0,913 |
+| **BM25 com a pergunta em inglês** | 0,847 | 0,980 |
+| BM25 com a consulta hipotética | 0,653 | 0,893 |
+| **fusão: hoje + BM25 em inglês** | **0,887** (+0,167 [+0,107; +0,227]; 25 resgates, 0 perdas) | **1,000** (+0,153 [+0,100; +0,213]; 23/0) |
+
+**Com o ΦRank nos 50 — as 6 fontes que o modelo lê.** A linha de hoje reproduz o `rr50`
+da §9.3 em 150 de 150 (o ΦRank rodou na GPU; lá, na CPU).
+
+| busca, e o ΦRank nos 50 | corpo 1 | Δ | primário dev | Δ |
+|---|---|---|---|---|
+| **hoje** | 0,627 | — | 0,827 | — |
+| **fusão: hoje + BM25 em inglês** | **0,733** | **+0,107 [+0,060; +0,160]** · 16/0 | **0,913** | **+0,087 [+0,040; +0,140]** · 14/1 |
+| fusão das três (+ BM25 da consulta hipotética) | 0,700 | +0,073 · 14/3 | 0,907 | +0,080 · 13/1 |
+| fusão: dois encoders + BM25 em inglês | 0,720 | +0,093 · 15/1 | 0,887 | +0,060 · 11/2 |
+| só o BM25 em inglês | 0,733 | +0,107 · 22/6 | 0,927 | +0,100 · 18/3 |
+
+- **A fusão da busca de hoje com o BM25 da pergunta em inglês ganha nos dois conjuntos
+  quase sem perder** (16 resgates e nenhuma perda no corpo; 14 e 1 no resumo). O BM25
+  sozinho chega perto, mas troca mais: 6 perdas no corpo.
+- **O ΦRank quase não acrescenta sobre a fusão** (sem ele, os 6 primeiros da fusão: 0,707 e
+  0,900). Ele custa ~11 s por pergunta na CPU — fica em aberto se continua.
+- **A pergunta em inglês é a consulta certa para o BM25**; a consulta hipotética, não (ela
+  imita um resumo genérico, e as palavras raras da pergunta se diluem).
+
+⚠️ **O que infla isto, e o quanto foi conferido:**
+
+1. **As perguntas foram escritas lendo o artigo.** No resumo, 72% das palavras da pergunta
+   (em inglês) estão no título + resumo de P; no corpo, 49%. Isso favorece o BM25 mais do
+   que o encoder. Conferido por terços de sobreposição: o ganho existe também no terço de
+   menor sobreposição (corpo, ≤ 43% das palavras no resumo: P nos 50 de 0,46 para 0,76).
+   Pergunta de usuário real pode repetir menos as palavras do artigo — e isso não foi
+   medido.
+2. Os dois conjuntos já foram lidos e a escolha foi feita neles: a confirmação precisa de
+   perguntas novas.
+3. É posição do artigo, não acerto da resposta. Na §9.2, 13,2 pontos de "P nas 6 fontes"
+   viraram 10,6 de acerto.
+
+`avaliacao/assistente_busca_lexical_dev.json`. Nada tocou o teste.
+
 ---
 
 ## 10. Riscos

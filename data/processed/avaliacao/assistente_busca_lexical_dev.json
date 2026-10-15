@@ -1,0 +1,388 @@
+{
+  "o_que_e": "posição do artigo de onde a pergunta saiu (P), por busca; exploratório, só desenvolvimento, sem juiz e sem ΦRank",
+  "buscas": {
+    "denso_hyde": "o de hoje: o encoder com a consulta hipotética",
+    "denso_ingles": "o encoder com a pergunta em inglês",
+    "bm25_ingles": "BM25 em título + resumo com a pergunta em inglês",
+    "bm25_hyde": "BM25 em título + resumo com a consulta hipotética",
+    "rrf_hyde_bm25ingles": "fusão por posição: denso_hyde + bm25_ingles",
+    "rrf_hyde_bm25hyde": "fusão por posição: denso_hyde + bm25_hyde",
+    "rrf_tres": "fusão por posição: denso_hyde + bm25_ingles + bm25_hyde",
+    "rrf_dois_densos_bm25": "fusão: denso_hyde + denso_ingles + bm25_ingles"
+  },
+  "conjuntos": {
+    "corpo_1": {
+      "n": 150,
+      "bm25_ingles_sem_palavra_de_P": 1,
+      "denso_hyde": {
+        "P@1": 0.3333,
+        "P@6": 0.5067,
+        "P@50": 0.72,
+        "P@200": 0.8467,
+        "P@1000": 0.9133
+      },
+      "denso_ingles": {
+        "P@1": 0.3933,
+        "P@6": 0.5733,
+        "P@50": 0.7733,
+        "P@200": 0.88,
+        "P@1000": 0.9533,
+        "P@50_menos_hoje": {
+          "valor": 0.0533,
+          "ic95": [
+            -0.0133,
+            0.12
+          ],
+          "resgata": 16,
+          "perde": 8
+        }
+      },
+      "bm25_ingles": {
+        "P@1": 0.5533,
+        "P@6": 0.7267,
+        "P@50": 0.8467,
+        "P@200": 0.9267,
+        "P@1000": 0.9867,
+        "P@50_menos_hoje": {
+          "valor": 0.1267,
+          "ic95": [
+            0.0533,
+            0.2
+          ],
+          "resgata": 26,
+          "perde": 7
+        }
+      },
+      "bm25_hyde": {
+        "P@1": 0.3067,
+        "P@6": 0.4533,
+        "P@50": 0.6533,
+        "P@200": 0.7733,
+        "P@1000": 0.9133,
+        "P@50_menos_hoje": {
+          "valor": -0.0667,
+          "ic95": [
+            -0.14,
+            0.0067
+          ],
+          "resgata": 11,
+          "perde": 21
+        }
+      },
+      "rrf_hyde_bm25ingles": {
+        "P@1": 0.46,
+        "P@6": 0.7067,
+        "P@50": 0.8867,
+        "P@200": 0.96,
+        "P@1000": 0.9933,
+        "P@50_menos_hoje": {
+          "valor": 0.1667,
+          "ic95": [
+            0.1067,
+            0.2267
+          ],
+          "resgata": 25,
+          "perde": 0
+        }
+      },
+      "rrf_hyde_bm25hyde": {
+        "P@1": 0.34,
+        "P@6": 0.5467,
+        "P@50": 0.7733,
+        "P@200": 0.9,
+        "P@1000": 0.96,
+        "P@50_menos_hoje": {
+          "valor": 0.0533,
+          "ic95": [
+            0.0067,
+            0.1067
+          ],
+          "resgata": 11,
+          "perde": 3
+        }
+      },
+      "rrf_tres": {
+        "P@1": 0.4067,
+        "P@6": 0.66,
+        "P@50": 0.8733,
+        "P@200": 0.9467,
+        "P@1000": 0.9933,
+        "P@50_menos_hoje": {
+          "valor": 0.1533,
+          "ic95": [
+            0.0933,
+            0.2133
+          ],
+          "resgata": 24,
+          "perde": 1
+        }
+      },
+      "rrf_dois_densos_bm25": {
+        "P@1": 0.4733,
+        "P@6": 0.7133,
+        "P@50": 0.88,
+        "P@200": 0.94,
+        "P@1000": 0.9933,
+        "P@50_menos_hoje": {
+          "valor": 0.16,
+          "ic95": [
+            0.1067,
+            0.22
+          ],
+          "resgata": 24,
+          "perde": 0
+        }
+      }
+    },
+    "primario_dev": {
+      "n": 150,
+      "bm25_ingles_sem_palavra_de_P": 0,
+      "denso_hyde": {
+        "P@1": 0.4867,
+        "P@6": 0.7333,
+        "P@50": 0.8467,
+        "P@200": 0.8933,
+        "P@1000": 0.9467
+      },
+      "denso_ingles": {
+        "P@1": 0.5467,
+        "P@6": 0.7733,
+        "P@50": 0.9133,
+        "P@200": 0.9533,
+        "P@1000": 0.9867,
+        "P@50_menos_hoje": {
+          "valor": 0.0667,
+          "ic95": [
+            0.0133,
+            0.12
+          ],
+          "resgata": 13,
+          "perde": 3
+        }
+      },
+      "bm25_ingles": {
+        "P@1": 0.8733,
+        "P@6": 0.9533,
+        "P@50": 0.98,
+        "P@200": 1.0,
+        "P@1000": 1.0,
+        "P@50_menos_hoje": {
+          "valor": 0.1333,
+          "ic95": [
+            0.0733,
+            0.2
+          ],
+          "resgata": 23,
+          "perde": 3
+        }
+      },
+      "bm25_hyde": {
+        "P@1": 0.5533,
+        "P@6": 0.7467,
+        "P@50": 0.8933,
+        "P@200": 0.9467,
+        "P@1000": 0.98,
+        "P@50_menos_hoje": {
+          "valor": 0.0467,
+          "ic95": [
+            -0.0067,
+            0.1
+          ],
+          "resgata": 12,
+          "perde": 5
+        }
+      },
+      "rrf_hyde_bm25ingles": {
+        "P@1": 0.7533,
+        "P@6": 0.9,
+        "P@50": 1.0,
+        "P@200": 1.0,
+        "P@1000": 1.0,
+        "P@50_menos_hoje": {
+          "valor": 0.1533,
+          "ic95": [
+            0.1,
+            0.2133
+          ],
+          "resgata": 23,
+          "perde": 0
+        }
+      },
+      "rrf_hyde_bm25hyde": {
+        "P@1": 0.62,
+        "P@6": 0.7867,
+        "P@50": 0.92,
+        "P@200": 0.9733,
+        "P@1000": 0.9867,
+        "P@50_menos_hoje": {
+          "valor": 0.0733,
+          "ic95": [
+            0.0333,
+            0.12
+          ],
+          "resgata": 12,
+          "perde": 1
+        }
+      },
+      "rrf_tres": {
+        "P@1": 0.7067,
+        "P@6": 0.94,
+        "P@50": 1.0,
+        "P@200": 1.0,
+        "P@1000": 1.0,
+        "P@50_menos_hoje": {
+          "valor": 0.1533,
+          "ic95": [
+            0.1,
+            0.2133
+          ],
+          "resgata": 23,
+          "perde": 0
+        }
+      },
+      "rrf_dois_densos_bm25": {
+        "P@1": 0.74,
+        "P@6": 0.9267,
+        "P@50": 0.98,
+        "P@200": 1.0,
+        "P@1000": 1.0,
+        "P@50_menos_hoje": {
+          "valor": 0.1333,
+          "ic95": [
+            0.08,
+            0.1933
+          ],
+          "resgata": 20,
+          "perde": 0
+        }
+      }
+    }
+  },
+  "com_phirank": {
+    "o_que_e": "P entre as 6 fontes: os 50 primeiros de cada busca reordenados pelo ΦRank com a consulta hipotética, como no produto",
+    "reproduz_o_rr50_da_9_3": {
+      "itens": 150,
+      "iguais": 150
+    },
+    "conjuntos": {
+      "corpo_1": {
+        "n": 150,
+        "denso_hyde": {
+          "P@6": 0.6267,
+          "P@1": 0.4133
+        },
+        "rrf_hyde_bm25ingles": {
+          "P@6": 0.7333,
+          "P@1": 0.4467,
+          "menos_hoje": {
+            "valor": 0.1067,
+            "ic95": [
+              0.06,
+              0.16
+            ],
+            "resgata": 16,
+            "perde": 0
+          }
+        },
+        "rrf_tres": {
+          "P@6": 0.7,
+          "P@1": 0.4333,
+          "menos_hoje": {
+            "valor": 0.0733,
+            "ic95": [
+              0.02,
+              0.1267
+            ],
+            "resgata": 14,
+            "perde": 3
+          }
+        },
+        "rrf_dois_densos_bm25": {
+          "P@6": 0.72,
+          "P@1": 0.4467,
+          "menos_hoje": {
+            "valor": 0.0933,
+            "ic95": [
+              0.0467,
+              0.1467
+            ],
+            "resgata": 15,
+            "perde": 1
+          }
+        },
+        "bm25_ingles": {
+          "P@6": 0.7333,
+          "P@1": 0.4933,
+          "menos_hoje": {
+            "valor": 0.1067,
+            "ic95": [
+              0.04,
+              0.1733
+            ],
+            "resgata": 22,
+            "perde": 6
+          }
+        }
+      },
+      "primario_dev": {
+        "n": 150,
+        "denso_hyde": {
+          "P@6": 0.8267,
+          "P@1": 0.6
+        },
+        "rrf_hyde_bm25ingles": {
+          "P@6": 0.9133,
+          "P@1": 0.6267,
+          "menos_hoje": {
+            "valor": 0.0867,
+            "ic95": [
+              0.04,
+              0.14
+            ],
+            "resgata": 14,
+            "perde": 1
+          }
+        },
+        "rrf_tres": {
+          "P@6": 0.9067,
+          "P@1": 0.6133,
+          "menos_hoje": {
+            "valor": 0.08,
+            "ic95": [
+              0.0333,
+              0.1267
+            ],
+            "resgata": 13,
+            "perde": 1
+          }
+        },
+        "rrf_dois_densos_bm25": {
+          "P@6": 0.8867,
+          "P@1": 0.6267,
+          "menos_hoje": {
+            "valor": 0.06,
+            "ic95": [
+              0.0133,
+              0.1067
+            ],
+            "resgata": 11,
+            "perde": 2
+          }
+        },
+        "bm25_ingles": {
+          "P@6": 0.9267,
+          "P@1": 0.6733,
+          "menos_hoje": {
+            "valor": 0.1,
+            "ic95": [
+              0.0467,
+              0.16
+            ],
+            "resgata": 18,
+            "perde": 3
+          }
+        }
+      }
+    }
+  }
+}

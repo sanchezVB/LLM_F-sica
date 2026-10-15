@@ -338,6 +338,18 @@ está onde o passo funcionou: com um trecho do artigo certo anexado (250 itens),
 sem trecho dele, −0,013; com o artigo certo fora das fontes, zero. 15 das 26 perdas são
 `certo` → `parcial`, 9 são `certo` → `errado`. Agregado em
 `avaliacao/assistente_passagens.json`; tabelas no DOC-13 §9.6.
+✅ **A opção "Ler também o texto completo" está na página (2026-10-14)**, desmarcada: marcada,
+a resposta é a de A‴; desmarcada, a de sempre. `--sem-passagens` a tira.
+
+🟢 **Item 2 do dono — a busca LEXICAL do artigo, no desenvolvimento (2026-10-14, DOC-13
+§9.8, exploratório):** BM25 sobre título + resumo (910 MB, 2 min para construir), fundido
+por posição com a busca de hoje, com a pergunta traduzida para inglês. Nas 6 fontes, com o
+ΦRank: **corpo 1, 0,627 → 0,733** (+0,107 [+0,060; +0,160], 16 resgates, 0 perdas);
+**primário dev, 0,827 → 0,913** (+0,087 [+0,040; +0,140], 14/1). ⚠️ As perguntas foram
+escritas lendo o artigo (72% das palavras da pergunta estão no resumo de P), o que favorece
+o BM25; o ganho aparece também no terço de menor sobreposição. A confirmação pede perguntas
+novas e uma regra aceita pelo dono.
+
 ✅ **O juiz independente CONFIRMA (2026-10-14): ROBUSTO.** Mistral Small 3.2 (24B), no Colab:
 vale (κ 0,914 contra os 180 veredictos selados do Claude) e dá o mesmo desfecho nos dois
 eixos — ganho +0,530 passa; "não piora" −0,024 [−0,052; +0,004] não passa. Entre os dois

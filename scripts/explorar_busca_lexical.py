@@ -5,6 +5,7 @@
     P = .venv-treino\\Scripts\\python.exe scripts\\explorar_busca_lexical.py
     P --indexar      # BM25 sobre `título. resumo` dos 1,6 milhão (CPU, HD, ~3-4 GB de memória)
     P --posicoes     # a posição do artigo certo em cada busca, nos dois conjuntos
+    P --phirank      # os 50 de cada busca reordenados pelo ΦRank: as 6 fontes do produto
     P --resumir      # P nos 1/6/50/200/1000 por busca e conjunto, com IC pareado
 
 Conjuntos, os dois já lidos (desenvolvimento):
@@ -156,6 +157,94 @@ def posicoes() -> None:
     print(f"{n} itens novos → {arq}")
 
 
+# ── a segunda etapa: o ΦRank por cima, como no produto ─────────────────────────────
+METODOS_RR = ("denso_hyde", "rrf_hyde_bm25ingles", "rrf_tres", "rrf_dois_densos_bm25",
+              "bm25_ingles")
+PROFUNDIDADE = 50
+
+
+def phirank(dispositivo: str) -> None:
+    """Os 50 primeiros de cada busca, reordenados pelo ΦRank com a consulta hipotética —
+    exatamente o passo do produto (`Assistente.recuperar`). "denso_hyde" é o sistema de
+    hoje e tem de reproduzir o `rr50` da §9.3 no primário dev. Os escores de cada par
+    (consulta, artigo) saem UMA vez por item, na união dos candidatos das buscas."""
+    import numpy as np
+    import polars as pl
+
+    from phifm.rag.reordenador import Reordenador
+    from phifm.retrieval import lexical as lx
+    from phifm.retrieval.indice import Busca
+    from phifm.training.embedding import escolher_dispositivo
+    from phifm.training.pairs import textos_de_documentos
+
+    sets = conjuntos()
+    arq = SAIDA / "phirank.jsonl"
+    feitos = {(d["conjunto"], d["arxiv_id"]) for d in _ler_jsonl(arq)} if arq.exists() else set()
+    t0 = time.perf_counter()
+    busca = Busca(INDICE)
+    ids = busca.docs["arxiv_id"].to_list()
+    lexica = lx.Lexica(LEXICO, ids)
+    linha = {a: i for i, a in enumerate(ids)}
+
+    def topo(escores: np.ndarray) -> list[int]:
+        idx = np.argpartition(-escores, PROFUNDIDADE - 1)[:PROFUNDIDADE]
+        return [int(j) for j in idx[np.argsort(-escores[idx], kind="stable")]]
+
+    listas = {}
+    for nome, itens in sets.items():
+        for it in itens:
+            chave = (nome, it["arxiv_id"])
+            if chave in feitos or it["arxiv_id"] not in linha:
+                continue
+            lp = linha[it["arxiv_id"]]
+            s = {"denso_hyde": busca.pontuar(busca.embutir(it["hyde"])),
+                 "denso_ingles": busca.pontuar(busca.embutir(it["ingles"])),
+                 "bm25_ingles": lexica.pontuar(it["ingles"]),
+                 "bm25_hyde": lexica.pontuar(it["hyde"])}
+            pos = {k: lx.posicoes_de(v) for k, v in s.items()}
+            esc = {"denso_hyde": s["denso_hyde"], "bm25_ingles": s["bm25_ingles"],
+                   "rrf_hyde_bm25ingles": lx.rrf(pos["denso_hyde"], pos["bm25_ingles"]),
+                   "rrf_tres": lx.rrf(pos["denso_hyde"], pos["bm25_ingles"], pos["bm25_hyde"]),
+                   "rrf_dois_densos_bm25": lx.rrf(pos["denso_hyde"], pos["denso_ingles"],
+                                                  pos["bm25_ingles"])}
+            listas[chave] = {"hyde": it["hyde"],
+                             "topos": {m: [ids[j] for j in topo(esc[m])] for m in METODOS_RR},
+                             "fora": {m: lx.posicao(esc[m], lp) for m in METODOS_RR}}
+    print(f"{len(listas)} itens com as listas em {time.perf_counter() - t0:.0f} s", flush=True)
+    todos = sorted({a for v in listas.values() for t in v["topos"].values() for a in t})
+    textos = dict(textos_de_documentos(pl.scan_parquet(SPINE).filter(
+        pl.col("arxiv_id").is_in(todos))).collect().iter_rows())
+    del busca, lexica
+
+    rr = Reordenador()
+    dev = escolher_dispositivo(dispositivo)
+    rr.dev, rr.mod = dev, rr.mod.to(dev)
+    print(f"ΦRank em {dev} · {len(todos):,} artigos candidatos", flush=True)
+    t0, n = time.perf_counter(), 0
+    with arq.open("a", encoding="utf-8") as f:
+        for (nome, p_id), v in listas.items():
+            uniao = sorted({a for t in v["topos"].values() for a in t})
+            escores = {}
+            for i in range(0, len(uniao), 25):
+                pedaco = uniao[i:i + 25]
+                for a, e in zip(pedaco, rr.escores(v["hyde"], [textos.get(a, "") for a in pedaco]),
+                                strict=True):
+                    escores[a] = float(e)
+            d = {"conjunto": nome, "arxiv_id": p_id}
+            for m, lista in v["topos"].items():
+                ordem = sorted(range(len(lista)), key=lambda i, lista=lista: -escores[lista[i]])
+                reordenada = [lista[i] for i in ordem]
+                d[f"rr50_{m}"] = (reordenada.index(p_id) + 1 if p_id in reordenada
+                                  else v["fora"][m])
+            f.write(json.dumps(d) + "\n")
+            f.flush()
+            n += 1
+            if n % 25 == 0:
+                print(f"[{n}/{len(listas)}] {(time.perf_counter() - t0) / n:.1f} s/item",
+                      flush=True)
+    print(f"{n} itens novos → {arq}")
+
+
 def resumir() -> None:
     import numpy as np
 
@@ -181,6 +270,36 @@ def resumir() -> None:
                                           "resgata": int(((x == 1) & (y == 0)).sum()),
                                           "perde": int(((x == 0) & (y == 1)).sum())}
         saida["conjuntos"][nome] = t
+
+    # As 6 fontes de verdade: os 50 de cada busca reordenados pelo ΦRank.
+    arq_rr = SAIDA / "phirank.jsonl"
+    rrs = _ler_jsonl(arq_rr) if arq_rr.exists() else []
+    if rrs:
+        ref = {(d["estrato"], d["arxiv_id"]): d["rr50"]
+               for d in _ler_jsonl(DIR / "dev_busca_posicoes2.jsonl")}
+        bate = [d["rr50_denso_hyde"] == ref[("primario", d["arxiv_id"])] for d in rrs
+                if d["conjunto"] == "primario_dev" and ("primario", d["arxiv_id"]) in ref]
+        saida["com_phirank"] = {
+            "o_que_e": "P entre as 6 fontes: os 50 primeiros de cada busca reordenados pelo "
+                       "ΦRank com a consulta hipotética, como no produto",
+            "reproduz_o_rr50_da_9_3": {"itens": len(bate), "iguais": sum(bate)},
+            "conjuntos": {}}
+        for nome in ("corpo_1", "primario_dev"):
+            sel = [d for d in rrs if d["conjunto"] == nome]
+            if not sel:
+                continue
+            hoje = np.array([d["rr50_denso_hyde"] <= 6 for d in sel], dtype=float)
+            t = {"n": len(sel)}
+            for m in METODOS_RR:
+                x = np.array([d[f"rr50_{m}"] <= 6 for d in sel], dtype=float)
+                t[m] = {"P@6": round(float(x.mean()), 4),
+                        "P@1": round(float(np.mean([d[f"rr50_{m}"] <= 1 for d in sel])), 4)}
+                if m != "denso_hyde":
+                    dif, ic = diferenca_pareada(x, hoje)
+                    t[m]["menos_hoje"] = {"valor": dif, "ic95": ic,
+                                          "resgata": int(((x == 1) & (hoje == 0)).sum()),
+                                          "perde": int(((x == 0) & (hoje == 1)).sum())}
+            saida["com_phirank"]["conjuntos"][nome] = t
     AGREGADO.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
     for nome, t in saida["conjuntos"].items():
         print(f"\n{nome} (n={t['n']}; BM25 sem palavra de P: {t['bm25_ingles_sem_palavra_de_P']})")
@@ -193,6 +312,19 @@ def resumir() -> None:
                 linha += (f"   {c['valor']:+.3f} [{c['ic95'][0]:+.3f}; {c['ic95'][1]:+.3f}]"
                           f" · {c['resgata']}/{c['perde']}")
             print(linha)
+    if "com_phirank" in saida:
+        c = saida["com_phirank"]
+        print(f"\nCOM O ΦRANK nos 50 (as 6 fontes do produto) · reproduz o rr50 da §9.3 em "
+              f"{c['reproduz_o_rr50_da_9_3']['iguais']} de {c['reproduz_o_rr50_da_9_3']['itens']}")
+        for nome, t in c["conjuntos"].items():
+            print(f"\n{nome} (n={t['n']})")
+            for m in METODOS_RR:
+                linha = f"  {m:<22} P@1 {t[m]['P@1']:.3f}   P@6 {t[m]['P@6']:.3f}"
+                if "menos_hoje" in t[m]:
+                    x = t[m]["menos_hoje"]
+                    linha += (f"   {x['valor']:+.3f} [{x['ic95'][0]:+.3f}; {x['ic95'][1]:+.3f}]"
+                              f" · {x['resgata']}/{x['perde']}")
+                print(linha)
     print(f"\n→ {AGREGADO.relative_to(RAIZ)}")
 
 
@@ -200,16 +332,20 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--indexar", action="store_true")
     p.add_argument("--posicoes", action="store_true")
+    p.add_argument("--phirank", action="store_true")
+    p.add_argument("--dispositivo", default="auto", help="do ΦRank em --phirank")
     p.add_argument("--resumir", action="store_true")
     a = p.parse_args()
     if a.indexar:
         indexar()
     elif a.posicoes:
         posicoes()
+    elif a.phirank:
+        phirank(a.dispositivo)
     elif a.resumir:
         resumir()
     else:
-        p.error("--indexar, --posicoes ou --resumir")
+        p.error("--indexar, --posicoes, --phirank ou --resumir")
     return 0
 
 
