@@ -1513,6 +1513,46 @@ As mesmas 20 perguntas, a mesma montagem
   não são disco: são as páginas novas que a conta da busca densa na CPU aloca a cada
   pergunta (a matriz convertida para float32 em blocos).
 
+### 9.10 O artigo das perguntas do corpo, pelo texto completo — desenvolvimento (2026-10-16), exploratório
+
+Pedido do dono depois da §9.9: a busca fundida rendeu +7 pontos nas perguntas do resumo e
+só +4 nas do corpo. No corpo 1, o artigo certo está entre os 200 primeiros da fusão em 96%
+das perguntas e entre as 6 fontes em 73%: o que falta é ORDEM — e a fusão e o ΦRank só leem
+título e resumo, enquanto a pergunta do corpo cita o detalhe que está no corpo.
+
+**O que se testou** (`scripts/explorar_busca_corpo.py`, `avaliacao/assistente_busca_corpo_dev.json`):
+os 200 primeiros da busca de hoje (§9.9), o texto completo de cada um lido do HD e pontuado
+pelo BM25 da pergunta em inglês — o artigo inteiro, ou a melhor janela de 150 palavras (a
+frequência de documento sai das janelas dos candidatos, como nas passagens da §9.6) — e
+fundido por posição com a ordem de hoje e com o ΦRank. A linha de hoje reproduz a §9.8 em
+150 de 150 nos dois conjuntos. Nada tocou o teste.
+
+**O primeiro corte enganou, e a correção ficou registrada.** Na primeira conta, quem não
+tinha texto completo saía da soma do texto e perdia posição para todos os que tinham. No
+corpo 1 isso rendeu +11 a +12 pontos — porque ali o artigo certo SEMPRE tem texto (é assim
+que as perguntas foram escritas) — e no primário dev custou −17 a −24, porque lá 30% dos
+artigos certos não têm. Corrigido: na lista do texto, quem não tem texto fica com a posição
+que a busca de hoje lhe deu — não ganha nem perde.
+
+| artigo certo entre as 6 fontes | corpo 1 (150) | Δ | primário dev (150) | Δ |
+|---|---|---|---|---|
+| **hoje** · fusão, ΦRank nos 50 | 0,733 | — | 0,913 | — |
+| **fusão + melhor janela + ΦRank, nos 50** | **0,793** | **+0,060 [+0,013; +0,113]** · 12/3 | **0,940** | +0,027 [−0,027; +0,080] · 10/6 |
+| o mesmo, nos 200 | 0,800 | +0,067 [+0,020; +0,120] · 13/3 | 0,940 | +0,027 · 10/6 |
+| fusão + melhor janela (sem ΦRank), nos 50 | 0,773 | +0,040 · 15/9 | 0,893 | −0,020 · 9/12 |
+| só a melhor janela, nos 200 | 0,827 | +0,093 · 26/12 | 0,573 | −0,340 · 8/59 |
+
+- **A fusão das três ordens — a de hoje, a do melhor trecho e a do ΦRank — ganha no corpo
+  e não perde no resumo.** Nos 50 basta: ir aos 200 rende uma pergunta a mais.
+- **Só o texto acha mais no corpo e destrói o resumo**: quase todo artigo certo sem texto
+  some (0 de 45 no primário dev).
+- Custo previsto no produto: ler o texto dos 50 candidatos (~1 s) e pontuar as janelas
+  (~0,5 s); o ΦRank já roda nos 50.
+
+⚠️ **Limites:** escolhido no desenvolvimento (150 + 150), a confirmação precisa de perguntas
+que não o escolheram; no corpo, o artigo certo sempre tem texto, o que não vale para o uso
+real (52% do índice); é posição do artigo, não acerto da resposta.
+
 ---
 
 ## 10. Riscos
