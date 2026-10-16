@@ -1486,6 +1486,33 @@ ele não faz. **O padrão muda** em `perguntar.py` e na página (`--sem-busca-le
 desliga). A paginação do produto é um problema à parte, anterior a esta seção, e fica
 registrada para o dono.
 
+#### A paginação, resolvida (2026-10-16, com o aval do dono)
+
+O culpado era o llama-server: com o modo de carga padrão (mmap) ele mantinha o arquivo do
+modelo (4,7 GB) residente na memória da máquina, embora os pesos estivessem todos na GPU —
+5,05 GB de memória residente. Com `-lm none` (`ARGS_DE_CARGA` em `phifm.rag.llm`) ele lê o
+arquivo, sobe os pesos e solta: **0,85 GB**, e a mesma resposta byte a byte (conferido nos
+quatro modos de carga do build b11159). A busca densa (2,8 GB, dos quais 1,4 GB de dados)
+ficou como estava: enxugá-la renderia pouco.
+
+As mesmas 20 perguntas, a mesma montagem
+(`avaliacao/assistente_busca_lexical_produto_sem_mmap_do_modelo.json`):
+
+| mediana por pergunta | antes, sem a fusão | antes, com | **agora, sem a fusão** | **agora, com** |
+|---|---|---|---|---|
+| de ponta a ponta | 76,1 s | 77,6 s | **30,6 s** | **34,0 s** |
+| busca + ΦRank | 41,0 s | 27,9 s | 17,1 s | 19,8 s |
+| resposta | 28,6 s | 34,8 s | 8,2 s | 7,5 s |
+| máximo | 199,4 s | 141,5 s | 46,7 s | 53,8 s |
+| faltas de página do llama-server | ~1,5 milhão | ~1,1 milhão | ~82 mil | ~80 mil |
+
+- **O produto voltou ao tempo das medidas formais**, agora com o resto da sessão aberto.
+- **A busca fundida custa ~3,4 s** por pergunta (tradução 1,3 s e as duas buscas por
+  posição) — dentro do que a regra da §9.9 previu.
+- As ~2,8 milhões de faltas de página do processo do assistente sobram nos dois braços e
+  não são disco: são as páginas novas que a conta da busca densa na CPU aloca a cada
+  pergunta (a matriz convertida para float32 em blocos).
+
 ---
 
 ## 10. Riscos

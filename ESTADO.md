@@ -350,9 +350,10 @@ resultado:** vira padrão depois de o produto rodar nesta máquina sem paginar (
 lexical lido do disco sob demanda), com o tempo medido de novo.
 ✅ **Padrão desde 2026-10-15** (`--sem-busca-lexical` desliga): o índice lexical, lido do
 disco sob demanda, ocupa 0,06 GB e não muda o tempo (76,1 s sem, 77,6 s com, nas mesmas 20
-perguntas). ⚠️ **Problema à parte, para o dono: o produto pagina nesta máquina com ou sem
-ela** — ~76 s por pergunta, milhões de faltas de página, memória livre a 0,6 GB. A busca
-densa na CPU ocupa 2,8 GB e o llama-server ~6 GB (DOC-13 §9.9).
+perguntas). ✅ **A paginação do produto foi resolvida (2026-10-16):** o llama-server segurava
+o arquivo do modelo (4,7 GB) na memória mesmo com os pesos na GPU; com `-lm none` cai de
+5,05 GB para 0,85 GB residentes, com a mesma resposta byte a byte. **Por pergunta: de ~77 s
+para 34,0 s com a busca fundida (30,6 s sem ela)**; máximo de 54 s (DOC-13 §9.9).
 
 🟢 **Item 2 do dono — a busca LEXICAL do artigo, no desenvolvimento (2026-10-14, DOC-13
 §9.8, exploratório):** BM25 sobre título + resumo (910 MB, 2 min para construir), fundido
