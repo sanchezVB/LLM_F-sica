@@ -289,7 +289,7 @@ O código e a documentação de projeto são públicos sob licença permissiva, 
 
 [1] Hoffmann, J.; Borgeaud, S.; Mensch, A.; et al. Training Compute-Optimal Large Language Models. *Advances in Neural Information Processing Systems 35* (NeurIPS 2022), 2022.
 
-[2] Sanchez, V. Construção de um sistema de recuperação de artigos de Física do arXiv sob restrição severa de computação: corpus, supervisão por citação e verificação de protocolo. Manuscrito em preparação, 2026.
+[2] Sanchez, V. Recuperação de artigos de Física do arXiv sob restrição severa de computação: da supervisão por citação a um assistente com fontes. Manuscrito em preparação, 2026.
 
 [3] Taylor, R.; Kardas, M.; Cucurull, G.; Scialom, T.; Hartshorn, A.; Saravia, E.; Poulton, A.; Kerkez, V.; Stojnic, R. Galactica: A Large Language Model for Science. arXiv:2211.09085, 2022.
 
