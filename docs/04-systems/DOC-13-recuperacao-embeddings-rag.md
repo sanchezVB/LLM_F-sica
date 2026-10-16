@@ -1486,6 +1486,132 @@ ele não faz. **O padrão muda** em `perguntar.py` e na página (`--sem-busca-le
 desliga). A paginação do produto é um problema à parte, anterior a esta seção, e fica
 registrada para o dono.
 
+### 9.10 Um teste de fora: o AstroBench — PROPOSTA de 2026-10-16, escrita antes de qualquer item ser lido
+
+Tudo o que a §9 mediu usa perguntas que o próprio Qwen3-8B escreveu a partir de resumos do
+nosso corpo e que o mesmo modelo julgou. A revisão externa pede um teste que não seja nosso,
+e o dono mandou começar pelo AstroBench (pergunta de 2026-10-16). **Esta seção é a regra da
+medida e é PROPOSTA até o dono aceitar** (`REGRA_9_10_ACEITA`, em `phifm.eval.astrobench`,
+trava as fases do teste; o desenvolvimento roda antes).
+
+**O conjunto.** O AstroBench do AstroMLab: perguntas de múltipla escolha, com quatro opções,
+geradas por modelos de linguagem a partir de revisões da *Annual Review of Astronomy and
+Astrophysics*. Foi escrito por outros, com outro método, sobre um campo que o índice cobre
+(astro-ph, ~476 mil artigos no corpo). Como é de múltipla escolha, o acerto não depende de
+juiz. Usa-se a versão pública (`AstroMLab/Astrobench_MCQ_v1_Public`), com o arquivo
+congelado por sha256 em `avaliacao/astrobench_manifesto.json` no dia do download.
+
+⚠️ **O gabarito da versão pública não é público.** A correção é da equipe do AstroMLab, a
+partir das respostas mandadas por e-mail. O script gera os dois arquivos de envio e um
+rascunho do pedido. O pedido é o acerto item a item, que permite a regra pareada; se a
+política deles não permitir, basta o acerto de cada arquivo. O compromisso no e-mail é não
+publicar o resultado item a item nem nada que reconstrua o gabarito. Por isso a correção
+fica em `data/processed/assistente/astrobench/`, fora do git, e o agregado versionado só
+traz números de conjunto.
+
+**Itens.** Uma permutação do arquivo com semente fixa (`SEMENTE_ASTROBENCH = 20261016`).
+Os **1.000 primeiros** são o teste e os **50 seguintes**, o desenvolvimento, disjuntos. As
+perguntas do teste não são lidas antes da rodada; as do desenvolvimento são.
+
+**Os dois braços.** Mesmo modelo (Qwen3-8B Q4_K_M, sem raciocínio), temperatura 0,2 e a
+semente do produto, no máximo 32 tokens. A instrução pede uma linha, `Answer: X`.
+
+- **C · sem fontes:** o enunciado e as quatro opções.
+- **A · com a busca do sistema:** a busca do produto de hoje (§9.9). A consulta hipotética
+  é escrita a partir do enunciado inteiro, com as opções. A busca densa com essa consulta
+  é fundida ao BM25 do mesmo enunciado. O ΦRank reordena os 50 primeiros, e ficam 6 fontes
+  (título, ano, resumo, no bloco de sempre), antes da pergunta. A instrução diz que as
+  fontes podem não ser relevantes e manda usá-las quando ajudam e o próprio conhecimento
+  quando não.
+
+Dois desvios do produto, declarados:
+
+1. **A instrução de resposta não é a do produto.** A do produto manda responder só com as
+   fontes e dizer quando elas não bastam. Na múltipla escolha, a abstenção conta como
+   erro, e a medida misturaria "a busca ajuda" com "a política de abstenção". O que se
+   mede é a busca, com o gerador fixo entre os braços.
+2. **Sem a tradução.** O enunciado já está em inglês: é o que a tradução daria.
+
+**A métrica.** O acerto de cada braço, pela correção do AstroMLab. A letra é lida do texto
+cru (`extrair_letra`), e a que não for lida vai em branco e conta como erro.
+
+**A regra.** Esta é uma leitura, não uma adoção: nada no produto muda com esta medida.
+
+- **Guarda de leitura:** a letra é lida em ≥ 98% das respostas de cada braço, conferido
+  antes do envio (o envio recusa abaixo disso). A leitura só é ajustada no
+  desenvolvimento. Se o teste falhar a guarda, o texto cru fica e a leitura é consertada
+  olhando só as respostas sem letra (não há gabarito para olhar), com registro do desvio.
+- **Guarda de sanidade:** acerto de C ≥ 0,50 (o acaso é 0,25; os modelos de 8B publicados
+  passam de 0,70). Abaixo disso, o prompt ou a leitura estão quebrados, e a medida é
+  inválida, não um resultado.
+- **Primária: A − C**, com IC 95% por bootstrap pareado por item (10.000 reamostragens),
+  nos 1.000:
+  - IC inteiro acima de 0: **a busca ajuda**. Se o limite de baixo também passar de
+    **+0,03** (o limiar da §9.2 e da §9.9), a ajuda é **material**.
+  - IC inteiro abaixo de 0: **a busca atrapalha**.
+  - Fora disso: **não se distingue**.
+- **Degradada:** se só voltar o acerto de cada arquivo, A − C é lida com o intervalo de
+  Newcombe para proporções independentes (Wilson). Ele é mais largo que o pareado quando
+  os braços erram nos mesmos itens, o esperado. Vale a mesma leitura, marcada "sem
+  pareamento", e ela erra para o lado de não distinguir.
+
+**Relatadas, não decidem** (todas, menos a última, medidas sem o gabarito e gravadas no
+agregado *antes* de a correção voltar, junto com o sha256 dos arquivos enviados):
+
+- quanto a busca muda a resposta (A ≠ C);
+- a distribuição das letras em cada braço (viés de posição);
+- a fração das fontes em astro-ph e a dos itens com pelo menos uma fonte de astro-ph;
+- o ano mediano das fontes;
+- o tempo por passo;
+- o McNemar exato nos discordantes, se a correção vier item a item;
+- os números publicados (Llama-3.1-8B-Instruct 73,7%; AstroSage-8B 80,9%), que são de
+  OUTRO protocolo: o conjunto interno de 4.425 perguntas e o prompt do AstroMLab. Servem
+  de ordem de grandeza, não de comparação ponto a ponto.
+
+⚠️ **Limites declarados antes de rodar:**
+
+1. **A correção depende de terceiros.** Se a equipe não responder, a medida fica pendente.
+   Um conjunto com gabarito público (o Astro-QA, por exemplo) pediria regra própria, e
+   não herda esta.
+2. **As perguntas saíram de revisões que podem estar no índice.** Muitas revisões da ARAA
+   estão no arXiv em astro-ph, e a busca pode achar o próprio texto de onde a pergunta
+   saiu. Isso é recuperação legítima, mas faz do ganho um teto para perguntas "sobre a
+   literatura". Sem o mapeamento pergunta → revisão, não dá para separar.
+3. **Contaminação do modelo.** O Qwen3 foi treinado com a web até 2025; as revisões, e
+   talvez o próprio conjunto (público desde 2024), podem estar no treino. Isso pesa nos
+   dois braços: A − C é menos afetado que o nível de acerto de cada um.
+4. **Um campo só.** O corpo cobre a Física inteira; isto mede astrofísica.
+5. **O prompt não é o do AstroMLab**, e os acertos absolutos não se comparam ponto a ponto
+   aos publicados.
+
+**Como roda** (`scripts/medir_astrobench.py`), em três fases como a §9.9, com a trava de
+`medir_passagens.py`:
+
+1. `--baixar` (ou `--registrar ARQUIVO`) congela o conjunto. É uma vez só: um arquivo
+   diferente do registrado é recusado.
+2. No desenvolvimento, `--consultas --dev`, `--buscar --dev`, `--responder --dev` e
+   `--resumir-dev`. Confere-se a leitura da letra, quanto a busca muda a resposta, o tempo
+   e a fração das fontes em astro-ph. Não decide.
+3. Depois do aceite, as mesmas três fases sem `--dev`:
+   - fase 1, só o modelo: a consulta hipotética e o braço C;
+   - fase 2, sem o modelo: a busca e o ΦRank na CPU;
+   - fase 3, só o modelo: o braço A.
+
+   Todas são retomáveis.
+4. `--exportar` grava os dois arquivos, o rascunho do e-mail e o agregado com as
+   secundárias. O dono assina e manda o e-mail.
+5. `--apurar` roda com o que voltar: `--correcao-C/-A` (acerto item a item), `--gabarito`
+   (as letras certas) ou `--agregado-C/-A` (só as contagens).
+
+**Custo previsto:** ~6 a 7 h locais para os 1.000:
+
+- consulta hipotética e C: ~1,5 h;
+- busca e ΦRank na CPU: ~3,5 h;
+- A: ~1 h.
+
+O desenvolvimento leva ~20 min. A espera pela correção não depende de nós. O agregado vai
+em `avaliacao/astrobench.json`, e o do desenvolvimento em `avaliacao/astrobench_dev.json`.
+
 ---
 
 ## 10. Riscos
