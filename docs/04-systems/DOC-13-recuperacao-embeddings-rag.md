@@ -1612,6 +1612,90 @@ agregado *antes* de a correção voltar, junto com o sha256 dos arquivos enviado
 O desenvolvimento leva ~20 min. A espera pela correção não depende de nós. O agregado vai
 em `avaliacao/astrobench.json`, e o do desenvolvimento em `avaliacao/astrobench_dev.json`.
 
+### 9.11 O juiz contra físicos — PROPOSTA de 2026-10-16, escrita antes de a amostra ser sorteada
+
+Todo resultado da §9 que passa pelo juiz automático sai rotulado **"calibrado contra o
+Claude, sem revisão humana"**. Em 2026-10-04 o dono decidiu não julgar, e o Claude, que
+escreveu as perguntas e os gabaritos, ficou no lugar dele (§9.1, desvio). O que isso
+enfraquecia ficou escrito lá: erros que o Qwen3-8B e o Claude cometem juntos não aparecem.
+O dono mandou montar o julgamento por físicos de fora como o segundo teste externo
+(pergunta de 2026-10-16). **Esta seção é a regra e é PROPOSTA até o dono aceitar**
+(`REGRA_9_11_ACEITA`, em `phifm.eval.julgamento_humano`, trava o sorteio da amostra e as
+folhas).
+
+**Quem julga.** Pelo menos **dois físicos** (pós-graduação em Física ou pesquisa na área),
+de fora do projeto, escolhidos pelo dono, sem ver nenhum resultado da §9 antes de
+entregar. Cada um julga sozinho, numa ordem própria, e não conversa sobre os itens com o
+outro até os dois entregarem. No git, eles aparecem por pseudônimo (`fisico1`,
+`fisico2`); o nome fica com o dono, e entra no artigo só com a permissão deles.
+
+**A amostra — 100 respostas** (`scripts/julgamento_humano.py --amostrar`):
+
+- **50 seladas**, sorteadas (semente `SEMENTE_HUMANO = 20261017`) das 100 da rodada 2 do
+  I3, que o Claude julgou às cegas com o hash no git antes de o juiz v2 rodar (25 de A e
+  25 de B em média, pelo sorteio). Nelas há três julgadores: os físicos, o juiz e o
+  Claude.
+- **50 novas**: 25 de A′ (§9.2) e 25 de A5 (§9.9, o sistema de hoje), do primário do teste,
+  de itens fora das duas rodadas do I3 e diferentes entre si. São respostas das decisões
+  mais recentes, que nem humano nem o Claude julgou.
+
+A rodada 2 é refeita do cache e conferida contra o selo dela antes de entrar. A amostra é
+selada (`avaliacao/assistente_humano_selo.json`) **antes** de qualquer folha sair. A
+assinatura de cada folha entra no selo, e o commit vem antes de a página ser mandada.
+
+**O que o físico vê** (`--folha PSEUDONIMO`): a página de sempre das folhas deste
+projeto, com as fórmulas renderizadas, o progresso guardado no navegador e o horário de
+cada julgamento. Cada cartão traz **pergunta, gabarito e resposta**, sem as marcas [n],
+como o juiz lê. A regra de correção é a do juiz v2 em português: o núcleo do gabarito, o
+que não baixa o veredicto, e as fronteiras de `errado` e `absteve`. São as mesmas quatro
+categorias. **Não vê:** o braço, o veredicto do juiz, o do Claude, o artigo. O id de cada
+item é opaco, e nem o código-fonte da página traz essas informações.
+
+**A regra** (κ de Cohen em **certa × o resto**, a variável que decide, como no I3; mínimo
+**0,6**, o `KAPPA_MINIMO` da §9.1):
+
+1. **Guarda — os físicos concordam entre si:** o menor κ entre pares de físicos ≥ 0,6.
+   Abaixo disso, a referência humana não é estável, e o resultado é **inconclusivo**: a
+   tarefa, como a rubrica a define, é ambígua para pessoas também.
+2. **Decide — o juiz concorda com cada físico:** o menor κ entre o juiz e um físico ≥ 0,6
+   → **o juiz PASSA**. Abaixo disso, **NÃO PASSA**.
+
+O κ sai com IC 95% por bootstrap nos itens, **relatado**: com 100 respostas ele é largo,
+e a regra decide pelo ponto, como no I3.
+
+**O que cada desfecho muda:**
+
+- **PASSA:** o rótulo dos resultados da §9 que dependem do juiz passa a ser "conferido
+  por N físicos (κ …)", ao lado de "calibrado contra o Claude".
+- **NÃO PASSA:** os resultados ficam como "calibrados contra o Claude, NÃO confirmados por
+  físicos", e o artigo diz isso. Nenhuma decisão já tomada é refeita automaticamente. A
+  direção do desacordo (juiz dá certa e o físico não, ou o contrário) é relatada por
+  origem. Se o juiz inflar o acerto de A5, a margem fina da §9.9 (0,4 ponto) fica marcada
+  como frágil.
+- **Inconclusivo:** nada muda, e fica registrado.
+
+**Relatadas, não decidem:**
+
+- o κ entre o Claude e cada físico nas 50 seladas: **o Claude foi um bom substituto?**;
+- o κ entre o Claude e o juiz nas mesmas 50;
+- o acerto de cada origem pelo juiz e por cada físico;
+- as contagens de desacordo nas duas direções;
+- o κ por origem (com 25 por braço, só indicativo).
+
+⚠️ **Limites declarados antes de sortear:**
+
+1. **100 respostas.** O κ tem IC largo (~±0,12). A amostra confere o juiz, não mede o
+   acerto de braço nenhum: 25 por braço não sustentam acerto.
+2. **Os físicos julgam contra o gabarito, que o Claude escreveu a partir do resumo.** Isto
+   valida o juiz, não os itens; a validade dos itens foi a I1 (humana, 40 de 40).
+3. **As seladas já foram julgadas pelo Claude e pelo juiz.** Elas valem para comparar os
+   três, não como amostra nova. Para isso servem as 50 novas.
+4. **As perguntas são do conjunto de teste.** Vão aos físicos por decisão do dono, com o
+   pedido escrito na folha de não repassar. A amostra fica fora do git.
+
+**Custo previsto:** ~1 h por físico (100 itens a ~35 s). Do lado do projeto, minutos. O
+agregado vai em `avaliacao/assistente_julgamento_humano.json`, só com números de conjunto.
+
 ---
 
 ## 10. Riscos
