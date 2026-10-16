@@ -38,7 +38,8 @@ def mostrar(r, consulta: bool) -> None:
     print("\n── fontes ──")
     for f in r.fontes:
         marca = "●" if f.numero in r.citadas else "○"
-        print(f"{marca} [{f.numero}] {f.titulo} ({f.ano or '—'}) · {f.link}")
+        trechos = f" · {len(f.passagens)} trecho(s) do texto completo" if f.passagens else ""
+        print(f"{marca} [{f.numero}] {f.titulo} ({f.ano or '—'}) · {f.link}{trechos}")
     if r.removidas:
         print(f"\n⚠️ citações removidas (fontes que não existiam): "
               f"{', '.join(f'[{n}]' for n in r.removidas)}")
@@ -55,13 +56,25 @@ def main() -> int:
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     p.add_argument("-k", type=int, default=6, help="quantos artigos o modelo lê")
     p.add_argument("--dispositivo-busca", default="cpu")
-    p.add_argument("--reordenar", action="store_true",
-                   help="reordena os 50 primeiros com o ΦRank (+~11 s na CPU; EXPLORATÓRIO — DOC-13 §9.2)")
+    p.add_argument("--sem-reordenar", action="store_true",
+                   help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--mostrar-consulta", action="store_true",
                    help="imprime o resumo hipotético que foi à busca")
+    p.add_argument("--passagens", action="store_true",
+                   help="OPCIONAL (DOC-13 §9.6: ganha no corpo do artigo, perde um pouco no "
+                        "resumo — não é o padrão): anexa às fontes os trechos do texto "
+                        "completo escolhidos para a pergunta, com a instrução v2; pede a "
+                        "cópia de scripts/indexar_textos.py")
+    p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
+    p.add_argument("--sem-busca-lexical", action="store_true",
+                   help="desliga a fusão da busca densa com o BM25 da pergunta em inglês "
+                        "(adotada em 2026-10-15, DOC-13 §9.9: +6,4 pontos de acerto, ~+2 s); "
+                        "sem o índice de scripts/explorar_busca_lexical.py --indexar, ela já "
+                        "fica desligada, com aviso")
+    p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
     a = p.parse_args()
 
-    from phifm.rag.assistente import Assistente
+    from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
     from phifm.rag.llm import ModeloLocal
     from phifm.retrieval.indice import Busca
 
@@ -71,12 +84,23 @@ def main() -> int:
         print("subindo o llama-server (Qwen3-8B na GPU)...")
         modelo.iniciar(log=RAIZ / "data/processed/llama_server.log")
     busca = Busca(a.indice, dispositivo=a.dispositivo_busca)
-    reordenador = None
-    if a.reordenar:
-        from phifm.rag.reordenador import Reordenador
+    from phifm.rag.reordenador import carregar_ou_avisar
 
-        reordenador = Reordenador()
-    assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador)
+    reordenador = None if a.sem_reordenar else carregar_ou_avisar()
+    passagens = None
+    if a.passagens:
+        from phifm.rag import passagens as ps
+
+        passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+    lexica = None
+    if not a.sem_busca_lexical:
+        from phifm.retrieval.lexical import carregar_ou_avisar as carregar_lexica
+
+        lexica = carregar_lexica(a.lexico, busca.docs["arxiv_id"].to_list())
+    # Com --passagens, a dupla medida (A‴): os trechos e a instrução v2.
+    assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador,
+                            passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2,
+                            lexica=lexica)
     print(f"pronto em {time.perf_counter() - t0:.1f} s · "
           f"{busca.vetores.shape[0]:,} artigos no índice")
     try:

@@ -1,0 +1,280 @@
+{
+  "regra": "DOC-13 §9.6, escrita antes de os itens do corpo 2 existirem",
+  "regra_aceita_pelo_dono": true,
+  "aceite": "2026-10-13, com a emenda: o braço que vai ao teste é A‴ (A4), e um juiz independente confere (regra escrita antes de o teste rodar)",
+  "ressalvas": [
+    "perguntas e passagens escolhidas e escritas pelo Claude, sem revisão humana; a passagem é a de mais números do artigo",
+    "o autor das perguntas é quem escolheu a regra de seleção, lexical",
+    "só entram artigos com texto completo como P: o ganho vale para os 52% do índice que o têm",
+    "o juiz não separa abstenção de erro neste estrato: vale `certo` contra o resto (I3), não a divisão errado × absteve"
+  ],
+  "ocorrencias": [
+    "2026-10-12: o 44º item (1507.02461) levou 397 s na busca, com a GPU parada e 1,3 GB de memória comprometida livre na máquina; os tempos entram como foram medidos — a mediana não se move, o máximo (413 s) sim."
+  ],
+  "sha256_itens": "4b937dc7efdb7e6a23ae3241cb49373646982d03c4539c5579acca82d5ba9acb",
+  "assinatura": "24013984dbf10ec655e5a4604661045324817e831f9ec6e347a5dad2e99f0f1b",
+  "bracos": {
+    "A2": "o sistema de hoje (ΦRank nos 50, 6 fontes com o resumo)",
+    "A3": "o mesmo, com os trechos do texto completo das fontes escolhidos para a pergunta",
+    "Bp": "as fontes de A′ com a passagem de P garantida — o teto",
+    "C": "sem fontes"
+  },
+  "I3": {
+    "n": 40,
+    "kappa_certo": 1.0,
+    "kappa_4_categorias": 0.6578,
+    "concordancia_certo": 1.0,
+    "matriz_humano_x_juiz": {
+      "certo": {
+        "certo": 14,
+        "parcial": 0,
+        "errado": 0,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "parcial": {
+        "certo": 0,
+        "parcial": 2,
+        "errado": 0,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "errado": {
+        "certo": 0,
+        "parcial": 1,
+        "errado": 8,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "absteve": {
+        "certo": 0,
+        "parcial": 2,
+        "errado": 7,
+        "absteve": 6,
+        "ilegivel": 0
+      }
+    },
+    "minimo": 0.6,
+    "passa": true
+  },
+  "corpo_2": {
+    "n_itens": 100,
+    "acerto": {
+      "A2": {
+        "valor": 0.0,
+        "ic95": [
+          0.0,
+          0.0
+        ]
+      },
+      "A3": {
+        "valor": 0.5,
+        "ic95": [
+          0.4,
+          0.6
+        ]
+      },
+      "Bp": {
+        "valor": 0.99,
+        "ic95": [
+          0.97,
+          1.0
+        ]
+      },
+      "C": {
+        "valor": 0.01,
+        "ic95": [
+          0.0,
+          0.03
+        ]
+      }
+    },
+    "veredictos": {
+      "A2": {
+        "certo": 0,
+        "parcial": 14,
+        "errado": 61,
+        "absteve": 25,
+        "ilegivel": 0
+      },
+      "A3": {
+        "certo": 50,
+        "parcial": 15,
+        "errado": 30,
+        "absteve": 5,
+        "ilegivel": 0
+      },
+      "Bp": {
+        "certo": 99,
+        "parcial": 1,
+        "errado": 0,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "C": {
+        "certo": 1,
+        "parcial": 15,
+        "errado": 69,
+        "absteve": 15,
+        "ilegivel": 0
+      }
+    },
+    "ganho_no_corpo": {
+      "A3_menos_A2": 0.5,
+      "ic95": [
+        0.4,
+        0.6
+      ],
+      "limiar": 0.15,
+      "ganha": 50,
+      "perde": 0,
+      "passa": true
+    },
+    "tempo": {
+      "mediana_A2_s": 42.1,
+      "mediana_A3_s": 46.5,
+      "das_quais_passagens_s": 2.5,
+      "maximo_s": 60.0,
+      "passa": true
+    },
+    "p_nas_fontes": {
+      "itens": 70,
+      "fracao": 0.7,
+      "acerto_de_A3_neles": 0.7,
+      "acerto_de_A3_fora": 0.0333
+    },
+    "o_teto": {
+      "acerto_Bp": 0.99,
+      "fracao_do_teto_colhida": 0.5051
+    },
+    "guardas": {
+      "I2c": {
+        "acerto_C": 0.01,
+        "acerto_Bp": 0.99,
+        "margem": 0.1,
+        "valida": true
+      },
+      "fora_do_resumo": {
+        "itens_com_o_resumo_de_P_nas_fontes": 70,
+        "acerto_de_A2_neles": 0.0,
+        "maximo": 0.2,
+        "valida": true
+      }
+    }
+  },
+  "alcance_da_selecao": {
+    "itens_com_P_nas_fontes": 70,
+    "…com_a_passagem_de_ouro_entregue": 58,
+    "fracao": 0.8286,
+    "itens_com_alguma_passagem_anexada": 99,
+    "trechos_anexados_por_item_media": 8.91,
+    "o_que_e_ouro": "pelo menos um dos 3 trechos da passagem de onde a pergunta saiu"
+  },
+  "sobreposicao_pergunta_x_passagem": {
+    "o_que_e": "fração das palavras da pergunta em inglês presentes na passagem de ouro",
+    "corpo_2": {
+      "n": 100,
+      "media": 0.5733,
+      "mediana": 0.5714
+    },
+    "corpo_1": {
+      "n": 150,
+      "media": 0.5783,
+      "mediana": 0.582
+    },
+    "corpo_2_menos_corpo_1": -0.005
+  },
+  "emenda_instrucao_v2": {
+    "o_que_e": "A‴ = as fontes e as passagens de A″, com a instrução candidata (SISTEMA_RESPOSTA_V2), escolhida só no desenvolvimento; o corpo 2 já tinha sido lido uma vez, com A″, quando este braço rodou",
+    "resultado": {
+      "n_itens": 100,
+      "acerto_A4": {
+        "valor": 0.52,
+        "ic95": [
+          0.42,
+          0.62
+        ]
+      },
+      "veredictos_A4": {
+        "certo": 52,
+        "parcial": 6,
+        "errado": 23,
+        "absteve": 19,
+        "ilegivel": 0
+      },
+      "ganho_no_corpo": {
+        "A4_menos_A2": 0.52,
+        "ic95": [
+          0.42,
+          0.62
+        ],
+        "limiar": 0.15,
+        "passa": true
+      },
+      "A4_menos_A3": {
+        "valor": 0.02,
+        "ic95": [
+          0.0,
+          0.05
+        ],
+        "ganha": 2,
+        "perde": 0
+      },
+      "tempo": {
+        "mediana_A4_s": 46.3,
+        "maximo_s": 60.0,
+        "passa": true
+      }
+    }
+  },
+  "teste_primario": {
+    "estrato": "primario",
+    "braco": "A4",
+    "n_itens": 500,
+    "acerto_A2": 0.806,
+    "acerto_A4": 0.778,
+    "A4_menos_A2": -0.028,
+    "ic95": [
+      -0.052,
+      -0.004
+    ],
+    "margem": 0.03,
+    "ganha": 12,
+    "perde": 26,
+    "veredictos": {
+      "A2": {
+        "certo": 403,
+        "parcial": 38,
+        "errado": 41,
+        "absteve": 18,
+        "ilegivel": 0
+      },
+      "A4": {
+        "certo": 389,
+        "parcial": 31,
+        "errado": 54,
+        "absteve": 26,
+        "ilegivel": 0
+      }
+    },
+    "respostas_iguais_as_de_A2": 0,
+    "com_passagem_anexada": 484,
+    "passa": false,
+    "tempo_mediana_s": {
+      "A2": 28.3,
+      "A4": 32.0,
+      "das_quais_passagens": 1.4,
+      "nota": "relatado; o eixo do tempo é o do corpo 2"
+    }
+  },
+  "decisao": {
+    "candidato": "A4",
+    "situacao": "válido",
+    "eixos": {
+      "ganho_no_corpo": true,
+      "tempo": true,
+      "nao_piora_o_primario": false
+    },
+    "decisao": "FICA O SISTEMA ATUAL"
+  }
+}

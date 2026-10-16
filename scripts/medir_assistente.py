@@ -380,6 +380,47 @@ def reordenado(a, itens, cache_b: Path, cache_j: Path, ab: str) -> None:
     print(f"A′: {len(respostas)} itens ({iguais} iguais a A) · {len(julg)} textos no juiz")
 
 
+def resumo_reordenado(itens, cache_b: Path, ab: str) -> dict:
+    """O que o braço A′ diz SEM o juiz — pode ser lido antes de I3: quantas vezes o artigo
+    certo chegou às fontes, contra o braço A nos mesmos itens, e o tempo."""
+    import numpy as np
+
+    from phifm.eval import assistente_bracos as b
+
+    ra = {(r.estrato, r.arxiv_id): r for r in b.ler_respostas(cache_b) if r.braco == "A"}
+    r2 = {(r.estrato, r.arxiv_id): r
+          for r in b.ler_respostas(DIR / f"bracos_A2_{ab[:12]}.jsonl")}
+    if len(r2) < len(itens):
+        raise SystemExit(f"o braço A′ tem {len(r2)} de {len(itens)} itens (--reordenado).")
+    saida = {"regra": "DOC-13 §9.2", "sem_juiz": True, "assinatura_bracos": ab,
+             "por_estrato": {}}
+    for estrato in ("primario", "pos_corte"):
+        ids = sorted(k for k in r2 if k[0] == estrato)
+        em_a = np.array([ra[k].posicao_p is not None for k in ids], dtype=float)
+        em_a2 = np.array([r2[k].posicao_p is not None for k in ids], dtype=float)
+        dif, ic = b.diferenca_pareada(em_a2, em_a)
+        t_a = float(np.median([ra[k].segundos for k in ids]))
+        t_rec = float(np.median([r2[k].segundos_recuperacao for k in ids]))
+        saida["por_estrato"][estrato] = {
+            "itens": len(ids),
+            "p_entre_as_fontes_A": round(float(em_a.mean()), 4),
+            "p_entre_as_fontes_A2": round(float(em_a2.mean()), 4),
+            "A2_menos_A": dif, "ic95": ic,
+            "resgatados": int(((em_a2 - em_a) > 0).sum()),
+            "perdidos": int(((em_a2 - em_a) < 0).sum()),
+            "p_em_primeiro_A": round(float(np.mean([ra[k].posicao_p == 1 for k in ids])), 4),
+            "p_em_primeiro_A2": round(float(np.mean([r2[k].posicao_p == 1 for k in ids])), 4),
+            "p_citada_quando_presente_A2": round(float(np.mean(
+                [r2[k].p_citada for k in ids if r2[k].posicao_p])), 4),
+            "respostas_iguais_as_de_A": sum(1 for k in ids if r2[k].igual_a_A),
+            "segundos_medianos_A": round(t_a, 1),
+            "segundos_medianos_recuperacao_A2": round(t_rec, 1),
+            "tempo_mediano_A2_pela_regra": round(t_a + t_rec, 1),
+            "tempo_maximo_s": b.TEMPO_MAX_REORDENADO_S,
+        }
+    return saida
+
+
 def resumo_mecanico(itens, respostas, sha_itens: str, ab: str) -> dict:
     """O que não depende do juiz: pode ser lido e versionado antes de I3."""
     import numpy as np
@@ -417,9 +458,23 @@ def main() -> int:
     p.add_argument("--apurar-i3", type=Path)
     p.add_argument("--folha-r", action="store_true")
     p.add_argument("--apurar-r", type=Path)
+    p.add_argument("--rodada", type=int, default=1,
+                   help="rodada de I3: a 2 é a amostra NOVA que valida o juiz consertado")
+    p.add_argument("--testar-juiz", action="store_true",
+                   help="roda o juiz ATUAL nas 100 da rodada 1 e compara com o Claude "
+                        "(desenvolvimento do conserto; GPU, ~7 min)")
+    p.add_argument("--exportar-i3", action="store_true",
+                   help="as 100 respostas de I3 SEM braço nem id, para o Claude julgar às cegas")
+    p.add_argument("--apurar-i3-claude", type=Path,
+                   help="veredictos do Claude para I3 (desvio do DOC-13 §9.1, 2026-10-04)")
+    p.add_argument("--exportar-r", action="store_true",
+                   help="os erros de B do primário, para o Claude classificar")
+    p.add_argument("--apurar-r-claude", type=Path)
     p.add_argument("--decidir", action="store_true")
     p.add_argument("--reordenado", action="store_true",
                    help="o braço A′ da §9.2 (A + ΦRank) e o juiz nele — só depois do aceite")
+    p.add_argument("--resumo-reordenado", action="store_true",
+                   help="o que o braço A′ diz sem o juiz (pode ser lido antes de I3)")
     p.add_argument("--comparar-reordenado", action="store_true",
                    help="acerto de A′ contra A, pareado (exige I3 aprovado)")
     p.add_argument("--indice", type=Path, default=RAIZ / "data/processed/indice_busca")
@@ -444,6 +499,11 @@ def main() -> int:
         julgar(a, itens, cache_b, cache_j)
     if a.reordenado:
         reordenado(a, itens, cache_b, cache_j, ab)
+    if a.resumo_reordenado:
+        resumo = resumo_reordenado(itens, cache_b, ab)
+        (AVALIACAO / "assistente_bracos_A2.json").write_text(
+            json.dumps(resumo, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(resumo["por_estrato"], ensure_ascii=False, indent=1))
     if a.comparar_reordenado:
         i3 = json.loads(agregado_i3.read_text(encoding="utf-8")) if agregado_i3.exists() else {}
         if not i3.get("passa"):
@@ -459,12 +519,18 @@ def main() -> int:
             encoding="utf-8")
         print(json.dumps(r2, ensure_ascii=False, indent=1))
 
-    if a.folha_i3 or a.apurar_i3 or a.folha_r or a.apurar_r or a.decidir:
+    claude = (a.exportar_i3 or a.apurar_i3_claude or a.exportar_r or a.apurar_r_claude
+              or a.testar_juiz)
+    if a.folha_i3 or a.apurar_i3 or a.folha_r or a.apurar_r or a.decidir or claude:
         respostas = b.ler_respostas(cache_b)
         if len({(r.estrato, r.arxiv_id) for r in respostas}) < len(itens):
             raise SystemExit("os braços não rodaram em todos os itens (--rodar).")
         julg = b.ler_julgamentos(cache_j)
-        veredictos = b.veredictos_por_braco(itens, respostas, julg)
+        # Exportar a amostra de I3 não precisa do juiz — e na rodada 2 acontece ANTES de
+        # o juiz consertado rodar. Só quem lê veredictos exige o cache completo.
+        veredictos = (b.veredictos_por_braco(itens, respostas, julg)
+                      if not (a.exportar_i3 or a.testar_juiz or a.apurar_i3_claude)
+                      else None)
         por_id = {(i["estrato"], i["arxiv_id"]): i for i in itens}
 
         def id_de(r) -> str:
@@ -500,6 +566,119 @@ def main() -> int:
             print(f"I3: κ (certa × resto) = {r3['kappa_certo']} · κ nas 4 = "
                   f"{r3['kappa_4_categorias']} · mínimo {r3['minimo']} → "
                   f"{'PASSA' if r3['passa'] else 'NÃO PASSA'}")
+
+    # ── o Claude no lugar do dono (DOC-13 §9.1, desvio de 2026-10-04) ──────────────────
+    sufixo = "" if a.rodada == 1 else f"_r{a.rodada}"
+    if a.testar_juiz:
+        # O juiz de AGORA só nas 100 respostas de uma rodada, contra o que o Claude já
+        # julgou. Na rodada 1 é desenvolvimento do conserto (aquelas 100 deixam de valer
+        # como validação); na rodada 2 é a validação, antes de gastar horas julgando tudo.
+        amostra = b.amostra_i3(respostas, rodada=a.rodada)
+        meus = {int(v["indice"]): v["veredicto"] for v in json.loads(
+            (DIR / f"veredictos_i3_claude{sufixo}.json").read_text(encoding="utf-8"))}
+        modelo, _ = _modelo_e_assistente(a, com_busca=False)
+        try:
+            julg = b.julgar_todas(modelo, itens, amostra, cache_j)
+        finally:
+            modelo.parar()
+        juiz, motivos = [], []
+        for r in amostra:
+            it = por_id[(r.estrato, r.arxiv_id)]
+            d = julg[b.chave_do_julgamento(it["pergunta"], it["gabarito"], r.texto)]
+            juiz.append(d["veredicto"])
+            motivos.append(d["motivo"])
+        r3 = b.apurar_i3([meus[n] for n in range(len(amostra))], juiz)
+        print(f"juiz {aj[:12]} nas 100 da rodada {a.rodada}: κ (certa × resto) = "
+              f"{r3['kappa_certo']} · "
+              f"κ nas 4 = {r3['kappa_4_categorias']}")
+        print(json.dumps(r3["matriz_humano_x_juiz"], ensure_ascii=False))
+        for n, (j, m) in enumerate(zip(juiz, motivos, strict=True)):
+            if (meus[n] == "certo") != (j == "certo"):
+                print(f"  {n}: Claude {meus[n]} · juiz {j} — {m}")
+
+    if a.exportar_i3 or a.apurar_i3_claude:
+        amostra = b.amostra_i3(respostas, rodada=a.rodada)
+        if a.exportar_i3:
+            # Só o que o juiz viu, e um número: o `id` traz o braço, e fica de fora.
+            dados = [{"indice": n, "pergunta": por_id[(r.estrato, r.arxiv_id)]["pergunta"],
+                      "gabarito": por_id[(r.estrato, r.arxiv_id)]["gabarito"],
+                      "resposta": b.sem_citacoes(r.texto).strip() or "(resposta vazia)"}
+                     for n, r in enumerate(amostra)]
+            destino = DIR / f"i3_para_julgar{sufixo}.json"
+            destino.write_text(json.dumps(dados, ensure_ascii=False, indent=1),
+                               encoding="utf-8")
+            print(f"{len(dados)} respostas (rodada {a.rodada}) → {destino}")
+        else:
+            lidos = json.loads(a.apurar_i3_claude.read_text(encoding="utf-8"))
+            por_indice = {int(v["indice"]): v["veredicto"] for v in lidos}
+            if sorted(por_indice) != list(range(len(amostra))):
+                raise SystemExit("os veredictos não cobrem exatamente a amostra de I3.")
+            if any(v not in b.VEREDICTOS for v in por_indice.values()):
+                raise SystemExit("veredicto fora das quatro categorias.")
+            # Só a amostra precisa estar julgada: a validação vem ANTES de julgar tudo.
+            juiz = []
+            for r in amostra:
+                it = por_id[(r.estrato, r.arxiv_id)]
+                chave = b.chave_do_julgamento(it["pergunta"], it["gabarito"], r.texto)
+                if chave not in julg:
+                    raise SystemExit("a amostra ainda não foi julgada por este juiz "
+                                     "(--testar-juiz --rodada N).")
+                juiz.append(julg[chave]["veredicto"])
+            r3 = b.apurar_i3([por_indice[n] for n in range(len(amostra))], juiz)
+            anterior = (json.loads(agregado_i3.read_text(encoding="utf-8"))
+                        if agregado_i3.exists() else {})
+            if a.rodada > 1 and "rodada_1" not in anterior:
+                # A rodada 1 fica guardada como saiu: é o registro de que o primeiro juiz
+                # foi reprovado, e de que as 100 dela viraram desenvolvimento do conserto.
+                anterior = {"regra": anterior.get("regra"), "rodada_1": anterior}
+            anterior.update(r3)
+            anterior["rodada"], anterior["assinatura_juiz"] = a.rodada, aj
+            anterior["julgador"] = "claude-opus-5-5 (no lugar do dono; DOC-13 §9.1, desvio)"
+            anterior["por_braco"] = {
+                x: b.apurar_i3([por_indice[n] for n, r in enumerate(amostra) if r.braco == x],
+                               [j for j, r in zip(juiz, amostra, strict=True) if r.braco == x]
+                               )["kappa_certo"] for x in ("A", "B")}
+            agregado_i3.write_text(json.dumps(anterior, ensure_ascii=False, indent=2),
+                                   encoding="utf-8")
+            print(f"I3 (Claude): κ (certa × resto) = {r3['kappa_certo']} · κ nas 4 = "
+                  f"{r3['kappa_4_categorias']} · mínimo {r3['minimo']} → "
+                  f"{'PASSA' if r3['passa'] else 'NÃO PASSA'}")
+            print(json.dumps(r3["matriz_humano_x_juiz"], ensure_ascii=False))
+
+    if a.exportar_r or a.apurar_r_claude:
+        i3 = json.loads(agregado_i3.read_text(encoding="utf-8")) if agregado_i3.exists() else {}
+        if not i3.get("passa"):
+            raise SystemExit("R vem depois de I3 aprovado: se o juiz não valer, os erros de B "
+                             "mudam.")
+        amostra = b.amostra_r(veredictos["B"])
+        if a.exportar_r:
+            dados = _dados_r(a, amostra, respostas, julg, por_id)
+            (DIR / "r_para_classificar.json").write_text(
+                json.dumps([{"indice": n, **d} for n, d in enumerate(dados)],
+                           ensure_ascii=False, indent=1), encoding="utf-8")
+            agregado_r.write_text(json.dumps(
+                {"regra": "DOC-13 §9.1 · R", "nao_certos_B_primario":
+                 sum(1 for k, v in veredictos["B"].items() if k[0] == "primario" and v != "certo"),
+                 "revisados": len(dados),
+                 "julgador": "claude-opus-5-5 (no lugar do dono; DOC-13 §9.1, desvio)"},
+                ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"{len(dados)} respostas → {DIR / 'r_para_classificar.json'}")
+        else:
+            lidos = json.loads(a.apurar_r_claude.read_text(encoding="utf-8"))
+            por_indice = {int(v["indice"]): v["classe"] for v in lidos}
+            if sorted(por_indice) != list(range(len(amostra))):
+                raise SystemExit("as classes não cobrem exatamente a amostra de R.")
+            if any(v not in b.CLASSES_R for v in por_indice.values()):
+                raise SystemExit("classe fora das três de R.")
+            classes = {f"B:{k[0]}:{k[1]}": por_indice[n] for n, k in enumerate(amostra)}
+            anterior = json.loads(agregado_r.read_text(encoding="utf-8"))
+            anterior["por_classe"] = {c: sum(1 for v in classes.values() if v == c)
+                                      for c in b.CLASSES_R}
+            agregado_r.write_text(json.dumps(anterior, ensure_ascii=False, indent=2),
+                                  encoding="utf-8")
+            (DIR / "classes_r.json").write_text(json.dumps(classes, ensure_ascii=False,
+                                                           indent=1), encoding="utf-8")
+            print(f"R (Claude): {anterior['por_classe']}")
 
     if a.folha_r or a.apurar_r:
         i3 = json.loads(agregado_i3.read_text(encoding="utf-8")) if agregado_i3.exists() else {}
@@ -543,7 +722,7 @@ def main() -> int:
             "situacao", "gerador", "busca", "acerto_B_com_R", "ic_acerto_B_com_R",
             "lacuna_da_busca", "ic_lacuna_da_busca")}, ensure_ascii=False, indent=1))
     if not any((a.rodar, a.julgar, a.folha_i3, a.apurar_i3, a.folha_r, a.apurar_r, a.decidir,
-                a.reordenado, a.comparar_reordenado)):
+                a.reordenado, a.resumo_reordenado, a.comparar_reordenado, claude)):
         p.error("nada a fazer: --rodar, --julgar, --folha-i3, --apurar-i3, --folha-r, "
                 "--apurar-r ou --decidir")
     return 0

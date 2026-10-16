@@ -1,0 +1,271 @@
+{
+  "regra": "DOC-13 §9.6, 'O juiz independente' — escrita antes de o teste rodar",
+  "modelo": {
+    "repo": "bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+    "arquivo": "mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "revisao": "b3592d09be469bedab6be51f577824b3b6b76ba1",
+    "bytes": 14333915264,
+    "sha256": "80f5bda68f156f12650ca03a0a2dbfae06a215ac41caa773b8631a479f82415e",
+    "llama_cpp": "b11159"
+  },
+  "pacote_sha256": "80657ed41899477c79f86ae2a582a272e479777ec940b21560aaf7e73940c736",
+  "arquivo_do_juiz": {
+    "nome": "veredictos_juiz2.jsonl",
+    "sha256": "becfa5cffeae9b2b92e8028d289695a07291f66efd92ad029aeaf6405df0b707",
+    "textos": 1379,
+    "ilegiveis": 0
+  },
+  "limites": [
+    "continua sendo um modelo corrigindo outro; a régua da validade são os veredictos do Claude",
+    "as guardas do corpo (Bp e C) não foram rejulgadas",
+    "um modelo, uma rodada, temperatura 0"
+  ],
+  "validade": {
+    "n": 180,
+    "kappa_certo": 0.9142,
+    "kappa_4_categorias": 0.7669,
+    "concordancia_certo": 0.9611,
+    "matriz_humano_x_juiz": {
+      "certo": {
+        "certo": 114,
+        "parcial": 5,
+        "errado": 0,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "parcial": {
+        "certo": 2,
+        "parcial": 1,
+        "errado": 2,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "errado": {
+        "certo": 0,
+        "parcial": 1,
+        "errado": 27,
+        "absteve": 0,
+        "ilegivel": 0
+      },
+      "absteve": {
+        "certo": 0,
+        "parcial": 1,
+        "errado": 11,
+        "absteve": 16,
+        "ilegivel": 0
+      }
+    },
+    "minimo": 0.6,
+    "passa": true,
+    "por_conjunto": {
+      "9.1_rodada_2": {
+        "n": 100,
+        "kappa_certo": 0.777,
+        "concordancia_certo": 0.94
+      },
+      "9.5_corpo_1": {
+        "n": 40,
+        "kappa_certo": 0.95,
+        "concordancia_certo": 0.975
+      },
+      "9.6_corpo_2": {
+        "n": 40,
+        "kappa_certo": 1.0,
+        "concordancia_certo": 1.0
+      }
+    }
+  },
+  "eixos_pelo_juiz_independente": {
+    "nao_piora_o_primario": {
+      "estrato": "primario",
+      "braco": "A4",
+      "n_itens": 500,
+      "acerto_A2": 0.79,
+      "acerto_A4": 0.766,
+      "A4_menos_A2": -0.024,
+      "ic95": [
+        -0.052,
+        0.004
+      ],
+      "margem": 0.03,
+      "ganha": 19,
+      "perde": 31,
+      "veredictos": {
+        "A2": {
+          "certo": 395,
+          "parcial": 27,
+          "errado": 62,
+          "absteve": 16,
+          "ilegivel": 0
+        },
+        "A4": {
+          "certo": 383,
+          "parcial": 30,
+          "errado": 65,
+          "absteve": 22,
+          "ilegivel": 0
+        }
+      },
+      "respostas_iguais_as_de_A2": 0,
+      "com_passagem_anexada": 484,
+      "passa": false
+    },
+    "ganho_no_corpo": {
+      "n_itens": 100,
+      "acerto_A4": {
+        "valor": 0.53,
+        "ic95": [
+          0.43,
+          0.63
+        ]
+      },
+      "veredictos_A4": {
+        "certo": 53,
+        "parcial": 3,
+        "errado": 22,
+        "absteve": 22,
+        "ilegivel": 0
+      },
+      "ganho_no_corpo": {
+        "A4_menos_A2": 0.53,
+        "ic95": [
+          0.43,
+          0.63
+        ],
+        "limiar": 0.15,
+        "passa": true
+      },
+      "A4_menos_A3": {
+        "valor": 0.02,
+        "ic95": [
+          -0.02,
+          0.06
+        ],
+        "ganha": 3,
+        "perde": 1
+      },
+      "tempo": {
+        "mediana_A4_s": 46.3,
+        "maximo_s": 60.0,
+        "passa": true
+      }
+    }
+  },
+  "entre_os_juizes": {
+    "teste_e_corpo_2": {
+      "n": 1300,
+      "kappa_certo": 0.8863,
+      "kappa_4_categorias": 0.7168,
+      "concordancia_certo": 0.9508,
+      "so_a_regra_deu_certo": 38,
+      "so_o_independente_deu_certo": 26,
+      "matriz_regra_x_independente": {
+        "certo": {
+          "certo": 856,
+          "parcial": 25,
+          "errado": 13,
+          "absteve": 0,
+          "ilegivel": 0
+        },
+        "parcial": {
+          "certo": 24,
+          "parcial": 38,
+          "errado": 42,
+          "absteve": 0,
+          "ilegivel": 0
+        },
+        "errado": {
+          "certo": 2,
+          "parcial": 14,
+          "errado": 152,
+          "absteve": 41,
+          "ilegivel": 0
+        },
+        "absteve": {
+          "certo": 0,
+          "parcial": 0,
+          "errado": 21,
+          "absteve": 72,
+          "ilegivel": 0
+        },
+        "ilegivel": {
+          "certo": 0,
+          "parcial": 0,
+          "errado": 0,
+          "absteve": 0,
+          "ilegivel": 0
+        }
+      }
+    },
+    "so_o_teste": {
+      "n": 1000,
+      "kappa_certo": 0.8282,
+      "kappa_4_categorias": 0.705,
+      "concordancia_certo": 0.942,
+      "so_a_regra_deu_certo": 36,
+      "so_o_independente_deu_certo": 22,
+      "matriz_regra_x_independente": {
+        "certo": {
+          "certo": 756,
+          "parcial": 24,
+          "errado": 12,
+          "absteve": 0,
+          "ilegivel": 0
+        },
+        "parcial": {
+          "certo": 20,
+          "parcial": 26,
+          "errado": 23,
+          "absteve": 0,
+          "ilegivel": 0
+        },
+        "errado": {
+          "certo": 2,
+          "parcial": 7,
+          "errado": 79,
+          "absteve": 7,
+          "ilegivel": 0
+        },
+        "absteve": {
+          "certo": 0,
+          "parcial": 0,
+          "errado": 13,
+          "absteve": 31,
+          "ilegivel": 0
+        },
+        "ilegivel": {
+          "certo": 0,
+          "parcial": 0,
+          "errado": 0,
+          "absteve": 0,
+          "ilegivel": 0
+        }
+      }
+    }
+  },
+  "conferencia": {
+    "leitura": "robusto",
+    "eixos": {
+      "ganho_no_corpo": {
+        "juiz_da_regra": true,
+        "juiz_independente": true,
+        "mesmo_desfecho": true
+      },
+      "nao_piora_o_primario": {
+        "juiz_da_regra": false,
+        "juiz_independente": false,
+        "mesmo_desfecho": true
+      }
+    }
+  },
+  "decisao_da_regra": {
+    "candidato": "A4",
+    "situacao": "válido",
+    "eixos": {
+      "ganho_no_corpo": true,
+      "tempo": true,
+      "nao_piora_o_primario": false
+    },
+    "decisao": "FICA O SISTEMA ATUAL"
+  }
+}

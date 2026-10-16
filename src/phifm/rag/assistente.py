@@ -38,6 +38,20 @@ SISTEMA_RESPOSTA = (
     "or [2][4]. Do not cite a source that does not support the claim, and never invent "
     "sources. If the sources do not contain enough information to answer, say so plainly "
     "instead of guessing. Answer clearly and concisely.")
+# CANDIDATA, fora do padrão (DOC-13 §9.7). A instrução acima diz "se as fontes não bastam,
+# diga"; nas 145 respostas do corpo em que elas não bastavam, o modelo afirmou em 74 —
+# quase sempre um valor que ESTÁ nas fontes, de outra grandeza ou de outro artigo. Esta
+# nomeia esse erro. Só passa a valer com medida e aceite, como o ΦRank.
+SISTEMA_RESPOSTA_V2 = (
+    "You are a physics research assistant. Answer the question using ONLY the numbered "
+    "sources below. After each factual claim, cite the source(s) that support it, like [1] "
+    "or [2][4]. Do not cite a source that does not support the claim, and never invent "
+    "sources. First check whether a source states the SPECIFIC thing the question asks for "
+    "— that quantity or fact, for that system and under those conditions. If none does, say "
+    "plainly that the sources do not contain it and stop there: do not offer a related "
+    "quantity, a value from a different system, or a general statement in its place. If the "
+    "sources answer only part of the question, answer that part and say which part they do "
+    "not cover. Answer clearly and concisely.")
 _PORTUGUES = re.compile(r"[ãõçáéíóúâêôà]|\b(que|qual|quais|como|por|porque|são|não|é|um|uma"
                         r"|dos|das|na|no|em)\b", re.IGNORECASE)
 
@@ -85,6 +99,9 @@ class Fonte:
     ano: int | None
     resumo: str
     escore: float
+    # Trechos do texto completo escolhidos para a pergunta (`phifm.rag.passagens`). Vazio
+    # é o assistente que só lê resumos — o medido nas §9.1 e §9.2 do DOC-13.
+    passagens: tuple[str, ...] = ()
 
     @property
     def link(self) -> str:
@@ -135,17 +152,40 @@ def sem_citacoes(texto: str) -> str:
     return re.sub(r"[ \t]+([.,;:])", r"\1", limpo)
 
 
+ROTULO_PASSAGENS = "Excerpts from the full text of this paper:"
+
+
 def bloco_de_fontes(fontes: list[Fonte]) -> str:
-    return "\n\n".join(
-        f"[{f.numero}] {f.titulo} ({f.ano or 'n.d.'}, arXiv:{f.arxiv_id})\n{f.resumo}"
-        for f in fontes)
+    """As fontes como o modelo as lê. Sem passagens, o bloco é byte a byte o das medidas
+    das §9.1 e §9.2; com elas, vêm debaixo do resumo do artigo, sob o MESMO número — citar
+    uma passagem é citar o artigo."""
+    blocos = []
+    for f in fontes:
+        b = f"[{f.numero}] {f.titulo} ({f.ano or 'n.d.'}, arXiv:{f.arxiv_id})\n{f.resumo}"
+        if f.passagens:
+            b += f"\n{ROTULO_PASSAGENS}\n" + "\n".join(
+                f"- {' '.join(p.split())}" for p in f.passagens)
+        blocos.append(b)
+    return "\n\n".join(blocos)
 
 
 class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
-                 reordenador=None):
+                 reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA,
+                 sistema_com_passagens: str | None = None, lexica=None):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
+        self.passagens = passagens
+        # A busca por palavra (BM25 em título + resumo, `phifm.retrieval.lexical`), fundida
+        # com a densa pela posição (DOC-13 §9.8). None: a busca de sempre.
+        self.lexica = lexica
+        # A instrução da resposta. Trocá-la é trocar o sistema medido: só as explorações
+        # passam outra (`scripts/explorar_abstencao.py`).
+        self.sistema = sistema
+        # A instrução de quando as passagens estão ligadas. None: a mesma de sempre (é o
+        # que as medidas usam). O modo opcional do produto passa a v2, porque o que se
+        # mediu como candidato foi a dupla (A‴, DOC-13 §9.6), e não as passagens sozinhas.
+        self.sistema_com_passagens = sistema_com_passagens
         self._spine = pl.scan_parquet(spine)
         # O primeiro acesso ao parquet lê do HD frio (~16 s medidos); aquecer aqui tira
         # esse custo da primeira pergunta.
@@ -162,16 +202,29 @@ class Assistente:
         texto = " ".join(texto.split())
         return texto or pergunta
 
-    def recuperar(self, consulta: str) -> list[Fonte]:
+    def _buscar(self, consulta: str, em_ingles: str | None, k: int):
+        """A busca densa com a consulta hipotética; com `lexica` e a pergunta em inglês, a
+        fusão dela com o BM25 (DOC-13 §9.8)."""
+        if self.lexica is not None and em_ingles:
+            return self.busca.buscar_hibrido(consulta, self.lexica, em_ingles, k=k)
+        return self.busca.buscar(consulta, k=k)
+
+    def em_ingles(self, pergunta: str) -> str:
+        from phifm.rag.passagens import traduzir
+
+        return traduzir(self.modelo, pergunta, self.semente)
+
+    def recuperar(self, consulta: str, em_ingles: str | None = None) -> list[Fonte]:
         """Os `k` primeiros da busca — ou, com reordenador, os `k` primeiros depois de ele
-        reordenar os `profundidade` primeiros (DOC-13 §9.2)."""
+        reordenar os `profundidade` primeiros (DOC-13 §9.2). Com `lexica` e `em_ingles`, a
+        busca é a fundida com o BM25."""
         if self.reordenador is None:
-            resultados = self.busca.buscar(consulta, k=self.k)
+            resultados = self._buscar(consulta, em_ingles, self.k)
             resumos = self._resumos([r.arxiv_id for r in resultados])
         else:
             from phifm.training.pairs import textos_de_documentos
 
-            candidatos = self.busca.buscar(consulta, k=self.reordenador.profundidade)
+            candidatos = self._buscar(consulta, em_ingles, self.reordenador.profundidade)
             ids = [r.arxiv_id for r in candidatos]
             # Uma leitura do spine só (~2 s no HD): o texto do reordenador e os resumos
             # das fontes saem das mesmas linhas.
@@ -199,18 +252,40 @@ class Assistente:
         return (f"Sources:\n\n{bloco_de_fontes(fontes)}\n\nQuestion: {pergunta}\n\n"
                 f"{instrucao_de_idioma(pergunta)}")
 
-    def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "") -> Resposta:
+    def responder_com(self, pergunta: str, fontes: list[Fonte], consulta: str = "",
+                      sistema: str | None = None) -> Resposta:
         """O passo 3 e o portão, com as fontes dadas — vindas da busca ou trocadas."""
-        bruto = self.modelo.gerar(SISTEMA_RESPOSTA, self._usuario(pergunta, fontes),
+        bruto = self.modelo.gerar(sistema or self.sistema, self._usuario(pergunta, fontes),
                                   semente=self.semente)
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
         return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
 
-    def responder(self, pergunta: str) -> Resposta:
-        consulta = self.consulta_hipotetica(pergunta)
-        return self.responder_com(pergunta, self.recuperar(consulta), consulta)
+    def _modo(self, com_passagens: bool | None) -> tuple[bool, str]:
+        """`(usa as passagens?, a instrução)`. `com_passagens=None` é o comportamento de
+        sempre: usa se houver. A página pede explicitamente, pergunta a pergunta."""
+        usa = self.passagens is not None and (com_passagens is None or com_passagens)
+        return usa, (self.sistema_com_passagens or self.sistema) if usa else self.sistema
 
-    def responder_em_fluxo(self, pergunta: str):
+    def fontes_para(self, pergunta: str, consulta: str,
+                    com_passagens: bool | None = None) -> list[Fonte]:
+        """As fontes de uma pergunta: a busca e, se as passagens estiverem ligadas, os
+        trechos do texto completo dos artigos encontrados."""
+        usa, _ = self._modo(com_passagens)
+        # A pergunta em inglês serve às duas buscas por palavra: a do artigo e a dos
+        # trechos. Uma chamada só ao modelo, e só se alguma das duas estiver ligada.
+        # Com as passagens, a tradução é a delas, como sempre foi (a semente é a do passo).
+        ingles = (self.passagens.consulta(pergunta) if usa
+                  else self.em_ingles(pergunta) if self.lexica is not None else None)
+        fontes = self.recuperar(consulta, ingles)
+        return self.passagens.anexar(pergunta, fontes, consulta=ingles) if usa else fontes
+
+    def responder(self, pergunta: str, com_passagens: bool | None = None) -> Resposta:
+        consulta = self.consulta_hipotetica(pergunta)
+        _, sistema = self._modo(com_passagens)
+        return self.responder_com(pergunta, self.fontes_para(pergunta, consulta, com_passagens),
+                                  consulta, sistema)
+
+    def responder_em_fluxo(self, pergunta: str, com_passagens: bool | None = None):
         """A mesma resposta, em eventos para uma tela que mostra o texto enquanto ele é
         escrito: `("fontes", (consulta, fontes))` depois da busca, `("pedaco", texto)` a
         cada pedaço, e `("fim", Resposta)` com o texto que PASSOU pelo portão.
@@ -219,10 +294,11 @@ class Assistente:
         escrita, e só o `fim` a tira. Quem mostra os pedaços tem de trocar o texto pelo do
         `fim` — a página faz isso."""
         consulta = self.consulta_hipotetica(pergunta)
-        fontes = self.recuperar(consulta)
+        _, sistema = self._modo(com_passagens)
+        fontes = self.fontes_para(pergunta, consulta, com_passagens)
         yield "fontes", (consulta, fontes)
         partes = []
-        for pedaco in self.modelo.gerar_em_fluxo(SISTEMA_RESPOSTA,
+        for pedaco in self.modelo.gerar_em_fluxo(sistema,
                                                  self._usuario(pergunta, fontes),
                                                  semente=self.semente):
             partes.append(pedaco)

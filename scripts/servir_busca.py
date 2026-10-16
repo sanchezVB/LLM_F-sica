@@ -38,9 +38,20 @@ def main() -> int:
                    help="liga a aba de perguntas (Qwen3-8B na GPU, sob demanda)")
     p.add_argument("--ocioso-min", type=int, default=10,
                    help="minutos sem pergunta até o modelo sair da GPU")
-    p.add_argument("--reordenar", action="store_true",
-                   help="reordena os 50 primeiros com o ΦRank (+~11 s na CPU; EXPLORATÓRIO — DOC-13 §9.2)")
+    p.add_argument("--sem-reordenar", action="store_true",
+                   help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
+    p.add_argument("--sem-passagens", action="store_true",
+                   help="tira da página a opção de ler o texto completo das fontes (que vem "
+                        "desmarcada: DOC-13 §9.6 — ganha no corpo do artigo, perde um pouco no "
+                        "resumo); sem a cópia de scripts/indexar_textos.py ela já não aparece")
+    p.add_argument("--textos", type=Path, default=RAIZ / "data/processed/textos_por_artigo")
+    p.add_argument("--sem-busca-lexical", action="store_true",
+                   help="desliga a fusão da busca densa com o BM25 da pergunta em inglês "
+                        "(adotada em 2026-10-15, DOC-13 §9.9: +6,4 pontos de acerto, ~+2 s); "
+                        "sem o índice de scripts/explorar_busca_lexical.py --indexar, ela já "
+                        "fica desligada, com aviso")
+    p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
     a = p.parse_args()
@@ -52,17 +63,29 @@ def main() -> int:
     busca = Busca(a.indice, dispositivo=a.dispositivo or ("cpu" if a.assistente else "auto"))
     assistente = modelo = None
     if a.assistente:
-        from phifm.rag.assistente import Assistente
+        from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
         from phifm.rag.llm import ModeloLocal, ModeloSobDemanda
 
         modelo = ModeloSobDemanda(ModeloLocal(), log=RAIZ / "data/processed/llama_server.log",
                                   ocioso_s=a.ocioso_min * 60)
-        reordenador = None
-        if a.reordenar:
-            from phifm.rag.reordenador import Reordenador
+        from phifm.rag.reordenador import carregar_ou_avisar
 
-            reordenador = Reordenador()
-        assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador)
+        reordenador = None if a.sem_reordenar else carregar_ou_avisar()
+        passagens = None
+        if not a.sem_passagens:
+            from phifm.rag import passagens as ps
+
+            passagens = ps.carregar_ou_avisar(modelo, busca.tok, a.textos)
+        lexica = None
+        if not a.sem_busca_lexical:
+            from phifm.retrieval.lexical import carregar_ou_avisar as carregar_lexica
+
+            lexica = carregar_lexica(a.lexico, busca.docs["arxiv_id"].to_list())
+        # Com o texto completo marcado, a resposta é a da dupla medida (A‴: passagens e a
+        # instrução v2); desmarcado, é o sistema de sempre, byte a byte.
+        assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador,
+                                passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2,
+                                lexica=lexica)
     servidor = criar_servidor(busca, porta=a.porta, assistente=assistente,
                               ocioso_min=a.ocioso_min)
     url = f"http://127.0.0.1:{servidor.server_address[1]}"
@@ -71,6 +94,10 @@ def main() -> int:
     if a.assistente:
         print(f"assistente ligado: o modelo sobe na primeira pergunta e sai da GPU depois "
               f"de {a.ocioso_min} min sem uso")
+        print("texto completo: " + ("opção na página, desmarcada por padrão"
+                                    if assistente.passagens is not None else "indisponível"))
+        print("busca: " + ("fundida com o BM25 (DOC-13 §9.9)" if assistente.lexica is not None
+                           else "só o encoder"))
     print(f"no ar em {url}  (Ctrl+C encerra)")
     if not a.sem_navegador:
         webbrowser.open(url)

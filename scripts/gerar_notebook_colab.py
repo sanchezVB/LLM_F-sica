@@ -43,6 +43,7 @@ TITULOS = {
     "t2eq_cpt_emb": "Secundária do caminho B — o CPT ajustado como ΦEmb",
     "t1h_bases_pequenas": "T1h — bases pequenas no lugar do MiniLM-L6",
     "t1i_pequenas_1m": "T1i — gte-small e bge-small com 1 M de pares",
+    "juiz_independente": "O juiz independente da §9.6 — outro modelo corrige as respostas",
 }
 
 
@@ -82,6 +83,7 @@ def notebook(sha: str, pasta: str, celulas, nome: str,
     encoder = (f"\n\nE suba o encoder do braço para `{pasta}/encoders/"
                f"phienc-cpt-{variante}` (a pasta, ou o `.zip` dela).\n"
                if variante else "\n")
+    gpu = getattr(celulas, "GPU", "T4")       # a L4 é para o que não cabe nos 15 GB da T4
     cabecalho = [
         f"# {TITULOS.get(nome, nome)}{braco}\n",
         "\n",
@@ -90,7 +92,7 @@ def notebook(sha: str, pasta: str, celulas, nome: str,
         "\n",
         f"Código: commit `{sha[:7]}`.\n",
         "\n",
-        "**Antes de rodar:** Ambiente de execução → Alterar o tipo → **T4 GPU**, e "
+        f"**Antes de rodar:** Ambiente de execução → Alterar o tipo → **{gpu} GPU**, e "
         + (getattr(celulas, "INSTRUCAO", "").replace("__PASTA__", pasta) or
            f"suba `pares_treino.parquet` e `pares_validacao.parquet` para `{pasta}/pares`."),
         encoder,
@@ -105,7 +107,7 @@ def notebook(sha: str, pasta: str, celulas, nome: str,
     return {
         "nbformat": 4, "nbformat_minor": 0,
         "metadata": {
-            "colab": {"provenance": [], "gpuType": "T4"},
+            "colab": {"provenance": [], "gpuType": gpu},
             "kernelspec": {"name": "python3", "display_name": "Python 3"},
             "language_info": {"name": "python"},
             "accelerator": "GPU",
@@ -127,6 +129,8 @@ def main() -> int:
     a = p.parse_args()
 
     celulas = importlib.import_module(a.celulas)
+    if hasattr(celulas, "antes_de_gerar"):    # o que tem de existir antes de haver notebook
+        celulas.antes_de_gerar()
     pasta = a.pasta or celulas.PASTA_PADRAO
     sufixo = f"-{a.variante}" if a.variante else ""
     saida = a.saida or RAIZ / "colab" / f"{a.celulas}{sufixo}.ipynb"

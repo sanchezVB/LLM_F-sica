@@ -99,7 +99,7 @@ def test_pergunta_volta_com_fontes_citadas_e_o_que_o_portao_tirou(servidor):
     base = servidor(assistente)
     with urllib.request.urlopen(base + "/api/estado") as r:
         assert json.loads(r.read()) == {"assistente": True, "modelo_no_ar": False,
-                                        "ocioso_min": 10}
+                                        "ocioso_min": 10, "passagens": False}
     status, d = _post(base + "/api/perguntar", json.dumps({"pergunta": " Qual é? "}).encode())
     assert status == 200 and assistente.perguntas == ["Qual é?"]
     assert d["texto"] == "É 42 [1]." and d["removidas"] == [7]
@@ -205,6 +205,68 @@ def test_fluxo_manda_fontes_pedacos_e_o_fim_que_passou_pelo_portao(servidor):
     fim = eventos[-1]
     assert fim["texto"] == "É 42 [1]." and fim["removidas"] == [7]
     assert [f["citada"] for f in fim["fontes"]] == [True, False]
+
+
+# ── o texto completo: opcional, pergunta a pergunta ─────────────────────────
+
+
+class AssistenteComTexto(AssistenteEmFluxo):
+    """Tem as passagens; anota o que a página pediu em cada pergunta."""
+
+    passagens = object()
+
+    def __init__(self):
+        super().__init__()
+        self.modos = []
+
+    def responder(self, pergunta, com_passagens=None):
+        self.modos.append(com_passagens)
+        return super().responder(pergunta)
+
+    def responder_em_fluxo(self, pergunta, com_passagens=None):
+        self.modos.append(com_passagens)
+        r = super().responder(pergunta)
+        yield "fontes", (r.consulta, r.fontes)
+        yield "fim", r
+
+
+def _opcao_oculta(base) -> bool:
+    with urllib.request.urlopen(base + "/") as r:
+        return 'id="op-passagens" hidden' in r.read().decode("utf-8")
+
+
+def test_a_opcao_do_texto_completo_so_aparece_se_o_assistente_o_tiver(servidor):
+    assert _opcao_oculta(servidor(AssistenteFalso()))
+    base = servidor(AssistenteComTexto())
+    assert not _opcao_oculta(base)
+    with urllib.request.urlopen(base + "/api/estado") as r:
+        assert json.loads(r.read())["passagens"] is True
+
+
+def test_o_padrao_e_sem_texto_completo_e_a_escolha_vai_sempre_explicita(servidor):
+    a = AssistenteComTexto()
+    base = servidor(a)
+    _, d = _post(base + "/api/perguntar", json.dumps({"pergunta": "Qual é?"}).encode())
+    assert a.modos == [False] and d["com_passagens"] is False   # sem pedir: desmarcado
+    _, d = _post(base + "/api/perguntar",
+                 json.dumps({"pergunta": "Qual é?", "passagens": True}).encode())
+    assert a.modos[-1] is True and d["com_passagens"] is True
+    # só `true` liga: "sim", 1 e afins não
+    _post(base + "/api/perguntar", json.dumps({"pergunta": "Qual é?", "passagens": "sim"}).encode())
+    assert a.modos[-1] is False
+    req = urllib.request.Request(base + "/api/perguntar", method="POST", data=json.dumps(
+        {"pergunta": "Qual é?", "fluxo": True, "passagens": True}).encode(),
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req) as r:
+        fim = [json.loads(x) for x in r.read().decode("utf-8").splitlines() if x][-1]
+    assert a.modos[-1] is True and fim["com_passagens"] is True
+
+
+def test_sem_texto_completo_carregado_o_pedido_e_ignorado(servidor):
+    a = AssistenteFalso()                      # sem `passagens`: nem recebe o argumento
+    _, d = _post(servidor(a) + "/api/perguntar",
+                 json.dumps({"pergunta": "Qual é?", "passagens": True}).encode())
+    assert d["com_passagens"] is False and a.perguntas == ["Qual é?"]
 
 
 def test_sem_pedir_fluxo_a_resposta_vem_inteira(servidor):

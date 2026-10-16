@@ -1,0 +1,106 @@
+{
+  "o_que_e": "o que o assistente de hoje faz quando as fontes não trazem a resposta — as respostas de A′ nas 150 perguntas do corpo (DOC-13 §9.5)",
+  "classes": {
+    "absteve": "diz que as fontes não trazem e não dá resposta",
+    "afirmou": "dá uma resposta, sem ressalva",
+    "ressalva": "diz que as fontes não trazem de forma direta e dá uma resposta mesmo assim"
+  },
+  "classificador": "claude-opus-5-5, lendo as 150 respostas sem o veredicto do juiz e sem o gabarito; classes escritas antes de ler",
+  "ressalvas": [
+    "sem revisão humana",
+    "uma leitura só, sem segunda passada às cegas",
+    "perguntas de DESENVOLVIMENTO: o número não é uma medida da regra"
+  ],
+  "decisoes_tomadas_ao_ler": {
+    "resposta_mista": "abstém-se numa parte da pergunta e dá valor na outra → `ressalva`",
+    "valor_de_outra_grandeza": "cita o valor de uma grandeza vizinha como contexto e conclui que não dá para responder → `absteve`",
+    "sem_o_pedido": "não admite a falta e também não dá o que foi pedido (repete a pergunta, generaliza, ou responde outra coisa) → `afirmou`, contada à parte. Subdivisão criada DEPOIS de ler: as três classes não a previam, e quem lê uma resposta dessas não é avisado de nada",
+    "afirmou_das_quais_sem_o_pedido": 11
+  },
+  "sha256_classes": "feb62be1b8ebbfc5ade796af89f6e5d7b025e7e38c1edc54104b62c7ca99417e",
+  "todas": {
+    "n": 150,
+    "absteve": 71,
+    "afirmou": 67,
+    "ressalva": 12,
+    "fracao_que_afirma": 0.5267
+  },
+  "as_que_o_juiz_nao_deu_como_certas": {
+    "n": 145,
+    "absteve": 71,
+    "afirmou": 62,
+    "ressalva": 12,
+    "fracao_que_afirma": 0.5103
+  },
+  "…com_o_resumo_de_P_entre_as_fontes": {
+    "n": 90,
+    "absteve": 38,
+    "afirmou": 43,
+    "ressalva": 9,
+    "fracao_que_afirma": 0.5778
+  },
+  "…sem_P_entre_as_fontes": {
+    "n": 55,
+    "absteve": 33,
+    "afirmou": 19,
+    "ressalva": 3,
+    "fracao_que_afirma": 0.4
+  },
+  "classe_x_juiz": {
+    "absteve": {
+      "errado": 41,
+      "absteve": 29,
+      "parcial": 1
+    },
+    "afirmou": {
+      "parcial": 26,
+      "errado": 35,
+      "certo": 5,
+      "absteve": 1
+    },
+    "ressalva": {
+      "errado": 11,
+      "parcial": 1
+    }
+  },
+  "o_portao_ve_a_abstencao": {
+    "o_que_e": "a expressão `_ADMITE_FALTA` do portão de citações casa com a resposta",
+    "absteve": {
+      "casa": 30,
+      "n": 71
+    },
+    "afirmou": {
+      "casa": 0,
+      "n": 67
+    },
+    "ressalva": {
+      "casa": 4,
+      "n": 12
+    }
+  },
+  "respostas_sem_citacao_nenhuma": {
+    "absteve": 24,
+    "afirmou": 0,
+    "ressalva": 0
+  },
+  "portao_de_numeros": {
+    "o_que_e": "números da resposta que não estão em nenhuma fonte do prompt nem na pergunta — o que um portão mecânico marcaria",
+    "por_classe": {
+      "absteve": {
+        "n": 71,
+        "com_numero_sem_fonte": 0,
+        "com_numero_que_nao_veio_da_pergunta": 8
+      },
+      "afirmou": {
+        "n": 67,
+        "com_numero_sem_fonte": 4,
+        "com_numero_que_nao_veio_da_pergunta": 29
+      },
+      "ressalva": {
+        "n": 12,
+        "com_numero_sem_fonte": 1,
+        "com_numero_que_nao_veio_da_pergunta": 9
+      }
+    }
+  }
+}

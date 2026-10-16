@@ -1,0 +1,347 @@
+# Plano — indexar trechos do texto completo para o assistente
+
+**Status:** **as passagens sob demanda da §9 foram CONSTRUÍDAS em 2026-10-12, por ordem do
+dono, e esperam o aceite da regra da medida** (§10; [DOC-13 §9.6](DOC-13-recuperacao-embeddings-rag.md)).
+No desenvolvimento o acerto no corpo foi de 0,033 para 0,493. Antes disso: **o "corpo" foi
+MEDIDO em 2026-10-11 e mudou a pergunta** (§9). O piloto da
+etapa 0 não passou a barra (+0,7 ponto contra 5; [DOC-13 §9.4](DOC-13-recuperacao-embeddings-rag.md)):
+índice de trechos para ACHAR o artigo não se constrói, e as etapas 1 e 2 não são
+disparadas. Mas nas perguntas cuja resposta está no corpo o assistente acerta 0,033, e com
+a passagem na mão 0,940 ([DOC-13 §9.5](DOC-13-recuperacao-embeddings-rag.md)): o que
+falta é escolher a passagem DENTRO do artigo já achado. A proposta, para o dono, é a §9.
+**Contexto:** [DOC-13 §3](DOC-13-recuperacao-embeddings-rag.md) (regras de chunking), §9.1–§9.3
+(a medida do assistente e o que já foi tentado na busca), [ADR-0004](../adr/ADR-0004-phigen-para-o-assistente.md).
+
+---
+
+## 1. O problema que isto ataca
+
+O assistente acerta **0,806** das perguntas; com o artigo certo garantido entre as fontes,
+**0,944**. Os ~14 pontos de diferença são da busca, e a ordem dos resultados já foi
+esgotada (§9.3): o ΦRank nos 50 primeiros colhe 0,827 de um teto de 0,847 no
+desenvolvimento. O que sobra é o artigo certo não estar perto da consulta — o índice só
+conhece `título. resumo`, um vetor por artigo.
+
+A proposta do DOC-13 §3 é indexar **trechos do texto completo**: o resultado que o resumo
+diz de um jeito, a introdução e a conclusão dizem de outros.
+
+---
+
+## 2. Os fatos, medidos em 2026-10-09
+
+| | |
+|---|---|
+| texto completo já em disco | `data/processed/redpajama_fisica` — **828.601 artigos**, 12 GB, LaTeX a partir de `\section{Introduction}` (sem preâmbulo e sem o resumo) |
+| **cobertura do índice** | **52,0%** dos 1.594.338 artigos |
+| cobertura por ano | 62–83% até 2022 · **30% em 2023 · 5% em 2024 · ~1% em 2025–26** (o RedPajama foi colhido no início de 2023) |
+| tamanho | média de **16.800 tokens** por artigo (mediana 13.600; 2,97 caracteres por token no tokenizer do encoder) |
+| estrutura | 86% têm seção de introdução; 79%, de conclusão / resumo / discussão |
+| o encoder do sistema | MiniLM de 384 dimensões, treinado e medido com **192 tokens** por texto |
+| o índice de hoje | 1,22 GB (um vetor fp16 por artigo); indexar levou 57 min na RX 7600 → **466 textos/s** |
+| a máquina | 16 GB de RAM, 8 GB de VRAM, **230 GB livres** no HD |
+
+**O teto do ganho, antes de qualquer trabalho** (teste, primário, 500 perguntas):
+
+- o sistema de hoje deixa o artigo certo fora das fontes em **91** perguntas;
+- só **49** desses artigos têm texto completo em disco (54%);
+- então trechos podem resgatar **no máximo 49 perguntas = +9,8 pontos** em "artigo certo
+  entre as fontes" — e resgatar todas é irreal. Com a conversão vista no ΦRank (13,2
+  pontos de busca viraram 10,6 de acerto), o teto em acerto é ~**+8 pontos**; uma
+  expectativa honesta, metade disso: **~+4 pontos**, perto do limiar de adoção de 3;
+- no estrato pós-corte (artigos de 2025 em diante) o ganho é **zero**: 1 de 150 tem texto.
+
+⚠️ **E o teste não enxerga o principal.** As 650 perguntas saem de um fato do RESUMO — é o
+desenho da medida. O que trechos compram de verdade é responder o que **não** está no
+resumo (um valor de tabela, um detalhe do método), e para isso não há pergunta nenhuma no
+conjunto. Medir só nas perguntas atuais pode reprovar uma coisa útil.
+
+---
+
+## 3. As opções
+
+| | o quê | vetores | disco | GPU | o que exige de novo |
+|---|---|---|---|---|---|
+| **A · tudo** | todos os trechos de 192 tokens (passo 160) dos 828 mil artigos | **~87 M** (105 por artigo) | **~67 GB** | **~52 h** locais | busca aproximada (o índice não cabe nos 16 GB de RAM): FAISS ou quantização própria |
+| **B · leve** | só introdução e conclusão: ~4 trechos do começo + ~3 do fim | **~5,8 M** | **~4,5 GB** | **~3,5 h** | nada: cabe na RAM, busca exata como hoje |
+| **C · parar** | ficar com 0,806 | — | — | — | — |
+
+Trechos de 512 tokens (o alvo do DOC-13) não servem com este encoder: ele lê 192. Em 512
+seriam 31 M de trechos, e o encoder leria só os primeiros 37% de cada um.
+
+Nas três, o custo em dinheiro é **US$ 0** — tudo local. O que custa dinheiro ou banda é
+estender a cobertura (§6).
+
+---
+
+## 4. O caminho que eu recomendo: três etapas, cada uma decide a seguinte
+
+### Etapa 0 · piloto — medir antes de construir (~1 dia meu · ~2 h de GPU · ~2 GB temporários)
+
+A pergunta do piloto: **com trechos, o artigo certo sobe?** Sem indexar o corpus.
+
+1. **O cortador de trechos**, com as regras do DOC-13 §3 (nunca partir uma equação; preferir
+   fronteira de seção), e a auditoria M1: zero cortes dentro de ambiente matemático em
+   10.000 amostras.
+2. **Os concorrentes de verdade.** Para cada uma das 150 perguntas de desenvolvimento, os
+   300 primeiros artigos da busca atual (os que hoje ficam na frente do artigo certo) que
+   têm texto completo, mais o próprio artigo certo: ~23 mil artigos, ~2,4 M de trechos.
+3. **Quatro representações comparadas no mesmo conjunto**, pela posição do artigo certo:
+   o resumo (hoje) · o melhor trecho do artigo · o melhor entre introdução e conclusão ·
+   o resumo combinado com o melhor trecho.
+4. O ΦRank por cima do melhor candidato, como no produto.
+
+**Sai do piloto:** quantas das perguntas em que a busca falha hoje seriam resgatadas, por
+opção (A ou B). É exploratório, nas perguntas de desenvolvimento; nada toca o teste.
+
+⚠️ O piloto é otimista num ponto, declarado: um artigo que hoje está além da 300ª posição
+só concorre com os 300 da frente, não com o corpus inteiro.
+
+### Etapa 1 · construir — só se o piloto passar a barra
+
+Barra, **aceita pelo dono em 2026-10-09**: a mesma da §9.2 — pelo menos **5 pontos** de ganho no
+desenvolvimento sobre o sistema de hoje. Abaixo disso, a opção é C.
+
+- Se a opção **B** já der o ganho: construir B (~3,5 h de GPU, 4,5 GB). É o resultado mais
+  provável de valer a pena, porque não exige infraestrutura nova.
+- Se só **A** der: aí sim os ~52 h e os 67 GB, e a busca aproximada. Vale uma segunda
+  pergunta ao dono antes — é uma semana de máquina.
+
+### Etapa 2 · confirmar no teste — a regra que já existe
+
+O braço A″ nos 650 itens, contra o A′ de hoje, com o mesmo juiz: adota se o IC 95% do
+ganho ficar inteiro acima de **0,03**, com até **60 s** por pergunta (§9.2). ~5 h de GPU.
+
+### Em paralelo, e eu recomendo: as perguntas que faltam (~1 dia meu · 0 do dono)
+
+Um estrato novo, **"corpo"**: ~150 perguntas escritas por mim a partir do **texto
+completo**, cuja resposta **não** está no resumo, com as mesmas guardas e o mesmo juiz.
+Sem ele, a medida só vê o benefício pequeno (§2) e é cega para o grande. Com ele, dá para
+responder "os trechos servem para quê" com número. O dono não julga nada; a ressalva de
+sempre vale (calibrado contra o Claude).
+
+---
+
+### O estrato "corpo" — feito em 2026-10-09
+
+`scripts/perguntas_corpo.py` · agregado em `data/processed/avaliacao/assistente_itens_corpo.json`
+· perguntas, gabaritos e passagens fora do git.
+
+| | |
+|---|---|
+| itens | **150**, um por artigo, em 297 artigos andados na permutação do conjunto formal |
+| disjunto de | teste (650) e desenvolvimento da busca (200) — conferido ao fechar |
+| de onde sai a pergunta | de UMA passagem do corpo: 3 trechos seguidos de uma seção, fora da introdução e da conclusão |
+| tentativas | 288 passagens lidas: 150 aceitas, 135 sem achado conferível, 3 caídas na guarda de dependência do artigo |
+| guarda numérica | 121 com número conferido (está na passagem, não está no resumo); **29 sem número** — ali só a leitura de quem escreveu |
+
+⚠️ **Três ressalvas, antes de qualquer número sair dele:**
+
+1. **Sem revisão humana.** Escrito e conferido pelo Claude; o dono não julga amostras.
+2. **A regra da passagem mudou no meio, e está dito no agregado.** Nas 100 primeiras
+   (janela sorteada) saíram 38 itens: o resto era derivação, notação ou revisão de trabalhos
+   alheios. Da 101ª em diante a passagem é a de **mais números fora de equação** — trocada
+   antes de qualquer passagem dela ser lida. 112 dos 150 itens vêm dessa regra: o estrato
+   pende para medidas, parâmetros de simulação e detalhes de montagem, e **não** representa
+   "uma pergunta qualquer sobre o corpo de um artigo".
+3. **Uma citação removida esconde de quem é o achado.** O cortador tira `\cite`; quando a
+   passagem atribuía um valor a outro trabalho só pela citação, isso não se vê. Passagens
+   assim foram descartadas quando o texto deixava claro, e algumas podem ter passado.
+
+Ainda **não medido**: os três braços (sistema de hoje · passagem garantida · sem fontes)
+nas 150 são ~6 h de GPU, e o braço da passagem garantida precisa de um pedaço de código
+(a passagem entra no lugar de uma das 6 fontes).
+
+---
+
+## 5. O que o dono decide
+
+| decisão | minha proposta |
+|---|---|
+| Fazer a etapa 0 (piloto)? | **Sim** — 2 h de GPU para não apostar 52 h às cegas · ✅ aceito |
+| A barra para construir | 5 pontos no desenvolvimento, como na §9.2 · ✅ aceito |
+| Escrever o estrato "corpo"? | **Sim** — é o que mede o benefício real · ✅ aceito |
+| Estender a cobertura além de 52% (§6)? | **Não agora** — só depois de o piloto dizer que trechos funcionam |
+
+---
+
+## 6. O que fica de fora, e quanto custaria
+
+- **Os artigos sem texto completo (48% do índice; quase tudo de 2023 em diante).** Baixar as
+  fontes LaTeX do arXiv é possível, mas é download grande (centenas de GB, com custo de
+  banda no acesso em lote) e precisa do aval do dono, com arquivo, origem e tamanho ditos
+  antes. Sem isso, o assistente continua respondendo sobre artigos recentes só pelo resumo.
+- **Trechos de 512 tokens e Matryoshka** (DOC-13 §8) pedem outro encoder; o do sistema lê
+  192 tokens e não foi treinado para truncar dimensões.
+- **O texto do peS2o** (18 GB em disco) é de artigos sem `arxiv_id` no esquema atual: não
+  casa com o índice sem um trabalho de junção que este plano não inclui.
+
+## 7. Os riscos, sem enfeite
+
+| risco | por quê | o que o piloto diz |
+|---|---|---|
+| **O encoder não entender trecho de corpo** | foi treinado só com `título. resumo`; LaTeX de corpo, com macros e citações, é outra distribuição | direto: se o melhor trecho não superar o resumo, para aqui |
+| **Ganho abaixo do limiar** | o teto é +9,8 em busca, e só metade dos erros tem texto | direto |
+| A consulta não parecer com trecho | a consulta é um *resumo* hipotético — desenhada para casar com resumos | direto; se for o caso, a saída é uma consulta hipotética no formato de trecho |
+| Concluir "não serve" por causa do teste | as perguntas atuais vêm do resumo | só o estrato "corpo" resolve |
+| A opção A não caber na máquina | 67 GB de vetores contra 16 GB de RAM | não diz — é o motivo de B vir primeiro |
+
+## 8. O que o piloto disse, e o que fica para o dono (2026-10-09)
+
+**O piloto** (DOC-13 §9.4): nas 150 perguntas de desenvolvimento, nenhuma das 36
+combinações de resumo com trecho passou a barra de 5 pontos. A melhor rendeu **+0,7 ponto**
+(0,827 → 0,833), e as opções A e B colheram o mesmo. Dos riscos da §7, dois se
+confirmaram: o ganho ficou abaixo do limiar, e a consulta — um resumo hipotético — parece
+mais com o resumo do artigo certo do que com qualquer trecho dele. Um terceiro apareceu
+sem estar na lista: **o trecho favorece o artigo comprido**, que tem mais chances de
+parecer com a consulta.
+
+**O que isso decide:** para achar o artigo de uma pergunta cujo fato está no resumo, não
+se constrói índice de trechos. Custo evitado: 3,5 h (B) a 52 h de GPU e 67 GB (A).
+
+**O que isso não decide:** se o assistente responde o que o resumo NÃO diz. Para isso há,
+desde hoje, as 150 perguntas do "corpo" — sem medida nenhuma.
+
+| decisão do dono | o que é | custo | minha recomendação |
+|---|---|---|---|
+| **Medir o "corpo" no sistema de hoje** | três braços nas 150: o assistente de hoje · a passagem garantida entre as fontes · sem fontes; mesmo juiz | ~6 h de GPU local · um pedaço de código para o braço da passagem | **Sim.** É a medida que falta: diz quanto o assistente perde por só ler resumos, e se o gerador acerta quando tem a passagem |
+| Piloto de busca para o "corpo" | o mesmo piloto de hoje, com os concorrentes das perguntas do corpo | ~2 h de GPU + as consultas hipotéticas | Só depois da linha de cima, e só se ela mostrar uma lacuna grande |
+| Parar aqui | ficar com 0,806 e registrar que perguntas sobre o corpo não são atendidas | 0 | É a opção de quem não quer mais GPU nisto |
+
+Se a primeira linha mostrar a lacuna, o desenho que o piloto sugere **não** é o da §3: é
+buscar o artigo pelo resumo, como hoje, e escolher os trechos só dentro dos artigos
+encontrados — sem índice de 87 M de vetores na memória.
+
+Os ~2,7 GB do piloto (trechos e vetores) estão em
+`data/processed/assistente/piloto_trechos/`; não servem ao "corpo" (são outros artigos) e
+podem ir para a lixeira quando o dono quiser.
+
+## 9. O que a medida do "corpo" disse, e a proposta (2026-10-11)
+
+O dono mandou seguir com a primeira linha da tabela acima. Resultado, com a regra escrita
+antes (DOC-13 §9.5), nas 150 perguntas do corpo:
+
+| | acerto |
+|---|---|
+| o assistente de hoje | **0,033** [0,007; 0,067] — 5 de 150 |
+| o mesmo, com a passagem certa entre as fontes | **0,940** [0,900; 0,973] — 141 de 150 |
+| sem fonte nenhuma | 0,060 |
+
+As três guardas valeram (não se responde de memória; o resumo não responde — 4 de 94; o
+juiz concorda com o julgamento às cegas, κ 0,90).
+
+**O que isso decide:**
+
+- **O gerador basta também no corpo.** O Qwen3-8B lê LaTeX cru e acerta. O ADR-0004 fica
+  como está; treinar o ΦGen por causa disto não se justifica.
+- **O ponto cego é real e é quase total.** Tudo o que só está no corpo do artigo — um valor
+  de tabela descrito no texto, um parâmetro de simulação, um detalhe de montagem — o
+  assistente de hoje não responde. E em cerca de metade das vezes responde errado em vez
+  de dizer que não sabe.
+- **O desenho da §3 estava errado para este problema.** Um índice de 87 M de trechos serve
+  para achar o ARTIGO, e o piloto mostrou que para isso o resumo já é o melhor. O que falta
+  é a PASSAGEM, e em 63% das perguntas o artigo certo já está entre as 6 fontes.
+
+### A proposta: passagens sob demanda
+
+Buscar como hoje (resumo → ΦRank → 6 artigos). Para os artigos encontrados que têm texto
+completo, cortar com o cortador que já existe (§3.1 do DOC-13), embutir os ~600 trechos na
+hora, escolher os melhores para a PERGUNTA e entregá-los ao modelo junto com os resumos.
+
+| | |
+|---|---|
+| o que se constrói | a seleção de passagens e um índice de onde está o texto de cada artigo (os 12 GB já estão no HD) |
+| o que **não** se constrói | índice de trechos do corpus, busca aproximada, nada em nuvem |
+| custo de GPU | nenhum para construir; por pergunta, embutir ~600 trechos (a medir na CPU, com o modelo ocupando a placa) |
+| teto, neste estrato | ~0,59: o artigo chega em 0,627 e o modelo acerta 0,94 com a passagem — **se** a seleção acertar a passagem |
+| o que limita | **cobertura:** só 52% do índice tem texto completo, quase nada de 2023 em diante · **a busca do artigo:** em 37% das perguntas do corpo ele não chega às fontes |
+
+⚠️ **O risco que só a medida resolve:** Bp é o melhor caso — recebe a passagem de onde a
+pergunta saiu. Achar essa passagem entre ~100 trechos, com um encoder treinado em resumos,
+é exatamente o que o piloto mostrou ser difícil entre artigos. Dentro de UM artigo o
+problema é menor (não há o viés de tamanho, e o assunto já é o certo), mas é hipótese.
+
+### O que o dono decide
+
+| decisão | custo | minha recomendação |
+|---|---|---|
+| **Construir as passagens sob demanda e medir** | ~1 a 2 dias meus · ~150 perguntas NOVAS do corpo (as de hoje já foram olhadas) · ~3 h de GPU local para a medida, com a regra escrita antes | **Sim.** É barato, não exige nuvem, e ataca um ponto cego de 0,03 com teto perto de 0,6 |
+| Parar e registrar o limite | 0 | A página passaria a dizer que só responde pelo resumo |
+| Um segundo juiz, maior e de outra família, no Colab | ~2 a 3 h de L4 · subir perguntas e respostas para o Drive do dono | Opcional. Não muda esta decisão (0,03 contra 0,94 não depende de juiz fino); serve à falta de revisão humana em geral |
+| Estender o texto completo além de 52% | download grande, com aval do dono | Só depois de as passagens provarem valor |
+
+## 10. O que foi construído, e o que o dono decide agora (2026-10-12)
+
+O dono mandou seguir com a primeira linha da tabela da §9. Feito:
+
+| | |
+|---|---|
+| o passo | `phifm.rag.passagens`: traduz a pergunta para inglês, corta o texto completo das 6 fontes, ordena os trechos por BM25 e anexa os 9 melhores debaixo do resumo do artigo. Desligado por padrão |
+| o risco da §9 | **se confirmou, e teve saída.** O encoder do índice acha a passagem em 0,33 das perguntas; o BM25 com a pergunta em inglês, em 0,85 |
+| no desenvolvimento | nas 150 do corpo 1, de 0,033 para **0,493**; 0,755 onde o artigo certo veio. O teto da §9 era ~0,59 |
+| o que limita agora | a busca do artigo: em 37% das perguntas do corpo ele não está entre as fontes |
+| a regra da medida | [DOC-13 §9.6](DOC-13-recuperacao-embeddings-rag.md), PROPOSTA, escrita antes de existirem as 100 perguntas novas |
+
+### O que o dono decide
+
+| decisão | o que é | minha recomendação |
+|---|---|---|
+| **Aceitar a regra da §9.6** | três eixos para ADOTAR: ganho no corpo 2 (IC inteiro > 0,15), não piorar o teste primário (IC inteiro > −0,03) e tempo (≤ 60 s). O segundo eixo toca o conjunto de teste, uma vez | **Sim.** Os limiares podem ser endurecidos antes do aceite, como na §9.2 · ⏳ **sem resposta ainda** |
+| **A cópia do texto completo** | ~12 GB no HD, ~20 min, derivada e apagável. Sem ela cada artigo lido custa 3,9 s, e são até 6 por pergunta | ✅ **autorizada em 2026-10-12** e feita: 12,7 GB, 6 min, 24 ms por artigo |
+| O custo de GPU | ~5 h locais, retomáveis: ~2 h 40 no corpo 2 e ~2 h 20 no teste primário | ✅ **aceito em 2026-10-12** |
+
+A instrução que cobra o "não sei" (item 2 do dono) é medida à parte e não entra nesta
+regra: se valer a pena, terá a sua.
+
+### O que a medida disse no corpo 2 (2026-10-12)
+
+Nas 100 perguntas novas: **0 de 100 para o assistente de hoje, 50 de 100 com as passagens**
+(+0,500 [0,400; 0,600]), em 46,5 s por pergunta. Dois dos três eixos passam; guardas e juiz
+válidos. O teto continua longe — 99 de 100 com a passagem dada —, e o que o separa dos 50 é
+sobretudo a busca do artigo (30 perguntas sem ele entre as fontes).
+
+**Falta o terceiro eixo**, nas 500 perguntas do teste, e ele só roda com o aceite da regra.
+Sem ele não há como dizer se o passo pode ser ligado para todo mundo: a maioria das
+perguntas medidas até hoje se responde pelo resumo, e é nelas que o prompt maior pode
+atrapalhar.
+
+### O ensaio desse eixo no desenvolvimento, e a emenda (2026-10-13)
+
+Atrapalha, um pouco: nas 150 perguntas de desenvolvimento do resumo, as passagens levam o
+acerto de 0,833 para 0,800 (−0,033 [−0,073; +0,007]). Lidas as 7 perdas, 6 são a mesma
+resposta com outras palavras, que o juiz rebaixa; 1 é erro de verdade. Com a instrução que
+cobra a coisa específica (DOC-13 §9.7), 0,820.
+
+| decisão do dono, antes do teste | o que acontece | minha recomendação |
+|---|---|---|
+| **(a) passagens + instrução vão ao teste** | ~2 h 20 de GPU; nas 100 perguntas novas essa combinação deu 0,520, e no ensaio do resumo −0,013 | **Sim.** É a que tem mais chance de passar os três eixos |
+| (b) só as passagens vão, como na proposta original | ~2 h 20 de GPU; o ensaio indica que o eixo "não piora" não passa | Só se o dono quiser a regra original sem emenda |
+| (c) não tocar o teste | as passagens ficam como modo opcional (`--passagens`), onde estão hoje | É a saída de quem prefere não gastar o teste nisso |
+
+Qualquer que seja, o limite seguinte já está à vista: em 30% a 37% das perguntas do corpo
+o artigo certo não chega às fontes, e nenhuma passagem conserta isso.
+
+## 11. O teste (2026-10-13): as passagens NÃO viram padrão
+
+O dono escolheu (a) e aceitou a regra, com um juiz independente para conferir. Rodou:
+
+| | sistema de hoje | passagens + instrução | |
+|---|---|---|---|
+| 100 perguntas novas do corpo | 0,000 | 0,520 | ganho **passa** |
+| tempo por pergunta (mediana) | 42,1 s | 46,3 s | tempo **passa** |
+| **500 perguntas do teste (resumo)** | **0,806** | **0,778** | −0,028 [−0,052; −0,004] — **não passa** |
+
+A regra pede os três eixos: **fica o sistema atual**, e as passagens continuam como modo
+opcional (`--passagens`). A perda nas perguntas do resumo aparece justamente onde o trecho
+do artigo certo entra no prompt (−0,048 em 250 perguntas): o modo que responde o corpo do
+artigo desvia a resposta do que o resumo diz. Detalhe no DOC-13 §9.6.
+
+**O juiz independente confirmou (2026-10-14): robusto.** Um modelo de outra família, três
+vezes maior, corrigiu as mesmas respostas e chegou ao mesmo desfecho: ganho no corpo
++0,530, perda no resumo −0,024 [−0,052; +0,004]. A perda não é implicância do corretor.
+
+O que isto deixa em aberto, para o dono:
+
+| caminho | custo | o que resolveria |
+|---|---|---|
+| Deixar como está | 0 | O assistente responde pelo resumo; quem precisa do corpo liga `--passagens` sabendo do preço |
+| Ligar as passagens só quando a pergunta pede o corpo | um classificador de pergunta, ou um botão na página; medida nova, com regra nova | Colher o ganho do corpo sem pagar no resumo. É hipótese: nada disso foi medido |

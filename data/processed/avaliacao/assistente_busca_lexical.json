@@ -1,0 +1,84 @@
+{
+  "regra": "DOC-13 §9.9",
+  "regra_aceita_pelo_dono": true,
+  "o_que_e": "A5 = A′ com a busca densa fundida (RRF) ao BM25 da pergunta em inglês sobre título + resumo; o ΦRank nos 50 e as 6 fontes como hoje",
+  "primario": {
+    "estrato": "primario",
+    "n_itens": 500,
+    "acerto_A2": 0.806,
+    "acerto_A5": 0.87,
+    "A5_menos_A2": 0.064,
+    "ic95": [
+      0.034,
+      0.094
+    ],
+    "limiar": 0.03,
+    "ganha": 46,
+    "perde": 14,
+    "P_nas_6_fontes": {
+      "A2": 0.818,
+      "A5": 0.892,
+      "A5_menos_A2": 0.074,
+      "ic95": [
+        0.048,
+        0.1
+      ]
+    },
+    "respostas_iguais_as_de_A2": 101,
+    "tempo": {
+      "mediana_A_ponta_a_ponta_s": 31.3,
+      "mediana_recuperacao_A5_s": 13.5,
+      "regra_s": 44.8,
+      "maximo_s": 60.0
+    },
+    "decisao": "ADOTA"
+  },
+  "pos_corte (relatado)": {
+    "estrato": "pos_corte",
+    "n_itens": 150,
+    "acerto_A2": 0.8467,
+    "acerto_A5": 0.9133,
+    "A5_menos_A2": 0.0667,
+    "ic95": [
+      0.0267,
+      0.1133
+    ],
+    "limiar": 0.03,
+    "ganha": 11,
+    "perde": 1,
+    "P_nas_6_fontes": {
+      "A2": 0.8533,
+      "A5": 0.92,
+      "A5_menos_A2": 0.0667,
+      "ic95": [
+        0.0267,
+        0.1067
+      ]
+    },
+    "respostas_iguais_as_de_A2": 38,
+    "tempo": {
+      "mediana_A_ponta_a_ponta_s": 31.3,
+      "mediana_recuperacao_A5_s": 13.5,
+      "regra_s": 44.8,
+      "maximo_s": 60.0
+    },
+    "decisao": "FICA O SISTEMA ATUAL"
+  },
+  "traducao_igual_a_da_9_6": {
+    "itens": 500,
+    "iguais": 431
+  },
+  "corpo_2 (relatado, P nas 6 fontes)": {
+    "n": 100,
+    "A2": 0.7,
+    "A5": 0.74,
+    "A5_menos_A2": 0.04,
+    "ic95": [
+      0.0,
+      0.09
+    ],
+    "resgata": 5,
+    "perde": 1
+  },
+  "decisao": "ADOTA"
+}

@@ -1,0 +1,10 @@
+{
+  "regra": "DOC-13 §9.5 · I3c",
+  "julgador": "claude-opus-5-5, às cegas (braço oculto)",
+  "n": 40,
+  "arquivo": "veredictos_i3c_claude.json",
+  "sha256_veredictos": "a5531996d112b66b9bca87f1f55c35d218940895c40cbf5cc675e53dddb21ce1",
+  "sha256_amostra": "c8baf69d270c332a529fede94b3808b322ed53fbbed2eb11a3058ab42444bbbd",
+  "selado_em": "2026-10-11T21:45:52",
+  "antes_do_juiz": "o juiz só roda (--julgar) com este selo versionado"
+}

@@ -1,0 +1,40 @@
+{
+  "regra": "DOC-13 §9.2",
+  "primario": {
+    "estrato": "primario",
+    "n_itens": 500,
+    "acerto_A": 0.7,
+    "acerto_A2": 0.806,
+    "A2_menos_A": 0.106,
+    "ic95": [
+      0.072,
+      0.142
+    ],
+    "limiar": 0.03,
+    "ganha": 68,
+    "perde": 15,
+    "respostas_iguais_as_de_A": 0,
+    "tempo_mediano_s": 49.8,
+    "tempo_maximo_s": 60.0,
+    "decisao": "ADOTA"
+  },
+  "pos_corte": {
+    "estrato": "pos_corte",
+    "n_itens": 150,
+    "acerto_A": 0.7467,
+    "acerto_A2": 0.8467,
+    "A2_menos_A": 0.1,
+    "ic95": [
+      0.04,
+      0.16
+    ],
+    "limiar": 0.03,
+    "ganha": 19,
+    "perde": 4,
+    "respostas_iguais_as_de_A": 0,
+    "tempo_mediano_s": 50.2,
+    "tempo_maximo_s": 60.0,
+    "decisao": "ADOTA"
+  },
+  "decide": "primario"
+}

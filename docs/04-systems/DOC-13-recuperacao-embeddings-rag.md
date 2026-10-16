@@ -64,6 +64,41 @@ Chunking por número fixo de tokens é o padrão da indústria e é **destrutivo
 
 Cada chunk carrega, herdado do `PhysicsDocumentRecord`: `doc_id`, seção, subárea, tipo de documento, nível, ano, **licença** e as equações canonicalizadas que contém.
 
+### 3.1 O cortador que existe (2026-10-09)
+
+`phifm.retrieval.trechos.cortar` — escrito para o piloto dos trechos
+([PLANO](PLANO-trechos-do-texto-completo.md), etapa 0), sobre o LaTeX do RedPajama.
+Cumpre as regras 1 a 3; nas outras duas, **desvia, e o desvio é declarado**:
+
+| regra | o que o cortador faz |
+|---|---|
+| 1 · equação | bloco indivisível: `equation`, `align`, `eqnarray`, `gather`, `multline`…, `\[…\]`, `$$…$$`. Maior que o trecho, sai inteira e marcada (`excede`), e o encoder trunca — 4,5% dos trechos |
+| 2 · contexto | a equação é empacotada com o parágrafo que a antecede; sem caber, o trecho novo abre com a última frase do anterior |
+| 3 · seção | nenhum trecho atravessa `\section` / `\subsection`; a subseção herda o tipo da seção (introdução · conclusão · corpo) |
+| 4 · tabelas | ⚠️ **desvio:** da tabela e da figura fica só a **legenda**. As células são números soltos para um encoder de 192 tokens, e a tabela média não cabe num trecho. Um valor que só existe numa célula não é recuperável |
+| 5 · tamanho | ⚠️ **desvio:** ~160 tokens de texto, e não 512. O encoder do sistema lê 192, e cada trecho vai com o título do artigo na frente (`título. trecho`, o formato do treino) |
+
+Antes de cortar, saem comentários, bibliografia, `\cite`/`\ref`/`\label`, a casca de
+formatação e os agradecimentos. O RedPajama corta o preâmbulo, então os atalhos de autor
+(`\be … \ee`) chegam sem definição: são devolvidos ao ambiente **só com prova no próprio
+documento** (abrem e fecham intercalados), porque `\ba` também é "a em negrito".
+
+**A auditoria M1** (`scripts/piloto_trechos.py --auditar`, agregado em
+`data/processed/avaliacao/trechos_auditoria_m1.json`): 10.000 trechos sorteados de 320
+artigos de 8 partes do corpus.
+
+| | |
+|---|---|
+| trechos com equação aberta ou fechada sem par | **11 de 10.000** |
+| …em artigo íntegro — o que a M1 cobra do cortador | **0** |
+| …em artigo que **já chega** com equação sem par | **11**, de 5 artigos (1,9% dos 320) |
+
+Os 5 artigos abrem equação com macro própria (`\eq{um} … \end{equation}`) ou perderam
+caracteres no RedPajama (o removedor de comentários dele comeu o caractere antes de cada
+`%`: `\begin{align}%` chegou como `\begin{align`). O cortador repara o que tem prova e
+não adivinha o resto. **A caixa da M1 (§11) fica aberta:** "zero em 10.000" não foi
+atingido no número bruto, e decidir se o dano de origem conta é do dono.
+
 ---
 
 ## 4. Busca híbrida
@@ -326,6 +361,145 @@ fixava, e ficou fixado aqui antes de qualquer braço rodar:
   reprovado "antes de qualquer leitura"; o que sai antes são só as métricas mecânicas
   (P entre as 6, P citada, citações removidas, tempo) em `assistente_bracos.json`.
 
+#### ⚠️ Desvio de 2026-10-04: o dono não julga — I3 e R passam ao Claude
+
+Decisão do dono, registrada **antes de qualquer número do juiz ser lido**: ele não faz os
+100 julgamentos de I3 nem a revisão R. Entre três saídas (o Claude julga no lugar dele ·
+ler o juiz sem calibrar · parar no que é mecânico), escolheu a primeira.
+
+**O que muda:** I3 e R são feitos pelo Claude (Opus 5.5), não por uma pessoa.
+
+- **I3 às cegas de verdade.** O Claude recebe as 100 respostas como um arquivo com
+  pergunta, gabarito e resposta sem as marcas [n], numeradas — **sem o braço e sem o id**
+  (`--exportar-i3`) — e não abre o cache do juiz antes de entregar os veredictos. O
+  limiar é o mesmo (κ ≥ 0,6), na leitura já escrita acima: **certa × o resto** decide.
+- **R** segue como estava, com o Claude classificando: ele vê o veredicto do juiz, como
+  o dono veria.
+
+**O que isso enfraquece, e fica dito em todo lugar onde o resultado aparecer:**
+
+1. **O juiz fica calibrado contra outro modelo, não contra uma pessoa.** O DOC-11 §5 pede
+   concordância humana; o que se terá é a concordância de dois modelos de famílias
+   diferentes (Qwen3-8B e Claude). Erros que os dois cometem juntos não aparecem.
+2. **Conflito de interesse em R.** Quem classifica "o item é inválido" é quem escreveu as
+   perguntas e os gabaritos. O que segura: I1 foi HUMANA (40 de 40 válidas); cada "item
+   inválido" e cada "juiz errou" sai com a justificativa escrita; e o resultado é
+   publicado **com R e sem R** — se a decisão depender de R, isso fica à vista.
+3. **Um só julgador nas duas pontas.** O Claude escreveu os itens, calibra o juiz e
+   revisa os erros. Nenhum humano olhou uma resposta do assistente nesta medida.
+
+O resultado sai rotulado **"calibrado contra o Claude, sem revisão humana"**. Para a
+pergunta do ΦGen (US$ 120–240), isso sustenta uma leitura clara nos extremos e pede
+cautela perto do limiar.
+
+#### I3, rodada 1 (2026-10-04): o juiz NÃO PASSOU — κ 0,52
+
+100 respostas julgadas pelo Claude às cegas, antes de abrir o cache do juiz
+(`avaliacao/assistente_i3.json`): κ em certa × resto **0,5195** (mínimo 0,6); nas quatro
+categorias, 0,4419. Nenhum acerto de braço foi lido.
+
+| | juiz: certo | juiz: outro |
+|---|---|---|
+| **Claude: certo** (83) | 67 | 16 (15 `parcial`, 1 `errado`) |
+| **Claude: outro** (17) | 2 | 15 |
+
+Os 16 em que o juiz negou um `certo`, pelo motivo que ele mesmo escreveu:
+
+- **5 — informação a mais**: "adiciona informações não presentes no gabarito". O prompt
+  dizia que isso não conta.
+- **4 — a forma**: "trapaça" por aprisionamento virou `errado`; ordem invertida;
+  "across o potencial"; "alguns × 10⁻⁷" lido como vago.
+- **7 — complemento do gabarito que a pergunta não pede**: o tempo de treino quando se
+  perguntou a amplitude; a exceção perto do ponto crítico quando se perguntou a lei.
+  ⚠️ Estes são meus também: escrevi gabaritos com mais do que a pergunta pedia, e a
+  regra "todos os elementos essenciais" não dizia quem decide o que é essencial.
+
+#### O conserto do juiz — escrito antes de validar
+
+- **O que muda:** o prompt (`SISTEMA_JUIZ`, versão 2). A pergunta decide o que é
+  essencial — o NÚCLEO do gabarito —, e o juiz escreve esse núcleo antes do veredicto;
+  uma lista explícita do que não baixa o veredicto (forma, ordem, arredondamento,
+  complemento ausente, informação a mais); `errado` e `absteve` definidos nos casos de
+  fronteira. A v1 fica no código (`SISTEMA_JUIZ_V1`) e o cache dela, intacto.
+- **Por que o prompt e não o modo de raciocínio**, que era o primeiro conserto escrito:
+  os erros são de aplicação da rubrica, e o raciocínio custaria ~11 h de GPU nos 2.055
+  textos contra ~2 h. Se a v2 não passar, o raciocínio é o próximo.
+- **As 100 da rodada 1 viram DESENVOLVIMENTO.** O prompt foi escrito olhando para elas, e
+  concordar com elas não prova nada. No máximo três versões do prompt, todas registradas.
+- **A validação é uma rodada 2:** outras 100 respostas (50 de A, 50 de B), dos 100 itens
+  SEGUINTES na mesma permutação — disjuntos dos da rodada 1 —, julgadas pelo Claude às
+  cegas **antes** de a v2 rodar nelas. Mesmo limiar: κ ≥ 0,6 em certa × resto.
+- Os veredictos do Claude na rodada 1 não mudam depois de vistos os do juiz.
+
+#### I3, rodada 2 (2026-10-04/05): o juiz consertado PASSOU — κ 0,76
+
+Uma só versão do conserto (a v2), κ 0,82 nas 100 de desenvolvimento. Na validação — 100
+respostas de itens disjuntos, julgadas pelo Claude às cegas, com o sha256 dos veredictos
+no repositório antes de o juiz rodar nelas (`assistente_i3_selo_r2.json`, commit
+`ee7e21d`) —, κ em certa × resto **0,7647** (mínimo 0,6); nas quatro categorias, 0,6639.
+
+| | juiz v2: certo | juiz v2: outro |
+|---|---|---|
+| **Claude: certo** (85) | 82 | 3 |
+| **Claude: outro** (15) | 3 | 12 |
+
+⚠️ Por braço o κ engana: em B quase tudo é certo, e o κ lá dentro sai perto de zero com
+93% de concordância bruta (96% em A), nas duas rodadas. O que importa para a regra: em
+**3 de 95** respostas de B que o juiz v2 deu como certas, o Claude não deu (3,2%). R não
+vê esses casos — só revê o que o juiz reprovou.
+
+#### O RESULTADO (2026-10-07) — gerador BASTA, busca LIMITA
+
+`avaliacao/assistente_resultado.json`. Primário, 500 itens, IC 95% por bootstrap pareado.
+**Calibrado contra o Claude, sem revisão humana** — ver o desvio acima.
+
+| braço | acerto pelo juiz | |
+|---|---|---|
+| **A · sistema** | **0,700** [0,660; 0,740] | certo 350 · parcial 43 · errado 87 · absteve 20 |
+| **B · fonte garantida** | **0,944** [0,924; 0,964] | certo 472 · parcial 18 · errado 10 · absteve 0 |
+| **C · sem fontes** | **0,168** [0,136; 0,202] | certo 84 · parcial 137 · errado 277 · absteve 2 |
+
+| eixo | medida | limiar | desfecho |
+|---|---|---|---|
+| **gerador** · acerto_B depois de R | **0,976** [0,962; 0,988] | IC inteiro ≥ 0,90 | **BASTA** |
+| **busca** · acerto_B − acerto_A | **0,244** [0,206; 0,282] | IC inteiro > 0,05 | **LIMITA** |
+| I2 · acerto_C < acerto_B − 0,10 | 0,168 < 0,844 | | válida |
+| I3 · κ certa × resto | 0,765 | ≥ 0,6 | passa (rodada 2) |
+
+**Pela tabela da regra: investir na busca — trechos do texto completo (§3), reordenador —,
+não no ΦGen.** Com a fonte certa no prompt, o Qwen3-8B aberto acerta 19 de cada 20; o
+que derruba o assistente para 70% é a busca não trazer o artigo em 31% das perguntas.
+
+**R, os 28 erros de B** (todos revistos pelo Claude, com justificativa em
+`assistente/classes_r_claude.json`): 12 o modelo errou · 15 o juiz errou · 1 item
+inválido (dois artigos do ISTRA+ com limites diferentes para o mesmo decaimento). Mesmo o
+juiz consertado ainda baixou pelo menos 5 respostas por "informação a mais".
+
+**O quanto o resultado depende de quem julgou — três contas:**
+
+| se… | acerto_B | passa de 0,90? |
+|---|---|---|
+| R como apurada | 0,976 [0,962; 0,988] | sim |
+| **sem R nenhuma** (só o juiz; `gerador_sem_R`) | 0,944 [0,924; 0,964] | **sim** |
+| R com os 3 `juiz errou` de fronteira contados contra o modelo | 0,970 | sim |
+| R, e descontando os 3,2% de falsos `certo` do juiz medidos em I3 | ≈ 0,945 (piso do IC ≈ 0,93) | sim |
+
+O desfecho do gerador não depende de R nem das chamadas de fronteira: passa só com o
+juiz. O da busca é pelo juiz nos dois braços, sem R, e a lacuna é cinco vezes o limiar.
+
+**Pós-corte** (150 itens, artigos que o Qwen3 não pode ter lido): A 0,747 · B 0,967 ·
+C 0,133. B se mantém e C cai — a resposta vem da fonte, não da memória.
+
+**Secundárias:** A − C = 0,532 [0,484; 0,580]: a busca atual já vale 53 pontos sobre a
+memória. P entre as 6 fontes em 0,686; em 343 de 500 itens B é a própria resposta de A.
+O acerto de A (0,700) fica um pouco acima disso: às vezes outra fonte responde.
+
+**Limites que ficam:** (1) nenhum humano julgou uma resposta do assistente; (2) as
+perguntas têm o estilo do Claude e saem de um fato do resumo — leitura de resumo, não
+raciocínio sobre o artigo; (3) o portão de citações não mede se a fonte sustenta a
+frase; (4) isto decide o ΦGen **para o assistente de literatura**, não para o resolvedor
+de problemas do G2.
+
 ### 9.2 Melhorar a busca do assistente — ACEITA em 2026-10-01, antes de o teste ser tocado
 
 > Proposta em 2026-09-29, antes de qualquer candidato rodar. **Aceita pelo dono em
@@ -408,10 +582,909 @@ as fontes que o modelo lê; IC 95% por bootstrap pareado da diferença para o si
   pares de 384 tokens (6 threads). O braço A iria de ~31 s para ~42 s por pergunta.
 - Nada disso tocou no teste. O próximo passo, se a §9.1 não disser "busca NÃO LIMITA" e o
   dono aceitar esta proposta, é a confirmação única do braço A' = A + ΦRank nos 650.
-- **Já no código, desligado por padrão** (`phifm.rag.reordenador`, `--reordenar` no
-  `perguntar.py` e no `servir_busca.py`). O caminho do produto reproduz a exploração em
-  15 de 15 perguntas de desenvolvimento (8 delas resgates do ΦRank); recuperação mediana
-  de ~14 s com ele, contra ~3 s sem.
+- **O braço A′ rodou nos 650 itens em 2026-10-01/02.** Lido sem o juiz
+  (`avaliacao/assistente_bracos_A2.json`), primário: P entre as 6 fontes **0,818 contra
+  0,686** (+0,132 [+0,098; +0,166], 73 resgatados e 7 perdidos); P em primeiro, 0,616
+  contra 0,522; tempo pela regra **49,8 s ≤ 60 s** — o critério de tempo está cumprido.
+  O critério de acerto (IC de acerto_A′ − acerto_A inteiro acima de 0,03) é pelo juiz e
+  continua **lacrado até I3**: `--comparar-reordenado` recusa antes disso.
+- O caminho do produto (`phifm.rag.reordenador`) reproduz a exploração em 15 de 15
+  perguntas de desenvolvimento (8 delas resgates do ΦRank); recuperação mediana de ~14 s
+  com ele, contra ~3 s sem.
+
+#### O RESULTADO da §9.2 (2026-10-07) — ADOTA
+
+Aberto depois de I3 passar (rodada 2), com o mesmo juiz v2 nos dois braços.
+`avaliacao/assistente_reordenado.json`. **Calibrado contra o Claude, sem revisão humana.**
+
+| | A · hoje | A′ · com o ΦRank | A′ − A | IC 95% | ganha/perde |
+|---|---|---|---|---|---|
+| **primário (500) — decide** | 0,700 | **0,806** | **+0,106** | **[+0,072; +0,142]** | 68 / 15 |
+| pós-corte (150) | 0,747 | 0,847 | +0,100 | [+0,040; +0,160] | 19 / 4 |
+
+- **Acerto:** o IC fica inteiro acima de 0,03 — o limiar que o dono endureceu. ✅
+- **Tempo:** 49,8 s de mediana pela definição escrita antes (limite 60 s). ✅
+- **→ ADOTA.** Desde 2026-10-07 o `perguntar.py` e a página ligam o ΦRank por padrão
+  (`--sem-reordenar` desliga); sem os pesos em disco, o assistente avisa e segue sem ele.
+- Dos 13,2 pontos que o ΦRank ganhou em "P entre as 6 fontes", 10,6 viraram acerto na
+  resposta. E ele também perde: em 15 perguntas a resposta era certa e deixou de ser.
+- **A busca continua limitando:** com a fonte garantida o acerto é 0,944; com o ΦRank,
+  0,806. Sobram ~14 pontos — os artigos que não chegam nem aos 50 primeiros (14%) e os
+  que o ΦRank não sobe. O próximo passo é da representação (trechos do texto completo,
+  §3), não mais da ordem.
+
+### 9.3 A ordem está esgotada — segunda leva no desenvolvimento (2026-10-09), NEGATIVA
+
+Exploratório, nas mesmas 200 perguntas de desenvolvimento, agora contra o sistema adotado
+(ΦRank nos 50, 6 fontes). `scripts/explorar_busca_dev.py --medir2`,
+`avaliacao/assistente_busca_dev2.json`. A barra para ir ao teste continua a da §9.2:
+5 pontos no primário.
+
+| candidato | primário (150) | Δ para hoje | ganha/perde |
+|---|---|---|---|
+| hoje · ΦRank nos 50, 6 fontes | 0,827 | — | — |
+| ΦRank nos 100 | 0,833 | +0,007 [−0,013; +0,033] | 2/1 |
+| ΦRank nos 200 | 0,827 | 0,000 [−0,027; +0,027] | 2/2 |
+| hoje, com 10 fontes | 0,833 | +0,007 [0,000; +0,020] | 1/0 |
+| ΦRank nos 200 e 10 fontes | 0,853 | +0,027 [+0,007; +0,053] | 4/0 |
+| ΦRank com a média de 3 consultas hipotéticas | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| busca com 3 consultas + ΦRank nos 50 | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| busca com 3 consultas + ΦRank nos 100 | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| ΦRank nos 50 com pares de **256 tokens** | 0,767 | **−0,060** [−0,107; −0,020] | 1/10 |
+
+- **Nenhum passa a barra. Nada foi ao teste.**
+- O ΦRank nos 50 já colhe quase tudo o que está ali: 0,827 de um teto de 0,847. Ir aos
+  200 sobe o teto para 0,893, mas o reordenador não sobe esses artigos — o que está fundo
+  na busca densa também é difícil para ele.
+- O melhor (200 + 10 fontes, +2,7) custaria 4× o tempo do ΦRank na CPU (~45 s só de
+  reordenação), fora dos 60 s da regra.
+- **Cortar os pares em 256 tokens custa 6 pontos**: o atalho para reordenar mais fundo no
+  mesmo tempo não existe. O ΦRank foi treinado com 384, e usa.
+- No pós-corte (50 itens) vários ganham 6–8 pontos, com ICs que encostam em zero; é o
+  estrato que não decide, e 50 itens não sustentam uma ida ao teste.
+
+**Leitura:** o que faltava na ORDEM dos resultados foi colhido com o ΦRank nos 50. Os ~14
+pontos que restam até o braço com a fonte garantida são de REPRESENTAÇÃO — o artigo certo
+não está perto da consulta no espaço do encoder — e o remédio previsto é indexar trechos
+do texto completo (§3), não mexer mais na ordem. O plano, com os custos medidos e um
+piloto antes de construir, está em
+[PLANO-trechos-do-texto-completo.md](PLANO-trechos-do-texto-completo.md) (proposto,
+aguarda o dono).
+
+### 9.4 Trechos do texto completo — o piloto (2026-10-09), NEGATIVO nas perguntas do resumo
+
+Exploratório, nas 150 perguntas de desenvolvimento do primário; o teste não foi tocado.
+`scripts/piloto_trechos.py`, `avaliacao/assistente_piloto_trechos.json`. A barra, aceita
+pelo dono antes de o piloto rodar: **5 pontos** em "P entre as 6 fontes" sobre o sistema de
+hoje (0,827).
+
+**Como.** Para cada pergunta, os 300 primeiros artigos da busca de hoje (mais fundo quando P
+está mais longe, até 1.500) e o próprio P: 28.743 artigos com texto completo, cortados
+pelo cortador da §3.1 em **3.096.569 trechos**, embutidos como `título. trecho` pelo
+encoder do índice (1 h 50 na RX 7600, 467 trechos/s). P tem trechos em 104 das 150
+perguntas. Cada artigo com texto ganha, além do escore do resumo, o do seu melhor trecho;
+o ΦRank reordena os 50 primeiros e ficam 6, como no produto. A linha "hoje" reproduz o
+0,827 da §9.3.
+
+| representação do artigo | P nos 50 | P nas 6 fontes | Δ para hoje | ganha/perde |
+|---|---|---|---|---|
+| **hoje** · só o resumo | 0,847 | **0,827** | — | — |
+| A · máximo(resumo, melhor trecho − 0,10) | 0,860 | 0,833 | +0,007 [0,000; +0,020] | 1/0 |
+| A · máximo(resumo, melhor trecho − 0,03) | 0,873 | 0,833 | +0,007 [−0,013; +0,033] | 2/1 |
+| A · máximo(resumo, melhor trecho) | 0,853 | 0,820 | −0,007 [−0,040; +0,027] | 3/4 |
+| A · resumo + 0,5 × melhor trecho | 0,853 | 0,827 | 0,000 [−0,020; +0,020] | 1/1 |
+| A · união: 35 pelo resumo + 15 pelo trecho | 0,847 | 0,827 | 0,000 [−0,027; +0,027] | 2/2 |
+| A · média dos 3 melhores trechos (− 0,05) | 0,860 | 0,833 | +0,007 [−0,013; +0,027] | 2/1 |
+| B · só introdução e conclusão (− 0,05) | 0,860 | 0,833 | +0,007 [−0,013; +0,033] | 2/1 |
+| em duas fases — trechos só nos 300 do resumo | — | ≤ 0,827 | ≤ 0,000 | — |
+
+36 combinações no agregado; a tabela traz a melhor de cada família.
+
+- **Nenhuma passa a barra. Nada vai ao teste.** A melhor rende +0,7 ponto — uma pergunta
+  em 150 —, e com o desconto do trecho escolhido nestas mesmas perguntas. Pela barra
+  aceita, a opção do plano é a C: não construir o índice de trechos **para o que estas
+  perguntas medem**.
+- **O teto já era baixo antes do ΦRank:** a melhor combinação leva "P nos 50" de 0,847 a
+  0,873 (5 entram, 1 sai). O ΦRank só escolhe entre esses 50.
+
+**Por que não sobe** (só entre os concorrentes com trechos, n = 104):
+
+| | P em 1º | P até 6 | P até 50 |
+|---|---|---|---|
+| pelo resumo | **0,490** | **0,731** | 0,837 |
+| pelo melhor trecho | 0,308 | 0,635 | 0,837 |
+| pelo melhor de introdução/conclusão | 0,337 | 0,635 | 0,827 |
+
+- O melhor trecho põe P mais à frente que o resumo em 32 perguntas, e mais atrás em 43.
+- **O trecho levanta os concorrentes mais do que levanta P.** O melhor trecho de um
+  concorrente pontua, na mediana, 0,029 acima do resumo dele; o de P, 0,004. Um artigo com
+  ~90 trechos tem ~90 chances de parecer com a consulta, e o ganho cresce com o número de
+  trechos (correlação +0,27 com o log). Daí o desconto: sem ele, a combinação piora.
+- **O melhor trecho de P é de introdução ou conclusão em 65% dos casos** (elas são 19% dos
+  trechos): é onde o artigo repete o resumo. Por isso a opção B colhe o mesmo que a A.
+- **Quem não tem texto completo perde:** com o máximo sem desconto, as 46 perguntas cujo P
+  não tem trechos caem 4,3 pontos — e 48% do índice não tem texto.
+
+**Leitura.** As perguntas saem de um fato do RESUMO, e a consulta é um resumo hipotético:
+o resumo de P já é o texto mais parecido com ela (escore mediano 0,811, contra 0,802 do
+melhor trecho). O piloto confirma o aviso do plano (§2 dele) — este conjunto não enxerga
+o que trechos compram — e **não** diz que trechos não servem para responder o que o resumo
+não diz. Isso só o estrato "corpo" mede, e ele ainda não foi medido.
+
+⚠️ Limites: otimista num ponto (artigo fora dos concorrentes não é visto subindo); o
+desconto foi escolhido no próprio conjunto; mede posição do artigo, sem juiz.
+
+### 9.5 A medida do estrato "corpo" — regra escrita em 2026-10-11, antes de rodar
+
+O dono mandou seguir com a medida recomendada no PLANO §8. **É uma medida, não uma
+decisão automática:** o que sair alimenta o PLANO §8 e, se for o caso, a cláusula de
+reabertura do ADR-0004 (§6 dele: "um conjunto de perguntas … em que o braço B caia abaixo
+de 0,90 — aí o gerador passa a limitar").
+
+**Itens.** Os 150 do estrato "corpo" (`avaliacao/assistente_itens_corpo.json`, com as
+ressalvas do PLANO: sem revisão humana, pende para o numérico). Os 150 entram; nada é
+ajustado neles. Um sistema que venha a ser desenvolvido PARA o corpo precisará de itens
+novos — estes passam a ser de quem os olhou.
+
+**Braços**, com o modelo, a configuração e a semente do produto:
+
+| braço | o que o modelo recebe |
+|---|---|
+| **A′** · o sistema de hoje | consulta hipotética → busca → ΦRank nos 50 → 6 fontes, cada uma com o resumo |
+| **Bp** · passagem garantida | as 6 fontes de A′, com a **passagem** de P no lugar do resumo de P; se P não veio, sai a 6ª e P entra, com a passagem, na posição sorteada da §9.1 |
+| **C** · sem fontes | a pergunta sozinha |
+
+**Juiz.** O da §9.1 na versão 2, o mesmo prompt e o mesmo cache. ⚠️ Ele foi calibrado em
+perguntas do resumo (κ 0,76 contra o Claude). Para este estrato há uma conferência
+própria, **I3c**: 40 respostas (20 de A′ e 20 de Bp, de itens diferentes, braço oculto)
+julgadas pelo Claude às cegas, com o hash dos veredictos versionado ANTES de o juiz rodar.
+Se o κ de `certo` contra o resto ficar abaixo de 0,6, os acertos saem rotulados "juiz não
+validado neste estrato" e não sustentam leitura nenhuma além da descritiva.
+
+**O que se lê, e com que régua** (IC 95% por bootstrap pareado, como na §9.1):
+
+1. **O gerador, com a passagem:** acerto de Bp. BASTA se o IC ficar inteiro ≥ 0,90 — o
+   limiar da §9.1. Abaixo disso, o gerador limita no corpo, e a cláusula do ADR-0004 vale.
+2. **A lacuna do corpo:** Bp − A′. É quanto o assistente perde por só ler resumos.
+3. **Onde está o problema:** em quantas das 150 o artigo P chega às 6 fontes de A′. Se P
+   chega e a resposta não, falta a passagem, não o artigo.
+
+**Guardas de validade:**
+
+- **I2c:** acerto de C < acerto de Bp − 0,10. Sem isso as perguntas se respondem de memória.
+- **Fora do resumo:** nos itens em que A′ teve o resumo de P entre as fontes, o acerto de
+  A′ tem de ficar ≤ 0,20. Acima disso, o estrato não é o que diz ser — o resumo responde —
+  e a lacuna do item 2 não vale como medida do corpo.
+
+Custo previsto: ~4 h de GPU para os braços e ~1 h para o juiz, locais, retomáveis.
+`scripts/medir_corpo.py`; agregado em `avaliacao/assistente_corpo.json`.
+
+#### RESULTADO (2026-10-11): o assistente não responde o corpo; com a passagem, responde
+
+| braço | acerto | IC 95% | certo · parcial · errado · absteve |
+|---|---|---|---|
+| **A′** · o sistema de hoje | **0,033** | [0,007; 0,067] | 5 · 28 · 87 · 30 |
+| **Bp** · passagem garantida | **0,940** | [0,900; 0,973] | 141 · 5 · 4 · 0 |
+| **C** · sem fontes | 0,060 | [0,027; 0,100] | 9 · 35 · 96 · 10 |
+
+| leitura | medida | régua | desfecho |
+|---|---|---|---|
+| o gerador, com a passagem | Bp = 0,940 [0,900; 0,973] | IC inteiro ≥ 0,90 | **BASTA** — com o limite inferior encostado no limiar |
+| a lacuna do corpo | Bp − A′ = **0,907** [0,860; 0,953] · 136 ganhos, 0 perdas | — | o assistente perde quase tudo por só ler resumos |
+| onde está o problema | P chega às 6 fontes de A′ em **94 de 150** (0,627) | — | em 63% falta só a passagem; em 37% falta também o artigo |
+
+| guarda | medida | vale? |
+|---|---|---|
+| I2c · não se responde de memória | C = 0,060 < Bp − 0,10 = 0,840 | ✅ |
+| fora do resumo | onde A′ teve o resumo de P: acerto **0,043** (4 de 94) ≤ 0,20 | ✅ |
+| I3c · o juiz neste estrato | κ de `certo` contra o resto **0,90** em 40 respostas; concordância 38/40 | ✅ |
+
+- **O ponto cego é quase total.** De 150 perguntas cuja resposta está no corpo do artigo, o
+  assistente de hoje acerta 5 — o mesmo que sem fonte nenhuma (9). Ter o artigo certo entre
+  as fontes não ajuda: com o resumo de P no prompt, acerta 4 de 94.
+- **O modelo aberto dá conta do texto de corpo.** Com a passagem (LaTeX cru, ~450 tokens),
+  o Qwen3-8B acerta 141 de 150, igual onde P veio pela busca (0,936) e onde entrou na
+  posição sorteada (0,946). A cláusula de reabertura do ADR-0004 **não** é acionada: o
+  gerador não limita aqui.
+- **A busca do artigo vai pior que nas perguntas do resumo** — 0,627 contra 0,818 no teste
+  da §9.2. Uma pergunta sobre um detalhe de método parece menos com o resumo.
+
+⚠️ **O que este resultado não mede, e é o que falta para um produto:**
+
+1. **Bp é o melhor caso.** Ele recebe a passagem de onde a pergunta foi escrita. Um sistema
+   real tem de ACHAR essa passagem entre os ~100 trechos do artigo — e isso não foi medido.
+2. **O juiz não separa abstenção de erro neste estrato.** Das 9 respostas que o julgamento
+   às cegas deu como abstenção, o juiz chamou 7 de `errado`. Os "87 errados" de A′ incluem
+   muita recusa honesta; na amostra às cegas de A′ (20 respostas) foram 8 abstenções e 10
+   respostas erradas afirmadas — **metade das vezes ele responde errado em vez de dizer que
+   não sabe**, e 20 respostas é pouco para cravar o número.
+3. **As ressalvas do estrato:** perguntas e passagens escolhidas e escritas pelo Claude,
+   sem revisão humana; 112 das 150 vêm da passagem de mais números.
+4. **Uma ocorrência de operação**, declarada no agregado: o app reiniciou a sessão e 56
+   itens foram gerados duas vezes; vale o primeiro registro gravado, regra fixada antes de
+   qualquer veredicto. Com dois clientes no servidor, 126 das 168 respostas repetidas
+   saíram com texto diferente — a geração não se repete bit a bit nessa condição.
+
+**Leitura.** O piloto da §9.4 disse que trechos não ajudam a achar o artigo de uma pergunta
+do resumo. Esta medida diz a outra metade: **para o que o resumo não diz, sem o texto do
+corpo o assistente não tem chance, e com ele o modelo que já existe basta.** O que falta
+não é modelo nem índice gigante — é o passo que escolhe a passagem dentro do artigo.
+A proposta está no [PLANO §9](PLANO-trechos-do-texto-completo.md), para o dono.
+
+#### Depois da medida (2026-10-12): quando as fontes não trazem a resposta, ele afirma em metade das vezes
+
+O item 2 acima ficou com 20 respostas. Para fechar o número, o Claude leu as 150 respostas
+de A′, sem o veredicto do juiz e sem o gabarito, com três classes escritas antes de ler
+(`scripts/contar_abstencoes.py`; agregado em `avaliacao/assistente_corpo_abstencao.json`).
+
+| nas 145 que o juiz não deu como certas | respostas | |
+|---|---|---|
+| **absteve** — diz que as fontes não trazem, e não dá resposta | 71 | 49% |
+| **afirmou** — dá uma resposta, sem ressalva | 62 | 43% |
+| **ressalva** — diz que as fontes não trazem de forma direta, e dá um valor mesmo assim | 12 | 8% |
+
+- **Afirma algo em 51% das vezes** (74 de 145). Das 62 afirmadas, 11 nem dão o que foi
+  pedido: repetem a pergunta, generalizam ou respondem outra coisa, sem avisar.
+- **Ter o artigo certo entre as fontes piora:** com o resumo de P no prompt, afirma em 58%
+  (52 de 90); sem ele, em 40% (22 de 55). O resumo de P traz uma grandeza vizinha, e o
+  modelo a entrega no lugar da que foi pedida.
+- **Ele não inventa número.** Só 5 das 79 respostas com afirmação têm um número que não
+  está em nenhuma fonte do prompt nem na pergunta. O erro é de ATRIBUIÇÃO — o valor existe
+  nas fontes, e é de outra grandeza ou de outro artigo. Um portão mecânico de "número sem
+  fonte" pegaria 5 de 79: não vale construir. O que pega isto é conferir o SENTIDO — o
+  *entailment* da §6.2, que continua sendo o limite declarado do portão.
+- **O juiz não separa mesmo:** das 71 abstenções, chamou 41 de `errado`. E a expressão com
+  que o portão de citações reconhece uma recusa casa com 30 das 71.
+
+⚠️ Uma leitura só, do Claude, sem segunda passada às cegas; as perguntas são agora de
+desenvolvimento. Três decisões foram tomadas ao ler e estão no agregado (resposta mista
+conta como `ressalva`; valor de grandeza vizinha citado como contexto, seguido de recusa,
+conta como `absteve`; a subdivisão "sem o pedido" foi criada depois de ler).
+
+### 9.6 Passagens sob demanda — PROPOSTA de 2026-10-12, escrita antes de os itens novos existirem
+
+O dono mandou construir e medir a proposta do PLANO §9. **Esta seção é a regra da medida.
+Ela é PROPOSTA até o dono aceitar** — e o conjunto de teste não é tocado antes disso
+(`REGRA_9_6_ACEITA`, em `phifm.eval.assistente_bracos`, trava o passo).
+
+> **ACEITA pelo dono em 2026-10-13**, com a emenda escrita mais abaixo: o braço que vai ao
+> teste é A‴ (as passagens com a instrução da §9.7), e um juiz independente confere. O
+> texto da proposta fica como foi escrito.
+
+**O sistema medido (A″).** O de hoje, com um passo a mais depois da busca
+(`phifm.rag.passagens`):
+
+1. o modelo traduz a pergunta para inglês (uma chamada curta);
+2. o texto completo de cada uma das 6 fontes que o tem é cortado pelo cortador da §3.1
+   (160 tokens, sem repetição);
+3. os trechos de todas as fontes competem entre si por BM25 contra a pergunta em inglês —
+   a frequência de documento sai só deles;
+4. os 9 melhores (no máximo 1.440 tokens) entram no prompt debaixo do resumo do artigo de
+   onde vieram, sob o MESMO número: citar a passagem é citar o artigo.
+
+A consulta hipotética, a busca, o ΦRank e a instrução da resposta não mudam. Fonte sem
+texto completo fica como hoje, só com o resumo.
+
+**De onde saiu a regra de seleção** — exploratório, nas 150 perguntas do corpo da §9.5,
+que por isso viraram desenvolvimento (`scripts/explorar_passagens.py`). Nas 94 em que o
+artigo certo estava entre as fontes, com que frequência a passagem de onde a pergunta saiu
+fica entre os 12 primeiros dos ~340 trechos:
+
+| consulta | ordem dos trechos | a passagem entre os 12 |
+|---|---|---|
+| a pergunta, como veio (português) | ΦEmb, cosseno | 0,33 |
+| a consulta hipotética da busca | ΦEmb, cosseno | 0,32 |
+| a consulta hipotética da busca | BM25 | 0,70 |
+| uma passagem hipotética, escrita pelo modelo | BM25 | 0,78 |
+| **a pergunta em inglês** | **BM25** | **0,85** |
+| a pergunta em inglês + a passagem hipotética | BM25 | 0,85 |
+
+O encoder do índice foi treinado em `título. resumo` e não acha um detalhe de método; a
+consulta hipotética imita um resumo e puxa a introdução. O risco que o PLANO §9 apontava
+("um encoder treinado em resumos") se confirmou — e a saída foi lexical: o que distingue a
+passagem são as palavras raras da pergunta. Fundir o denso com o lexical piorou; juntar os
+vizinhos de cada trecho, no mesmo orçamento, também.
+
+**Itens.**
+
+1. **Corpo 2** — 100 perguntas NOVAS: as aceitas seguintes às 150, na mesma permutação,
+   com as mesmas regras de escrita e a mesma regra de passagem
+   (`perguntas_corpo.py --fechar-2`). Disjuntas do teste, do desenvolvimento e do corpo 1.
+2. **Teste primário** — os 500 itens da §9.1, em que A′ já foi medido (0,806). Entram UMA
+   vez, só no eixo "não piora".
+
+**Braços**, com o modelo, a configuração e a semente do produto:
+
+| braço | o que o modelo recebe | onde roda |
+|---|---|---|
+| **A′** · o sistema de hoje | 6 fontes, cada uma com o resumo | corpo 2 · no teste, vem do cache da §9.2 |
+| **A″** · com as passagens | as MESMAS 6 fontes e a mesma consulta, mais os trechos escolhidos | corpo 2 e teste |
+| **Bp** · passagem garantida | as fontes de A′ com a passagem de P no lugar do resumo — o teto | corpo 2 |
+| **C** · sem fontes | a pergunta sozinha | corpo 2 |
+
+No teste, onde nenhuma passagem é anexada o prompt de A″ é o de A′, e a resposta de A′ é
+reaproveitada — como na §9.2.
+
+**Juiz.** O da §9.1, versão 2. **I3:** 40 respostas do corpo 2 (20 de A″ e 20 de A′, de
+itens diferentes, braço oculto) julgadas pelo Claude às cegas, com o hash dos veredictos
+versionado antes de o juiz rodar. κ de `certo` contra o resto abaixo de 0,6: o instrumento
+não decide.
+
+**A regra — ADOTA só com os três eixos**, IC 95% por bootstrap pareado por item:
+
+| eixo | medida | passa se |
+|---|---|---|
+| **ganho** | acerto de A″ − acerto de A′, nos 100 do corpo 2 | o IC fica INTEIRO acima de **0,15** |
+| **não piora** | acerto de A″ − acerto de A′, nos 500 do teste primário | o IC fica INTEIRO acima de **−0,03** |
+| **tempo** | mediana por pergunta de A″ no corpo 2, de ponta a ponta | **≤ 60 s** — o teto da §9.2 |
+
+Um eixo que não passa: fica o sistema atual. **Guardas**, as da §9.5 no corpo 2: C abaixo
+de Bp − 0,10, e A′ ≤ 0,20 onde teve o resumo de P; uma que caia invalida o eixo do ganho.
+
+De onde vêm os números: 0,15 é um quarto do teto estimado (0,59 = 0,627 de busca × 0,94 do
+gerador) — abaixo disso o passo não paga a cópia de 12 GB nem a chamada a mais. −0,03 é o
+limiar que o dono fixou na §9.2 para adotar o ΦRank, agora como o máximo que se aceita
+perder. 100 itens bastam: com A′ perto de 0,03, um ganho de 0,35 tem IC de ±0,10.
+
+**Relatadas, não decidem:** o alcance da seleção (a passagem de ouro entregue, onde P
+veio); o acerto de A″ onde P veio e onde não veio; a fração do teto colhida (A″ ÷ Bp); o
+tempo do passo sozinho; e a **sobreposição de palavras entre a pergunta em inglês e a
+passagem**, ao lado da do corpo 1 — ver o primeiro limite abaixo.
+
+⚠️ **Limites declarados antes de rodar:**
+
+1. **Quem escreve as perguntas novas escolheu a regra, e sabe que ela é lexical.** As
+   regras de escrita são as mesmas do corpo 1, escrito sem saber disso; se a sobreposição
+   de palavras do corpo 2 sair acima da do corpo 1, o ganho medido está inflado, e isso
+   vai dito com o número.
+2. **P sempre tem texto completo** — é assim que o estrato existe. No índice, 52% dos
+   artigos têm, e quase nada de 2023 em diante: para os outros 48%, nada muda. O ganho
+   medido é o de quando o texto existe.
+3. As ressalvas do estrato: sem revisão humana; a passagem é a de mais números do artigo.
+4. **O passo custa uma cópia do texto completo em disco** (~12 GB no HD,
+   `phifm.retrieval.textos`): os arquivos de hoje são um grupo de 20.000 artigos cada, e
+   ler um artigo leva 3,9 s. A cópia é derivada e pode ser apagada.
+
+**Custo previsto**, GPU local, retomável: corpo 2, ~2 h para os quatro braços e ~40 min de
+juiz; teste primário, ~1,5 h de respostas e ~50 min de juiz. `scripts/medir_passagens.py`;
+agregado em `avaliacao/assistente_passagens.json`.
+
+#### O desenvolvimento, de ponta a ponta (2026-10-12) — exploratório, não decide
+
+Lido DEPOIS de a regra acima estar no git (`2ac9cdf`). Nas 150 perguntas do corpo 1, com a
+consulta hipotética e as 6 fontes de A′ do cache da §9.5 e só as passagens a mais
+(`explorar_passagens.py --responder`, juiz da §9.1):
+
+| onde | n | A′ | **com as passagens** | Bp (teto) |
+|---|---|---|---|---|
+| todas | 150 | 0,033 | **0,493** [0,413; 0,573] | 0,940 |
+| o artigo certo entre as fontes | 94 | 0,043 | **0,755** | 0,936 |
+| …e a passagem de ouro foi entregue | 78 | 0,038 | **0,897** | 0,974 |
+| …e NÃO foi entregue | 16 | 0,062 | 0,062 | 0,750 |
+| o artigo certo fora das fontes | 56 | 0,018 | 0,054 | 0,946 |
+
+- **A seleção entrega a passagem em 78 de 94** (0,83), e com ela na mão o modelo acerta
+  0,90 — perto dos 0,97 de quando ela vem sozinha, no lugar do resumo. Oito trechos de
+  outros lugares em volta custam pouco.
+- **O que sobra é da busca do artigo**: em 56 das 150 ele não está entre as fontes, e aí
+  nenhuma passagem ajuda. É o mesmo limite da §9.5 (0,627), agora o maior.
+- **O prompt cresce pouco**: 7,7 blocos de passagem por pergunta, em 2,6 das 6 fontes;
+  ~11.600 caracteres de fontes (máximo 15.800), ~3.000 tokens de um contexto de 8.192;
+  8,7 s por resposta.
+
+⚠️ Estas são as perguntas em que a regra foi escolhida. O número que vale é o do corpo 2 —
+100 perguntas escritas depois (`avaliacao/assistente_itens_corpo2.json`, `a1810e1`).
+
+#### RESULTADO no corpo 2 (2026-10-12): dois eixos PASSAM; o terceiro espera o aceite da regra
+
+O dono autorizou a cópia do texto completo e o custo de GPU; o aceite da regra — e com ele
+o eixo "não piora", que toca o teste — ainda não veio. Rodou o que não depende dele
+(`avaliacao/assistente_passagens.json`).
+
+| braço | acerto | IC 95% | certo · parcial · errado · absteve |
+|---|---|---|---|
+| **A′** · o sistema de hoje | **0,000** | 0 de 100 | 0 · 14 · 61 · 25 |
+| **A″** · com as passagens | **0,500** | [0,400; 0,600] | 50 · 15 · 30 · 5 |
+| **Bp** · passagem garantida | 0,990 | [0,970; 1,000] | 99 · 1 · 0 · 0 |
+| **C** · sem fontes | 0,010 | [0,000; 0,030] | 1 · 15 · 69 · 15 |
+
+| eixo | medida | passa se | desfecho |
+|---|---|---|---|
+| **ganho** | A″ − A′ = **+0,500** [0,400; 0,600] · 50 ganhos, 0 perdas | IC inteiro > 0,15 | **PASSA** |
+| **tempo** | mediana de A″ **46,5 s** (A′ 42,1 s; o passo sozinho, 2,5 s) | ≤ 60 s | **PASSA** |
+| **não piora** | A″ − A′ nos 500 do teste primário | IC inteiro > −0,03 | **não rodado** — espera o aceite |
+
+| guarda | medida | vale? |
+|---|---|---|
+| I2c · não se responde de memória | C = 0,010 < Bp − 0,10 = 0,890 | ✅ |
+| fora do resumo | onde A′ teve o resumo de P: 0 de 70 ≤ 0,20 | ✅ |
+| I3 · o juiz | 40 respostas às cegas, seladas antes (`c3b37b1`): `certo` contra o resto, **40 de 40**, κ 1,00 | ✅ |
+
+- **O ganho do desenvolvimento se repetiu em perguntas novas**: 0,493 lá, 0,500 aqui.
+- **A conta fecha pelas mesmas duas frações.** O artigo certo chegou às fontes em 70 das
+  100; a passagem de ouro foi entregue em 58 dessas 70 (0,83, o mesmo do desenvolvimento);
+  onde o artigo veio, A″ acerta 0,70 — e onde não veio, 1 de 30.
+- **Metade do teto.** Com a passagem dada de graça o modelo acerta 99 de 100; com ela
+  procurada, 50. O que falta está quase todo na busca do ARTIGO (30 perguntas), não na
+  escolha da passagem (12) nem no gerador.
+- **As perguntas novas não foram escritas a favor da regra**: a fração das palavras da
+  pergunta em inglês presentes na passagem é 0,573, contra 0,578 no corpo 1, escrito antes
+  de a regra existir.
+- **O passo custa 2,5 s** (mediana; 4 s a mais de ponta a ponta, com o prompt maior).
+
+⚠️ O que este resultado não diz:
+
+1. **Nada sobre as perguntas do resumo**, que são a maioria do uso medido até aqui. É o
+   eixo que falta, e sem ele a decisão é PENDENTE.
+2. **O juiz continua sem separar abstenção de erro**: das 15 respostas que o julgamento às
+   cegas deu como abstenção, chamou 7 de `errado` e 2 de `parcial` (κ de quatro categorias
+   0,66). `certo` contra o resto vale; a divisão dos "30 errados" de A″, não.
+3. As ressalvas do estrato, as mesmas: perguntas e passagens do Claude, sem revisão humana;
+   passagem de mais números; P sempre com texto completo (52% do índice).
+4. **Uma ocorrência de operação:** a 44ª pergunta levou 397 s na busca, com a GPU parada e
+   1,3 GB de memória comprometida livre na máquina. Entra nos tempos como está; a mediana
+   não se move, o máximo sim (413 s).
+
+#### O ensaio nas perguntas do resumo (desenvolvimento, 2026-10-13) — e a EMENDA proposta
+
+Antes de pedir o teste, o eixo "não piora" foi ensaiado nas 150 perguntas de
+desenvolvimento do primário (`explorar_resposta.py`; mesma consulta e mesmas fontes nos
+três braços, juiz da §9.1):
+
+| nas 150 do resumo (desenvolvimento) | acerto | contra o sistema de hoje |
+|---|---|---|
+| o sistema de hoje | 0,833 [0,773; 0,893] | — |
+| com as passagens (A″) | 0,800 [0,733; 0,860] | **−0,033** [−0,073; +0,007] · ganha 2, perde 7 |
+| com as passagens e a instrução da §9.7 (A‴) | 0,820 [0,760; 0,880] | −0,013 [−0,047; +0,020] · ganha 2, perde 4 |
+
+- **As passagens custam nas perguntas do resumo.** A estimativa (−0,033) já está abaixo
+  da margem de −0,03 da regra: com A″ como definido, o eixo "não piora" provavelmente não
+  passaria no teste.
+- **O que são as 7 perdas**, lidas uma a uma: em 6 o veredicto foi de `certo` para
+  `parcial` — a resposta diz o mesmo núcleo com palavras tiradas das passagens, e perde um
+  termo que o gabarito, escrito do resumo, tem ("resultado de Cardy" virou "a probabilidade
+  de travessia da percolação"). Em 1, o artigo certo não estava entre as fontes e um trecho
+  de OUTRO artigo deu um número diferente — erro de verdade.
+- **A instrução que cobra a coisa específica devolve boa parte**: 6 ganhos e 3 perdas
+  sobre A″, sem mexer no acerto do corpo (0,493 nos dois, §9.7).
+
+**Emenda proposta — escrita antes de o teste ser tocado e antes de A‴ rodar no corpo 2.**
+O sistema que vai ao teste passa a ser **A‴ = A″ com a instrução `SISTEMA_RESPOSTA_V2`**
+(`phifm.rag.assistente`). Os três eixos e os limiares não mudam; o que muda é o braço:
+
+- **ganho**: A‴ − A′ nos mesmos 100 itens do corpo 2. ⚠️ O corpo 2 já foi lido uma vez,
+  com A″. A instrução foi escolhida só no desenvolvimento (corpo 1 e as 150 do resumo),
+  sem olhar nenhum item do corpo 2 — mas o conjunto deixa de ser de primeira leitura, e
+  isso fica dito ao lado do número (`--instrucao-v2`, braço `A4`).
+- **não piora**: A‴ − A′ nos 500 do teste primário.
+- **tempo**: o de A″ até a resposta mais o da resposta de A‴.
+
+O dono escolhe, antes do teste: **(a)** A‴ vai ao teste — é o que eu recomendo; **(b)** A″
+vai, como na proposta original, sabendo do ensaio; **(c)** o teste não é tocado e as
+passagens ficam como modo opcional (`--passagens`), que é onde estão hoje.
+
+**A‴ no corpo 2 (2026-10-13, rodado depois de a emenda estar no git, `c6f9252`):**
+
+| braço | acerto | IC 95% | certo · parcial · errado · absteve |
+|---|---|---|---|
+| A′ · o sistema de hoje | 0,000 | 0 de 100 | 0 · 14 · 61 · 25 |
+| A″ · com as passagens | 0,500 | [0,400; 0,600] | 50 · 15 · 30 · 5 |
+| **A‴ · passagens e a instrução** | **0,520** | [0,420; 0,620] | 52 · 6 · 23 · 19 |
+
+| eixo, para A‴ | medida | desfecho |
+|---|---|---|
+| ganho | A‴ − A′ = **+0,520** [0,420; 0,620] | **PASSA** (> 0,15) — ⚠️ segunda leitura do conjunto |
+| tempo | mediana de 46,3 s | **PASSA** (≤ 60 s) |
+| não piora | — | **não rodado**: espera o aceite |
+
+A instrução não custa acerto no corpo (A‴ − A″ = +0,020 [0,000; 0,050]; 2 ganhos, nenhuma
+perda) e muda o que acontece quando o modelo não acerta: menos resposta errada ou pela
+metade, mais recusa — pelos rótulos do juiz, que nessa divisão valem pouco (I3).
+
+#### O ACEITE (2026-10-13) — a regra vale, com a emenda; o que roda no teste
+
+O dono, com os números acima na mão: **"aceito a regra, opção 1, juiz sim"**. Ou seja: a
+regra desta seção vale como escrita; o braço que vai ao teste é **A‴** (caminho (a) da
+emenda); e um juiz independente confere o resultado (abaixo). `REGRA_9_6_ACEITA` passa a
+`True` no mesmo commit que este texto, **antes** de o teste rodar.
+
+Como A‴ roda no teste — escrito antes de rodar (`medir_passagens.py --primario`):
+
+- **Só o estrato primário**, os 500 itens. Os 150 do pós-corte não entram na regra e não
+  são tocados.
+- A consulta e as 6 fontes de cada item são as de A′, do cache da §9.2. O passo das
+  passagens roda como no produto (a pergunta traduzida, o BM25, até 9 trechos).
+- **Nenhuma resposta de A′ é reaproveitada.** Na proposta original, onde nenhuma passagem
+  fosse anexada o prompt seria o de A′. Com a instrução v2 o prompt muda sempre: os 500
+  itens são respondidos de novo.
+- O juiz é o da §9.1, versão 2, o mesmo que julgou A′. Ele foi conferido às cegas em
+  respostas escritas com a instrução de hoje (§9.1, κ 0,76) e nas do corpo 2 (κ 1,0);
+  respostas da instrução v2 a perguntas do resumo ele nunca teve conferidas — é um dos
+  motivos do juiz independente.
+- O eixo é A‴ − A′, pareado, IC 95%; passa se ficar inteiro acima de −0,03. O tempo no
+  teste é relatado; o eixo do tempo é o do corpo 2 (46,3 s, passa).
+
+Decisão pela regra: **ADOTA** se o eixo passar (ganho e tempo já passaram); senão **fica o
+sistema atual**, e as passagens continuam como modo opcional.
+
+#### O juiz independente — regra escrita antes de o teste rodar (2026-10-13)
+
+O juiz da regra é o Qwen3-8B, o mesmo modelo que escreve as respostas, conferido só pelo
+Claude, que também escreveu as perguntas. No eixo "não piora" a diferença esperada (−0,01
+a −0,03) é do tamanho do erro desse juiz (≈ 3% para cada lado, §9.1), e no ensaio 6 das 7
+perdas foram `certo` → `parcial` por redação. Um segundo modelo corrige as mesmas
+respostas para dizer se o desfecho depende de quem corrige.
+
+- **O modelo:** Mistral Small 3.2 (24B, Instruct 2506), GGUF Q4_K_M
+  (`bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF`, 14,3 GB, Apache-2.0) —
+  três vezes maior, de outra família, nem Qwen nem Claude. llama.cpp `b11159`, o mesmo
+  build da máquina local, com CUDA, numa L4 do Colab. Se ele não rodar lá, a troca de
+  modelo é registrada aqui antes de qualquer veredicto dele ser lido.
+- **O que não muda:** o prompt (`SISTEMA_JUIZ`, v2), a entrada (pergunta, gabarito e a
+  resposta sem as marcas [n]), temperatura 0, a semente e o leitor do veredicto — o código
+  do commit exato. Muda o modelo e o formato de conversa dele.
+- **O que ele julga:** (1) A′ e A‴ nos 500 do teste; (2) A′, A″ e A‴ nos 100 do corpo 2;
+  (3) as 180 respostas que o Claude julgou às cegas e selou antes de o juiz da regra rodar
+  nelas (§9.1 rodada 2: 100; §9.5: 40; §9.6: 40). A rodada 1 da §9.1 fica fora: o prompt
+  foi consertado nela.
+- **Ele vale?** κ de `certo` contra o resto, dele contra os 180 veredictos selados, ≥ 0,6
+  — o mínimo de I3. Abaixo disso a conferência não vale e é relatada assim; o prompt não é
+  ajustado para ele.
+- **Como se lê.** A decisão da regra é a do juiz da regra. Com o juiz independente
+  refaz-se cada eixo que depende de juiz (ganho e "não piora"), com a mesma estatística e
+  os mesmos limiares. Mesmo desfecho nos dois juízes: **robusto**. Desfecho diferente em
+  algum eixo: **FRÁGIL** — escrito ao lado da decisão, e a adoção volta ao dono com os
+  dois números.
+- **Relatado:** o κ entre os dois juízes em todos os textos comuns, e a tabela de onde
+  discordam.
+
+⚠️ **Limites.** Continua sendo um modelo corrigindo outro, e a régua dele são os
+veredictos do Claude. Ele roda depois do teste (precisa das respostas), quando o número do
+juiz da regra já terá sido lido — por isso esta regra entra no git antes. As perguntas,
+os gabaritos e as respostas sobem para o Drive do dono, por decisão dele; não vão ao git.
+`colab/juiz_independente.py` (as células) e `scripts/conferencia_do_juiz.py` (empacota e
+apura); ~2,5 h de L4.
+
+#### O RESULTADO do teste (2026-10-13) — o eixo "não piora" NÃO PASSA: fica o sistema atual
+
+Os 500 itens do teste primário, respondidos por A‴ sobre a consulta e as fontes de A′
+(~1 h 50 min de respostas, 19 min de juiz; nenhuma queda). 484 dos 500 receberam passagem.
+
+| nos 500 do teste | acerto | certo · parcial · errado · absteve |
+|---|---|---|
+| A′ · o sistema de hoje | 0,806 | 403 · 38 · 41 · 18 |
+| A‴ · passagens e a instrução | 0,778 | 389 · 31 · 54 · 26 |
+
+| eixo | medida | desfecho |
+|---|---|---|
+| ganho (corpo 2) | A‴ − A′ = +0,520 [0,420; 0,620] | PASSA (> 0,15) |
+| tempo (corpo 2) | mediana de 46,3 s | PASSA (≤ 60 s) |
+| **não piora (teste)** | A‴ − A′ = **−0,028 [−0,052; −0,004]** · ganha 12, perde 26 | **NÃO PASSA** (o IC não fica inteiro acima de −0,03) |
+
+**Decisão pela regra: FICA O SISTEMA ATUAL.** As passagens e a instrução continuam fora do
+padrão; `--passagens` segue como modo opcional. A estimativa (−0,028) cabe na margem, mas o
+intervalo não — e ele fica inteiro abaixo de zero: nas perguntas que o resumo responde,
+A‴ é pior que o sistema de hoje, pelo juiz da regra. O ensaio no desenvolvimento (−0,013
+em 150) foi otimista.
+
+O que as perdas são, sem ler as respostas (`avaliacao/assistente_passagens.json` e a
+contagem abaixo, descritiva, feita depois do resultado):
+
+| de A′ para A‴ | certo | parcial | errado | absteve |
+|---|---|---|---|---|
+| era **certo** (403) | 377 | 15 | 9 | 2 |
+| era parcial (38) | 10 | 14 | 9 | 5 |
+| era errado (41) | 2 | 1 | 32 | 6 |
+| era absteve (18) | 0 | 1 | 4 | 13 |
+
+| recorte | n | A′ | A‴ | diferença | ganha · perde |
+|---|---|---|---|---|---|
+| o artigo certo entre as fontes | 409 | 0,956 | 0,922 | −0,034 | 8 · 22 |
+| …e um trecho DELE anexado | 250 | 0,960 | 0,912 | **−0,048** | 4 · 16 |
+| …e nenhum trecho dele anexado | 159 | 0,950 | 0,937 | −0,013 | 4 · 6 |
+| o artigo certo fora das fontes | 91 | 0,132 | 0,132 | 0,000 | 4 · 4 |
+
+- **A perda está onde o passo funcionou**: com o trecho do artigo certo no prompt, o
+  acerto cai 4,8 pontos. O gabarito foi escrito do resumo; com o corpo do artigo ao lado,
+  a resposta deixa de ser a do resumo.
+- **15 das 26 perdas são `certo` → `parcial`** — o padrão que, no ensaio, era troca de
+  redação. **9 são `certo` → `errado`**, e isso o ensaio não tinha mostrado (1 em 7).
+- Onde o artigo certo não veio, nada muda no acerto (4 ganhos, 4 perdas).
+- No teste a mediana por pergunta foi de 28,3 s (A′) para 32,0 s (A‴); o passo, 1,4 s.
+
+⚠️ Tudo isto é pelo juiz da regra. Se as 15 quedas para `parcial` são erro de quem
+corrige, é o juiz independente que diz — e pela regra dele isso não muda a decisão: um
+desfecho diferente a marca como FRÁGIL e devolve a adoção ao dono.
+
+#### A conferência do juiz independente (2026-10-13/14): ROBUSTO
+
+Mistral Small 3.2 (24B, Q4_K_M), llama.cpp b11159 (o binário oficial com CUDA), numa L4
+do Colab: 1.379 textos em ~1 h 40, mediana de 4,1 s, nenhum ilegível. O servidor montou o
+formato de conversa do próprio modelo (`[SYSTEM_PROMPT]…[/SYSTEM_PROMPT][INST]…[/INST]`).
+Os veredictos (sha256 `becfa5cf…`) voltaram do Drive e foram conferidos contra o resumo da
+rodada antes de qualquer conta. A primeira sessão não julgou nada: o servidor não subiu na
+porta 8080, que é do Colab (corrigido em `caefb20`, o commit que rodou).
+
+**Ele vale:** κ de `certo` contra o resto, contra os 180 veredictos selados do Claude,
+**0,914** (concordância 0,961; mínimo 0,6) — 0,777 nos 100 da §9.1, 0,950 nos 40 da §9.5,
+1,000 nos 40 da §9.6. Como o juiz da regra, ele chama de `errado` boa parte do que o Claude
+marcou `absteve` (11 de 28) — a divisão que não conta.
+
+| eixo | juiz da regra (Qwen3-8B) | juiz independente (Mistral 24B) | mesmo desfecho? |
+|---|---|---|---|
+| ganho no corpo 2 | +0,520 [0,420; 0,620] · passa | +0,530 [0,430; 0,630] · passa | sim |
+| **não piora (teste)** | A′ 0,806 → A‴ 0,778 · **−0,028 [−0,052; −0,004]** · não passa | A′ 0,790 → A‴ 0,766 · **−0,024 [−0,052; +0,004]** · não passa | **sim** |
+
+**Leitura pela regra: ROBUSTO.** A decisão — fica o sistema atual — não depende de quem
+corrige. O que muda com o outro juiz é só o lado de cima do intervalo: para ele a perda
+pode ser zero (+0,004); para os dois ela pode chegar a 5,2 pontos, e é isso que a margem
+de −0,03 não aceita. Ele vê mais trocas nos dois sentidos (19 ganhos e 31 perdas, contra
+12 e 26) e a mesma direção.
+
+Entre os dois juízes, nos 1.300 textos do teste e do corpo 2: κ de `certo` contra o resto
+**0,886** (0,828 só no teste); 38 textos só o da regra deu `certo`, 26 só o independente.
+
+Agregado: `avaliacao/assistente_juiz_independente.json`; a rodada, em
+`avaliacao/juiz_independente_rodada.json`.
+
+### 9.7 A instrução que cobra o "não sei" — desenvolvimento (2026-10-12/13), exploratório
+
+O dono pediu, junto com as passagens, o que desse para fazer de "ensinar o assistente a
+dizer não sei". A contagem da §9.5 disse onde está o erro: ele não inventa número — entrega
+um valor que está nas fontes e é de outra grandeza ou de outro artigo. A instrução
+candidata (`SISTEMA_RESPOSTA_V2`) é a de hoje com esse erro nomeado: conferir se uma fonte
+diz a coisa ESPECÍFICA pedida; se nenhuma diz, dizer isso e parar, sem oferecer grandeza
+vizinha, valor de outro sistema ou generalidade; se dizem só uma parte, responder essa
+parte e apontar a que falta.
+
+**O instrumento.** O juiz não separa abstenção de erro. Um classificador à parte (o mesmo
+modelo, sem gabarito, três classes) foi conferido contra as 150 respostas que o Claude
+classificou à mão: `absteve` contra o resto, concordância **0,907**, κ **0,81** — ele é
+mais duro, e chama de "ressalva" 12 das 71 abstenções. ⚠️ O prompt dele foi escrito por
+quem já tinha visto essas 150: o κ é otimista, e o que ele mede aqui é desenvolvimento.
+
+"Afirma errado" = a resposta não é `certo` pelo juiz e não é `absteve` pelo classificador.
+
+| | acerto | afirma errado | …onde o artigo certo não veio |
+|---|---|---|---|
+| **corpo** (150) · hoje | 0,033 | 0,560 | 25 de 56 |
+| corpo · só a instrução | 0,020 | 0,373 | 14 de 56 |
+| corpo · passagens | 0,493 | 0,300 | 24 de 56 |
+| corpo · passagens + instrução | 0,493 | **0,227** | 18 de 56 |
+| **resumo** (150) · hoje | 0,833 | 0,100 | 10 de 26 |
+| resumo · só a instrução | 0,813 | **0,073** | **5 de 26** |
+| resumo · passagens | 0,800 | 0,127 | 10 de 26 |
+| resumo · passagens + instrução | 0,820 | 0,087 | 7 de 26 |
+
+- **As passagens sozinhas não mexem no problema**: onde o artigo certo não veio, o modelo
+  afirma errado na mesma proporção com e sem elas.
+- **A instrução corta entre um quarto e um terço das afirmações erradas**, com e sem
+  passagens. No corpo sem passagens, onde quase nunca há resposta nas fontes, as recusas
+  vão de 61 para 91.
+- **Sozinha, ela tem um preço nas perguntas do resumo**: 0,833 → 0,813 (−0,020
+  [−0,053; +0,007]; 1 ganho, 4 perdas) — recusa algumas que o sistema de hoje acerta. Não
+  é significativo em 150 perguntas, e também não é zero.
+- **Com as passagens, ela devolve mais do que tira** (0,800 → 0,820 no resumo). É nessa
+  combinação que ela faz mais sentido, e é a da emenda da §9.6.
+- **Ela não resolve**: com o artigo errado na mão, o modelo ainda afirma em um quinto a um
+  terço das vezes. O que pega o resto é conferir o sentido (o *entailment* da §6.2).
+
+Nada disto toca o teste. Se a instrução for ao produto, vai pela emenda da §9.6 (com as
+passagens) ou, sozinha, por uma regra própria — com o eixo "não piora" como o da §9.6,
+porque o ensaio acima diz que é aí que ela pode custar.
+
+### 9.8 A busca lexical do artigo — desenvolvimento (2026-10-14), exploratório
+
+Item 2 do dono, depois da §9.6: melhorar a busca do ARTIGO, o maior limite que sobra (com
+a fonte garantida o gerador acerta 0,94–0,99; o artigo certo chega às 6 fontes em 0,818 das
+perguntas do resumo e em 0,63–0,70 das do corpo). A ordem já tinha sido esgotada (§9.3) e
+trechos densos não acharam o artigo (§9.4). O que nunca tinha sido tentado é a busca
+**lexical** — a ideia que achou a passagem dentro do artigo na §9.6 (BM25 0,85 contra 0,33).
+
+**O índice** (`phifm.retrieval.lexical`, `scripts/explorar_busca_lexical.py --indexar`):
+BM25 (k1 1,2, b 0,75) sobre `título. resumo` dos 1.594.338 artigos, na ordem do índice
+denso (hash conferido). 500 mil termos, 119 milhões de células, **910 MB**, 2 min de CPU.
+
+**Os conjuntos**, os dois já lidos (desenvolvimento): as 150 perguntas do corpo da §9.5
+(**corpo 1**) e as 150 do resumo do desenvolvimento da §9.2 (**primário dev**). A consulta
+hipotética é a gravada; a pergunta em inglês, a das §9.6/9.7. Mede-se a POSIÇÃO do artigo
+de onde a pergunta saiu (P), sem juiz. Fusão = RRF (c = 60) das posições.
+
+**Antes do ΦRank** — P entre os 50 primeiros, o que o reordenador recebe:
+
+| busca | corpo 1 | primário dev |
+|---|---|---|
+| **hoje** · encoder com a consulta hipotética | 0,720 | 0,847 |
+| encoder com a pergunta em inglês | 0,773 | 0,913 |
+| **BM25 com a pergunta em inglês** | 0,847 | 0,980 |
+| BM25 com a consulta hipotética | 0,653 | 0,893 |
+| **fusão: hoje + BM25 em inglês** | **0,887** (+0,167 [+0,107; +0,227]; 25 resgates, 0 perdas) | **1,000** (+0,153 [+0,100; +0,213]; 23/0) |
+
+**Com o ΦRank nos 50 — as 6 fontes que o modelo lê.** A linha de hoje reproduz o `rr50`
+da §9.3 em 150 de 150 (o ΦRank rodou na GPU; lá, na CPU).
+
+| busca, e o ΦRank nos 50 | corpo 1 | Δ | primário dev | Δ |
+|---|---|---|---|---|
+| **hoje** | 0,627 | — | 0,827 | — |
+| **fusão: hoje + BM25 em inglês** | **0,733** | **+0,107 [+0,060; +0,160]** · 16/0 | **0,913** | **+0,087 [+0,040; +0,140]** · 14/1 |
+| fusão das três (+ BM25 da consulta hipotética) | 0,700 | +0,073 · 14/3 | 0,907 | +0,080 · 13/1 |
+| fusão: dois encoders + BM25 em inglês | 0,720 | +0,093 · 15/1 | 0,887 | +0,060 · 11/2 |
+| só o BM25 em inglês | 0,733 | +0,107 · 22/6 | 0,927 | +0,100 · 18/3 |
+
+- **A fusão da busca de hoje com o BM25 da pergunta em inglês ganha nos dois conjuntos
+  quase sem perder** (16 resgates e nenhuma perda no corpo; 14 e 1 no resumo). O BM25
+  sozinho chega perto, mas troca mais: 6 perdas no corpo.
+- **O ΦRank quase não acrescenta sobre a fusão** (sem ele, os 6 primeiros da fusão: 0,707 e
+  0,900). Ele custa ~11 s por pergunta na CPU — fica em aberto se continua.
+- **A pergunta em inglês é a consulta certa para o BM25**; a consulta hipotética, não (ela
+  imita um resumo genérico, e as palavras raras da pergunta se diluem).
+
+⚠️ **O que infla isto, e o quanto foi conferido:**
+
+1. **As perguntas foram escritas lendo o artigo.** No resumo, 72% das palavras da pergunta
+   (em inglês) estão no título + resumo de P; no corpo, 49%. Isso favorece o BM25 mais do
+   que o encoder. Conferido por terços de sobreposição: o ganho existe também no terço de
+   menor sobreposição (corpo, ≤ 43% das palavras no resumo: P nos 50 de 0,46 para 0,76).
+   Pergunta de usuário real pode repetir menos as palavras do artigo — e isso não foi
+   medido.
+2. Os dois conjuntos já foram lidos e a escolha foi feita neles: a confirmação precisa de
+   perguntas novas.
+3. É posição do artigo, não acerto da resposta. Na §9.2, 13,2 pontos de "P nas 6 fontes"
+   viraram 10,6 de acerto.
+
+`avaliacao/assistente_busca_lexical_dev.json`. Nada tocou o teste.
+
+### 9.9 A busca fundida com o BM25 — PROPOSTA de 2026-10-14, escrita antes de A5 rodar
+
+O dono mandou seguir com o item 2 e escolheu **reaproveitar os 650 do teste** (pergunta de
+2026-10-14) em vez de escrever perguntas novas. **Esta seção é a regra da medida e é
+PROPOSTA até o dono aceitar** (`REGRA_9_9_ACEITA`, em `phifm.eval.assistente_bracos`,
+trava o passo).
+
+> **ACEITA pelo dono em 2026-10-14, como escrita** ("Aceito a regra"), antes de A5 rodar.
+>
+> ⚠️ **Desvio operacional (2026-10-14, 22h51), antes de qualquer resposta ser lida ou
+> julgada.** A primeira rodada juntou num processo só o modelo, a busca densa na CPU e o
+> índice lexical, e a máquina de 16 GB paginou: 113 s por item (~20 h para os 650). Foi
+> parada com 11 itens, que ficaram de lado sem leitura nem juiz
+> (`bracos_A5_….jsonl.descartado_paginacao`). A medida passa a rodar em **três fases** com o
+> MESMO sistema: (1) só o modelo — a tradução, a mesma chamada; (2) sem o modelo — a busca
+> fundida e o ΦRank, na CPU como no produto; (3) só o modelo — a resposta onde as fontes
+> mudam, com as fontes montadas como `Assistente.recuperar` as monta, e o juiz. O tempo de
+> recuperação de A5 é a tradução mais a busca, cada uma medida na sua fase.
+> **Consequência para o produto, declarada agora:** com o modelo, a busca na CPU e o índice
+> lexical carregados juntos, esta máquina pagina. Se A5 for adotado, o padrão só muda
+> depois de o produto rodar nela sem paginar — o índice lexical lido do disco sob demanda,
+> e não inteiro na memória —, com o tempo medido de novo.
+
+**O sistema medido (A5).** O de hoje (A′: consulta hipotética → busca densa → ΦRank nos 50
+→ 6 fontes), com a busca trocada:
+
+1. a pergunta é traduzida para inglês — a mesma chamada da §9.6 (`SISTEMA_TRADUCAO`);
+2. a busca densa com a consulta hipotética e o BM25 sobre título + resumo com a pergunta em
+   inglês dão, cada um, a posição de todos os artigos; a fusão por posição (RRF, c = 60)
+   ordena (`Busca.buscar_hibrido`);
+3. o ΦRank reordena os 50 primeiros da fusão, e ficam 6.
+
+Instrução, modelo e semente: os de hoje; sem passagens. O candidato saiu do
+desenvolvimento (§9.8): a fusão que ganhou nos dois conjuntos quase sem perder. O caminho do
+produto (`Assistente(lexica=…)`) reproduz a exploração em 12 de 12 perguntas conferidas.
+
+**Itens.** Os 650 do teste (500 do primário, 150 do pós-corte), em que A′ já foi medido.
+**Decide o primário.** Esses itens já decidiram a §9.1, a §9.2 e a §9.6; a busca lexical
+foi escolhida sem olhar nenhum deles.
+
+**Como roda** (`scripts/medir_busca_lexical.py --rodar`): a consulta hipotética e as fontes
+de A′ vêm do cache; a tradução é nova. Onde as 6 fontes de A5 saem iguais às de A′, na mesma
+ordem, o prompt é o mesmo e a resposta de A′ é reaproveitada — como na §9.2. Busca e ΦRank
+na CPU, como no produto com o modelo na GPU.
+
+**Juiz.** O da §9.1, versão 2, o mesmo cache. I3 não é refeito: o juiz foi conferido neste
+conjunto (κ 0,76 contra o Claude, §9.1) e por um segundo modelo (κ 0,914, §9.6), e as
+respostas de A5 têm a mesma instrução das de A′ — só as fontes mudam.
+
+**A regra — a da §9.2, com A5 no lugar de A′:** ADOTA se o IC 95% (bootstrap pareado por
+item) de acerto_A5 − acerto_A′ no primário ficar **inteiro acima de 0,03** e o tempo
+mediano couber em **60 s**. O tempo é a mediana de A de ponta a ponta mais a mediana da
+recuperação de A5 (tradução, as duas buscas, a fusão e o ΦRank): conta a busca simples duas
+vezes e erra para o lado de reprovar. Fora disso, fica o sistema atual, e a busca fundida
+segue como opção (`--busca-lexical`).
+
+De onde vem 0,03: é o limiar que o dono fixou para o ΦRank na §9.2. A busca nova custa
+menos que ele (~2 s e ~1 GB de memória, contra ~11 s), mas mexe em todas as respostas.
+
+**Relatadas, não decidem:** P nas 6 fontes nos dois braços; o pós-corte; o corpo 2 (100
+perguntas do corpo, nunca usadas para escolher a busca) — só P nas 6 fontes, sem juiz nem
+modelo; quantas traduções saíram iguais às da §9.6.
+
+⚠️ **Limites declarados antes de rodar:**
+
+1. As perguntas foram escritas lendo o resumo (72% das palavras da pergunta estão no resumo
+   de P, §9.8). Isso favorece o BM25: o ganho com perguntas de usuários de verdade pode ser
+   menor, e esta medida não diz quanto.
+2. É o quarto uso deste conjunto de teste.
+3. Sem revisão humana, como todo o resto da §9.
+
+**Custo previsto:** ~3 a 4 h locais para os 650 (a maior parte é o ΦRank na CPU e as
+respostas onde as fontes mudam), ~10 min de juiz e ~20 min do corpo 2. Agregado em
+`avaliacao/assistente_busca_lexical.json`.
+
+#### O RESULTADO (2026-10-15) — ADOTA
+
+Em três fases, das 22h54 às 4h51: tradução 12 min, busca + ΦRank na CPU 2 h 41 (com o
+corpo 2), respostas e juiz 3 h 04. Nenhuma queda.
+
+| no primário (500) — decide | A′ · hoje | A5 · busca fundida | A5 − A′ | IC 95% | ganha/perde |
+|---|---|---|---|---|---|
+| **acerto pelo juiz** | 0,806 | **0,870** | **+0,064** | **[+0,034; +0,094]** | 46 / 14 |
+| P entre as 6 fontes (sem juiz) | 0,818 | 0,892 | +0,074 | [+0,048; +0,100] | — |
+
+| eixo | medida | limiar | desfecho |
+|---|---|---|---|
+| acerto | IC de A5 − A′ inteiro acima de 0,03 | [+0,034; +0,094] | **PASSA** — por 0,4 ponto no limite de baixo |
+| tempo | mediana de A (31,3 s) + recuperação de A5 (13,5 s) = **44,8 s** | ≤ 60 s | **PASSA** |
+
+**→ ADOTA pela regra.** Em 101 dos 500 as 6 fontes saíram iguais às de A′ e a resposta é a
+mesma.
+
+**Relatadas:**
+
+- **Pós-corte (150):** 0,847 → 0,913, +0,067 [+0,027; +0,113], 11 ganhos e 1 perda. Vale
+  também para artigos que o modelo não pode ter lido.
+- **Corpo 2 (100, só P nas 6 fontes):** 0,70 → 0,74, +0,04 [0,00; +0,09], 5 resgates e 1
+  perda — bem menos que no desenvolvimento do corpo (+0,107).
+- **A tradução** saiu igual à da §9.6 em 431 de 500: a geração com semente fixa não se
+  repete bit a bit entre sessões do servidor.
+
+⚠️ **Leitura com os limites:**
+
+1. **A margem é fina**: o limite de baixo passa o limiar por 0,4 ponto. O ganho mecânico
+   (+0,074 em P nas 6 fontes, IC inteiro acima de +0,048) não depende do juiz e aponta
+   para o mesmo lado.
+2. **As perguntas foram escritas lendo o resumo**, o que favorece a busca por palavra; com
+   perguntas de usuários o ganho pode ser menor (§9.8). No corpo 2, escrito a partir do
+   corpo do artigo, o ganho em P foi de 4 pontos.
+3. **A condição declarada no desvio vale:** o padrão só muda depois de o produto rodar na
+   máquina do dono sem paginar, com o índice lexical lido do disco sob demanda, e o tempo
+   medido de novo nessa configuração.
+
+#### A condição, medida (2026-10-15) — e o padrão muda
+
+O índice lexical passou a ser lido do disco sob demanda (três `.npy` com `mmap`; escores
+idênticos aos do `.npz`). O produto foi montado como a página — índice denso e ΦRank na
+CPU, texto completo carregado, modelo na GPU — e respondeu 20 perguntas do desenvolvimento
+(10 do corpo 1, 10 do primário dev) com e sem a busca fundida, alternando a ordem, na mesma
+sessão (`scripts/medir_produto_busca_lexical.py`,
+`avaliacao/assistente_busca_lexical_produto.json`).
+
+| memória privada, cada peça carregada sozinha | GB |
+|---|---|
+| busca densa na CPU (vetores, tabela de documentos, encoder) | 2,83 |
+| ΦRank na CPU | 0,39 |
+| texto completo (índice) | 0,17 |
+| **índice lexical (sob demanda)** | **0,06** |
+
+| mediana por pergunta | sem a busca fundida | com ela |
+|---|---|---|
+| **de ponta a ponta** | **76,1 s** | **77,6 s** |
+| consulta hipotética | 4,4 s | 4,6 s |
+| tradução | — | 1,6 s |
+| busca + ΦRank | 41,0 s | 27,9 s |
+| resposta | 28,6 s | 34,8 s |
+
+- **A busca fundida não pesa nem atrasa**: +0,06 GB, e o tempo de ponta a ponta é o mesmo
+  nas mesmas perguntas.
+- ⚠️ **Mas o produto pagina nesta máquina com ou sem ela.** Cada pergunta custou ~2,8
+  milhões de faltas de página ao processo do assistente e ~1 a 1,5 milhão ao llama-server;
+  a busca + ΦRank, que leva ~13 s sem pressão de memória (§9.9), levou 28–41 s, e a
+  resposta, ~10 s em condições normais, levou 29–35 s. A memória livre desceu a 0,6 GB. As
+  medidas formais rodaram de madrugada, com a máquina livre; esta, com o resto da sessão
+  aberto. A condição, ao pé da letra, não se cumpre — e não por causa da busca fundida.
+
+**Decisão:** a condição existia para que o índice lexical não fizesse a máquina paginar, e
+ele não faz. **O padrão muda** em `perguntar.py` e na página (`--sem-busca-lexical`
+desliga). A paginação do produto é um problema à parte, anterior a esta seção, e fica
+registrada para o dono.
 
 ---
 
@@ -430,7 +1503,7 @@ as fontes que o modelo lê; IC 95% por bootstrap pareado da diferença para o si
 
 ## 11. Critérios de aceite do Stage-Gate 12
 
-- [ ] **M1** — Auditoria de chunking: zero cortes em ambiente matemático em 10.000 amostras
+- [ ] **M1** — Auditoria de chunking: zero cortes em ambiente matemático em 10.000 amostras · *medida em 2026-10-09 (§3.1): 0 em artigos íntegros; 11 em 10.000 em 5 artigos que já chegam com equação sem par — aberta, à espera do dono*
 - [ ] **M2** — Busca híbrida supera cada perna isolada, com ganho medido
 - [ ] **M3** — Perna de fórmula demonstrada em consultas por equação com variação notacional
 - [ ] **M4** — Precisão de citação ≥ 0,95; DOI alucinado = 0 (**G2.4**)

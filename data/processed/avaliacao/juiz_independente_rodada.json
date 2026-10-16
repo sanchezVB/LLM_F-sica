@@ -1,0 +1,23 @@
+{
+  "experimento": "juiz_independente",
+  "onde": "colab",
+  "git_sha_codigo": "caefb201c6c0d1118326ea978ed5949b0da07a92",
+  "gpu": "NVIDIA L4",
+  "llama_cpp": "b11159",
+  "versao_llama": "0.00.000.405 I srv  llama_server: initializing ...\nversion: 0.5.0-dev (build 11159, commit 6b790a9c2)\nbuilt with GNU 13.3.0 for Linux x86_64",
+  "modelo": {
+    "repo": "bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+    "arquivo": "mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+    "revisao": "b3592d09be469bedab6be51f577824b3b6b76ba1",
+    "sha256": "80f5bda68f156f12650ca03a0a2dbfae06a215ac41caa773b8631a479f82415e"
+  },
+  "formato_de_conversa": "[SYSTEM_PROMPT]<SISTEMA>[/SYSTEM_PROMPT][INST]<USUARIO>[/INST]",
+  "contexto": 8192,
+  "semente": 20260925,
+  "pacote_sha256": "80657ed41899477c79f86ae2a582a272e479777ec940b21560aaf7e73940c736",
+  "textos": 1379,
+  "ilegiveis": 0,
+  "segundos_por_texto_mediana": 4.12,
+  "veredictos_sha256": "becfa5cffeae9b2b92e8028d289695a07291f66efd92ad029aeaf6405df0b707",
+  "terminado_em": "2026-10-13T22:06:46"
+}

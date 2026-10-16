@@ -1,10 +1,14 @@
 """O reordenador do assistente: o ΦRank-PhysBERT sobre os primeiros da busca.
 
-No desenvolvimento da busca do assistente (DOC-13 §9.2, `avaliacao/assistente_busca_dev.json`),
-reordenar os 50 primeiros com ele levou o artigo certo às 6 fontes em 0,827 das perguntas
-do primário, contra 0,733 sem ele. ⚠️ Isso é exploratório: a confirmação no conjunto de
-teste ainda não rodou, e por isso o assistente só usa o reordenador quando pedido
-(`--reordenar`).
+**Adotado em 2026-10-07 pela regra do DOC-13 §9.2**, escrita e aceita antes de o teste ser
+tocado. No conjunto de teste (500 itens do primário), reordenar os 50 primeiros com ele:
+
+- leva o artigo certo às 6 fontes em 0,818 das perguntas, contra 0,686 sem ele;
+- sobe o acerto da RESPOSTA de 0,700 para 0,806 — +0,106, IC 95% [0,072; 0,142], inteiro
+  acima do limiar de 0,03 (`avaliacao/assistente_reordenado.json`);
+- custa ~11 s por pergunta (mediana de 49,8 s contra 31 s; limite de 60 s).
+
+O `perguntar.py` e a página o ligam por padrão; `--sem-reordenar` desliga.
 
 Ele roda na CPU por padrão: com o Qwen3-8B na GPU sobram ~1 GB dos 8 da RX 7600. Custo
 medido: ~11 s para 50 pares de 384 tokens (6 threads).
@@ -22,6 +26,16 @@ import numpy as np
 RAIZ = Path(__file__).resolve().parents[3]
 PHIRANK = RAIZ / "models/phirank-physbert-melhor"
 PROFUNDIDADE = 50
+
+
+def carregar_ou_avisar(modelo: Path = PHIRANK) -> Reordenador | None:
+    """O reordenador, ou None com um aviso se os pesos não estiverem em disco: o
+    assistente continua funcionando como antes da adoção, só com a busca pior."""
+    if not (modelo / "model.safetensors").exists():
+        print(f"⚠️ o ΦRank não está em {modelo}: o assistente segue SEM reordenar "
+              "(acerto medido de 0,700 em vez de 0,806).")
+        return None
+    return Reordenador(modelo)
 
 
 class Reordenador:
