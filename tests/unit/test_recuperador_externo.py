@@ -128,10 +128,12 @@ def test_comparar_por_consulta_so_nas_consultas_comuns():
         rx.comparar_por_consulta({("x", "1"): 1.0}, {("y", "1"): 1.0})
 
 
-def test_a_regra_e_proposta_e_o_script_recusa_sem_aceite():
+def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(monkeypatch):
     import avaliar_recuperador_externo as script
 
-    assert rx.REGRA_9_12_ACEITA is False
+    assert rx.REGRA_9_12_ACEITA is True          # aceita pelo dono em 2026-10-16
+    script._recusa_sem_aceite()
+    monkeypatch.setattr(rx, "REGRA_9_12_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         script._recusa_sem_aceite()
     assert rx.SCIREPEVAL_COMMIT == "e04594e6401cb68fb4ddf6daa801fb219cccc0bb"

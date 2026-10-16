@@ -1,4 +1,4 @@
-"""O juiz contra físicos (DOC-13 §9.11, PROPOSTA de 2026-10-16).
+"""O juiz contra físicos (DOC-13 §9.11, ACEITA em 2026-10-16).
 
 As constantes abaixo SÃO a regra pré-registrada; o DOC-13 §9.11 é o texto dela.
 
@@ -35,7 +35,9 @@ from phifm.eval.assistente import KAPPA_MINIMO, MS_MINIMO_POR_JULGAMENTO, julgam
 from phifm.eval.assistente_bracos import VEREDICTOS, _ic, apurar_i3, kappa
 
 # ── a regra (DOC-13 §9.11) ───────────────────────────────────────────────────
-REGRA_9_11_ACEITA = False
+# O sorteio e as folhas recusam enquanto isto for False. ACEITA pelo dono em 2026-10-16,
+# como escrita.
+REGRA_9_11_ACEITA = True
 SEMENTE_HUMANO = 20261017
 N_SELADOS = 50
 N_NOVOS_POR_BRACO = 25

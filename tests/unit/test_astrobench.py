@@ -223,10 +223,12 @@ def test_secundarias_sem_gabarito():
 # ── o script: a trava, o envio e a apuração ponta a ponta ────────────────────
 
 
-def test_a_regra_e_proposta_e_o_teste_recusa_sem_aceite():
+def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(monkeypatch):
     import medir_astrobench as mab
 
-    assert ab.REGRA_9_10_ACEITA is False
+    assert ab.REGRA_9_10_ACEITA is True          # aceita pelo dono em 2026-10-16
+    mab._recusa_sem_aceite(dev=False)
+    monkeypatch.setattr(ab, "REGRA_9_10_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         mab._recusa_sem_aceite(dev=False)
     mab._recusa_sem_aceite(dev=True)

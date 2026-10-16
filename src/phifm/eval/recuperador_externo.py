@@ -1,5 +1,5 @@
-"""O recuperador contra os de fora, cada um como os autores mandam (DOC-13 §9.12, PROPOSTA
-de 2026-10-16).
+"""O recuperador contra os de fora, cada um como os autores mandam (DOC-13 §9.12, ACEITA
+em 2026-10-16).
 
 As constantes abaixo SÃO a regra pré-registrada; o DOC-13 §9.12 é o texto dela.
 
@@ -38,7 +38,9 @@ from phifm.eval.statistics.proporcao import binomial_exata_bicaudal
 from phifm.training.amostragem import SEMENTE_POOL, preparar_pool
 
 # ── a regra (DOC-13 §9.12) ───────────────────────────────────────────────────
-REGRA_9_12_ACEITA = False
+# As duas partes recusam enquanto isto for False. ACEITA pelo dono em 2026-10-16, como
+# escrita.
+REGRA_9_12_ACEITA = True
 N_POOL = 2000                     # o protocolo da Tabela 6
 N_BOOTSTRAP = 10_000
 SEMENTE_BOOTSTRAP = 20261018

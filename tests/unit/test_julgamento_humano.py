@@ -149,8 +149,9 @@ def script(tmp_path, monkeypatch):
     return js
 
 
-def test_a_regra_e_proposta_e_nada_e_sorteado_sem_aceite(script):
-    assert jh.REGRA_9_11_ACEITA is False
+def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(script, monkeypatch):
+    assert jh.REGRA_9_11_ACEITA is True          # aceita pelo dono em 2026-10-16
+    monkeypatch.setattr(jh, "REGRA_9_11_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         script.amostrar()
 

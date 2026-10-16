@@ -1494,6 +1494,9 @@ e o dono mandou começar pelo AstroBench (pergunta de 2026-10-16). **Esta seçã
 medida e é PROPOSTA até o dono aceitar** (`REGRA_9_10_ACEITA`, em `phifm.eval.astrobench`,
 trava as fases do teste; o desenvolvimento roda antes).
 
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", as três de uma
+> vez: §9.10, §9.11 e §9.12), antes de o conjunto ser baixado e de qualquer item ser lido.
+
 **O conjunto.** O AstroBench do AstroMLab: perguntas de múltipla escolha, com quatro opções,
 geradas por modelos de linguagem a partir de revisões da *Annual Review of Astronomy and
 Astrophysics*. Foi escrito por outros, com outro método, sobre um campo que o índice cobre
@@ -1623,6 +1626,9 @@ O dono mandou montar o julgamento por físicos de fora como o segundo teste exte
 (`REGRA_9_11_ACEITA`, em `phifm.eval.julgamento_humano`, trava o sorteio da amostra e as
 folhas).
 
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", com a §9.10 e a
+> §9.12), antes de a amostra ser sorteada. Faltam os físicos, que o dono escolhe.
+
 **Quem julga.** Pelo menos **dois físicos** (pós-graduação em Física ou pesquisa na área),
 de fora do projeto, escolhidos pelo dono, sem ver nenhum resultado da §9 antes de
 entregar. Cada um julga sozinho, numa ordem própria, e não conversa sobre os itens com o
@@ -1705,6 +1711,9 @@ um handicap para os que não foram. A revisão externa pede os embedders cientí
 como o terceiro teste externo (pergunta de 2026-10-16). **Esta seção é a regra e é
 PROPOSTA até o dono aceitar** (`REGRA_9_12_ACEITA`, em `phifm.eval.recuperador_externo`,
 trava as duas partes).
+
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", com a §9.10 e a
+> §9.11), antes de qualquer vetor ser gerado.
 
 **Os de fora, na configuração recomendada** (o cartão de cada modelo e o harness em que
 foram medidos):

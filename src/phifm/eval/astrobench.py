@@ -1,4 +1,4 @@
-"""Um teste de fora: o AstroBench (DOC-13 §9.10, PROPOSTA de 2026-10-16).
+"""Um teste de fora: o AstroBench (DOC-13 §9.10, ACEITA em 2026-10-16).
 
 As constantes abaixo SÃO a regra pré-registrada; o DOC-13 §9.10 é o texto dela. Mudar
 um número aqui depois de ver resultado é trocar a regra, e exige registro no DOC-13.
@@ -47,9 +47,10 @@ from phifm.eval.statistics.proporcao import binomial_exata_bicaudal, wilson
 from phifm.rag.assistente import Fonte, bloco_de_fontes
 
 # ── a regra (DOC-13 §9.10) ───────────────────────────────────────────────────
-# PROPOSTA: as fases que tocam os 1.000 do teste recusam até o dono aceitar. O
-# desenvolvimento (50 itens disjuntos) roda antes — é para isso que ele existe.
-REGRA_9_10_ACEITA = False
+# As fases que tocam os 1.000 do teste recusam enquanto isto for False; o
+# desenvolvimento (50 itens disjuntos) roda sempre. ACEITA pelo dono em 2026-10-16,
+# como escrita.
+REGRA_9_10_ACEITA = True
 CONJUNTO = "AstroMLab/Astrobench_MCQ_v1_Public"
 SEMENTE_ASTROBENCH = 20261016     # a ordem dos itens; a da geração é a do produto
 N_TESTE = 1000

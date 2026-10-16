@@ -15,8 +15,9 @@ campo que o índice cobre —, a busca do sistema ajuda o modelo a acertar?
     P --apurar --agregado-C K --agregado-A K       # ...ou só o acerto de cada arquivo
 
 O gabarito do conjunto público não é público: quem corrige é a equipe do AstroMLab, pelo
-e-mail. As fases do TESTE recusam enquanto a regra for PROPOSTA (`REGRA_9_10_ACEITA` em
-`phifm.eval.astrobench`); as do desenvolvimento (`--dev`, 50 itens disjuntos) rodam antes.
+e-mail. As fases do TESTE só rodam com a regra aceita (`REGRA_9_10_ACEITA` em
+`phifm.eval.astrobench`, aceita em 2026-10-16); as do desenvolvimento (`--dev`, 50 itens
+disjuntos) rodam sempre.
 
 Em três fases, como a §9.9: o modelo, a busca na CPU e o índice lexical juntos paginam na
 máquina de 16 GB. Respostas e fontes ficam em `data/processed/assistente/astrobench/`,
