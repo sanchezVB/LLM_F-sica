@@ -1696,6 +1696,93 @@ e a regra decide pelo ponto, como no I3.
 **Custo previsto:** ~1 h por físico (100 itens a ~35 s). Do lado do projeto, minutos. O
 agregado vai em `avaliacao/assistente_julgamento_humano.json`, só com números de conjunto.
 
+### 9.12 O recuperador contra os de fora, cada um como os autores mandam — PROPOSTA de 2026-10-16
+
+A Tabela 6 do artigo põe todos os modelos no **mesmo** protocolo: média dos tokens, 192
+tokens, `título. resumo`, cosseno. É a escolha honesta entre modelos treinados para ela, e
+um handicap para os que não foram. A revisão externa pede os embedders científicos
+**como os autores mandam** e um benchmark que não seja nosso; o dono mandou fazer isso
+como o terceiro teste externo (pergunta de 2026-10-16). **Esta seção é a regra e é
+PROPOSTA até o dono aceitar** (`REGRA_9_12_ACEITA`, em `phifm.eval.recuperador_externo`,
+trava as duas partes).
+
+**Os de fora, na configuração recomendada** (o cartão de cada modelo e o harness em que
+foram medidos):
+
+- **SPECTER2:** `allenai/specter2_base` com o adaptador de **proximidade**
+  (`allenai/specter2`), já que a tarefa é artigo contra artigo.
+- **SciNCL:** `malteos/scincl`.
+
+Nos dois: token [CLS], `título[SEP]resumo`, até 512 tokens, sem `token_type_ids`,
+distância euclidiana.
+
+**Parte 1 — na nossa tarefa (decide)** (`scripts/avaliar_recuperador_externo.py
+--nossa-tarefa`):
+
+- **O pool.** O da Tabela 6: 2.000 pares de validação, o mesmo `preparar_pool` (semente
+  17), com teto 1,0. Título e resumo de cada lado vêm do spine. O texto `título. resumo`
+  refeito tem de bater **byte a byte** com o do pool; se não bater, a medida para.
+- **Guarda — reprodução.** O caminho novo mede de novo dois modelos que a Tabela 6 já
+  mediu, o all-MiniLM-L6-v2 (0,4761) e o ΦEmb do sistema (0,6223). O nDCG@10 tem de
+  bater a **±0,0005**. Se não bater, a diferença pode ser do código, e a medida é
+  inválida.
+- **Decide:** ΦEmb (no protocolo dele) − cada um dos dois de fora (na configuração
+  recomendada), em nDCG@10 por consulta, com IC 95% por bootstrap pareado (10.000):
+  - IC inteiro acima de 0 contra **os dois**: **o ΦEmb supera os dois**.
+  - IC inteiro abaixo de 0 contra **algum**: **fica abaixo dele**.
+  - Fora disso: **não se distingue** de quem o IC não separa.
+- **Relatadas:**
+  - **o handicap do protocolo**: cada um de fora na configuração recomendada menos ele
+    mesmo no protocolo da Tabela 6;
+  - **ΦEmb − GTE-large a 512 tokens**: a margem do artigo, +0,044, foi medida a 192, e o
+    GTE lê 512;
+  - o McNemar exato em recall@1;
+  - as quatro métricas de cada linha.
+
+**Parte 2 — na tarefa deles (relatada)** (`--scidocs`): as quatro tarefas de proximidade
+do SciDocs no SciRepEval (Cite, CoCite, CoView, CoRead; MAP e nDCG). Os modelos são o
+ΦEmb, a base dele (all-MiniLM-L6-v2) e os dois de fora, cada um na sua configuração.
+
+- **A avaliação é a do harness oficial**, no commit fixo `e04594e6` (o `main` de
+  2026-10-16): os pares consulta-candidato, a distância euclidiana e o `pytrec_eval` do
+  `IREvaluator`.
+- **Os vetores são gerados aqui.** O `Model` do harness manda a entrada para CUDA sem
+  condição, e a máquina do dono é AMD. Nos modelos de cosseno, os vetores vão
+  normalizados, e a distância euclidiana ordena como o cosseno.
+- **A leitura, escrita agora:** ΦEmb − a base, no nDCG por consulta das quatro tarefas
+  juntas, com IC pareado:
+  - IC inteiro abaixo de 0: **o ajuste em Física custa generalidade** fora da Física;
+  - IC inteiro acima: **o ajuste também ajuda lá**;
+  - fora disso: **não se distingue**.
+- O ΦEmb contra os de fora no SciDocs é relatado, com o aviso abaixo.
+
+⚠️ **Limites declarados antes de rodar:**
+
+1. **Ninguém está limpo de vazamento.**
+   - O ΦEmb foi ajustado em pares de citação do nosso corpo. As âncoras de validação
+     ficaram fora do treino, os citados não necessariamente (Seção 6 do artigo).
+   - O SPECTER2 e o SciNCL foram treinados com citações do Semantic Scholar, que cobre o
+     arXiv de Física. Podem ter visto estes pares, e o SciDocs é do mesmo grafo.
+2. **O SciDocs não é Física:** é sobretudo computação e biomedicina. A parte 2 mede
+   generalidade, não o uso do produto, e por isso não decide.
+3. **A comparação com o SciDocs é desigual:** o SPECTER2 foi treinado em tarefas da
+   família do SciRepEval, e o ΦEmb não. Perder lá não diz nada sobre a Física.
+4. **O pool da Tabela 6 é recuperação entre 2.000 candidatos**, não busca no índice
+   inteiro de 1,59 milhão de artigos.
+5. **Os pacotes do SPECTER2 (`adapters`) fixam a versão do `transformers`.** A medida
+   roda numa venv à parte, e as versões vão para o agregado.
+
+**Custo previsto:**
+
+- **Parte 1:** ~1 h de CPU (4.000 textos por configuração; o GTE-large a 512 tokens é o
+  mais lento).
+- **Parte 2:** a medir na primeira rodada, que imprime a estimativa. São dezenas de
+  milhares de artigos do SciDocs, a 512 tokens nos dois de fora: horas de CPU por modelo.
+  A rodada é retomável, em partes de 4.096 artigos.
+
+Os agregados vão em `avaliacao/recuperador_externo_tabela6.json` e
+`avaliacao/recuperador_externo_scidocs.json`.
+
 ---
 
 ## 10. Riscos
