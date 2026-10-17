@@ -1,5 +1,5 @@
 """Os vetores do índice em int8: metade da memória do float16, para o acervo poder crescer
-(DOC-13 §8.1, PROPOSTA de 2026-10-17).
+(DOC-13 §8.1, ACEITA em 2026-10-17).
 
 Hoje os 1,59 M vetores de 384 dimensões em float16 ocupam 1,22 GB, e a memória livre da
 máquina de 16 GB desce a 0,3–0,5 GB durante as perguntas (DOC-13 §9.9, "a paginação,
@@ -29,7 +29,8 @@ from pathlib import Path
 import numpy as np
 
 # ── a regra (DOC-13 §8.1) ────────────────────────────────────────────────────
-REGRA_8_1_ACEITA = False
+# A medida recusa enquanto isto for False. ACEITA pelo dono em 2026-10-17, como escrita.
+REGRA_8_1_ACEITA = True
 PERCENTIL = 99.99
 N_AMOSTRA = 100_000
 SEMENTE = 20261017

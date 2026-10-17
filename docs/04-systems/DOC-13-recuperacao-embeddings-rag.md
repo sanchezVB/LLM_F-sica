@@ -218,6 +218,9 @@ paginação, resolvida") a memória livre desce a 0,34–0,46 GB durante as perg
 seção é a regra e é PROPOSTA até o dono aceitar** (`REGRA_8_1_ACEITA`, em
 `phifm.retrieval.compacto`, trava a medida).
 
+> **ACEITA pelo dono em 2026-10-17, como escrita** ("aceito a regra da 8.1"), antes de
+> a versão int8 ser gerada e de qualquer pergunta ser medida.
+
 **O candidato** (`phifm.retrieval.compacto`): os mesmos vetores em **int8**, com uma
 escala por dimensão. A escala é o percentil 99,99 de |v| numa amostra fixa de 100 mil
 vetores, dividido por 127, e o resto é cortado em ±127. O cosseno vira `(q ⊙ escala) ·

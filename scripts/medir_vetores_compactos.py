@@ -6,8 +6,8 @@
     P --medir        # a equivalência nas 300 perguntas do desenvolvimento (~15 min, sem o modelo)
 
 O índice do produto não é tocado: a versão int8 vai para outra pasta, e a busca do
-produto continua em float16. `--medir` recusa enquanto a regra for PROPOSTA
-(`REGRA_8_1_ACEITA` em `phifm.retrieval.compacto`).
+produto continua em float16. `--medir` só roda com a regra aceita (`REGRA_8_1_ACEITA` em
+`phifm.retrieval.compacto`, aceita em 2026-10-17).
 
 As perguntas são as dos dois conjuntos de desenvolvimento da §9.8 (corpo 1 e primário dev,
 150 cada), com a consulta hipotética e a pergunta em inglês já gravadas — as mesmas de

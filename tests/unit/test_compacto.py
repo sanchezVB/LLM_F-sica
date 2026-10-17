@@ -121,9 +121,10 @@ def test_medir_item_compara_as_duas_buscas_com_o_mesmo_bm25():
     assert r["p_exato"] and r["p_int8"] and r["sobreposicao_50_fundida"] > 0.9
 
 
-def test_a_regra_e_proposta_e_a_medida_recusa(monkeypatch):
+def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(monkeypatch):
     import medir_vetores_compactos as script
 
-    assert cp.REGRA_8_1_ACEITA is False
+    assert cp.REGRA_8_1_ACEITA is True           # aceita pelo dono em 2026-10-17
+    monkeypatch.setattr(cp, "REGRA_8_1_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         script.medir()
