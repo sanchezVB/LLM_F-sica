@@ -206,6 +206,68 @@ O cache de prefixo é o mais relevante: em uso agêntico o mesmo prompt de siste
 **Perfil mínimo (desenvolvimento):** pgvector ou LanceDB, corpus reduzido, roda local, US$ 0.
 **Perfil de produção:** Qdrant + OpenSearch, ~US$ 40–80/mês num VPS.
 
+### 8.1 Os vetores do índice em int8 — PROPOSTA de 2026-10-17, escrita antes de medir
+
+O dono pediu para fazer crescer o projeto sem gastar (pergunta de 2026-10-17), e o item
+escolhido é o acervo: os resumos de Física do peS2o que não estão no índice. A contagem
+deles é `scripts/contar_pes2o_fora_do_arxiv.py`, e os ids vêm de
+`scripts/recuperar_ids_pes2o.py`. Mas a memória não deixa crescer como está. Os 1,59 M
+vetores em float16 ocupam 1,22 GB, e mesmo depois do conserto da paginação (§9.9, "a
+paginação, resolvida") a memória livre desce a 0,34–0,46 GB durante as perguntas. Com
+~2 M artigos a mais, o float16 passaria de 2,7 GB, e a máquina voltaria a paginar. **Esta
+seção é a regra e é PROPOSTA até o dono aceitar** (`REGRA_8_1_ACEITA`, em
+`phifm.retrieval.compacto`, trava a medida).
+
+**O candidato** (`phifm.retrieval.compacto`): os mesmos vetores em **int8**, com uma
+escala por dimensão. A escala é o percentil 99,99 de |v| numa amostra fixa de 100 mil
+vetores, dividido por 127, e o resto é cortado em ±127. O cosseno vira `(q ⊙ escala) ·
+v_int8`, e a matriz é lida por blocos, convertida para float32 na hora, como o float16 já
+é. **Metade da memória**: com o acervo dobrado, o índice ocuparia o mesmo de hoje. A
+versão int8 vai para outra pasta (`indice_busca_int8`). O índice do produto e a `Busca`
+não mudam com esta seção.
+
+**A medida** (`scripts/medir_vetores_compactos.py --medir`, sem o modelo de linguagem):
+
+- **As perguntas.** As 300 do desenvolvimento da §9.8 (corpo 1 e primário dev, 150 cada),
+  com a consulta hipotética e a pergunta em inglês já gravadas.
+- **Por pergunta.** A busca densa em float16 e em int8, cada uma fundida ao **mesmo**
+  BM25, como no produto (§9.9). Comparam-se os 50 primeiros, que são os que iriam ao
+  ΦRank.
+
+**A regra:** o int8 é **EQUIVALENTE** se as duas condições valem juntas, nas 300:
+
+- a sobreposição média dos 50 da busca fundida é **≥ 0,98**, ou seja, menos de 1 artigo
+  trocado em 50, em média;
+- o artigo certo sai dos 50 em **no máximo 1** pergunta a mais do que entra (perdas menos
+  ganhos ≤ 1).
+
+Fora disso, **não é equivalente**, e o acervo maior teria de esperar outra saída.
+
+**De onde vêm os limiares:** o que passa adiante é o conjunto dos 50; a ordem dentro dele
+o ΦRank refaz. Uma troca em 50 e uma perda líquida em 300 ficam abaixo de qualquer
+diferença que as medidas da §9 conseguiram separar: a menor foi o IC da §9.9, que passou
+o limiar por 0,4 ponto, e 1 em 300 é 0,3 ponto.
+
+**Relatadas:** a sobreposição dos 50 da busca densa sozinha; o tempo mediano de cada
+conta; a memória dos vetores nos dois formatos; e, se a contagem do peS2o já tiver
+rodado, a projeção da memória com o acervo maior.
+
+**O que esta seção NÃO decide:** trocar o padrão da busca. Isso só faz sentido junto com o
+acervo maior, que tem de passar pela própria medida: perguntas sobre artigos de fora do
+arXiv, e não piorar nas do arXiv.
+
+⚠️ **Limites declarados antes de medir:**
+
+1. São perguntas do desenvolvimento, já usadas para escolher a busca fundida (§9.8). Para
+   uma medida de **equivalência** isso não pesa: não se escolhe nada olhando para elas.
+2. A sobreposição é medida no índice de hoje. Com o acervo maior, a perda do int8 pode ser
+   outra, e a medida do acervo terá de olhar de novo.
+3. A memória do processo inteiro depende do resto: o encoder, a tabela de documentos e o
+   índice lexical. Aqui se mede a dos vetores.
+
+**Custo previsto:** conversão ~5 min; medida ~15 min, sem o modelo de linguagem, com a
+trava de rodada pesada. Agregado em `avaliacao/vetores_compactos_dev.json`.
+
 ---
 
 ## 9. Avaliação
