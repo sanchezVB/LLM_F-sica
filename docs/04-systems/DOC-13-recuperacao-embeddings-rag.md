@@ -1566,6 +1566,8 @@ O dono escolheu a confirmação **rápida, sem juiz** (pergunta de 2026-10-16): 
 artigo, em perguntas que não escolheram a variante. Esta seção é PROPOSTA até o dono
 aceitar (`REGRA_9_11_ACEITA`, em `phifm.eval.assistente_bracos`).
 
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("Aceito a regra"), antes de rodar.
+
 **O que muda, e onde.** Só com a opção "Ler também o texto completo" marcada (o modo das
 passagens): os 50 primeiros da busca fundida (§9.9) passam a ser ordenados pela fusão da
 ordem da busca, do ΦRank e da melhor janela do texto completo (§9.10), em vez do ΦRank
