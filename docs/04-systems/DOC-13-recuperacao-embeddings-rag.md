@@ -172,6 +172,107 @@ Antes de a resposta sair, cada citação passa por:
 
 Isto é a resposta direta ao que retirou o Galactica do ar em três dias. **Não é pós-processamento cosmético — é uma restrição dura de saída.**
 
+### 6.3 A precisão de citação, medida — PROPOSTA de 2026-10-17, escrita antes de qualquer par ser julgado
+
+O portão do assistente (`verificar_citacoes`) faz duas das quatro verificações da §6.2:
+remove a citação para fonte que não existe e marca a frase sem citação. As outras duas
+não fazem sentido aqui, porque a fonte é o artigo inteiro e não há span nem DOI. **A
+quarta, se a fonte citada sustenta a frase, nunca foi medida.** Ela está declarada como
+limite desde a §9.1, e a §9.7 mostrou que é ela que pegaria o resto dos erros: com o
+artigo errado na mão, o modelo afirma algo em um quinto a um terço das vezes. O dono
+pediu para medir (pergunta de 2026-10-17), como o primeiro passo para deixar o assistente
+mais robusto. **Esta seção é a regra e é PROPOSTA até o dono aceitar**
+(`REGRA_6_3_ACEITA`, em `phifm.eval.citacoes`, trava o juiz).
+
+**O que se mede (G2.4): a precisão de citação.**
+
+- **A unidade é o par (frase, fonte citada).** A resposta é cortada em frases pela mesma
+  regra do portão, e cada citação válida `[n]` de uma frase vira um par com a fonte `n`.
+  A citação que abre uma frase ("… 650 K. [1] Além disso …") volta para a frase anterior.
+- **A precisão é a fração dos pares em que a fonte sustenta a frase.**
+- A fonte é o que o modelo leu no prompt: título, ano e resumo. Uma afirmação que está no
+  artigo mas não no resumo conta como não sustentada, porque o modelo não a leu ali.
+
+**As respostas:** as de **A5**, o sistema de hoje (§9.9), nos 650 itens do teste. Já foram
+geradas, e nada é gerado de novo. **Decide o primário (500).** O pós-corte (150) é
+relatado. Resposta sem citação, como uma recusa, não gera par.
+
+**O juiz:** o Qwen3-8B, temperatura 0, sem raciocínio (`SISTEMA_SUSTENTA`). Ele lê a
+pergunta (só como contexto), a frase sem as marcas [n] e a fonte, e dá um de três
+veredictos:
+
+- `sustenta`: toda afirmação factual da frase está na fonte ou decorre dela direto.
+  Paráfrase, tradução, arredondamento e conversão de unidade valem.
+- `parcial`: a fonte sustenta parte das afirmações, ou uma versão mais vaga.
+- `nao_sustenta`: a fonte não diz aquilo, dá outro valor, sistema ou condição, contradiz,
+  ou trata de outra coisa.
+
+**Só `sustenta` conta.** A meta é de precisão, e uma frase meio sustentada é uma
+afirmação sem fonte no resto. O juiz julga só contra a fonte: o que é verdade mas não
+está nela não conta como sustentado.
+
+**A guarda: o juiz contra o Claude, às cegas e selado antes.** O juiz é o modelo que
+escreveu as respostas e pode ser brando consigo. A guarda funciona assim:
+
+- Sorteiam-se **150 pares** do primário (`--exportar-validacao`).
+- O Claude julga esses pares sem ver item, braço ou posição.
+- O sha256 dos veredictos vai ao git (`--selar`) **antes** de o juiz rodar neles. O
+  `--julgar` recusa sem o selo.
+- **κ de `sustenta` contra o resto ≥ 0,6** (o `KAPPA_MINIMO` da §9.1). Se passar, o juiz
+  julga todos os pares.
+- Se não passar, o juiz é inválido e nada se decide. O prompt é consertado, e uma rodada
+  nova usa os 150 pares seguintes da mesma permutação, disjuntos. Os 150 anteriores
+  viram desenvolvimento, como no I3. São no máximo três rodadas.
+
+A direção do desacordo é relatada: quantas vezes o juiz diz `sustenta` onde o Claude não
+diz.
+
+**A regra (G2.4):** a precisão no primário, com **IC 95% por bootstrap das respostas**. Os
+pares de uma mesma resposta não são independentes: mesmo modelo, mesmas fontes, mesma
+pergunta.
+
+- IC inteiro **≥ 0,95**: o G2.4 **PASSA** para este sistema e estas perguntas.
+- IC inteiro **< 0,95**: o G2.4 **NÃO PASSA**.
+- Fora disso: **fronteira**, e não se afirma nem uma coisa nem outra.
+
+**O que cada desfecho muda:**
+
+- **Passa:** o item M4 da §11 fica cumprido na parte da precisão; o "DOI alucinado = 0" não
+  se aplica, porque as fontes não têm DOI. O artigo passa a poder dizê-lo, com o juiz e a
+  guarda declarados.
+- **Não passa:** o portão está aberto, e o conserto previsto pela §6.2 vira candidato: um
+  verificador que roda o juiz em cada frase citada antes de a resposta sair e remove a
+  citação que não se sustenta. Ele custa tempo por pergunta e tem regra própria, que mede
+  também o que o conserto tira de certo.
+- **Fronteira:** só relatado.
+
+**Relatadas, não decidem:**
+
+- a precisão no pós-corte;
+- a precisão separada entre citações do artigo de onde a pergunta saiu e citações de
+  outros artigos;
+- a precisão contando `parcial` como sustentada;
+- a fração de frases com pelo menos uma citação que sustenta;
+- quantos `parcial`, `nao_sustenta` e ilegíveis;
+- a precisão pelo juiz e pelo Claude na amostra.
+
+⚠️ **Limites declarados antes de medir:**
+
+1. **As perguntas foram escritas lendo o resumo do artigo da pergunta.** Citar esse artigo
+   tende a ser sustentado de graça, porque a resposta está literalmente no resumo. Por
+   isso a precisão sai separada entre citações a ele e a outros. É nas outras que o
+   modelo erra, e é lá que um usuário de verdade estaria.
+2. **O juiz é o próprio autor das respostas.** A guarda contra o Claude é o que segura; sem
+   humanos, como no resto da §9.
+3. **A frase é julgada sozinha**, com a pergunta como contexto. Uma afirmação que depende
+   da frase anterior ("isso", "esse valor") pode ser mal lida, nos dois sentidos.
+4. **Sexto uso do teste primário**, mas sem escolha nenhuma do sistema: mede uma propriedade
+   de respostas que já existem.
+
+**Custo previsto:** os pares em minutos, sem modelo. Os 150 julgamentos do Claude. O juiz
+local em ~1 h para ~2 mil pares (a medir), com a trava de rodada pesada. Agregado em
+`avaliacao/citacoes.json`; o manifesto dos pares e os selos também vão ao git.
+
 ---
 
 ## 7. Caching
