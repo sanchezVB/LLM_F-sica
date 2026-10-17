@@ -339,5 +339,33 @@
         }
       }
     }
+  },
+  "produto_tudo_nos_50": {
+    "corpo_1": {
+      "n": 150,
+      "hoje": 0.7333,
+      "com_texto": 0.8,
+      "menos_hoje": 0.0667,
+      "ic95": [
+        0.02,
+        0.12
+      ],
+      "resgata": 13,
+      "perde": 3,
+      "segundos_texto_mediana": 0.47
+    },
+    "primario_dev": {
+      "n": 150,
+      "hoje": 0.9133,
+      "com_texto": 0.96,
+      "menos_hoje": 0.0467,
+      "ic95": [
+        0.0,
+        0.0933
+      ],
+      "resgata": 10,
+      "perde": 3,
+      "segundos_texto_mediana": 0.42
+    }
   }
 }

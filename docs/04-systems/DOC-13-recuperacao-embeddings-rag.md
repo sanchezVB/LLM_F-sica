@@ -1553,6 +1553,55 @@ que a busca de hoje lhe deu — não ganha nem perde.
 que não o escolheram; no corpo, o artigo certo sempre tem texto, o que não vale para o uso
 real (52% do índice); é posição do artigo, não acerto da resposta.
 
+**A versão que vai ao produto** faz tudo nos 50 primeiros — o ΦRank, as janelas (com a
+frequência de documento das janelas desses 50) e a fusão —, pelas funções do produto
+(`phifm.retrieval.lexical.melhor_janela` e `ordem_com_texto`; `Assistente(reordenar_pelo_texto=…)`).
+Conferida no desenvolvimento (`--produto50`): **corpo 1 0,733 → 0,800** (+0,067
+[+0,020; +0,120], 13/3); **primário dev 0,913 → 0,960** (+0,047 [0,000; +0,093], 10/3);
+**~0,45 s** a mais por pergunta (ler o texto dos 50 e pontuar as janelas).
+
+### 9.11 A ordem pelo texto completo no modo "texto completo" — PROPOSTA de 2026-10-16, escrita antes de rodar
+
+O dono escolheu a confirmação **rápida, sem juiz** (pergunta de 2026-10-16): só a posição do
+artigo, em perguntas que não escolheram a variante. Esta seção é PROPOSTA até o dono
+aceitar (`REGRA_9_11_ACEITA`, em `phifm.eval.assistente_bracos`).
+
+**O que muda, e onde.** Só com a opção "Ler também o texto completo" marcada (o modo das
+passagens): os 50 primeiros da busca fundida (§9.9) passam a ser ordenados pela fusão da
+ordem da busca, do ΦRank e da melhor janela do texto completo (§9.10), em vez do ΦRank
+sozinho. Desmarcada, nada muda.
+
+**Itens e consultas, todos já gravados** (nenhuma chamada ao modelo):
+
+1. **Corpo 2** — as 100 perguntas do corpo da §9.6, que nunca serviram para escolher a
+   ordem pelo texto. Consulta hipotética de A′ e pergunta em inglês de A″ (§9.6).
+2. **Teste primário** — os 500 do resumo. Consulta hipotética de A′ (§9.2) e pergunta em
+   inglês da rodada da §9.9.
+
+**Medida:** o artigo certo entre as 6 fontes, hoje (busca fundida + ΦRank nos 50) e com a
+ordem pelo texto, pelo caminho do produto (`Assistente.recuperar`); IC 95% por bootstrap
+pareado por item.
+
+**A regra — ADOTA no modo "texto completo" só com as três:**
+
+| eixo | medida | passa se |
+|---|---|---|
+| **ganho** | novo − hoje no corpo 2 | o IC fica inteiro **acima de 0** |
+| **não piora** | novo − hoje no teste primário | o IC fica inteiro **acima de −0,02** |
+| **tempo** | mediana do tempo a mais por pergunta (ler os 50 textos e pontuar) | **≤ 3 s** |
+
+Fora disso, fica como está. De onde vêm: o ganho tem de existir (é a razão da mudança); no
+resumo, a ordem pelo texto não pode tirar mais que 2 pontos do modo que já custa ~3 (§9.6);
+3 s é ~10% do tempo da pergunta (§9.9).
+
+⚠️ **Limites declarados antes de rodar:** (1) é posição do artigo, sem resposta nem juiz —
+com a passagem certa o modelo acerta 0,94–0,99 (§9.5/§9.6), mas a passagem ainda tem de ser
+escolhida; (2) no corpo 2 o artigo certo sempre tem texto completo; (3) quinto uso do teste
+primário, aqui só na posição do artigo; (4) 100 itens no corpo dão IC de ±~6 pontos.
+
+`scripts/medir_busca_corpo.py`; agregado em `avaliacao/assistente_busca_corpo.json`. Custo
+previsto: ~1 h 20 locais, sem o modelo.
+
 ---
 
 ## 10. Riscos

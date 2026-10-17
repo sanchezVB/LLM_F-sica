@@ -105,3 +105,49 @@ def test_a_regra_da_9_9_adota_so_com_o_IC_acima_de_3_pontos_e_o_tempo():
     for k in ids[420:440]:                                   # +20 de 500: o IC desce de 0,03
         v["A5"][k] = "errado"
     assert b.comparar_busca_lexica(v, rs, tempo_a_s=31.0)["decisao"] == "FICA O SISTEMA ATUAL"
+
+
+def test_no_modo_texto_completo_a_ordem_funde_o_melhor_trecho(tmp_path):
+    """Com `reordenar_pelo_texto` e as passagens ligadas, a ordem dos candidatos é a fusão
+    da busca, do ΦRank e da melhor janela (`ordem_com_texto`); sem as passagens, ou sem a
+    opção, é a do ΦRank, como sempre."""
+    from phifm.retrieval import lexical as lx
+
+    escores = [0.1, 0.5, 0.9]
+
+    class Reordenador:
+        profundidade = 3
+
+        def escores(self, consulta, textos):
+            return escores[:len(textos)]
+
+        def ordem(self, consulta, textos):
+            return sorted(range(len(textos)), key=lambda i: -escores[i])
+
+    class BuscaTres(BuscaDupla):
+        def buscar_hibrido(self, consulta, lexica, consulta_lexica, k=10, c=60):
+            return [Resultado(i + 1, 0.03, a, f"T {a}", 2020, "quant-ph", ["A"])
+                    for i, a in enumerate(("x1", "x2", "x3"))][:k]
+
+    textos = {"x3": "the substrate temperature was 650 K during growth " * 3}
+
+    class Textos:
+        def ler(self, a):
+            return textos.get(a)
+
+    trechos = type("T", (), {"textos": Textos(), "__call__": lambda self, a: None})()
+    modelo = ModeloQueTraduz()
+    passo = ps.Passagens(modelo, trechos, semente=7)
+    comum = {"k": 2, "semente": 7, "lexica": "L", "passagens": passo, "reordenador": Reordenador()}
+    sem = Assistente(BuscaTres(), modelo, _spine(tmp_path), **comum)
+    com = Assistente(BuscaTres(), modelo, _spine(tmp_path), reordenar_pelo_texto=True, **comum)
+    p = "qual a temperatura do substrato?"
+    so_phirank = ["x3", "x2"]
+    ids = ["x1", "x2", "x3"]
+    esperado = [ids[i] for i in lx.ordem_com_texto(
+        escores, lx.melhor_janela("what is the substrate temperature",
+                                  [textos.get(a) for a in ids]))][:2]
+    assert esperado != so_phirank                     # o caso distingue as duas ordens
+    assert [f.arxiv_id for f in sem.responder(p, com_passagens=True).fontes] == so_phirank
+    assert [f.arxiv_id for f in com.responder(p, com_passagens=False).fontes] == so_phirank
+    assert [f.arxiv_id for f in com.responder(p, com_passagens=True).fontes] == esperado

@@ -83,3 +83,22 @@ def test_posicoes_e_rrf():
     f = lx.rrf(denso, lexico)
     assert int(np.argmax(f)) == 1                     # 2º e 1º vence 1º e 3º
     assert f[0] == pytest.approx(1 / 61 + 1 / 63)
+
+
+def test_melhor_janela_acha_o_trecho_e_devolve_None_sem_texto():
+    longe = "graphene copper growth " * 100
+    perto = "graphene copper growth " * 60 + "the MgB2 film was grown at 650 K on sapphire " \
+        + "graphene copper growth " * 40
+    s = lx.melhor_janela("MgB2 film grown on sapphire at 650 K", [longe, None, perto, ""])
+    assert s[1] is None and s[2] > s[0] >= 0 and s[3] == 0
+
+
+def test_ordem_com_texto_quem_nao_tem_texto_nao_perde_nem_ganha():
+    # sem diferença nenhuma no ΦRank e no texto, a ordem é a da busca
+    assert lx.ordem_com_texto([0.0] * 4, [1.0] * 4) == [0, 1, 2, 3]
+    assert lx.ordem_com_texto([0.0] * 4, [None] * 4) == [0, 1, 2, 3]
+    # o 4º tem o melhor trecho e o melhor ΦRank: sobe para o topo
+    assert lx.ordem_com_texto([0.1, 0.2, 0.3, 0.9], [0.0, 0.0, 0.0, 5.0])[0] == 3
+    # o 1º não tem texto: na lista do texto fica na posição da busca (1ª), e não afunda
+    ordem = lx.ordem_com_texto([0.5, 0.4, 0.3, 0.2], [None, 0.3, 0.2, 0.1])
+    assert ordem[0] == 0

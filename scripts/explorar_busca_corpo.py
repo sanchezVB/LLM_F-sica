@@ -310,6 +310,45 @@ def resumir() -> None:
     print(f"\n→ {AGREGADO.relative_to(RAIZ)}")
 
 
+def produto50() -> None:
+    """A versão que vai ao produto: TUDO nos 50 primeiros da busca — o ΦRank, as janelas
+    (com a frequência de documento das janelas desses 50) e a fusão das três ordens —, pelas
+    funções do produto (`phifm.retrieval.lexical.melhor_janela` e `ordem_com_texto`)."""
+    import numpy as np
+
+    from phifm.eval.assistente_bracos import diferenca_pareada
+    from phifm.retrieval.lexical import melhor_janela, ordem_com_texto
+    from phifm.retrieval.textos import Textos
+
+    sets = {(nome, it["arxiv_id"]): it for nome, itens in ebl.conjuntos().items() for it in itens}
+    cands = _ler(CANDIDATOS)
+    tx = Textos(TEXTOS)
+    t0 = time.perf_counter()
+    linhas = {}
+    for chave, c in cands.items():
+        ids, rr = c["ids"][:50], c["phirank"][:50]
+        hoje = [ids[i] for i in sorted(range(50), key=lambda i: (-rr[i], i))[:6]]
+        t1 = time.perf_counter()
+        jan = melhor_janela(sets[chave]["ingles"], [tx.ler(a) for a in ids])
+        novo = [ids[i] for i in ordem_com_texto(rr, jan)[:6]]
+        linhas[chave] = (chave[1] in hoje, chave[1] in novo, time.perf_counter() - t1)
+    agregado = json.loads(AGREGADO.read_text(encoding="utf-8"))
+    agregado["produto_tudo_nos_50"] = {}
+    for nome in ("corpo_1", "primario_dev"):
+        xs = [v for k, v in linhas.items() if k[0] == nome]
+        h = np.array([x[0] for x in xs], dtype=float)
+        n = np.array([x[1] for x in xs], dtype=float)
+        dif, ic = diferenca_pareada(n, h)
+        agregado["produto_tudo_nos_50"][nome] = {
+            "n": len(xs), "hoje": round(float(h.mean()), 4), "com_texto": round(float(n.mean()), 4),
+            "menos_hoje": dif, "ic95": ic, "resgata": int(((n == 1) & (h == 0)).sum()),
+            "perde": int(((n == 0) & (h == 1)).sum()),
+            "segundos_texto_mediana": round(float(np.median([x[2] for x in xs])), 2)}
+        print(nome, agregado["produto_tudo_nos_50"][nome])
+    AGREGADO.write_text(json.dumps(agregado, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"{len(linhas)} perguntas em {time.perf_counter() - t0:.0f} s → {AGREGADO.name}")
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--listas", action="store_true")
@@ -317,7 +356,11 @@ def main() -> int:
     p.add_argument("--lote", type=int, default=50, help="perguntas por processo em --phirank")
     p.add_argument("--texto", action="store_true")
     p.add_argument("--resumir", action="store_true")
+    p.add_argument("--produto50", action="store_true")
     a = p.parse_args()
+    if a.produto50:
+        produto50()
+        return 0
     if a.listas:
         listas()
     elif a.phirank:
