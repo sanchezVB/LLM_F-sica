@@ -38,6 +38,10 @@ TEXTOS = RAIZ / "data/processed/textos_por_artigo"
 AGREGADO = mp.AVALIACAO / "assistente_busca_corpo.json"
 
 
+def _ler_jsonl(arq: Path) -> list[dict]:
+    return [json.loads(x) for x in arq.read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
 def itens() -> list[dict]:
     """`[{conjunto, arxiv_id, hyde, ingles}]`: o corpo 2 e o teste primário."""
     from phifm.eval import assistente_bracos as b
@@ -57,7 +61,7 @@ def itens() -> list[dict]:
     return saida
 
 
-def _assistente(indice: Path, spine: Path):
+def _assistente(indice: Path, spine: Path, dispositivo: str = "auto"):
     """O produto no modo das passagens, sem modelo: busca densa na CPU, índice lexical,
     ΦRank na GPU (só ele: a busca densa na placa junto esgotou a memória) e o texto
     completo para ler. `reordenar_pelo_texto` ligado; `recuperar(pelo_texto=False)` dá a
@@ -73,7 +77,7 @@ def _assistente(indice: Path, spine: Path):
 
     busca = Busca(indice, dispositivo="cpu")
     rr = Reordenador()
-    dev = escolher_dispositivo("auto")
+    dev = escolher_dispositivo(dispositivo)
     rr.dev, rr.mod = dev, rr.mod.to(dev)
     passo = ps.Passagens(None, ps.TrechosDoTexto(Textos(TEXTOS), lambda xs: [len(x) for x in xs]))
     return Assistente(busca, None, spine, k=K_FONTES, semente=SEMENTE, reordenador=rr,
@@ -81,20 +85,20 @@ def _assistente(indice: Path, spine: Path):
                       reordenar_pelo_texto=True)
 
 
-def rodar(indice: Path, spine: Path, lote: int) -> None:
+def rodar(indice: Path, spine: Path, lote: int, dispositivo: str = "auto") -> None:
     from phifm.eval import assistente_bracos as b
 
     if not b.REGRA_9_11_ACEITA:
         raise SystemExit("a §9.11 do DOC-13 ainda é PROPOSTA: o teste não é tocado antes do "
                          "aceite do dono (REGRA_9_11_ACEITA em phifm.eval.assistente_bracos).")
     todos = itens()
-    feitos = ({(d["conjunto"], d["arxiv_id"]) for d in mbl.ebl._ler_jsonl(SAIDA)}
+    feitos = ({(d["conjunto"], d["arxiv_id"]) for d in _ler_jsonl(SAIDA)}
               if SAIDA.exists() else set())
     faltam = [i for i in todos if (i["conjunto"], i["arxiv_id"]) not in feitos][:lote]
     if not faltam:
         print("nada a fazer")
         return
-    assistente = _assistente(indice, spine)
+    assistente = _assistente(indice, spine, dispositivo)
     SAIDA.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
     with mp.trava("medir_passagens"), SAIDA.open("a", encoding="utf-8") as f:
@@ -124,7 +128,7 @@ def resumir() -> None:
 
     from phifm.eval import assistente_bracos as b
 
-    ds = mbl.ebl._ler_jsonl(SAIDA)
+    ds = _ler_jsonl(SAIDA)
     saida = {"regra": "DOC-13 §9.11", "regra_aceita_pelo_dono": b.REGRA_9_11_ACEITA,
              "o_que_e": "o artigo certo entre as 6 fontes no modo 'texto completo': hoje (busca "
                         "fundida + ΦRank nos 50) contra a ordem que funde também a melhor "
@@ -161,11 +165,12 @@ def main() -> int:
     p.add_argument("--rodar", action="store_true")
     p.add_argument("--lote", type=int, default=200)
     p.add_argument("--resumir", action="store_true")
+    p.add_argument("--dispositivo", default="auto", help="do ΦRank; cpu se a placa estiver sem memória")
     p.add_argument("--indice", type=Path, default=RAIZ / "data/processed/indice_busca")
     p.add_argument("--spine", type=Path, default=RAIZ / "data/processed/spine.parquet")
     a = p.parse_args()
     if a.rodar:
-        rodar(a.indice, a.spine, a.lote)
+        rodar(a.indice, a.spine, a.lote, a.dispositivo)
     elif a.resumir:
         resumir()
     else:

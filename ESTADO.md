@@ -341,6 +341,15 @@ sem trecho dele, −0,013; com o artigo certo fora das fontes, zero. 15 das 26 p
 ✅ **A opção "Ler também o texto completo" está na página (2026-10-14)**, desmarcada: marcada,
 a resposta é a de A‴; desmarcada, a de sempre. `--sem-passagens` a tira.
 
+✅ **No modo "texto completo", a ordem dos candidatos funde a busca, o ΦRank e o melhor trecho
+do texto (2026-10-17, DOC-13 §9.11, regra aceita antes).** O artigo certo nas 6 fontes:
+**corpo 2, 0,74 → 0,86** (+0,12 [+0,06; +0,19], 12 resgates, 0 perdas); **teste, 0,892 →
+0,948** (+0,056 [+0,032; +0,082]). Conferido por recontagem independente e revisão
+adversarial: sem vazamento, mas **a maior parte do ganho nos conjuntos de confirmação vem de
+devolver a ordem da busca à fusão, não do texto** (no desenvolvimento foi o contrário), e a
+ordem dá um bônus a quem tem texto. Só posição do artigo, sem juiz. `--sem-ordem-pelo-texto`
+desliga. Em aberto: a fusão busca + ΦRank sem texto no modo padrão, com regra própria.
+
 ✅ **A BUSCA FUNDIDA COM O BM25 É ADOTADA (2026-10-15, DOC-13 §9.9, regra aceita antes).**
 Nos 500 do teste primário: acerto **0,806 → 0,870, +0,064 [+0,034; +0,094]**, 46 ganhos e
 14 perdas; o artigo certo nas 6 fontes 0,818 → 0,892; tempo pela regra 44,8 s. Pós-corte
