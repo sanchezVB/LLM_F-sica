@@ -1,0 +1,371 @@
+{
+  "o_que_e": "P entre as 6 fontes em cada variante, a partir dos 200 primeiros da busca fundida da §9.9; exploratório, só desenvolvimento",
+  "conjuntos": {
+    "corpo_1": {
+      "n": 150,
+      "P_nos_200": 0.96,
+      "P_tem_texto": 0.96,
+      "hoje_reproduz_a_9_8": "150 de 150",
+      "variantes": {
+        "hoje · fusão, ΦRank nos 50": {
+          "P@6": 0.7333,
+          "P@6_quando_P_tem_texto": 0.7639,
+          "P@6_quando_P_nao_tem": 0.0
+        },
+        "fusão, sem ΦRank": {
+          "P@6": 0.7067,
+          "P@6_quando_P_tem_texto": 0.7361,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": -0.0267,
+          "ic95": [
+            -0.0933,
+            0.04
+          ],
+          "resgata": 12,
+          "perde": 16
+        },
+        "só o texto (melhor janela) nos 200": {
+          "P@6": 0.8267,
+          "P@6_quando_P_tem_texto": 0.8611,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.0933,
+          "ic95": [
+            0.0133,
+            0.1733
+          ],
+          "resgata": 26,
+          "perde": 12
+        },
+        "só o texto (artigo inteiro) nos 200": {
+          "P@6": 0.7867,
+          "P@6_quando_P_tem_texto": 0.8194,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.0533,
+          "ic95": [
+            -0.0267,
+            0.1333
+          ],
+          "resgata": 23,
+          "perde": 15
+        },
+        "fusão + janela, nos 50": {
+          "P@6": 0.7733,
+          "P@6_quando_P_tem_texto": 0.8056,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.04,
+          "ic95": [
+            -0.02,
+            0.1067
+          ],
+          "resgata": 15,
+          "perde": 9
+        },
+        "fusão + janela + ΦRank, nos 50": {
+          "P@6": 0.7933,
+          "P@6_quando_P_tem_texto": 0.8264,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.06,
+          "ic95": [
+            0.0133,
+            0.1133
+          ],
+          "resgata": 12,
+          "perde": 3
+        },
+        "fusão + artigo, nos 50": {
+          "P@6": 0.76,
+          "P@6_quando_P_tem_texto": 0.7917,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.0267,
+          "ic95": [
+            -0.0333,
+            0.0867
+          ],
+          "resgata": 13,
+          "perde": 9
+        },
+        "fusão + janela, nos 100": {
+          "P@6": 0.7733,
+          "P@6_quando_P_tem_texto": 0.8056,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.04,
+          "ic95": [
+            -0.02,
+            0.1067
+          ],
+          "resgata": 15,
+          "perde": 9
+        },
+        "fusão + janela + ΦRank, nos 100": {
+          "P@6": 0.7933,
+          "P@6_quando_P_tem_texto": 0.8264,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.06,
+          "ic95": [
+            0.0133,
+            0.1133
+          ],
+          "resgata": 12,
+          "perde": 3
+        },
+        "fusão + artigo, nos 100": {
+          "P@6": 0.76,
+          "P@6_quando_P_tem_texto": 0.7917,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.0267,
+          "ic95": [
+            -0.0333,
+            0.0867
+          ],
+          "resgata": 13,
+          "perde": 9
+        },
+        "fusão + janela, nos 200": {
+          "P@6": 0.7733,
+          "P@6_quando_P_tem_texto": 0.8056,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.04,
+          "ic95": [
+            -0.02,
+            0.1067
+          ],
+          "resgata": 15,
+          "perde": 9
+        },
+        "fusão + janela + ΦRank, nos 200": {
+          "P@6": 0.8,
+          "P@6_quando_P_tem_texto": 0.8333,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.0667,
+          "ic95": [
+            0.02,
+            0.12
+          ],
+          "resgata": 13,
+          "perde": 3
+        },
+        "fusão + artigo, nos 200": {
+          "P@6": 0.76,
+          "P@6_quando_P_tem_texto": 0.7917,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.0267,
+          "ic95": [
+            -0.0333,
+            0.0867
+          ],
+          "resgata": 13,
+          "perde": 9
+        },
+        "fusão + janela nos 200, depois ΦRank nos 50": {
+          "P@6": 0.7533,
+          "P@6_quando_P_tem_texto": 0.7847,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": 0.02,
+          "ic95": [
+            0.0,
+            0.0467
+          ],
+          "resgata": 3,
+          "perde": 0
+        }
+      }
+    },
+    "primario_dev": {
+      "n": 150,
+      "P_nos_200": 1.0,
+      "P_tem_texto": 0.7,
+      "hoje_reproduz_a_9_8": "150 de 150",
+      "variantes": {
+        "hoje · fusão, ΦRank nos 50": {
+          "P@6": 0.9133,
+          "P@6_quando_P_tem_texto": 0.8952,
+          "P@6_quando_P_nao_tem": 0.9556
+        },
+        "fusão, sem ΦRank": {
+          "P@6": 0.9,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": -0.0133,
+          "ic95": [
+            -0.0667,
+            0.04
+          ],
+          "resgata": 7,
+          "perde": 9
+        },
+        "só o texto (melhor janela) nos 200": {
+          "P@6": 0.5733,
+          "P@6_quando_P_tem_texto": 0.819,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": -0.34,
+          "ic95": [
+            -0.4333,
+            -0.2467
+          ],
+          "resgata": 8,
+          "perde": 59
+        },
+        "só o texto (artigo inteiro) nos 200": {
+          "P@6": 0.5133,
+          "P@6_quando_P_tem_texto": 0.7333,
+          "P@6_quando_P_nao_tem": 0.0,
+          "menos_hoje": -0.4,
+          "ic95": [
+            -0.4867,
+            -0.3133
+          ],
+          "resgata": 5,
+          "perde": 65
+        },
+        "fusão + janela, nos 50": {
+          "P@6": 0.8933,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9333,
+          "menos_hoje": -0.02,
+          "ic95": [
+            -0.08,
+            0.04
+          ],
+          "resgata": 9,
+          "perde": 12
+        },
+        "fusão + janela + ΦRank, nos 50": {
+          "P@6": 0.94,
+          "P@6_quando_P_tem_texto": 0.9333,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": 0.0267,
+          "ic95": [
+            -0.0267,
+            0.08
+          ],
+          "resgata": 10,
+          "perde": 6
+        },
+        "fusão + artigo, nos 50": {
+          "P@6": 0.9,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": -0.0133,
+          "ic95": [
+            -0.0733,
+            0.0467
+          ],
+          "resgata": 10,
+          "perde": 12
+        },
+        "fusão + janela, nos 100": {
+          "P@6": 0.8933,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9333,
+          "menos_hoje": -0.02,
+          "ic95": [
+            -0.08,
+            0.04
+          ],
+          "resgata": 9,
+          "perde": 12
+        },
+        "fusão + janela + ΦRank, nos 100": {
+          "P@6": 0.94,
+          "P@6_quando_P_tem_texto": 0.9333,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": 0.0267,
+          "ic95": [
+            -0.0267,
+            0.08
+          ],
+          "resgata": 10,
+          "perde": 6
+        },
+        "fusão + artigo, nos 100": {
+          "P@6": 0.9,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": -0.0133,
+          "ic95": [
+            -0.0733,
+            0.0467
+          ],
+          "resgata": 10,
+          "perde": 12
+        },
+        "fusão + janela, nos 200": {
+          "P@6": 0.8933,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9333,
+          "menos_hoje": -0.02,
+          "ic95": [
+            -0.08,
+            0.04
+          ],
+          "resgata": 9,
+          "perde": 12
+        },
+        "fusão + janela + ΦRank, nos 200": {
+          "P@6": 0.94,
+          "P@6_quando_P_tem_texto": 0.9333,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": 0.0267,
+          "ic95": [
+            -0.0267,
+            0.08
+          ],
+          "resgata": 10,
+          "perde": 6
+        },
+        "fusão + artigo, nos 200": {
+          "P@6": 0.9,
+          "P@6_quando_P_tem_texto": 0.8762,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": -0.0133,
+          "ic95": [
+            -0.0733,
+            0.0467
+          ],
+          "resgata": 10,
+          "perde": 12
+        },
+        "fusão + janela nos 200, depois ΦRank nos 50": {
+          "P@6": 0.9267,
+          "P@6_quando_P_tem_texto": 0.9143,
+          "P@6_quando_P_nao_tem": 0.9556,
+          "menos_hoje": 0.0133,
+          "ic95": [
+            0.0,
+            0.0333
+          ],
+          "resgata": 2,
+          "perde": 0
+        }
+      }
+    }
+  },
+  "produto_tudo_nos_50": {
+    "corpo_1": {
+      "n": 150,
+      "hoje": 0.7333,
+      "com_texto": 0.8,
+      "menos_hoje": 0.0667,
+      "ic95": [
+        0.02,
+        0.12
+      ],
+      "resgata": 13,
+      "perde": 3,
+      "segundos_texto_mediana": 0.47
+    },
+    "primario_dev": {
+      "n": 150,
+      "hoje": 0.9133,
+      "com_texto": 0.96,
+      "menos_hoje": 0.0467,
+      "ic95": [
+        0.0,
+        0.0933
+      ],
+      "resgata": 10,
+      "perde": 3,
+      "segundos_texto_mediana": 0.42
+    }
+  }
+}

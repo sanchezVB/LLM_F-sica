@@ -321,6 +321,31 @@ def test_cliente_le_o_stream_do_llama_server():
         srv.server_close()
 
 
+def test_o_servidor_sobe_sem_segurar_o_arquivo_do_modelo_na_memoria(monkeypatch, tmp_path):
+    """`-lm none`: os pesos vão para a GPU e o arquivo não fica mapeado na RAM."""
+    from phifm.rag import llm
+
+    chamado = {}
+
+    class Processo:
+        def poll(self):
+            return None
+
+    def popen(args, **kw):
+        chamado["args"] = args
+        return Processo()
+
+    (tmp_path / "srv.exe").write_text("")
+    (tmp_path / "m.gguf").write_text("")
+    m = llm.ModeloLocal(modelo=tmp_path / "m.gguf", executavel=tmp_path / "srv.exe")
+    respostas = iter([False, True])
+    monkeypatch.setattr(m, "no_ar", lambda: next(respostas))
+    monkeypatch.setattr(llm.subprocess, "Popen", popen)
+    m.iniciar()
+    args = chamado["args"]
+    assert args[args.index("-lm") + 1] == "none" and args[args.index("-ngl") + 1] == "99"
+
+
 # ── o servidor que some no meio ─────────────────────────────────────────────
 
 

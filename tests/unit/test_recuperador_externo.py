@@ -1,4 +1,4 @@
-"""O recuperador contra os de fora (DOC-13 §9.12): configurações, texto, pool, ordenação e a
+"""O recuperador contra os de fora (DOC-13 §9.14): configurações, texto, pool, ordenação e a
 leitura — sem torch e sem modelo."""
 from __future__ import annotations
 
@@ -131,9 +131,9 @@ def test_comparar_por_consulta_so_nas_consultas_comuns():
 def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(monkeypatch):
     import avaliar_recuperador_externo as script
 
-    assert rx.REGRA_9_12_ACEITA is True          # aceita pelo dono em 2026-10-16
+    assert rx.REGRA_9_14_ACEITA is True          # aceita pelo dono em 2026-10-16
     script._recusa_sem_aceite()
-    monkeypatch.setattr(rx, "REGRA_9_12_ACEITA", False)
+    monkeypatch.setattr(rx, "REGRA_9_14_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         script._recusa_sem_aceite()
     assert rx.SCIREPEVAL_COMMIT == "e04594e6401cb68fb4ddf6daa801fb219cccc0bb"

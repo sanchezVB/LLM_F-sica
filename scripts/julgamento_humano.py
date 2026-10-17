@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""O juiz contra físicos (DOC-13 §9.11): pessoas de fora do projeto julgam 100 respostas
+"""O juiz contra físicos (DOC-13 §9.13): pessoas de fora do projeto julgam 100 respostas
 do assistente às cegas, com a regra de correção do juiz, e o κ diz se ele concorda com elas.
 
     P = .venv-treino\\Scripts\\python.exe scripts\\julgamento_humano.py
@@ -42,9 +42,9 @@ AGREGADO = mp.AVALIACAO / "assistente_julgamento_humano.json"
 
 
 def _recusa_sem_aceite() -> None:
-    if not jh.REGRA_9_11_ACEITA:
-        raise SystemExit("a §9.11 do DOC-13 ainda é PROPOSTA: a amostra não é sorteada antes "
-                         "do aceite do dono (REGRA_9_11_ACEITA em "
+    if not jh.REGRA_9_13_ACEITA:
+        raise SystemExit("a §9.13 do DOC-13 ainda é PROPOSTA: a amostra não é sorteada antes "
+                         "do aceite do dono (REGRA_9_13_ACEITA em "
                          "phifm.eval.julgamento_humano).")
 
 
@@ -105,7 +105,7 @@ def amostrar() -> None:
                          "depois de selada.")
     DIR_H.mkdir(parents=True, exist_ok=True)
     AMOSTRA.write_text(bruto, encoding="utf-8")
-    selo = {"regra": "DOC-13 §9.11", "regra_aceita_pelo_dono": jh.REGRA_9_11_ACEITA,
+    selo = {"regra": "DOC-13 §9.13", "regra_aceita_pelo_dono": jh.REGRA_9_13_ACEITA,
             "o_que_e": "o hash da amostra que vai aos físicos e a assinatura de cada folha; "
                        "o conteúdo (perguntas do teste) fica fora do git",
             "arquivo": AMOSTRA.name, "sha256_amostra": sha, "n": len(entradas),
@@ -169,7 +169,7 @@ def apurar(arquivos: list[Path]) -> None:
         r = jh.apurar(entradas, humanos)
     except ValueError as e:
         raise SystemExit(str(e)) from None
-    saida = {"regra": "DOC-13 §9.11", "regra_aceita_pelo_dono": jh.REGRA_9_11_ACEITA,
+    saida = {"regra": "DOC-13 §9.13", "regra_aceita_pelo_dono": jh.REGRA_9_13_ACEITA,
              "sha256_amostra": selo["sha256_amostra"], "arquivos_sha256": recebidos, **r}
     AGREGADO.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({k: v for k, v in saida.items() if k != "por_origem (relatado)"},

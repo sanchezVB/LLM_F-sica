@@ -198,3 +198,63 @@ def posicoes_de(escores: np.ndarray) -> np.ndarray:
     pos = np.empty(escores.size, dtype=np.int64)
     pos[ordem] = np.arange(1, escores.size + 1)
     return pos
+
+
+# ── o artigo pelo texto completo (DOC-13 §9.10): a melhor janela e a fusão das três ordens ──
+JANELA, PASSO_JANELA = 150, 75
+
+
+def melhor_janela(consulta: str, textos: list[str | None], janela: int = JANELA,
+                  passo: int = PASSO_JANELA) -> list[float | None]:
+    """O BM25 da melhor janela de `janela` termos (passo `passo`) de cada texto, para a
+    consulta. A frequência de documento sai das janelas de TODOS os textos dados — os
+    candidatos de uma pergunta —, como nas passagens da §9.6. Sem texto: None."""
+    q = sorted(set(termos(consulta)))
+    pos = {t: i for i, t in enumerate(q)}
+    contagens, comprimentos = [], []
+    for texto in textos:
+        if texto is None:
+            contagens.append(None)
+            comprimentos.append(None)
+            continue
+        ts = termos(texto)
+        marca = np.array([pos.get(t, -1) for t in ts], dtype=np.int32)
+        acum = np.zeros((len(ts) + 1, len(q)), dtype=np.int32)
+        for j in range(len(q)):
+            acum[1:, j] = np.cumsum(marca == j)
+        inicios = list(range(0, max(len(ts) - janela, 0) + 1, passo)) or [0]
+        fins = [min(i + janela, len(ts)) for i in inicios]
+        contagens.append(acum[fins] - acum[inicios])
+        comprimentos.append(np.array(fins) - np.array(inicios))
+    com = [i for i, c in enumerate(contagens) if c is not None]
+    saida: list[float | None] = [None] * len(textos)
+    if not com or not q:
+        return saida
+    jan = np.concatenate([contagens[i] for i in com]).astype(np.float64)
+    jl = np.concatenate([comprimentos[i] for i in com]).astype(np.float64)
+    dono = np.concatenate([[k] * len(contagens[i]) for k, i in enumerate(com)])
+    df = (jan > 0).sum(0)
+    idf = np.log1p((len(jan) - df + 0.5) / (df + 0.5))
+    norma = K1 * (1 - B + B * jl / max(jl.mean(), 1.0))
+    esc = (idf * jan * (K1 + 1) / (jan + norma[:, None])).sum(1)
+    melhor = np.full(len(com), -np.inf)
+    np.maximum.at(melhor, dono, esc)
+    for k, i in enumerate(com):
+        saida[i] = float(melhor[k])
+    return saida
+
+
+def ordem_com_texto(escores_phirank: list[float], janelas: list[float | None],
+                    c: int = 60) -> list[int]:
+    """A ordem dos candidatos (dados na ordem da busca) pela fusão por posição de três
+    listas: a da busca, a do ΦRank e a da melhor janela do texto completo. Quem não tem
+    texto fica, na lista do texto, com a posição da busca — não ganha nem perde por não
+    ter (sem isso, os artigos sem texto afundavam: DOC-13 §9.10). Empate: a busca decide."""
+    n = len(escores_phirank)
+    busca = np.arange(1, n + 1)
+    rr = posicoes_de(np.asarray(escores_phirank, dtype=np.float64))
+    com = [x is not None for x in janelas]
+    jan = posicoes_de(np.array([x if x is not None else -np.inf for x in janelas]))
+    jan = np.where(com, jan, busca)
+    fundido = rrf(busca, rr, jan, c=c)
+    return [int(i) for i in np.argsort(-fundido, kind="stable")]

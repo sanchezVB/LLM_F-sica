@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Um teste de fora (DOC-13 §9.10): no AstroBench — perguntas que não escrevemos, sobre um
+"""Um teste de fora (DOC-13 §9.12): no AstroBench — perguntas que não escrevemos, sobre um
 campo que o índice cobre —, a busca do sistema ajuda o modelo a acertar?
 
     P = .venv-treino\\Scripts\\python.exe scripts\\medir_astrobench.py
@@ -15,7 +15,7 @@ campo que o índice cobre —, a busca do sistema ajuda o modelo a acertar?
     P --apurar --agregado-C K --agregado-A K       # ...ou só o acerto de cada arquivo
 
 O gabarito do conjunto público não é público: quem corrige é a equipe do AstroMLab, pelo
-e-mail. As fases do TESTE só rodam com a regra aceita (`REGRA_9_10_ACEITA` em
+e-mail. As fases do TESTE só rodam com a regra aceita (`REGRA_9_12_ACEITA` em
 `phifm.eval.astrobench`, aceita em 2026-10-16); as do desenvolvimento (`--dev`, 50 itens
 disjuntos) rodam sempre.
 
@@ -137,9 +137,9 @@ def _conjunto(dev: bool) -> tuple[str, list[ab.Item]]:
 
 
 def _recusa_sem_aceite(dev: bool) -> None:
-    if not dev and not ab.REGRA_9_10_ACEITA:
-        raise SystemExit("a §9.10 do DOC-13 ainda é PROPOSTA: os 1.000 do teste não são "
-                         "tocados antes do aceite do dono (REGRA_9_10_ACEITA em "
+    if not dev and not ab.REGRA_9_12_ACEITA:
+        raise SystemExit("a §9.12 do DOC-13 ainda é PROPOSTA: os 1.000 do teste não são "
+                         "tocados antes do aceite do dono (REGRA_9_12_ACEITA em "
                          "phifm.eval.astrobench). O desenvolvimento roda com --dev.")
 
 
@@ -309,7 +309,7 @@ def resumir_dev(a) -> None:
     """Exploratório, não decide: o que se confere no desenvolvimento antes do teste."""
     rotulo, itens = _conjunto(dev=True)
     lidos = _ler(rotulo, itens)
-    saida = {"regra": "DOC-13 §9.10 — desenvolvimento (exploratório, não decide)",
+    saida = {"regra": "DOC-13 §9.12 — desenvolvimento (exploratório, não decide)",
              "assinatura": _assinatura()[:12],
              **ab.secundarias(lidos.letras_c, lidos.letras_a, lidos.fontes,
                               _metadados(a.indice, lidos.fontes)),
@@ -360,7 +360,7 @@ def exportar(a) -> None:
     email =ab.rascunho_de_email(len(itens), man["sha256_arquivo"],
                                  [f"astrobench_{b}.csv" for b in envio])
     (ENVIO / "email.txt").write_text(email, encoding="utf-8")
-    saida = {"regra": "DOC-13 §9.10", "regra_aceita_pelo_dono": ab.REGRA_9_10_ACEITA,
+    saida = {"regra": "DOC-13 §9.12", "regra_aceita_pelo_dono": ab.REGRA_9_12_ACEITA,
              "estado": "enviado; aguardando a correção do AstroMLab",
              "conjunto": {"sha256_arquivo": man["sha256_arquivo"], "linhas": man["linhas"],
                           "n_teste": len(itens)},

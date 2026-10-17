@@ -1486,16 +1486,137 @@ ele não faz. **O padrão muda** em `perguntar.py` e na página (`--sem-busca-le
 desliga). A paginação do produto é um problema à parte, anterior a esta seção, e fica
 registrada para o dono.
 
-### 9.10 Um teste de fora: o AstroBench — PROPOSTA de 2026-10-16, escrita antes de qualquer item ser lido
+#### A paginação, resolvida (2026-10-16, com o aval do dono)
+
+O culpado era o llama-server: com o modo de carga padrão (mmap) ele mantinha o arquivo do
+modelo (4,7 GB) residente na memória da máquina, embora os pesos estivessem todos na GPU —
+5,05 GB de memória residente. Com `-lm none` (`ARGS_DE_CARGA` em `phifm.rag.llm`) ele lê o
+arquivo, sobe os pesos e solta: **0,85 GB**, e a mesma resposta byte a byte (conferido nos
+quatro modos de carga do build b11159). A busca densa (2,8 GB, dos quais 1,4 GB de dados)
+ficou como estava: enxugá-la renderia pouco.
+
+As mesmas 20 perguntas, a mesma montagem
+(`avaliacao/assistente_busca_lexical_produto_sem_mmap_do_modelo.json`):
+
+| mediana por pergunta | antes, sem a fusão | antes, com | **agora, sem a fusão** | **agora, com** |
+|---|---|---|---|---|
+| de ponta a ponta | 76,1 s | 77,6 s | **30,6 s** | **34,0 s** |
+| busca + ΦRank | 41,0 s | 27,9 s | 17,1 s | 19,8 s |
+| resposta | 28,6 s | 34,8 s | 8,2 s | 7,5 s |
+| máximo | 199,4 s | 141,5 s | 46,7 s | 53,8 s |
+| faltas de página do llama-server | ~1,5 milhão | ~1,1 milhão | ~82 mil | ~80 mil |
+
+- **O produto voltou ao tempo das medidas formais**, agora com o resto da sessão aberto.
+- **A busca fundida custa ~3,4 s** por pergunta (tradução 1,3 s e as duas buscas por
+  posição) — dentro do que a regra da §9.9 previu.
+- As ~2,8 milhões de faltas de página do processo do assistente sobram nos dois braços e
+  não são disco: são as páginas novas que a conta da busca densa na CPU aloca a cada
+  pergunta (a matriz convertida para float32 em blocos).
+
+### 9.10 O artigo das perguntas do corpo, pelo texto completo — desenvolvimento (2026-10-16), exploratório
+
+Pedido do dono depois da §9.9: a busca fundida rendeu +7 pontos nas perguntas do resumo e
+só +4 nas do corpo. No corpo 1, o artigo certo está entre os 200 primeiros da fusão em 96%
+das perguntas e entre as 6 fontes em 73%: o que falta é ORDEM — e a fusão e o ΦRank só leem
+título e resumo, enquanto a pergunta do corpo cita o detalhe que está no corpo.
+
+**O que se testou** (`scripts/explorar_busca_corpo.py`, `avaliacao/assistente_busca_corpo_dev.json`):
+os 200 primeiros da busca de hoje (§9.9), o texto completo de cada um lido do HD e pontuado
+pelo BM25 da pergunta em inglês — o artigo inteiro, ou a melhor janela de 150 palavras (a
+frequência de documento sai das janelas dos candidatos, como nas passagens da §9.6) — e
+fundido por posição com a ordem de hoje e com o ΦRank. A linha de hoje reproduz a §9.8 em
+150 de 150 nos dois conjuntos. Nada tocou o teste.
+
+**O primeiro corte enganou, e a correção ficou registrada.** Na primeira conta, quem não
+tinha texto completo saía da soma do texto e perdia posição para todos os que tinham. No
+corpo 1 isso rendeu +11 a +12 pontos — porque ali o artigo certo SEMPRE tem texto (é assim
+que as perguntas foram escritas) — e no primário dev custou −17 a −24, porque lá 30% dos
+artigos certos não têm. Corrigido: na lista do texto, quem não tem texto fica com a posição
+que a busca de hoje lhe deu — não ganha nem perde.
+
+| artigo certo entre as 6 fontes | corpo 1 (150) | Δ | primário dev (150) | Δ |
+|---|---|---|---|---|
+| **hoje** · fusão, ΦRank nos 50 | 0,733 | — | 0,913 | — |
+| **fusão + melhor janela + ΦRank, nos 50** | **0,793** | **+0,060 [+0,013; +0,113]** · 12/3 | **0,940** | +0,027 [−0,027; +0,080] · 10/6 |
+| o mesmo, nos 200 | 0,800 | +0,067 [+0,020; +0,120] · 13/3 | 0,940 | +0,027 · 10/6 |
+| fusão + melhor janela (sem ΦRank), nos 50 | 0,773 | +0,040 · 15/9 | 0,893 | −0,020 · 9/12 |
+| só a melhor janela, nos 200 | 0,827 | +0,093 · 26/12 | 0,573 | −0,340 · 8/59 |
+
+- **A fusão das três ordens — a de hoje, a do melhor trecho e a do ΦRank — ganha no corpo
+  e não perde no resumo.** Nos 50 basta: ir aos 200 rende uma pergunta a mais.
+- **Só o texto acha mais no corpo e destrói o resumo**: quase todo artigo certo sem texto
+  some (0 de 45 no primário dev).
+- Custo previsto no produto: ler o texto dos 50 candidatos (~1 s) e pontuar as janelas
+  (~0,5 s); o ΦRank já roda nos 50.
+
+⚠️ **Limites:** escolhido no desenvolvimento (150 + 150), a confirmação precisa de perguntas
+que não o escolheram; no corpo, o artigo certo sempre tem texto, o que não vale para o uso
+real (52% do índice); é posição do artigo, não acerto da resposta.
+
+**A versão que vai ao produto** faz tudo nos 50 primeiros — o ΦRank, as janelas (com a
+frequência de documento das janelas desses 50) e a fusão —, pelas funções do produto
+(`phifm.retrieval.lexical.melhor_janela` e `ordem_com_texto`; `Assistente(reordenar_pelo_texto=…)`).
+Conferida no desenvolvimento (`--produto50`): **corpo 1 0,733 → 0,800** (+0,067
+[+0,020; +0,120], 13/3); **primário dev 0,913 → 0,960** (+0,047 [0,000; +0,093], 10/3);
+**~0,45 s** a mais por pergunta (ler o texto dos 50 e pontuar as janelas).
+
+### 9.11 A ordem pelo texto completo no modo "texto completo" — PROPOSTA de 2026-10-16, escrita antes de rodar
+
+O dono escolheu a confirmação **rápida, sem juiz** (pergunta de 2026-10-16): só a posição do
+artigo, em perguntas que não escolheram a variante. Esta seção é PROPOSTA até o dono
+aceitar (`REGRA_9_11_ACEITA`, em `phifm.eval.assistente_bracos`).
+
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("Aceito a regra"), antes de rodar.
+
+**O que muda, e onde.** Só com a opção "Ler também o texto completo" marcada (o modo das
+passagens): os 50 primeiros da busca fundida (§9.9) passam a ser ordenados pela fusão da
+ordem da busca, do ΦRank e da melhor janela do texto completo (§9.10), em vez do ΦRank
+sozinho. Desmarcada, nada muda.
+
+**Itens e consultas, todos já gravados** (nenhuma chamada ao modelo):
+
+1. **Corpo 2** — as 100 perguntas do corpo da §9.6, que nunca serviram para escolher a
+   ordem pelo texto. Consulta hipotética de A′ e pergunta em inglês de A″ (§9.6).
+2. **Teste primário** — os 500 do resumo. Consulta hipotética de A′ (§9.2) e pergunta em
+   inglês da rodada da §9.9.
+
+**Medida:** o artigo certo entre as 6 fontes, hoje (busca fundida + ΦRank nos 50) e com a
+ordem pelo texto, pelo caminho do produto (`Assistente.recuperar`); IC 95% por bootstrap
+pareado por item.
+
+**A regra — ADOTA no modo "texto completo" só com as três:**
+
+| eixo | medida | passa se |
+|---|---|---|
+| **ganho** | novo − hoje no corpo 2 | o IC fica inteiro **acima de 0** |
+| **não piora** | novo − hoje no teste primário | o IC fica inteiro **acima de −0,02** |
+| **tempo** | mediana do tempo a mais por pergunta (ler os 50 textos e pontuar) | **≤ 3 s** |
+
+Fora disso, fica como está. De onde vêm: o ganho tem de existir (é a razão da mudança); no
+resumo, a ordem pelo texto não pode tirar mais que 2 pontos do modo que já custa ~3 (§9.6);
+3 s é ~10% do tempo da pergunta (§9.9).
+
+⚠️ **Limites declarados antes de rodar:** (1) é posição do artigo, sem resposta nem juiz —
+com a passagem certa o modelo acerta 0,94–0,99 (§9.5/§9.6), mas a passagem ainda tem de ser
+escolhida; (2) no corpo 2 o artigo certo sempre tem texto completo; (3) quinto uso do teste
+primário, aqui só na posição do artigo; (4) 100 itens no corpo dão IC de ±~6 pontos.
+
+`scripts/medir_busca_corpo.py`; agregado em `avaliacao/assistente_busca_corpo.json`. Custo
+previsto: ~1 h 20 locais, sem o modelo.
+
+### 9.12 Um teste de fora: o AstroBench — PROPOSTA de 2026-10-16, escrita antes de qualquer item ser lido
 
 Tudo o que a §9 mediu usa perguntas que o próprio Qwen3-8B escreveu a partir de resumos do
 nosso corpo e que o mesmo modelo julgou. A revisão externa pede um teste que não seja nosso,
 e o dono mandou começar pelo AstroBench (pergunta de 2026-10-16). **Esta seção é a regra da
-medida e é PROPOSTA até o dono aceitar** (`REGRA_9_10_ACEITA`, em `phifm.eval.astrobench`,
+medida e é PROPOSTA até o dono aceitar** (`REGRA_9_12_ACEITA`, em `phifm.eval.astrobench`,
 trava as fases do teste; o desenvolvimento roda antes).
 
 > **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", as três de uma
-> vez: §9.10, §9.11 e §9.12), antes de o conjunto ser baixado e de qualquer item ser lido.
+> vez: §9.12, §9.13 e §9.14), antes de o conjunto ser baixado e de qualquer item ser lido.
+>
+> Aceita com o número §9.10; renumerada §9.12 na junção com o `main` (2026-10-17),
+> onde a §9.10 e a §9.11 já eram de outras medidas. O conteúdo não mudou.
 
 **O conjunto.** O AstroBench do AstroMLab: perguntas de múltipla escolha, com quatro opções,
 geradas por modelos de linguagem a partir de revisões da *Annual Review of Astronomy and
@@ -1615,7 +1736,7 @@ agregado *antes* de a correção voltar, junto com o sha256 dos arquivos enviado
 O desenvolvimento leva ~20 min. A espera pela correção não depende de nós. O agregado vai
 em `avaliacao/astrobench.json`, e o do desenvolvimento em `avaliacao/astrobench_dev.json`.
 
-### 9.11 O juiz contra físicos — PROPOSTA de 2026-10-16, escrita antes de a amostra ser sorteada
+### 9.13 O juiz contra físicos — PROPOSTA de 2026-10-16, escrita antes de a amostra ser sorteada
 
 Todo resultado da §9 que passa pelo juiz automático sai rotulado **"calibrado contra o
 Claude, sem revisão humana"**. Em 2026-10-04 o dono decidiu não julgar, e o Claude, que
@@ -1623,11 +1744,14 @@ escreveu as perguntas e os gabaritos, ficou no lugar dele (§9.1, desvio). O que
 enfraquecia ficou escrito lá: erros que o Qwen3-8B e o Claude cometem juntos não aparecem.
 O dono mandou montar o julgamento por físicos de fora como o segundo teste externo
 (pergunta de 2026-10-16). **Esta seção é a regra e é PROPOSTA até o dono aceitar**
-(`REGRA_9_11_ACEITA`, em `phifm.eval.julgamento_humano`, trava o sorteio da amostra e as
+(`REGRA_9_13_ACEITA`, em `phifm.eval.julgamento_humano`, trava o sorteio da amostra e as
 folhas).
 
-> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", com a §9.10 e a
-> §9.12), antes de a amostra ser sorteada. Faltam os físicos, que o dono escolhe.
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", com a §9.12 e a
+> §9.14), antes de a amostra ser sorteada. Faltam os físicos, que o dono escolhe.
+>
+> Aceita com o número §9.11; renumerada §9.13 na junção com o `main` (2026-10-17),
+> onde a §9.10 e a §9.11 já eram de outras medidas. O conteúdo não mudou.
 
 **Quem julga.** Pelo menos **dois físicos** (pós-graduação em Física ou pesquisa na área),
 de fora do projeto, escolhidos pelo dono, sem ver nenhum resultado da §9 antes de
@@ -1702,18 +1826,21 @@ e a regra decide pelo ponto, como no I3.
 **Custo previsto:** ~1 h por físico (100 itens a ~35 s). Do lado do projeto, minutos. O
 agregado vai em `avaliacao/assistente_julgamento_humano.json`, só com números de conjunto.
 
-### 9.12 O recuperador contra os de fora, cada um como os autores mandam — PROPOSTA de 2026-10-16
+### 9.14 O recuperador contra os de fora, cada um como os autores mandam — PROPOSTA de 2026-10-16
 
 A Tabela 6 do artigo põe todos os modelos no **mesmo** protocolo: média dos tokens, 192
 tokens, `título. resumo`, cosseno. É a escolha honesta entre modelos treinados para ela, e
 um handicap para os que não foram. A revisão externa pede os embedders científicos
 **como os autores mandam** e um benchmark que não seja nosso; o dono mandou fazer isso
 como o terceiro teste externo (pergunta de 2026-10-16). **Esta seção é a regra e é
-PROPOSTA até o dono aceitar** (`REGRA_9_12_ACEITA`, em `phifm.eval.recuperador_externo`,
+PROPOSTA até o dono aceitar** (`REGRA_9_14_ACEITA`, em `phifm.eval.recuperador_externo`,
 trava as duas partes).
 
-> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", com a §9.10 e a
-> §9.11), antes de qualquer vetor ser gerado.
+> **ACEITA pelo dono em 2026-10-16, como escrita** ("aceito as regras", com a §9.12 e a
+> §9.13), antes de qualquer vetor ser gerado.
+>
+> Aceita com o número §9.12; renumerada §9.14 na junção com o `main` (2026-10-17),
+> onde a §9.10 e a §9.11 já eram de outras medidas. O conteúdo não mudou.
 
 **Os de fora, na configuração recomendada** (o cartão de cada modelo e o harness em que
 foram medidos):

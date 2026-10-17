@@ -488,6 +488,14 @@ def comparar_busca_lexica(veredictos: dict[str, dict[tuple, str]],
             "decisao": "ADOTA" if adota else "FICA O SISTEMA ATUAL"}
 
 
+# ── a ordem pelo texto completo no modo das passagens (DOC-13 §9.11), só posição ──
+# `scripts/medir_busca_corpo.py` recusa enquanto isto for False. ACEITA pelo dono em
+# 2026-10-16, como escrita.
+REGRA_9_11_ACEITA = True
+MARGEM_NAO_PIORA_TEXTO = 0.02     # teste primário: o IC de novo − hoje, inteiro acima de −0,02
+TEMPO_MAX_TEXTO_S = 3.0           # mediana do tempo a mais por pergunta
+
+
 # ── o estrato "corpo" (DOC-13 §9.5): o sistema de hoje, a passagem garantida, e C ──
 BRACO_PASSAGEM = "Bp"
 N_I3C_POR_BRACO = 20              # 20 de A′ + 20 de Bp, braço oculto

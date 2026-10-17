@@ -172,10 +172,14 @@ def bloco_de_fontes(fontes: list[Fonte]) -> str:
 class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
                  reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA,
-                 sistema_com_passagens: str | None = None, lexica=None):
+                 sistema_com_passagens: str | None = None, lexica=None,
+                 reordenar_pelo_texto: bool = False):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
         self.passagens = passagens
+        # No modo do texto completo, a ordem dos candidatos funde também a melhor janela do
+        # texto de cada um (DOC-13 §9.10). Desligado até a regra da §9.11 dizer.
+        self.reordenar_pelo_texto = reordenar_pelo_texto
         # A busca por palavra (BM25 em título + resumo, `phifm.retrieval.lexical`), fundida
         # com a densa pela posição (DOC-13 §9.8). None: a busca de sempre.
         self.lexica = lexica
@@ -214,10 +218,17 @@ class Assistente:
 
         return traduzir(self.modelo, pergunta, self.semente)
 
-    def recuperar(self, consulta: str, em_ingles: str | None = None) -> list[Fonte]:
+    def _ler_texto(self):
+        """Quem lê o texto completo de um artigo, se o assistente o tiver (o das passagens)."""
+        textos = getattr(getattr(self.passagens, "trechos_de", None), "textos", None)
+        return getattr(textos, "ler", None)
+
+    def recuperar(self, consulta: str, em_ingles: str | None = None,
+                  pelo_texto: bool = False) -> list[Fonte]:
         """Os `k` primeiros da busca — ou, com reordenador, os `k` primeiros depois de ele
         reordenar os `profundidade` primeiros (DOC-13 §9.2). Com `lexica` e `em_ingles`, a
-        busca é a fundida com o BM25."""
+        busca é a fundida com o BM25. Com `pelo_texto` (e o texto completo à mão), a ordem
+        dos candidatos funde a da busca, a do ΦRank e a da melhor janela do texto (§9.10)."""
         if self.reordenador is None:
             resultados = self._buscar(consulta, em_ingles, self.k)
             resumos = self._resumos([r.arxiv_id for r in resultados])
@@ -231,7 +242,15 @@ class Assistente:
             resumos = self._resumos(ids)
             textos = (dict(textos_de_documentos(pl.DataFrame(list(resumos.values())).lazy())
                            .collect().iter_rows()) if resumos else {})
-            ordem = self.reordenador.ordem(consulta, [textos.get(a, "") for a in ids])
+            ler = self._ler_texto() if pelo_texto and em_ingles else None
+            if ler is None:
+                ordem = self.reordenador.ordem(consulta, [textos.get(a, "") for a in ids])
+            else:
+                from phifm.retrieval.lexical import melhor_janela, ordem_com_texto
+
+                escores = self.reordenador.escores(consulta, [textos.get(a, "") for a in ids])
+                ordem = ordem_com_texto(list(escores), melhor_janela(em_ingles,
+                                                                     [ler(a) for a in ids]))
             resultados = [candidatos[i] for i in ordem[:self.k]]
         fontes = []
         for r in resultados:
@@ -276,7 +295,7 @@ class Assistente:
         # Com as passagens, a tradução é a delas, como sempre foi (a semente é a do passo).
         ingles = (self.passagens.consulta(pergunta) if usa
                   else self.em_ingles(pergunta) if self.lexica is not None else None)
-        fontes = self.recuperar(consulta, ingles)
+        fontes = self.recuperar(consulta, ingles, pelo_texto=usa and self.reordenar_pelo_texto)
         return self.passagens.anexar(pergunta, fontes, consulta=ingles) if usa else fontes
 
     def responder(self, pergunta: str, com_passagens: bool | None = None) -> Resposta:

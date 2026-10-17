@@ -59,6 +59,12 @@ FIM_DE_TURNO = "<|im_end|>"
 DICA_TRAVADO = ("Se o processo existe e nem /health responde, confira se o antivírus o "
                 "suspendeu (ver o cabeçalho de phifm.rag.llm e o SETUP.md).")
 MAX_REINICIOS = 5
+# O modelo vai inteiro para a GPU (`-ngl 99`); com o modo de carga padrão (mmap) o servidor
+# ainda segurava o arquivo de 4,7 GB na memória da máquina — 5,05 GB residentes. Com
+# `-lm none` ele lê o arquivo, sobe os pesos e solta: 0,85 GB, e a mesma resposta byte a
+# byte (medido em 2026-10-16). Na máquina de 16 GB isso separa paginar de não paginar
+# (DOC-13 §9.9: o produto levava ~76 s por pergunta paginando).
+ARGS_DE_CARGA = ("-lm", "none")
 
 
 def chatml(sistema: str, usuario: str, pensar: bool = False) -> str:
@@ -113,7 +119,8 @@ class ModeloLocal:
         porta = self.url.rsplit(":", 1)[1]
         self._processo = subprocess.Popen(
             [str(self.executavel), "-m", str(self.modelo), "-ngl", "99",
-             "-c", str(self.contexto), "-np", "1", "--host", "127.0.0.1", "--port", porta],
+             "-c", str(self.contexto), "-np", "1", "--host", "127.0.0.1", "--port", porta,
+             *ARGS_DE_CARGA],
             stdout=self._log or subprocess.DEVNULL, stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL)
         t0 = time.time()

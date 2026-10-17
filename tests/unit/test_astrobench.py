@@ -1,4 +1,4 @@
-"""O teste de fora do AstroBench (DOC-13 §9.10): o conjunto, os braços, a leitura da letra,
+"""O teste de fora do AstroBench (DOC-13 §9.12): o conjunto, os braços, a leitura da letra,
 o envio e a apuração — sem modelo, sem índice e sem o conjunto de verdade."""
 from __future__ import annotations
 
@@ -226,9 +226,9 @@ def test_secundarias_sem_gabarito():
 def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(monkeypatch):
     import medir_astrobench as mab
 
-    assert ab.REGRA_9_10_ACEITA is True          # aceita pelo dono em 2026-10-16
+    assert ab.REGRA_9_12_ACEITA is True          # aceita pelo dono em 2026-10-16
     mab._recusa_sem_aceite(dev=False)
-    monkeypatch.setattr(ab, "REGRA_9_10_ACEITA", False)
+    monkeypatch.setattr(ab, "REGRA_9_12_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         mab._recusa_sem_aceite(dev=False)
     mab._recusa_sem_aceite(dev=True)

@@ -102,6 +102,7 @@ def main() -> int:
 
     p = argparse.ArgumentParser()
     p.add_argument("-n", type=int, default=10, help="perguntas de cada conjunto")
+    p.add_argument("--rotulo", default="", help="sufixo do agregado, para guardar medidas diferentes")
     a = p.parse_args()
 
     corpo = json.loads((e.DIR / "itens_corpo.json").read_text(encoding="utf-8"))[:a.n]
@@ -173,7 +174,11 @@ def main() -> int:
             "faltas_python_mediana": int(np.median([x["faltas_python"] or 0 for x in xs])),
             "faltas_llama_mediana": int(np.median([x["faltas_llama"] or 0 for x in xs]))})
     resumo["por_pergunta"] = linhas
-    AGREGADO.write_text(json.dumps(resumo, ensure_ascii=False, indent=2), encoding="utf-8")
+    from phifm.rag.llm import ARGS_DE_CARGA
+
+    resumo["llama_server_args_de_carga"] = list(ARGS_DE_CARGA)
+    saida = AGREGADO.with_name(AGREGADO.stem + (f"_{a.rotulo}" if a.rotulo else "") + ".json")
+    saida.write_text(json.dumps(resumo, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(resumo, ensure_ascii=False, indent=1))
     return 0
 

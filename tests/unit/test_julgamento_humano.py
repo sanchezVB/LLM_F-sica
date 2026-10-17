@@ -1,4 +1,4 @@
-"""O juiz contra físicos (DOC-13 §9.11): a amostra, a folha às cegas, a leitura dos
+"""O juiz contra físicos (DOC-13 §9.13): a amostra, a folha às cegas, a leitura dos
 veredictos e a regra — com dados de mentira, sem o cache das medidas."""
 from __future__ import annotations
 
@@ -150,14 +150,14 @@ def script(tmp_path, monkeypatch):
 
 
 def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(script, monkeypatch):
-    assert jh.REGRA_9_11_ACEITA is True          # aceita pelo dono em 2026-10-16
-    monkeypatch.setattr(jh, "REGRA_9_11_ACEITA", False)
+    assert jh.REGRA_9_13_ACEITA is True          # aceita pelo dono em 2026-10-16
+    monkeypatch.setattr(jh, "REGRA_9_13_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         script.amostrar()
 
 
 def test_selo_folhas_e_apuracao_ponta_a_ponta(script, monkeypatch):
-    monkeypatch.setattr(jh, "REGRA_9_11_ACEITA", True)
+    monkeypatch.setattr(jh, "REGRA_9_13_ACEITA", True)
     script.amostrar()
     script.folha("fisico1")
     script.folha("fisico2")
@@ -180,7 +180,7 @@ def test_selo_folhas_e_apuracao_ponta_a_ponta(script, monkeypatch):
 
 
 def test_a_amostra_nao_muda_depois_de_selada(script, monkeypatch):
-    monkeypatch.setattr(jh, "REGRA_9_11_ACEITA", True)
+    monkeypatch.setattr(jh, "REGRA_9_13_ACEITA", True)
     script.amostrar()
     monkeypatch.setattr(script, "montar_amostra", lambda: list(reversed(_entradas())))
     with pytest.raises(SystemExit, match="não muda depois de selada"):

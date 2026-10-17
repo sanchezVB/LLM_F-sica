@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""O recuperador contra os de fora, cada um como os autores mandam (DOC-13 §9.12).
+"""O recuperador contra os de fora, cada um como os autores mandam (DOC-13 §9.14).
 
     P = .venv-externo\\Scripts\\python.exe scripts\\avaliar_recuperador_externo.py
     P --nossa-tarefa                      # parte 1, decide: o pool da Tabela 6 (~1 h de CPU)
@@ -68,9 +68,9 @@ PARTE = 4096                      # documentos por arquivo de vetores no SciDocs
 
 
 def _recusa_sem_aceite() -> None:
-    if not rx.REGRA_9_12_ACEITA:
-        raise SystemExit("a §9.12 do DOC-13 ainda é PROPOSTA: nada roda antes do aceite do dono "
-                         "(REGRA_9_12_ACEITA em phifm.eval.recuperador_externo).")
+    if not rx.REGRA_9_14_ACEITA:
+        raise SystemExit("a §9.14 do DOC-13 ainda é PROPOSTA: nada roda antes do aceite do dono "
+                         "(REGRA_9_14_ACEITA em phifm.eval.recuperador_externo).")
 
 
 def _versoes() -> dict:
@@ -128,7 +128,7 @@ def nossa_tarefa(a) -> None:
         {c.caminho: float(rx.ndcg10_por_item(pos[c]).mean()) for c in (rx.MINILM, rx.NOSSO)})
     contra = {c.nome: rx.comparar(pos[rx.NOSSO], pos[c]) for c in rx.CIENTIFICOS}
     saida = {
-        "regra": "DOC-13 §9.12, parte 1", "regra_aceita_pelo_dono": rx.REGRA_9_12_ACEITA,
+        "regra": "DOC-13 §9.14, parte 1", "regra_aceita_pelo_dono": rx.REGRA_9_14_ACEITA,
         "pool": {"n": pool.height, "digesto": digesto, "o_que_e": "o pool da Tabela 6"},
         "reproducao_da_tabela_6 (guarda)": reproducao,
         "phiemb_menos_cada_cientifico_recomendado (decide)": contra,
@@ -228,8 +228,8 @@ def scidocs(a) -> None:
                 por_consulta[c.nome][(tarefa, q)] = m["ndcg"]
     nosso, base = rx.NOSSO.nome, rx.MINILM.nome
     saida = {
-        "regra": "DOC-13 §9.12, parte 2 (relatada)",
-        "regra_aceita_pelo_dono": rx.REGRA_9_12_ACEITA,
+        "regra": "DOC-13 §9.14, parte 2 (relatada)",
+        "regra_aceita_pelo_dono": rx.REGRA_9_14_ACEITA,
         "harness": {"url": rx.SCIREPEVAL_URL, "commit": rx.SCIREPEVAL_COMMIT,
                     "o_que_vem_dele": "os pares, a distância euclidiana e as métricas "
                                       "(IREvaluator); os vetores são gerados aqui"},
