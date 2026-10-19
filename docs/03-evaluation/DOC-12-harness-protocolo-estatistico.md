@@ -229,7 +229,8 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
 1. **Tipo efetivo pela forma do gabarito no UGPhysics.** O rótulo do dataset erra:
    - 105 dos 396 itens "NV" do dev têm gabarito simbólico, que passa a ser corrigido como EX;
-   - EQ do tipo `símbolo = número` vira NV pelo lado direito, e EQ sem `=` vira EX;
+   - EQ do tipo `grandeza = número` vira NV pelo lado direito; EQ do tipo `grandeza = expressão` (`\kappa(p, T) = …`) vira EX pelo lado direito, porque é a definição da grandeza; EQ sem `=` vira EX;
+   - no OlympiadBench, "Numerical" com gabarito simbólico vira "Expression";
    - EQ com várias equações separadas por vírgula vira várias respostas;
    - IN escrito como desigualdade é comparado como desigualdade (mesma estrição e f_resp/f_gab constante positiva).
 
@@ -247,9 +248,13 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
    - módulo |X| vira √(X²), porque o `parse` do verify **descartava `\left|E\right|` em silêncio**;
    - `d` antes de comando deixa de ser lido como diferencial;
    - linha e estrela viram subscrito nomeado;
-   - `\{ \}` viram parênteses;
-   - graus e minutos de arco viram número.
+   - `\{ \}` e `[ ]` viram parênteses nas expressões;
+   - graus e minutos de arco viram número;
+   - `v^2_2` (sobrescrito antes do subscrito) vira `v_2^2`. Antes o subscrito se perdia, e um gabarito do OlympiadBench-zh virava **zero**, de modo que a resposta "0" passava;
+   - nomes de símbolo são normalizados (`v_{2}` e `v_2` são o mesmo);
+   - `\coth`, `\sech` e `\csch`, que o parser não conhece, viram recíprocas de `tanh`, `cosh` e `sinh`.
 5. **Aquecimento do parser.** A primeira chamada ao parser LaTeX passava do teto de 5 s do verify no Windows, e a primeira resposta saía INCONCLUSIVE. O corretor agora aquece o parser na importação.
+6. **Ordem da cascata e tempo.** A amostragem numérica vem antes do `simplify`, que só entra quando ela não decide. Antes, a mesma comparação saía PASS com a máquina livre e INCONCLUSIVE por tempo com a máquina carregada, e a correção não era reprodutível. O teto de 10 s é de relógio: quem estoura é refeito uma vez antes de virar INCONCLUSIVE. A correção da medida roda sem outra carga pesada na máquina.
 
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 

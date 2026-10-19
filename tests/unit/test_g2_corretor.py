@@ -167,6 +167,10 @@ def test_varias_respostas_em_qualquer_ordem():
     (r"q |E|", r"|E| q"),
     (r"q \left|E\right|", r"|E| q"),
     (r"|a - b| m", r"m \left| b - a \right|"),
+    (r"-(a + b) c", r"-\left[a+b\right] c"),
+    (r"-(a + b)", r"-[a + b]"),
+    (r"\frac{1}{\tanh((2 s+1) x)}", r"\coth[(2 s+1) x]"),
+    (r"\frac{\cosh x}{\sinh x}", r"\operatorname{coth} x"),
 ])
 def test_notacoes_de_fisica(resposta, gabarito):
     assert c.comparar_expressao(resposta, gabarito) is V.PASS
@@ -180,6 +184,33 @@ def test_modulo_nao_some():
 
 def test_ponto_distingue_coordenada_de_velocidade():
     assert c.comparar_expressao(r"m \dot{x}", r"m x") is V.FAIL
+
+
+def test_sobrescrito_antes_do_subscrito_nao_vira_zero():
+    g = r"\frac{1}{2}mv^2_2 - \frac{1}{2}mv^2_1"
+    assert c.comparar_expressao("0", g) is V.FAIL
+    assert c.comparar_expressao(r"\frac{m}{2}(v_{2}^{2} - v_{1}^{2})", g) is V.PASS
+
+
+def test_equacao_de_definicao_compara_o_lado_direito():
+    assert c.lado_esquerdo_e_grandeza(r"\kappa(p, T) = \frac{\zeta^{2}}{1-\zeta^{2}}")
+    assert c.lado_esquerdo_e_grandeza(r"T(r, t \rightarrow \infty) = T_0 + (T_1-T_0) \frac{R}{r}")
+    assert c.lado_esquerdo_e_grandeza(r"c_{p} = T")
+    assert not c.lado_esquerdo_e_grandeza(r"R_{1} \dot{\theta}_{1} = \dot{x}_{2}")
+    assert not c.lado_esquerdo_e_grandeza(r"\frac{\zeta}{2}")
+
+
+def test_teto_refaz_uma_vez_o_que_estourou():
+    chamadas = []
+
+    def lenta_na_primeira():
+        chamadas.append(1)
+        if len(chamadas) == 1:
+            time.sleep(1)
+        return V.PASS
+
+    assert c.com_teto(lenta_na_primeira, segundos=0.3) is V.PASS
+    assert len(chamadas) == 2
 
 
 def test_graus_e_minutos():

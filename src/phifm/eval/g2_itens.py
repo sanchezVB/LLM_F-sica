@@ -180,24 +180,27 @@ def tipo_efetivo(item: Item, k: int = 0) -> str:
     (correção de dev registrada no DOC-12 §3.7.4, igual nos dois braços):
 
     - NV cujo gabarito não é número (`\\frac{B \\pi a^2}{R}`) vira EX;
-    - EQ do tipo `símbolo = número` (`\\tau = 4.5\\times10^9`) vira NV, comparado pelo
-      lado direito;
+    - EQ do tipo `grandeza = número` (`\\tau = 4.5\\times10^9`) vira NV pelo lado direito;
+    - EQ do tipo `grandeza = expressão` (`\\kappa(p, T) = …`) vira EX pelo lado direito:
+      é a definição da grandeza, e a resposta pode trazer o lado esquerdo ou não;
     - EQ sem `=` vira EX.
+
+    No OlympiadBench, "Numerical" com gabarito simbólico vira "Expression".
     """
     tipo = item.tipos[k]
+    g = item.gabaritos[k]
+    if item.bench == "olympiadbench":
+        return "Expression" if tipo == "Numerical" and c.numero(g) is None else tipo
     if item.bench != "ugphysics":
         return tipo
-    g = item.gabaritos[k]
     if tipo == "NV" and c.numero(g) is None:
         return "EX"
     if tipo == "EQ":
         lados = c.dividir_nivel_zero(c.limpar(g), "=")
         if len(lados) == 1:
             return "EX"
-        if len(lados) == 2 and c.numero(lados[1]) is not None:
-            esquerda = c.expressao(lados[0])
-            if isinstance(esquerda, sp.Symbol):
-                return "NV"
+        if c.lado_esquerdo_e_grandeza(g):
+            return "NV" if c.numero(lados[1]) is not None else "EX"
     return tipo
 
 
