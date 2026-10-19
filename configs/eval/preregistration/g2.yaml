@@ -132,7 +132,10 @@ motor:
   kl_maxima_contra_f16_nats: 0.01
   onde: {Qwen3-1.7B-Base: RX 7600 Vulkan local, Qwen3-8B-Base: Kaggle 2×T4 CUDA}
   tokenizer_sha256: c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539
-  gguf_sha256: {Qwen3-1.7B-Base: null, Qwen3-8B-Base: null}   # congelamento
+  # 1,7B: convertida em 2026-10-19; KL contra o F16 0,00317 nats (g2_kl_1.7B.json)
+  gguf_sha256: {Qwen3-1.7B-Base: 7cce0c435a35314314ccd9cdd524f502ab11bc60c07addc9e7151de6a51d95e6,
+                Qwen3-8B-Base: null}   # a 8B, no Kaggle
+  conversao_local: "torch 2.4.1+cpu, transformers 5.0.0, numpy 2.5.1, sentencepiece 0.2.2 (.venv-treino)"
   hash_da_configuracao: null                                   # congelamento
 
 acessos:

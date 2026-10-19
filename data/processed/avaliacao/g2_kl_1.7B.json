@@ -1,0 +1,29 @@
+{
+  "o_que_e": "conferência de quantização do G2 (DOC-12 §3.7.5): KL média do Q8_0 contra o F16 em 50 itens do UG-dev (scripts/texto_kl_g2.py)",
+  "tamanho": "1.7B",
+  "kl_media_nats": 0.00317,
+  "kl_erro_padrao": 4.3e-05,
+  "kl_max_regra": 0.01,
+  "passa": true,
+  "mesma_ficha_mais_provavel_pct": 97.728,
+  "razao_ppl_q8_f16": 1.000946,
+  "kl_quantis": {
+    "Median": 0.001098,
+    "95.0%": 0.012122,
+    "99.0%": 0.020889,
+    "Maximum": 0.056136
+  },
+  "gguf": {
+    "q8_0": {
+      "arquivo": "Qwen3-1.7B-Base-Q8_0.gguf",
+      "bytes": 1834426048,
+      "sha256": "7cce0c435a35314314ccd9cdd524f502ab11bc60c07addc9e7151de6a51d95e6"
+    },
+    "f16": {
+      "arquivo": "Qwen3-1.7B-Base-F16.gguf",
+      "bytes": 3447348928,
+      "sha256": "1c65612abbb1a47f52dbdd4df9893ff798d73828362a52c7334503678b743763"
+    }
+  },
+  "conversao": "convert_hf_to_gguf.py da tag b11159 (6b790a9c2); torch 2.4.1+cpu, transformers 5.0.0, numpy 2.5.1, sentencepiece 0.2.2"
+}
