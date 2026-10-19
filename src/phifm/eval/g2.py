@@ -35,8 +35,9 @@ PREREGISTRO = RAIZ / "configs/eval/preregistration/g2.yaml"
 LIVRO_DE_ACESSOS = RAIZ / "data/processed/avaliacao/g2_acessos.jsonl"
 
 # ── as travas ────────────────────────────────────────────────────────────────
-# PROPOSTA de 2026-10-19. Nenhum item de teste é tocado enquanto isto for False.
-REGRA_G2_ACEITA = False
+# PROPOSTA de 2026-10-19; ACEITA pelo dono em 2026-10-19, como escrita, sem o GPQA (o G2.2
+# fica em 3 de 4). Mesmo aceita, nada toca o teste antes do congelamento abaixo.
+REGRA_G2_ACEITA = True
 # Preenchido no congelamento, com o hash do g2.yaml completo (partição, exemplos, envelope,
 # código do extrator e do corretor, motor). Antes disso, None.
 PROTOCOLO_G2_SHA256: str | None = None

@@ -51,10 +51,13 @@ def test_trava_yaml_mudou_depois_do_congelamento(tmp_path):
         g2.exigir_aceite_e_congelamento(arq, aceita=True, sha_congelado=sha)
 
 
-def test_a_regra_ainda_e_proposta():
-    # Enquanto o dono não aceitar, as constantes do código mantêm o teste trancado.
+def test_as_constantes_trancam_o_teste_ate_o_congelamento():
+    # Sem aceite, ou aceita e ainda não congelada, as constantes do código trancam o teste.
     if not g2.REGRA_G2_ACEITA:
         with pytest.raises(g2.RegraNaoAceita):
+            g2.exigir_aceite_e_congelamento()
+    elif not g2.PROTOCOLO_G2_SHA256:
+        with pytest.raises(g2.ProtocoloNaoCongelado):
             g2.exigir_aceite_e_congelamento()
 
 

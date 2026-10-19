@@ -99,9 +99,9 @@ Mecanismo emprestado de ensaios clínicos, e o mais eficaz contra autoengano:
 
 Isso impossibilita escolher post hoc a métrica que ficou boa. `configs/eval/preregistration/` guarda esses arquivos, e o relatório final aponta para o hash do pré-registro. Se uma métrica não pré-registrada for reportada, ela é rotulada **exploratória** — legítima, mas não confirmatória.
 
-### 3.7 A regra do portão G2 — PROPOSTA de 2026-10-19
+### 3.7 A regra do portão G2 — ACEITA em 2026-10-19
 
-> **Estado: PROPOSTA.** Escrita antes de medir as bases e antes de qualquer treino. Fica assim até o dono aceitar. Os parâmetros estão em [`configs/eval/preregistration/g2.yaml`](../../configs/eval/preregistration/g2.yaml). As travas estão em [`src/phifm/eval/g2.py`](../../src/phifm/eval/g2.py): `REGRA_G2_ACEITA = False` e `PROTOCOLO_G2_SHA256 = None`. Nenhum item de teste é tocado sem o aceite e sem o hash do congelamento, que é gravado depois do dev e antes da primeira geração no teste. Escrever a regra não autoriza treinar.
+> **Estado: ACEITA pelo dono em 2026-10-19, como escrita.** Na mesma data, o dono decidiu não depender do GPQA: o G2.2 fica em 3 de 4. A regra foi escrita antes de medir as bases e antes de qualquer treino. Os parâmetros estão em [`configs/eval/preregistration/g2.yaml`](../../configs/eval/preregistration/g2.yaml). As travas estão em [`src/phifm/eval/g2.py`](../../src/phifm/eval/g2.py): `REGRA_G2_ACEITA = True` e `PROTOCOLO_G2_SHA256 = None`. Nenhum item de teste é tocado antes do hash do congelamento, que é gravado depois do dev e antes da primeira geração no teste. Aceitar a regra não autoriza treinar.
 
 A regra cobre o G2.1, o G2.2 e o G2.3 do [DOC-00](../00-foundations/DOC-00-project-charter.md). O G2.4 (citação no modo RAG) e o G2.5 (calibração) precisam de regras próprias.
 

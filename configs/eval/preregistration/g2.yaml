@@ -10,9 +10,9 @@
 # Conteúdo de benchmark NÃO entra aqui nem em lugar nenhum do git (DOC-11 §8.1). Só ids,
 # contagens e hashes.
 
-estado: PROPOSTA
+estado: ACEITA
 proposta_em: "2026-10-19"
-aceita_em: null
+aceita_em: "2026-10-19"     # como escrita; GPQA: não (o G2.2 fica em 3 de 4)
 texto_da_regra: "docs/03-evaluation/DOC-12-harness-protocolo-estatistico.md, §3.7"
 semente: 20261019
 bootstrap: {replicas: 10000, nivel: 0.95, pareado: true}
@@ -107,6 +107,7 @@ g2_2:
   benchmarks_do_charter: [gpqa_fisica, olympiadbench, phybench, scibench, ugphysics]
   vitorias_minimas: 3
   gpqa_nao_medido: nao_vencido
+  gpqa_decisao_do_dono: não usar (2026-10-19); na prática, 3 vitórias de 4
   ugphysics_subamostra: 1000   # fixa, dos 2.000 de teste, por grupo e matéria
   comparadores: [Qwen3-14B-Base, Qwen3-30B-A3B-Base, Qwen2.5-32B]
   regra: contra CADA comparador, IC 99% da diferença pareada inteiro acima de 0
