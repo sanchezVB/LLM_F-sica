@@ -1,0 +1,158 @@
+{
+  "o_que_e": "o que a medida do G2 baixou, com autorização do dono em 2026-10-19; conteúdo fora do git",
+  "itens": {
+    "olympiadbench": {
+      "repositorio": "Hothan/OlympiadBench",
+      "tipo": "dataset",
+      "revisao": "91184b52131e7fc9455fef848035173aea8cc01a",
+      "arquivos": {
+        "OlympiadBench/OE_TO_physics_en_COMP/OE_TO_physics_en_COMP.parquet": {
+          "bytes": 337513,
+          "sha256": "69c45e28ff9d8cf2e385d1b298e9ef2264dfa83755cac956d3e3e7b37e4ce4f6"
+        },
+        "OlympiadBench/OE_TO_physics_zh_CEE/OE_TO_physics_zh_CEE.parquet": {
+          "bytes": 71840,
+          "sha256": "b565d268f09f4e6ee3923579e0517a3f0de44d37e3534f5d73cc2fb0d5da2aeb"
+        }
+      }
+    },
+    "phybench": {
+      "repositorio": "Eureka-Lab/PHYBench",
+      "tipo": "dataset",
+      "revisao": "d6d91c787b7abb865eb2490a328bf85a9f5095f0",
+      "arquivos": {
+        "PHYBench-fullques_v1.json": {
+          "bytes": 333637,
+          "sha256": "a01955ffb2ff86d7833770d3d9f308e3bc1b0e2fea92c5092c4e68a619048a6b"
+        }
+      }
+    },
+    "scibench": {
+      "repositorio": "xw27/scibench",
+      "tipo": "dataset",
+      "revisao": "93931252bc1b71d495e67390235940643d926958",
+      "arquivos": {
+        "class.json": {
+          "bytes": 29236,
+          "sha256": "1fc4a41a03237c71073f6bec0b2f4ef1b687b3458a1183a7b98542f7ce9d33a3"
+        },
+        "class_sol.json": {
+          "bytes": 12994,
+          "sha256": "7ac3df7d1ed2d259dfde782577a1b7384ebdf199bfd9e60d04bbf2ef1411d8a5"
+        },
+        "fund.json": {
+          "bytes": 36485,
+          "sha256": "7a7a8b8e408552aea5663b14b02ad6e6c19534156b58dea6319869c0c361e022"
+        },
+        "fund_sol.json": {
+          "bytes": 17209,
+          "sha256": "fd8967b9ee3b91e2983862ce37e1da207867e2e03a74650965f35856783550b1"
+        },
+        "thermo.json": {
+          "bytes": 32265,
+          "sha256": "4f2f4eeb5c673c0c5ae52141f1deff5a4c4247309aa76331189ce2e462315cb5"
+        },
+        "thermo_sol.json": {
+          "bytes": 30755,
+          "sha256": "d8d665332130bdfe5dc1833b46d6d10070ecc95541eebebb5b637b07fbac508c"
+        }
+      }
+    },
+    "ugphysics": {
+      "repositorio": "UGPhysics/ugphysics",
+      "tipo": "dataset",
+      "revisao": "523e71bc4e33356bb19de4af38c128796e8a8770",
+      "arquivos": {
+        "AtomicPhysics/en.jsonl": {
+          "bytes": 1445962,
+          "sha256": "fc56560145d3f78b689f63f71abe61bc4006d0ca9d788fabea8d24f0390a1331"
+        },
+        "ClassicalElectromagnetism/en.jsonl": {
+          "bytes": 545690,
+          "sha256": "d2ebe5ed45886214baf9f8689e7718ad0c4bd81200fed1882a231e8eeb8fa52e"
+        },
+        "ClassicalMechanics/en.jsonl": {
+          "bytes": 1312067,
+          "sha256": "88e11da460ccea55dcd83407c4b030bbb438fa6593c4ed79f3b907cd010c4134"
+        },
+        "Electrodynamics/en.jsonl": {
+          "bytes": 317678,
+          "sha256": "d52e809d36e2b6fb8c0d7e5c3df260c70811a30a5fc758b1937fab5d998e6583"
+        },
+        "GeometricalOptics/en.jsonl": {
+          "bytes": 77795,
+          "sha256": "62f5b6fbcad413fbc8c27cc5a0b69f138f1f62916a1b97c6e2856c216fd8d6e6"
+        },
+        "QuantumMechanics/en.jsonl": {
+          "bytes": 1906472,
+          "sha256": "8959db85a60d21b1ec4efdf4df7567f0ade3edaef324ec36236611d37f6db453"
+        },
+        "Relativity/en.jsonl": {
+          "bytes": 320216,
+          "sha256": "42fc45398081d6e73ef74369b8c0da423deaee75d763d45c5298aedee7dd34d2"
+        },
+        "SemiconductorPhysics/en.jsonl": {
+          "bytes": 259500,
+          "sha256": "a2945b39140a7ce7ac7fa114f5efe969c660b9ef925496b6cf83d9e0414eeae6"
+        },
+        "Solid-StatePhysics/en.jsonl": {
+          "bytes": 325433,
+          "sha256": "5d0db355ee5c134fd403ecce659ed2831be5932ecbbafcfa555082747b9aa43a"
+        },
+        "StatisticalMechanics/en.jsonl": {
+          "bytes": 794856,
+          "sha256": "01e28fa1cbe8157130bf4ea5e9a3c557af277a241717d3fa003b75346a39f396"
+        },
+        "TheoreticalMechanics/en.jsonl": {
+          "bytes": 569744,
+          "sha256": "ea629fa69d856c66532723460351f312046bd285b142f9c5fa85119ad2f0600f"
+        },
+        "Thermodynamics/en.jsonl": {
+          "bytes": 505956,
+          "sha256": "4b384d772eb71beb8ee1d676ee898e9f4906442c4e3a921dfbf6126d419f2c40"
+        },
+        "WaveOptics/en.jsonl": {
+          "bytes": 890898,
+          "sha256": "6ad82d68a0c813d04cac45590d75b1208c765c7aa98da40429011f79ac38a8dd"
+        }
+      }
+    },
+    "mmlu": {
+      "repositorio": "cais/mmlu",
+      "tipo": "dataset",
+      "revisao": "c30699e8356da336a370243923dbaf21066bb9fe",
+      "arquivos": {
+        "all/dev-00000-of-00001.parquet": {
+          "bytes": 76504,
+          "sha256": "2b19bde1ed8ca6b482fb283abc90e8e0d9d228947029c0b91795d64b28b3bc3f"
+        },
+        "all/test-00000-of-00001.parquet": {
+          "bytes": 3504718,
+          "sha256": "74a41822ce7d3def56e1682f958469c04642a5336a5ce912fa375fdb90fb25d7"
+        }
+      }
+    },
+    "humaneval": {
+      "repositorio": "openai/openai_humaneval",
+      "tipo": "dataset",
+      "revisao": "7dce6050a7d6d172f3cc5c32aa97f52fa1a2e544",
+      "arquivos": {
+        "openai_humaneval/test-00000-of-00001.parquet": {
+          "bytes": 83920,
+          "sha256": "2f2871a15fbc95b6c683043359f4ed8e144c5a1c4f24f25f66bc51f598dfcfb6"
+        }
+      }
+    },
+    "ifeval": {
+      "repositorio": "google/IFEval",
+      "tipo": "dataset",
+      "revisao": "966cd89545d6b6acfd7638bc708b98261ca58e84",
+      "arquivos": {
+        "ifeval_input_data.jsonl": {
+          "bytes": 207111,
+          "sha256": "6a85310ca8ce15eff755aa08a3a4ff931c7e273e7515ebb3c492ea85fd8288f2"
+        }
+      }
+    }
+  }
+}
