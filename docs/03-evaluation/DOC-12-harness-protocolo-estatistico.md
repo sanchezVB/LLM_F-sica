@@ -114,12 +114,12 @@ A regra cobre o G2.1, o G2.2 e o G2.3 do [DOC-00](../00-foundations/DOC-00-proje
 
 #### 3.7.2 Benchmarks e recortes
 
-O **G2.1 decide** com 4 benchmarks abertos, 2.529 itens de teste:
+O **G2.1 decide** com 4 benchmarks abertos, 2.528 itens de teste:
 
 | benchmark | recorte | teste | k |
 |---|---|---|---|
-| UGPhysics-en | resposta única de tipo limpo (NV, EX, EQ, MC, TF, IN), sem duplicata exata: 4.480 itens | ≈2.000 | 3 |
-| OlympiadBench | `OE_TO_physics_en_COMP`, todos os itens, em ≈109 agrupamentos | 236 | 8 |
+| UGPhysics-en | resposta única de tipo limpo (NV, EX, EQ, MC, TF, IN), sem duplicata exata: 4.480 itens | 1.999 | 3 |
+| OlympiadBench | `OE_TO_physics_en_COMP`, todos os itens, em 113 agrupamentos | 236 | 8 |
 | PHYBench | `fullques_v1`, os 100 com gabarito | 100 | 16 |
 | SciBench-física | class 56, fund 71, thermo 66 | 193 | 8 |
 
@@ -166,7 +166,7 @@ O **G2.3 decide** com três medidas:
   - dos grupos restantes, ≈2.000 itens elegíveis vão para o **TESTE**, em proporção à matéria e sorteados por grupo;
   - o resto é a **RESERVA LACRADA**.
 - **Nenhum grupo é dividido.** O código é `g2.particionar_por_grupos`.
-- **Contagens e destino.** A simulação deu dev 899, teste 2.000 e reserva 1.582. As listas de ids vão para `data/processed/avaliacao/g2_particao.json`, com hash, **no git antes de qualquer saída de modelo**.
+- **Contagens e destino.** Gravada em 2026-10-19, antes de qualquer saída de modelo: dev 899, teste 1.999 e reserva 1.582, em 3.948 grupos; a subamostra do G2.2 tem 1.004 itens (sha256 `3198479e…` no `g2.yaml`). As listas de ids vão para `data/processed/avaliacao/g2_particao.json`, com hash, **no git antes de qualquer saída de modelo**.
 
 **Os outros três ficam 100% no teste.** O dev de formato vem do OlympiadBench-zh e dos `_sol` do SciBench.
 
@@ -254,7 +254,7 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 #### 3.7.6 G2.1 — a regra
 
 - **Os deltas.** Δ_b = acerto_ΦGen − acerto_base em cada benchmark (avg@k ×100). **Δ_macro** é a média simples dos 4 Δ_b, com peso 1/4 cada; a micro daria ~79% do peso ao UG.
-- **O IC.** IC 95% por **bootstrap pareado, estratificado por benchmark**, reamostrando agrupamentos (os grupos de 13-grama no UG, os ≈109 do Oly, os itens no PHYBench e no SciBench). São 10.000 réplicas com a semente 20261019.
+- **O IC.** IC 95% por **bootstrap pareado, estratificado por benchmark**, reamostrando agrupamentos (os grupos de 13-grama no UG, os 113 do Oly, os itens no PHYBench e no SciBench). São 10.000 réplicas com a semente 20261019.
 - **Desvio declarado.** Este IC da diferença pareada substitui o critério de "ICs sobrepostos" do §3.5.
 
 **O G2.1 PASSA só com as três condições:**
@@ -298,7 +298,7 @@ Fora disso, NÃO PASSA. A leitura é "demonstrado abaixo" se o IC fica inteiro a
   Um modelo *gated* só entra se o dono aceitar os termos antes de medir o ΦGen-8B.
 - **Modelos instruídos e de raciocínio** ≤32B **não são medidos**, e isso é declarado.
 
-**Itens.** A subamostra fixa de 1.000 do UG-teste e os testes inteiros dos outros três. Os comparadores rodam com k=1 no UG, 2 no Oly e no Sci, e 4 no PHY. O ΦGen reaproveita as próprias saídas do G2.1.
+**Itens.** A subamostra fixa de 1.004 do UG-teste (`teste_g2_2`) e os testes inteiros dos outros três. Os comparadores rodam com k=1 no UG, 2 no Oly e no Sci, e 4 no PHY. O ΦGen reaproveita as próprias saídas do G2.1.
 
 **A regra.**
 - **Vitória por benchmark.** O ΦGen vence o benchmark b se, contra **cada** comparador, o **IC 99%** da diferença pareada fica inteiro acima de 0. O 99% é Bonferroni sobre os 5 benchmarks.
@@ -308,7 +308,7 @@ Fora disso, NÃO PASSA. A leitura é "demonstrado abaixo" se o IC fica inteiro a
 
 #### 3.7.9 Contaminação
 
-**(A) A base não é descontaminável.** O G2.1 é um delta, e a contaminação herdada se cancela se o CPT não a ampliar. Duas sondas gulosas, sem exemplos, rodam nos 2.529 itens de física:
+**(A) A base não é descontaminável.** O G2.1 é um delta, e a contaminação herdada se cancela se o CPT não a ampliar. Duas sondas gulosas, sem exemplos, rodam nos 2.528 itens de física:
 - **S1:** o modelo recebe a primeira metade do enunciado e gera 48 fichas;
 - **S2:** o modelo recebe o enunciado e 40% da solução e gera 64 fichas.
 
@@ -326,7 +326,7 @@ O vetor semântico só é relatado. As remoções são publicadas por benchmark.
 
 - **Pessoas.** Não há físicos nem revisão humana. O corretor é por regras, auditado pelo Claude no dev. O §6 deste documento e o DOC-00 §6.6 não são cumpridos, e nada se alega além das métricas medidas.
 - **Recortes dos benchmarks.**
-  - UGPhysics: sem o juiz GPT-4o, só itens de resposta única, 2.000 dos 5.520.
+  - UGPhysics: sem o juiz GPT-4o, só itens de resposta única, 1.999 dos 5.520.
   - PHYBench: 100 dos 500.
   - OlympiadBench: só o recorte de texto em inglês.
   - SciBench: 193 itens.
@@ -334,7 +334,7 @@ O vetor semântico só é relatado. As remoções são publicadas por benchmark.
   Nenhum desses números se compara aos artigos.
 - **Tamanho e privacidade do teste.**
   - Não há teste privado (§7); a partição, o lacre, o contador e a reserva fazem as vezes dele.
-  - O DOC-11 §8.2 (≥1.000 itens por tarefa) não é cumprido por Oly, PHY e Sci isolados; o agregado tem 2.529 itens.
+  - O DOC-11 §8.2 (≥1.000 itens por tarefa) não é cumprido por Oly, PHY e Sci isolados; o agregado tem 2.528 itens.
 - **Desvios do protocolo do §3:**
   - Q8_0 em vez de BF16;
   - avg@k a T=0,6 como métrica principal, no lugar do pass@1 guloso do §3.2;

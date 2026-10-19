@@ -47,17 +47,20 @@ recortes:
     elegivel: resposta única, answer_type em [NV, EX, EQ, MC, TF, IN], sem duplicata exata
     elegiveis_contados: 4480
     grupos: {ngrama: 13, df_min: 2, df_max: 50, materia_do_grupo: a do menor índice}
-    particao_simulada: {dev: 899, teste: 2000, reserva_lacrada: 1582}
     frac_dev_por_materia: 0.2
     teste_alvo: 2000
-    particao: {arquivo: data/processed/avaliacao/g2_particao.json, sha256: null}  # congelamento
+    # gravada em 2026-10-19, antes de qualquer saída de modelo (scripts/particionar_g2.py);
+    # sha256 com o fim de linha normalizado para LF
+    particao: {arquivo: data/processed/avaliacao/g2_particao.json,
+               sha256: 3198479eab6879066616493bd6db663f31502d30d45d6f8fa3a0340edab4aa0b,
+               dev: 899, teste: 1999, reserva_lacrada: 1582, teste_g2_2: 1004, grupos: 3948}
     correcao: {NV: "valor completo, erro relativo ≤ 1e-2", EX: "simbólico, depois numérico por amostragem",
                EQ: "(L−R) da resposta ÷ (L−R) do gabarito simplifica a constante não nula",
                IN: "extremos a 1e-2 relativo, mesma abertura", MC: "mesmo conjunto de letras", TF: normalizado}
   olympiadbench:
     subconjunto: OE_TO_physics_en_COMP
     itens: 236
-    agrupamentos_aprox: 109   # contextos progressivos + bloco de constantes agrupado por 13-grama
+    agrupamentos: 113   # contextos progressivos + bloco de constantes agrupado por 13-grama (g2_particao.json)
     correcao: {Numerical: "|Δ| ≤ error (absoluto); sem error, 1e-2 relativo", atalho_de_percentagem: false,
                varias_respostas: "todas certas, em qualquer ordem"}
     dev_do_extrator: OE_TO_physics_zh_CEE (115, não relatado)
@@ -108,7 +111,7 @@ g2_2:
   vitorias_minimas: 3
   gpqa_nao_medido: nao_vencido
   gpqa_decisao_do_dono: não usar (2026-10-19); na prática, 3 vitórias de 4
-  ugphysics_subamostra: 1000   # fixa, dos 2.000 de teste, por grupo e matéria
+  ugphysics_subamostra: 1004   # fixa, do teste, por grupo e matéria (teste_g2_2 em g2_particao.json)
   comparadores: [Qwen3-14B-Base, Qwen3-30B-A3B-Base, Qwen2.5-32B]
   regra: contra CADA comparador, IC 99% da diferença pareada inteiro acima de 0
   margem_contra_quantizado_abaixo_de_q8: 1.0

@@ -149,6 +149,18 @@ def test_particao_nao_divide_grupo_e_so_tem_elegiveis():
     assert p == g2.particionar_por_grupos(materia, elegivel, grupo, n_teste=1000)
 
 
+def test_agrupar_por_contexto_progressivo_e_bloco_de_constantes():
+    constantes = "Constants: g = 9.8, c = 3e8, h = 6.6e-34. " * 3
+    contextos = ["ctx A", "ctx A", None, "ctx B"] + [constantes] * 4
+    q = _frase(50)
+    questoes = ["q0", "q1", "q2", "q3", q + " parte um", q + " parte dois", _frase(51), _frase(52)]
+    g = g2.agrupar_por_contexto(contextos, questoes, bloco=3)
+    assert g[:4] == [0, 0, 2, 3]
+    assert g[4] == g[5] == 4               # o bloco se divide pelos 13-gramas da questão
+    assert g[6] == 6 and g[7] == 7
+    assert g2.agrupar_por_contexto(contextos, questoes, bloco=30)[4:] == [4] * 4
+
+
 # ── bootstrap e decisões ─────────────────────────────────────────────────────
 
 

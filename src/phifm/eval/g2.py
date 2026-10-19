@@ -239,6 +239,29 @@ def particionar_por_grupos(materia: Sequence[str], elegivel: Sequence[bool],
             "reserva": [i for i in so if i not in no_dev and i not in no_teste]}
 
 
+def agrupar_por_contexto(contextos: Sequence[str | None], questoes: Sequence[str],
+                         bloco: int = 30, prefixo: int = 300) -> list[int]:
+    """Os agrupamentos do OlympiadBench: itens com o mesmo contexto (pelos primeiros
+    `prefixo` caracteres) são um grupo, porque os contextos progressivos encadeiam as
+    questões. Um contexto com mais de `bloco` itens não é progressão, é um bloco de
+    constantes que vale para todos: dentro dele, os itens se agrupam pelos 13-gramas da
+    questão. O item sem contexto é o seu próprio grupo. O rótulo é o menor índice."""
+    por_contexto: dict[str, list[int]] = defaultdict(list)
+    for i, c in enumerate(contextos):
+        if c and str(c).strip():
+            por_contexto[str(c)[:prefixo]].append(i)
+    grupo = list(range(len(contextos)))
+    for membros in por_contexto.values():
+        if len(membros) > bloco:
+            dentro = grupos_por_ngramas([questoes[i] for i in membros])
+            for i, g in zip(membros, dentro, strict=True):
+                grupo[i] = membros[g]
+        else:
+            for i in membros:
+                grupo[i] = min(membros)
+    return grupo
+
+
 # ── a estatística ────────────────────────────────────────────────────────────
 
 
