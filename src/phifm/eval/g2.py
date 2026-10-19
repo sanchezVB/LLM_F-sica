@@ -84,7 +84,10 @@ class AcessoRecusado(RuntimeError):
 
 
 def sha256_arquivo(caminho: Path) -> str:
-    return hashlib.sha256(Path(caminho).read_bytes()).hexdigest()
+    """SHA-256 do arquivo com o fim de linha normalizado para LF: com `core.autocrlf`, o
+    mesmo commit sai em CRLF numa cópia e em LF noutra, e o hash do congelamento não pode
+    depender disso."""
+    return hashlib.sha256(Path(caminho).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def exigir_aceite_e_congelamento(preregistro: Path = PREREGISTRO, aceita: bool | None = None,

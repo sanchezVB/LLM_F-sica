@@ -31,6 +31,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# A correção oficial do IFEval no G2.3 (DOC-12 §3.7), na venv principal. O código vem de
+# `scripts/baixar_g2.py --so github`, e o tokenizador, de `--so nltk` (NLTK_DATA aponta
+# para `ferramentas/nltk_data`). Medido com langdetect 1.0.9, nltk 3.10.3,
+# immutabledict 4.3.1 e absl-py 2.5.1.
+g2 = ["langdetect>=1.0.9", "nltk>=3.9", "immutabledict>=4.0", "absl-py>=2.0"]
 # So para `scripts/publicar_kaggle.py`. Fica em extra e nao em `dependencies`
 # porque o projeto inteiro roda sem ela — ela serve para EMPURRAR o T1a para a
 # GPU gratuita do Kaggle, que e um caminho opcional.

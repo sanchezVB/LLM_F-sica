@@ -46,6 +46,8 @@ def test_trava_yaml_mudou_depois_do_congelamento(tmp_path):
     arq.write_text("estado: ACEITA\n", encoding="utf-8")
     sha = g2.sha256_arquivo(arq)
     assert g2.exigir_aceite_e_congelamento(arq, aceita=True, sha_congelado=sha) == sha
+    arq.write_bytes(b"estado: ACEITA\r\n")      # o git em CRLF: o mesmo protocolo
+    assert g2.exigir_aceite_e_congelamento(arq, aceita=True, sha_congelado=sha) == sha
     arq.write_text("estado: ACEITA\nk: 1\n", encoding="utf-8")
     with pytest.raises(g2.ProtocoloMudou):
         g2.exigir_aceite_e_congelamento(arq, aceita=True, sha_congelado=sha)
