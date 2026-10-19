@@ -26,7 +26,7 @@ import mpmath as mp
 import sympy as sp
 
 from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _tem_operadores, parse
+from phifm.verify.symbolic import _declarados, _tem_operadores, parse
 
 N_SUBS = 20
 PRECISAO = 50
@@ -95,7 +95,8 @@ class NumericVerifier:
         return claim.rhs is not None and not _tem_operadores(claim)
 
     def verify(self, claim: Claim) -> VerificationResult:
-        a, b = parse(claim.lhs), parse(claim.rhs or "")
+        locais = _declarados(claim)
+        a, b = parse(claim.lhs, locais), parse(claim.rhs or "", locais)
         if a is None or b is None:
             return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 import sympy as sp
 
 from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _com_limite, _Timeout, parse
+from phifm.verify.symbolic import _com_limite, _declarados, _Timeout, parse
 
 # Sequência do cruzamento numérico. Não desce além de 1e-6 porque abaixo disso
 # o próprio cancelamento em ponto flutuante domina o resíduo que se mede.
@@ -178,8 +178,9 @@ class LimitsVerifier:
         to = _ponto(spec.get("to", 0))
         var = sp.Symbol(spec["var"])
 
-        expr = parse(claim.lhs)
-        esperado = parse(str(spec.get("expected") or claim.rhs or ""))
+        locais = _declarados(claim)
+        expr = parse(claim.lhs, locais)
+        esperado = parse(str(spec.get("expected") or claim.rhs or ""), locais)
         if expr is None or esperado is None:
             return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
 
