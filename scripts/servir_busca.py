@@ -52,6 +52,10 @@ def main() -> int:
                         "sem o índice de scripts/explorar_busca_lexical.py --indexar, ela já "
                         "fica desligada, com aviso")
     p.add_argument("--lexico", type=Path, default=RAIZ / "data/processed/indice_lexical")
+    p.add_argument("--sem-ordem-pelo-texto", action="store_true",
+                   help="com o texto completo marcado, deixa a ordem dos candidatos só com o "
+                        "ΦRank (a fusão com a busca e com o melhor trecho do texto foi adotada "
+                        "em 2026-10-17, DOC-13 §9.11)")
     p.add_argument("--sem-navegador", action="store_true",
                    help="não abre o navegador sozinho")
     a = p.parse_args()
@@ -85,7 +89,7 @@ def main() -> int:
         # instrução v2); desmarcado, é o sistema de sempre, byte a byte.
         assistente = Assistente(busca, modelo, a.spine, reordenador=reordenador,
                                 passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2,
-                                lexica=lexica)
+                                lexica=lexica, reordenar_pelo_texto=not a.sem_ordem_pelo_texto)
     servidor = criar_servidor(busca, porta=a.porta, assistente=assistente,
                               ocioso_min=a.ocioso_min)
     url = f"http://127.0.0.1:{servidor.server_address[1]}"

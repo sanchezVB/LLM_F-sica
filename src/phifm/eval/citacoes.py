@@ -1,5 +1,5 @@
-"""A precisão de citação, medida: a fonte citada sustenta a frase? (DOC-13 §6.3, PROPOSTA de
-2026-10-17; o critério G2.4 da §6.2)
+"""A precisão de citação, medida: a fonte citada sustenta a frase? (DOC-13 §6.3, ACEITA em
+2026-10-20; o critério G2.4 da §6.2)
 
 O portão do assistente (`phifm.rag.assistente.verificar_citacoes`) remove citação para
 fonte que não existe e marca frase sem citação. Ele NÃO confere se a fonte citada diz o
@@ -36,7 +36,8 @@ from phifm.eval.assistente_bracos import kappa
 from phifm.rag.assistente import _CITACAO, _FRASE, _numeros, sem_citacoes
 
 # ── a regra (DOC-13 §6.3) ────────────────────────────────────────────────────
-REGRA_6_3_ACEITA = False
+# O juiz recusa enquanto isto for False. ACEITA pelo dono em 2026-10-20, como escrita.
+REGRA_6_3_ACEITA = True
 META = 0.95                       # o G2.4 da §6.2
 N_VALIDACAO = 150                 # pares que o Claude julga por rodada
 N_BOOTSTRAP = 10_000

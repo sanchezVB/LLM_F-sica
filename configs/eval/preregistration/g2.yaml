@@ -1,0 +1,192 @@
+# Pré-registro do portão G2 (DOC-00, Tier 2). O texto da regra está no DOC-12 §3.7; este
+# arquivo traz os parâmetros que o código confere. As travas ficam em src/phifm/eval/g2.py:
+#   REGRA_G2_ACEITA: o dono aceitou a regra.
+#   PROTOCOLO_G2_SHA256: o SHA-256 DESTE arquivo no congelamento, depois do dev e antes da
+#   primeira geração no teste.
+# Os campos marcados `congelamento: null` são preenchidos no dev; preenchê-los muda o hash,
+# e é por isso que o hash só é gravado no fim. Depois do congelamento, qualquer mudança aqui
+# faz o medir_g2 recusar, e só vale por emenda registrada no DOC-12 §3.7.
+#
+# Conteúdo de benchmark NÃO entra aqui nem em lugar nenhum do git (DOC-11 §8.1). Só ids,
+# contagens e hashes.
+
+estado: ACEITA
+proposta_em: "2026-10-19"
+aceita_em: "2026-10-19"     # como escrita; GPQA: não (o G2.2 fica em 3 de 4)
+texto_da_regra: "docs/03-evaluation/DOC-12-harness-protocolo-estatistico.md, §3.7"
+semente: 20261019
+bootstrap: {replicas: 10000, nivel: 0.95, pareado: true}
+
+objeto:
+  phigen: ΦGen-CPT escolhido no dev, ainda modelo base
+  contra: a própria base, no mesmo protocolo, motor e hash de configuração
+  portoes_independentes: [Qwen3-1.7B-Base, Qwen3-8B-Base]
+  nota: o "ΦGen-1.5B" do charter é feito sobre a Qwen3-1.7B-Base
+  fora: [G2.4 (citação no modo RAG), G2.5 (calibração), ΦGen pós-treinado (precisa de regra própria com braço de controle)]
+
+g2_1:
+  benchmarks: [ugphysics, olympiadbench, phybench, scibench]
+  agregado: macro            # média simples dos Δ_b, peso 1/4 cada
+  limiar_pontos: 10.0        # limite de baixo do IC 95% de Δ_macro ≥ isto
+  condicoes:
+    - ic_macro_limite_de_baixo_maior_ou_igual_ao_limiar
+    - nenhum_benchmark_com_ic_inteiro_abaixo_de_zero
+    - sem_os_itens_de_memorizacao_nova_o_limite_de_baixo_continua_acima
+  reamostragem: {ugphysics: grupos_13grama, olympiadbench: agrupamentos, phybench: itens, scibench: itens}
+  inconclusive: erro         # fica no denominador; a versão sem eles é relatada
+  metrica: avg@k
+  decodificacao: {temperatura: 0.6, top_p: 0.95, top_k: 0, min_p: 0.0, penalidades: false,
+                  max_fichas: 4096, semente_da_amostra: "sha256('bench:id:j')"}
+  paradas: ["\n\nProblem:", "\nProblem:", "<|endoftext|>", "<|im_end|>"]
+  guarda_de_repeticao: {janela_fichas: 32, repeticoes: 4}
+  k: {ugphysics: 3, olympiadbench: 8, phybench: 16, scibench: 8}
+
+recortes:
+  ugphysics:
+    arquivos: en.jsonl das 13 matérias
+    elegivel: resposta única, answer_type em [NV, EX, EQ, MC, TF, IN], sem duplicata exata
+    elegiveis_contados: 4480
+    grupos: {ngrama: 13, df_min: 2, df_max: 50, materia_do_grupo: a do menor índice}
+    frac_dev_por_materia: 0.2
+    teste_alvo: 2000
+    # gravada em 2026-10-19, antes de qualquer saída de modelo (scripts/particionar_g2.py);
+    # sha256 com o fim de linha normalizado para LF
+    particao: {arquivo: data/processed/avaliacao/g2_particao.json,
+               sha256: 3198479eab6879066616493bd6db663f31502d30d45d6f8fa3a0340edab4aa0b,
+               dev: 899, teste: 1999, reserva_lacrada: 1582, teste_g2_2: 1004, grupos: 3948}
+    correcao: {NV: "valor completo, erro relativo ≤ 1e-2", EX: "simbólico, depois numérico por amostragem",
+               EQ: "(L−R) da resposta ÷ (L−R) do gabarito simplifica a constante não nula",
+               IN: "extremos a 1e-2 relativo, mesma abertura", MC: "mesmo conjunto de letras", TF: normalizado}
+  olympiadbench:
+    subconjunto: OE_TO_physics_en_COMP
+    itens: 236
+    agrupamentos: 113   # contextos progressivos + bloco de constantes agrupado por 13-grama (g2_particao.json)
+    correcao: {Numerical: "|Δ| ≤ error (absoluto); sem error, 1e-2 relativo", atalho_de_percentagem: false,
+               varias_respostas: "todas certas, em qualquer ordem"}
+    dev_do_extrator: OE_TO_physics_zh_CEE (115, não relatado)
+  phybench:
+    arquivo: PHYBench-fullques_v1.json
+    itens: 100
+    correcao: equivalência simbólica com variáveis positivas
+  scibench:
+    livros: [class, fund, thermo]
+    itens: 193
+    exemplos: 3 por livro, dos _sol do próprio livro, sem irmão (10-grama ou similaridade ≥ 0,6) de item de teste
+    correcao: "último \\boxed{}, escala 10^x da unidade, math.isclose(rel_tol=0.05)"
+    agregado_interno: micro
+
+exemplos_few_shot:
+  ugphysics: 4 do UG-dev (NV com unidade, NV sem unidade, EX, EQ), 4 matérias, solução de 120 a 600 fichas
+  olympiadbench: 4 do UG-dev (2 NV com unidade, 2 EX), solução de 200 a 800 fichas
+  phybench: 3 EX do UG-dev, nível Math Derivation, solução de 200 a 800 fichas
+  scibench: 3 _sol por livro
+  sha256: null               # congelamento
+
+g2_3:
+  margem_pontos: 2.0
+  mmlu_sem_fisica:
+    itens: 13402
+    regra: nao_inferioridade   # limite de baixo do IC 95% ≥ −2
+    formato: 5-shot, logprob das letras A/B/C/D, temperatura 0
+    fichas_das_letras: {" A": 362, " B": 425, " C": 356, " D": 422}
+    guarda_do_instrumento: {Qwen3-1.7B-Base: [62.63, 3.0], Qwen3-8B-Base: [76.89, 3.0]}  # MMLU-57, ± pontos
+  evalplus:
+    problemas: 542           # HumanEval+ 164 ∪ MBPP+ 378
+    regra: desclassifica_se_estimativa_abaixo_de_menos_2_e_ic_inteiro_abaixo_de_0
+    decodificacao: {k: 10, temperatura: 0.2, top_p: 0.95, gulosa: 1, max_fichas: 768}
+    execucao: notebook de CPU do Kaggle, internet desligada, sem segredos
+    sanidade_gulosa: {Qwen3-1.7B-Base: [52.70, 5.0], Qwen3-8B-Base: [67.65, 5.0]}
+  ifeval_envelope:
+    prompts: 541
+    regra: desclassifica_se_estimativa_abaixo_de_menos_2_e_ic_inteiro_abaixo_de_0
+    medida: prompt-level strict, média das amostras
+    decodificacao: {k: 16, temperatura: 0.7, top_p: 0.8, top_k: 20, gulosa: 1, max_fichas: 1280}
+    paradas: ["\n# Query", "<|endoftext|>", "<|im_end|>"]
+    envelope_sha256: null    # congelamento
+  durante_o_treino: [MMLU validation (1531), MBPP sem as tarefas do MBPP+]
+
+g2_2:
+  so_na: Qwen3-8B-Base
+  benchmarks_do_charter: [gpqa_fisica, olympiadbench, phybench, scibench, ugphysics]
+  vitorias_minimas: 3
+  gpqa_nao_medido: nao_vencido
+  gpqa_decisao_do_dono: não usar (2026-10-19); na prática, 3 vitórias de 4
+  ugphysics_subamostra: 1004   # fixa, do teste, por grupo e matéria (teste_g2_2 em g2_particao.json)
+  comparadores: [Qwen3-14B-Base, Qwen3-30B-A3B-Base, Qwen2.5-32B]
+  regra: contra CADA comparador, IC 99% da diferença pareada inteiro acima de 0
+  margem_contra_quantizado_abaixo_de_q8: 1.0
+  k_dos_comparadores: {ugphysics: 1, olympiadbench: 2, scibench: 2, phybench: 4, gpqa_fisica: 2}
+
+contaminacao:
+  sondas: {S1: "metade do enunciado (≥32 fichas), gera 48", S2: "enunciado + 40% da solução, gera 64",
+           suspeito: "≥1 sequência de 13 fichas idêntica", nulo: phybench}
+  corpus_do_cpt: {ngrama_palavras: 13, frase_feita: "≥3 itens de benchmark ou >1000 documentos",
+                  gabarito_canonico_min_fichas: 8, vetor_semantico: so_relatado}
+  precondicao: o corpus final é varrido antes do treino; sem isso, o ΦGen não é medido
+
+motor:
+  servidor: llama.cpp llama-server
+  tag: b11159
+  commit: 6b790a9c2
+  quantizacao: Q8_0 estática, convert_hf_to_gguf.py da mesma tag, sem imatrix
+  kl_maxima_contra_f16_nats: 0.01
+  onde: {Qwen3-1.7B-Base: RX 7600 Vulkan local, Qwen3-8B-Base: Kaggle 2×T4 CUDA}
+  tokenizer_sha256: c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539
+  # 1,7B: convertida em 2026-10-19; KL contra o F16 0,00317 nats (g2_kl_1.7B.json)
+  gguf_sha256: {Qwen3-1.7B-Base: 7cce0c435a35314314ccd9cdd524f502ab11bc60c07addc9e7151de6a51d95e6,
+                Qwen3-8B-Base: null}   # a 8B, no Kaggle
+  conversao_local: "torch 2.4.1+cpu, transformers 5.0.0, numpy 2.5.1, sentencepiece 0.2.2 (.venv-treino)"
+  hash_da_configuracao: null                                   # congelamento
+
+acessos:
+  livro: data/processed/avaliacao/g2_acessos.jsonl
+  por_braco: {medida: 1, repeticao_por_falha_operacional: 1}
+  base_re_medida_se_o_hash_da_configuracao_mudar: true
+  reserva_do_ug: só abre por emenda escrita
+
+codigo_congelado:            # congelamento: sha256 dos arquivos do extrator e do corretor
+  extrator: null
+  corretor: null
+
+dados:
+  manifesto: data/processed/avaliacao/g2_downloads.json
+  revisoes:
+    Hothan/OlympiadBench: 91184b52131e7fc9455fef848035173aea8cc01a
+    Eureka-Lab/PHYBench: d6d91c787b7abb865eb2490a328bf85a9f5095f0
+    xw27/scibench: 93931252bc1b71d495e67390235940643d926958
+    UGPhysics/ugphysics: 523e71bc4e33356bb19de4af38c128796e8a8770
+    cais/mmlu: c30699e8356da336a370243923dbaf21066bb9fe
+    openai/openai_humaneval: 7dce6050a7d6d172f3cc5c32aa97f52fa1a2e544
+    google/IFEval: 966cd89545d6b6acfd7638bc708b98261ca58e84
+    Qwen/Qwen3-1.7B-Base: ea980cb0a6c2ae4b936e82123acc929f1cec04c1
+    Qwen/Qwen3-8B-Base: 49e3418fbbbca6ecbdf9608b4d22e5a407081db4
+  sha256:
+    olympiadbench/OE_TO_physics_en_COMP.parquet: 69c45e28ff9d8cf2e385d1b298e9ef2264dfa83755cac956d3e3e7b37e4ce4f6
+    olympiadbench/OE_TO_physics_zh_CEE.parquet: b565d268f09f4e6ee3923579e0517a3f0de44d37e3534f5d73cc2fb0d5da2aeb
+    phybench/PHYBench-fullques_v1.json: a01955ffb2ff86d7833770d3d9f308e3bc1b0e2fea92c5092c4e68a619048a6b
+    scibench/class.json: 1fc4a41a03237c71073f6bec0b2f4ef1b687b3458a1183a7b98542f7ce9d33a3
+    scibench/class_sol.json: 7ac3df7d1ed2d259dfde782577a1b7384ebdf199bfd9e60d04bbf2ef1411d8a5
+    scibench/fund.json: 7a7a8b8e408552aea5663b14b02ad6e6c19534156b58dea6319869c0c361e022
+    scibench/fund_sol.json: fd8967b9ee3b91e2983862ce37e1da207867e2e03a74650965f35856783550b1
+    scibench/thermo.json: 4f2f4eeb5c673c0c5ae52141f1deff5a4c4247309aa76331189ce2e462315cb5
+    scibench/thermo_sol.json: d8d665332130bdfe5dc1833b46d6d10070ecc95541eebebb5b637b07fbac508c
+    ugphysics/AtomicPhysics/en.jsonl: fc56560145d3f78b689f63f71abe61bc4006d0ca9d788fabea8d24f0390a1331
+    ugphysics/ClassicalElectromagnetism/en.jsonl: d2ebe5ed45886214baf9f8689e7718ad0c4bd81200fed1882a231e8eeb8fa52e
+    ugphysics/ClassicalMechanics/en.jsonl: 88e11da460ccea55dcd83407c4b030bbb438fa6593c4ed79f3b907cd010c4134
+    ugphysics/Electrodynamics/en.jsonl: d52e809d36e2b6fb8c0d7e5c3df260c70811a30a5fc758b1937fab5d998e6583
+    ugphysics/GeometricalOptics/en.jsonl: 62f5b6fbcad413fbc8c27cc5a0b69f138f1f62916a1b97c6e2856c216fd8d6e6
+    ugphysics/QuantumMechanics/en.jsonl: 8959db85a60d21b1ec4efdf4df7567f0ade3edaef324ec36236611d37f6db453
+    ugphysics/Relativity/en.jsonl: 42fc45398081d6e73ef74369b8c0da423deaee75d763d45c5298aedee7dd34d2
+    ugphysics/SemiconductorPhysics/en.jsonl: a2945b39140a7ce7ac7fa114f5efe969c660b9ef925496b6cf83d9e0414eeae6
+    ugphysics/Solid-StatePhysics/en.jsonl: 5d0db355ee5c134fd403ecce659ed2831be5932ecbbafcfa555082747b9aa43a
+    ugphysics/StatisticalMechanics/en.jsonl: 01e28fa1cbe8157130bf4ea5e9a3c557af277a241717d3fa003b75346a39f396
+    ugphysics/TheoreticalMechanics/en.jsonl: ea629fa69d856c66532723460351f312046bd285b142f9c5fa85119ad2f0600f
+    ugphysics/Thermodynamics/en.jsonl: 4b384d772eb71beb8ee1d676ee898e9f4906442c4e3a921dfbf6126d419f2c40
+    ugphysics/WaveOptics/en.jsonl: 6ad82d68a0c813d04cac45590d75b1208c765c7aa98da40429011f79ac38a8dd
+    mmlu/dev-00000-of-00001.parquet: 2b19bde1ed8ca6b482fb283abc90e8e0d9d228947029c0b91795d64b28b3bc3f
+    mmlu/test-00000-of-00001.parquet: 74a41822ce7d3def56e1682f958469c04642a5336a5ce912fa375fdb90fb25d7
+    humaneval/test-00000-of-00001.parquet: 2f2871a15fbc95b6c683043359f4ed8e144c5a1c4f24f25f66bc51f598dfcfb6
+    ifeval/ifeval_input_data.jsonl: 6a85310ca8ce15eff755aa08a3a4ff931c7e273e7515ebb3c492ea85fd8288f2
+    Qwen3-1.7B-Base/model.safetensors: 6df85b39330e5a425ee36253d0f894e4387e4f0a15b9c53cb467d668e6b3a841
+    Qwen3-8B-Base/model.safetensors.index.json: cd39d5e44c5aadfd1954b598883aea1c4a98822a2f7723d214ef2278b7fec2e4
+  a_baixar: [EvalPlus (HumanEval+ e MBPP+), código oficial do IFEval, MMLU validation, MBPP, fonte do llama.cpp b11159]

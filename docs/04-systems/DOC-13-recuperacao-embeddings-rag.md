@@ -184,6 +184,9 @@ pediu para medir (pergunta de 2026-10-17), como o primeiro passo para deixar o a
 mais robusto. **Esta seção é a regra e é PROPOSTA até o dono aceitar**
 (`REGRA_6_3_ACEITA`, em `phifm.eval.citacoes`, trava o juiz).
 
+> **ACEITA pelo dono em 2026-10-20, como escrita** ("Sim", à pergunta "Você aceita a regra
+> da §6.3?"), antes de qualquer par ser montado ou julgado.
+
 **O que se mede (G2.4): a precisão de citação.**
 
 - **A unidade é o par (frase, fonte citada).** A resposta é cortada em frases pela mesma
@@ -1699,6 +1702,10 @@ corpo 1 isso rendeu +11 a +12 pontos — porque ali o artigo certo SEMPRE tem te
 que as perguntas foram escritas) — e no primário dev custou −17 a −24, porque lá 30% dos
 artigos certos não têm. Corrigido: na lista do texto, quem não tem texto fica com a posição
 que a busca de hoje lhe deu — não ganha nem perde.
+⚠️ *Correção de 2026-10-17 (revisão adversarial da §9.11):* "não ganha nem perde" é falso.
+Os que têm texto ocupam as posições 1..n_com da lista do texto, comprimidos no topo, e
+ganham um bônus por ter texto; quem não tem fica com a posição da busca (1..50). A correção
+reduziu a penalidade, não a zerou.
 
 | artigo certo entre as 6 fontes | corpo 1 (150) | Δ | primário dev (150) | Δ |
 |---|---|---|---|---|
@@ -1769,6 +1776,62 @@ primário, aqui só na posição do artigo; (4) 100 itens no corpo dão IC de ±
 
 `scripts/medir_busca_corpo.py`; agregado em `avaliacao/assistente_busca_corpo.json`. Custo
 previsto: ~1 h 20 locais, sem o modelo.
+
+#### O RESULTADO (2026-10-17) — ADOTA no modo "texto completo"
+
+Das 23h17 às ~3h, com duas paradas (um erro de chamada no script, corrigido, e a pausa
+pedida pelo dono); as 32 últimas perguntas, com o ΦRank na CPU porque o gerenciador de
+janelas do Windows ocupava 2,2 GB da placa. Nenhum item refeito ou descartado.
+
+| artigo certo entre as 6 fontes | hoje | novo | novo − hoje | ganha · perde |
+|---|---|---|---|---|
+| **corpo 2** (100) | 0,74 | **0,86** | **+0,12 [+0,06; +0,19]** | 12 · 0 |
+| **teste primário** (500) | 0,892 | **0,948** | **+0,056 [+0,032; +0,082]** | 36 · 8 |
+
+| eixo | limiar | desfecho |
+|---|---|---|
+| ganho no corpo 2 | IC inteiro > 0 | **PASSA** |
+| não piora no teste | IC inteiro > −0,02 | **PASSA** (o IC fica inteiro acima de zero) |
+| tempo a mais | ≤ 3 s | **PASSA** — mas ver o item 3 abaixo |
+
+**→ ADOTA no modo "texto completo"** (`reordenar_pelo_texto` ligado na página e no
+`perguntar.py --passagens`; `--sem-ordem-pelo-texto` desliga). O artigo certo em 1º lugar:
+0,48 → 0,65 no corpo 2, 0,644 → 0,712 no teste.
+
+**Conferência independente, antes de ligar** (dois agentes, sem alterar nada):
+
+- **Recontagem**, com código próprio: 600 linhas, nenhuma duplicata, os mesmos números e
+  ICs (variam ≤ 0,01 com outras sementes); a linha "hoje" reproduz a §9.9 em 100 de 100 e
+  500 de 500, posição a posição.
+- **Revisão adversarial**, que reproduziu as 600 posições pelo caminho do produto: **sem
+  vazamento** (o id de P só é usado depois da recuperação), os mesmos 50 candidatos e os
+  mesmos escores do ΦRank nos dois braços, a mesma pergunta em inglês. **Nada invalida a
+  decisão. Três coisas mudam a leitura:**
+
+1. **A maior parte do ganho não é do texto.** "Novo" muda duas coisas: devolve a ordem da
+   busca à fusão (hoje decide só o ΦRank) e acrescenta a janela do texto. Controles feitos
+   DEPOIS, nos próprios conjuntos de confirmação (exploratórios): a fusão da busca com o
+   ΦRank, sem texto, já dá **+0,10** no corpo 2 e **+0,046** no teste; o texto acrescenta
+   +0,02 [0,00; +0,05] e +0,010 [−0,006; +0,026]. **No desenvolvimento foi o contrário**: a
+   fusão sem texto deu +0,013 [−0,033; +0,060] no corpo 1 e +0,020 [−0,020; +0,060] no
+   primário dev, e o texto levou o resto (até 0,800 e 0,960). **O conjunto passa na regra;
+   qual das duas partes ajuda é incerto.**
+2. **A ordem não é neutra para quem não tem texto** (corrigido na §9.10 e na docstring): o
+   bônus vale +0,016 [+0,004; +0,030] no teste e zero no corpo 2. A variante adotada é a
+   medida, com o bônus.
+3. **O tempo a mais medido (−0,35 s) é artefato**: "hoje" roda primeiro, com o cache frio.
+   O passo do texto, medido direto, custa ~0,5–0,7 s, abaixo dos 3 s; com o modelo carregado
+   na máquina de 16 GB ele não foi medido.
+
+Menores: na medida o ΦRank rodou na GPU e no produto roda na CPU (efeito nulo: "hoje"
+reproduz a §9.9, feita na CPU); as perguntas do corpo foram escritas a partir da passagem
+de P (45% das palavras da pergunta em inglês estão nela), o que favorece um casador de
+janelas — pouco importa aqui, já que o texto acrescenta só ~+0,02.
+
+**Em aberto, para uma regra própria:** a fusão da busca com o ΦRank, sem texto, não pede
+texto nem tempo e poderia valer no modo padrão. A evidência é mista (forte nos conjuntos de
+confirmação, fraca no desenvolvimento) e foi achada depois, no conjunto de confirmação: não
+decide nada.
 
 ### 9.12 Um teste de fora: o AstroBench — PROPOSTA de 2026-10-16, escrita antes de qualquer item ser lido
 

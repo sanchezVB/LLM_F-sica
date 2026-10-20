@@ -93,7 +93,7 @@ def test_melhor_janela_acha_o_trecho_e_devolve_None_sem_texto():
     assert s[1] is None and s[2] > s[0] >= 0 and s[3] == 0
 
 
-def test_ordem_com_texto_quem_nao_tem_texto_nao_perde_nem_ganha():
+def test_ordem_com_texto_funde_as_tres_listas_e_da_bonus_a_quem_tem_texto():
     # sem diferença nenhuma no ΦRank e no texto, a ordem é a da busca
     assert lx.ordem_com_texto([0.0] * 4, [1.0] * 4) == [0, 1, 2, 3]
     assert lx.ordem_com_texto([0.0] * 4, [None] * 4) == [0, 1, 2, 3]
@@ -102,3 +102,7 @@ def test_ordem_com_texto_quem_nao_tem_texto_nao_perde_nem_ganha():
     # o 1º não tem texto: na lista do texto fica na posição da busca (1ª), e não afunda
     ordem = lx.ordem_com_texto([0.5, 0.4, 0.3, 0.2], [None, 0.3, 0.2, 0.1])
     assert ordem[0] == 0
+    # ⚠️ o bônus (DOC-13 §9.11): o único com texto, mesmo com janela 0 e último na busca,
+    # ocupa a 1ª posição da lista do texto e passa à frente do 3º, que não tem texto
+    ordem = lx.ordem_com_texto([0.0] * 4, [None, None, None, 0.0])
+    assert ordem.index(3) < ordem.index(2)

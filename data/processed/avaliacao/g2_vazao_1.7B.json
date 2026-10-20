@@ -1,0 +1,79 @@
+{
+ "o_que_e": "ensaio de vazão do G2 (DOC-12 §3.7, 'verificar antes de congelar'): llama-batched-bench b11159, Qwen3-1.7B-Base Q8_0, RX 7600 Vulkan, flash attention, KV q8_0",
+ "data": "2026-10-20",
+ "medidas": [
+  {
+   "paralelos": 1,
+   "prompt": 3500,
+   "geradas_por_sequencia": 512,
+   "fichas_s_gerando": 77.0,
+   "fichas_s_lendo_prompt": 1618.3
+  },
+  {
+   "paralelos": 4,
+   "prompt": 3500,
+   "geradas_por_sequencia": 512,
+   "fichas_s_gerando": 178.6,
+   "fichas_s_lendo_prompt": 2100.9
+  },
+  {
+   "paralelos": 6,
+   "prompt": 3500,
+   "geradas_por_sequencia": 512,
+   "fichas_s_gerando": 168.6,
+   "fichas_s_lendo_prompt": 3093.1
+  },
+  {
+   "paralelos": 8,
+   "prompt": 3500,
+   "geradas_por_sequencia": 512,
+   "fichas_s_gerando": 216.4,
+   "fichas_s_lendo_prompt": 3091.4
+  },
+  {
+   "paralelos": 1,
+   "prompt": 3500,
+   "geradas_por_sequencia": 2048,
+   "fichas_s_gerando": 75.3,
+   "fichas_s_lendo_prompt": 3123.5
+  },
+  {
+   "paralelos": 4,
+   "prompt": 3500,
+   "geradas_por_sequencia": 2048,
+   "fichas_s_gerando": 180.2,
+   "fichas_s_lendo_prompt": 3095.6
+  },
+  {
+   "paralelos": 6,
+   "prompt": 3500,
+   "geradas_por_sequencia": 2048,
+   "fichas_s_gerando": 163.0,
+   "fichas_s_lendo_prompt": 3083.6
+  },
+  {
+   "paralelos": 8,
+   "prompt": 3500,
+   "geradas_por_sequencia": 2048,
+   "fichas_s_gerando": 195.9,
+   "fichas_s_lendo_prompt": 3088.6
+  }
+ ],
+ "conferido": {
+  "flash_attention_com_kv_q8_0_no_vulkan": true,
+  "8_sequencias_de_5548_fichas_cabem": true
+ },
+ "slots_escolhidos": 4,
+ "vazao_usada_na_conta": 178.6,
+ "horas_estimadas_por_modelo": {
+  "fisica": 10.1,
+  "codigo": 1.2,
+  "ifeval": 5.4,
+  "total": 16.8
+ },
+ "premissa_da_regra_fichas_s": [
+  120,
+  250
+ ],
+ "corte_disparado": false
+}

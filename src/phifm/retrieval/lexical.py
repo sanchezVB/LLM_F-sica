@@ -247,9 +247,15 @@ def melhor_janela(consulta: str, textos: list[str | None], janela: int = JANELA,
 def ordem_com_texto(escores_phirank: list[float], janelas: list[float | None],
                     c: int = 60) -> list[int]:
     """A ordem dos candidatos (dados na ordem da busca) pela fusão por posição de três
-    listas: a da busca, a do ΦRank e a da melhor janela do texto completo. Quem não tem
-    texto fica, na lista do texto, com a posição da busca — não ganha nem perde por não
-    ter (sem isso, os artigos sem texto afundavam: DOC-13 §9.10). Empate: a busca decide."""
+    listas: a da busca, a do ΦRank e a da melhor janela do texto completo. Empate: a busca
+    decide.
+
+    Quem não tem texto fica, na lista do texto, com a posição da busca — sem isso, os
+    artigos sem texto afundavam (DOC-13 §9.10, −17 a −24 pontos no resumo). ⚠️ Mas NÃO é
+    neutro, ao contrário do que esta docstring dizia: os que têm texto ocupam as posições
+    1..n_com dessa lista, comprimidos no topo, e ganham um bônus por ter texto (a revisão
+    adversarial da §9.11 mediu +0,016 no teste primário). É a variante que a regra da §9.11
+    confirmou e que foi adotada; mudá-la é mudar o que foi medido."""
     n = len(escores_phirank)
     busca = np.arange(1, n + 1)
     rr = posicoes_de(np.asarray(escores_phirank, dtype=np.float64))

@@ -12,8 +12,8 @@ frase que a cita?
 As respostas são as de A5, o sistema de hoje (§9.9), nos 650 itens do teste — já geradas:
 nada é gerado de novo. Decide o primário (500); o pós-corte é relatado.
 
-`--julgar` recusa enquanto a regra for PROPOSTA (`REGRA_6_3_ACEITA` em
-`phifm.eval.citacoes`) e enquanto os veredictos do Claude da rodada não estiverem selados.
+`--julgar` só roda com a regra aceita (`REGRA_6_3_ACEITA` em `phifm.eval.citacoes`, aceita
+em 2026-10-20) e com os veredictos do Claude da rodada selados.
 Pares, amostra e veredictos ficam em `data/processed/assistente/citacoes/`, fora do git
 (são do conjunto de teste); vão ao git o manifesto dos pares, os selos e o agregado.
 

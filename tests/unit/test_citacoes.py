@@ -174,9 +174,10 @@ def test_apurar_ponta_a_ponta(montado, tmp_path):
     assert json.loads((aval / "citacoes.json").read_text(encoding="utf-8"))["rodada"] == 1
 
 
-def test_a_regra_e_proposta_e_o_juiz_recusa():
+def test_a_regra_esta_aceita_e_a_trava_ainda_recusa_sem_ela(monkeypatch):
     import medir_citacoes as script
 
-    assert ct.REGRA_6_3_ACEITA is False
+    assert ct.REGRA_6_3_ACEITA is True           # aceita pelo dono em 2026-10-20
+    monkeypatch.setattr(ct, "REGRA_6_3_ACEITA", False)
     with pytest.raises(SystemExit, match="PROPOSTA"):
         script.julgar_fase(1)
