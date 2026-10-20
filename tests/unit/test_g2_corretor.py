@@ -121,7 +121,12 @@ def test_intervalo():
     assert c.comparar_intervalo(r"[0.995, 3)", r"[1, 3)") is V.PASS
     assert c.comparar_intervalo(r"(1, 3)", r"[1, 3)") is V.FAIL
     assert c.comparar_intervalo(r"[1.1, 3)", r"[1, 3)") is V.FAIL
-    assert c.comparar_intervalo(r"x > 1", r"(1, \infty)") is V.FAIL
+    # desigualdade, `x \in` e unidade depois do parêntese também valem (estresse de 2026-10-19)
+    assert c.comparar_intervalo(r"x > 1", r"(1, \infty)") is V.PASS
+    assert c.comparar_intervalo(r"x \geq 1", r"(1, \infty)") is V.FAIL
+    assert c.comparar_intervalo(r"\mu \in [\tan \alpha, \infty)", r"[\tan \alpha, \infty)") is V.PASS
+    assert c.comparar_intervalo(r"20 \le t \le 50", r"[20, 50]") is V.PASS
+    assert c.comparar_intervalo(r"(-0.1, 10)\,\mathrm{V}", r"(-0.1, 10)") is V.PASS
 
 
 def test_desigualdade():

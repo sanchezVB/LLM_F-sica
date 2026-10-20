@@ -132,7 +132,7 @@ def phybench(conjunto: str = "teste") -> list[Item]:
     return itens
 
 
-_ESCALA = re.compile(r"[$]?\s*10\^[{]?\s*(-?[0-9]+)\s*[}]?\s*[$]?")
+_ESCALA = re.compile(r"[$]?\s*10\s*\^\s*[{]?\s*(-?[0-9]+)\s*[}]?\s*[$]?")
 
 
 def escala_da_unidade(unidade: str) -> tuple[float, str]:
@@ -190,33 +190,37 @@ def tipo_efetivo(item: Item, k: int = 0) -> str:
     tipo = item.tipos[k]
     g = item.gabaritos[k]
     if item.bench == "olympiadbench":
-        return "Expression" if tipo == "Numerical" and c.numero(g) is None else tipo
+        return "Expression" if tipo == "Numerical" and c.numero(g, estrito=True) is None else tipo
     if item.bench != "ugphysics":
         return tipo
-    if tipo == "NV" and c.numero(g) is None:
+    if tipo == "NV" and c.numero(g, estrito=True) is None:
         return "EX"
     if tipo == "EQ":
         lados = c.dividir_nivel_zero(c.limpar(g), "=")
         if len(lados) == 1:
             return "EX"
         if c.lado_esquerdo_e_grandeza(g):
-            return "NV" if c.numero(lados[1]) is not None else "EX"
+            return "NV" if c.numero(lados[1], estrito=True) is not None else "EX"
     return tipo
 
 
 def _comparador(item: Item, k: int) -> Callable[[str, str], Veredito]:
     tipo, tol = tipo_efetivo(item, k), item.tolerancias[k] if item.tolerancias else None
+    # Gabarito `G = expr` numa resposta simbólica: vale o lado direito (com G conferido)
+    # ou a mesma equação rearranjada (`comparar_definicao`).
+    expressao = (c.comparar_definicao if c.lado_esquerdo_e_grandeza(item.gabaritos[k])
+                 else c.comparar_expressao)
     if item.bench == "scibench":
         return partial(c.comparar_numero, rel=TOL_SCI, simetrico=True)
     if item.bench == "phybench":
-        return c.comparar_expressao
+        return expressao
     if item.bench == "olympiadbench":
         if tipo == "Numerical":
             return (partial(c.comparar_numero, abs_=tol) if tol is not None
                     else partial(c.comparar_numero, rel=TOL_OLY_SEM_ERRO))
         return {"Equation": c.comparar_equacao,
-                "Interval": c.comparar_intervalo}.get(tipo, c.comparar_expressao)
-    return {"NV": partial(c.comparar_numero, rel=TOL_UG), "EX": c.comparar_expressao,
+                "Interval": c.comparar_intervalo}.get(tipo, expressao)
+    return {"NV": partial(c.comparar_numero, rel=TOL_UG), "EX": expressao,
             "EQ": c.comparar_equacao, "IN": c.comparar_intervalo, "MC": c.comparar_letras,
             "TF": c.comparar_vf}[tipo]
 
@@ -230,7 +234,7 @@ def corrigir_resposta(item: Item, resposta: str) -> Veredito:
 
 
 def corrigir(item: Item, texto: str) -> Veredito:
-    resposta = c.extrair_resposta(texto)
+    resposta = c.extrair_respostas(texto, len(item.gabaritos))
     if resposta is None:
         return Veredito.SEM_RESPOSTA
     return corrigir_resposta(item, resposta)
@@ -240,7 +244,7 @@ def corrigir(item: Item, texto: str) -> Veredito:
 
 
 def _numero_perturbado(item: Item, k: int) -> list[str]:
-    v = c.numero(item.gabaritos[k])
+    v = c.numero(item.gabaritos[k], estrito=True)
     if v is None:
         return []
     tol = item.tolerancias[k] if item.tolerancias else None
@@ -269,7 +273,10 @@ def perturbacoes(item: Item, k: int = 0) -> list[str]:
     if item.bench == "scibench" or tipo in ("NV", "Numerical"):
         return _numero_perturbado(item, k)
     if tipo in ("EX", "Expression") or item.bench == "phybench":
-        return [f"{g} + 1", *_simbolo_trocado(g)]
+        # "0" pega o gabarito que o parser lê como zero (aconteceu com `v^2_2`)
+        e = c.expressao(c._depois_do_igual(c.limpar(g)))
+        zero = ["0"] if e is not None and e.free_symbols else []
+        return [f"{g} + 1", *_simbolo_trocado(g), *zero]
     if tipo in ("EQ", "Equation"):
         return [f"{g} + 1"]
     if tipo in ("IN", "Interval"):

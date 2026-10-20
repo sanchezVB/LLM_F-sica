@@ -256,6 +256,37 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 5. **Aquecimento do parser.** A primeira chamada ao parser LaTeX passava do teto de 5 s do verify no Windows, e a primeira resposta saía INCONCLUSIVE. O corretor agora aquece o parser na importação.
 6. **Ordem da cascata e tempo.** A amostragem numérica vem antes do `simplify`, que só entra quando ela não decide. Antes, a mesma comparação saía PASS com a máquina livre e INCONCLUSIVE por tempo com a máquina carregada, e a correção não era reprodutível. O teto de 10 s é de relógio: quem estoura é refeito uma vez antes de virar INCONCLUSIVE. A correção da medida roda sem outra carga pesada na máquina.
 
+7. **Revisão pelo estresse adversarial (2026-10-19).** Três agentes atacaram o corretor com respostas sintéticas sobre itens de dev: mais de 1.400 casos, achados reproduzidos e conferidos por um verificador cético. O que mudou:
+   - **Falsos positivos**, que inflariam a nota:
+     - O parser do SymPy, no modo padrão, devolvia só o prefixo lido: `A, B` virava A, e `X \to Y` virava X. Uma resposta com duas alternativas passava sempre que a primeira estava certa, em 28 de 31 casos. O G2 agora lê LaTeX em **modo estrito**, com parser próprio do adaptador; o do verify continua frouxo.
+     - ±∞ casava com qualquer número, porque inf ≤ inf dá verdadeiro.
+     - O número lido como coeficiente da frente de uma expressão simbólica: `2\sqrt{m/k}` passava contra 2. O gabarito agora é lido em modo estrito, e na resposta a unidade solta só vale se for unidade de fato (lista SI com prefixos), separada por espaço.
+     - O lado esquerdo da resposta era descartado: `2M = …` passava, e `\omega = …` passava contra `\omega' = …`.
+     - `f(0)` virava f·0 = 0.
+     - δ(u) virava δ·u, linear no argumento.
+     - Unidade com expoente elevava o número: `18,76\,\mathrm{m}^2` valia 351,9.
+     - `\text{not } A` passava como A, e `5 N` como "No".
+     - `\tan\frac{x}{4} e^{y}` era lido como tan(x·e^y/4).
+   - **Falsos negativos:**
+     - subscrito colado (`k_BT` é k_B·T);
+     - variantes gregas (`\varepsilon` = `\epsilon`);
+     - `\sqrt[n]{}`;
+     - `m(g+a)^2` como m·(g+a)², não como função;
+     - equação de definição rearranjada, ou com outra variável isolada (mesmo conjunto-solução, conferido nos dois sentidos);
+     - desigualdade e `x \in` contra intervalo;
+     - várias caixas e os separadores `;`, `and` e `\quad` nas respostas múltiplas;
+     - separador de milhar, Unicode, siunitx, `\over`, `\cfrac`, `e^{número}`;
+     - prosa e unidade em volta de expressão;
+     - resposta em texto puro.
+   - **Extração:**
+     - a caixa de um problema novo inventado depois da resposta não vale;
+     - "final answer is" depois da última caixa vence;
+     - a frase final aceita o primeiro trecho matemático.
+   - **Decisões declaradas:**
+     - a unidade da resposta não é conferida, só o valor (a resposta em keV com o número certo passa contra GeV);
+     - não há atalho de porcentagem (60,5% ≠ 0,605) em nenhum benchmark;
+     - se o enunciado usa ε e ϵ como símbolos distintos, a distinção se perde.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
