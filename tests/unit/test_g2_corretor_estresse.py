@@ -166,6 +166,28 @@ def test_definicao_isolando_a_grandeza():
     assert c.comparar_definicao(r"E V = \pi B u_0^2", r"E = \frac{\pi B u_0^2}{V^2}") is V.FAIL
 
 
+@pytest.mark.parametrize("gabarito", [
+    r"\Delta R = \frac{2 \rho}{\pi b^{2}}",
+    r"E_{\text{gap}} \approx 2n\pi \frac{\hbar^2 |r|}{ma^2}",
+    r"|A| = \sqrt[4]{\frac{\alpha^{2}}{\pi}}",
+    r"\Delta p=F\Delta t",
+    r"T(r, t \rightarrow \infty) = T_0 + (T_1-T_0) \frac{R}{r}",
+    r"\alpha_{2} = \tan^{-1} \left(\frac{k_{1}}{k_{2}}\right)",
+])
+def test_gabarito_com_lado_esquerdo_passa_contra_si_e_reprova_mais_um(gabarito):
+    """Regressões do autoteste depois da revisão: lado esquerdo que não é grandeza
+    simples reprovava contra si mesmo; `\\right` apagava o começo de `\\rightarrow`; o `}`
+    de `\\tan^{-1}` virava base da multiplicação explícita."""
+    assert c.comparar_definicao(gabarito, gabarito) is V.PASS
+    assert c.comparar_definicao(gabarito + " + 1", gabarito) is V.FAIL
+
+
+def test_potencia_de_funcao():
+    g = r"\sqrt{\frac{2 g f^{2}(z_{2})(z_{1}-z_{2})}{f^{2}(z_{1})-f^{2}(z_{2})}}"
+    assert c.comparar_expressao(r"\sqrt{\frac{2 g z_{2}(z_{1}-z_{2})}{z_{1}-z_{2}}}", g) is V.FAIL
+    assert c.comparar_expressao(g, g) is V.PASS
+
+
 def test_letras_coladas_nao_sao_grandeza():
     assert c.comparar_expressao(r"kM = \frac{4 \pi^{2} r^{3}}{G t^{2}}",
                                 r"\frac{4 \pi^{2} r^{3}}{G t^{2}}") is V.FAIL

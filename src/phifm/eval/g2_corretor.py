@@ -166,8 +166,9 @@ _UNICODE = (("−", "-"), ("–", "-"), ("×", "\\times "), ("·", "\\cdot "), (
             ("\u2003", " "), ("\u200b", ""), ("√", "\\sqrt "))
 _SOBRESCRITOS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+")
 _ENVOLTORIOS = (("$$", "$$"), ("$", "$"), ("\\[", "\\]"), ("\\(", "\\)"))
-_SUMIR = (r"\left", r"\right", r"\displaystyle", r"\!", r"\,", r"\;", r"\:", r"\quad",
-          r"\qquad", r"\bigg", r"\Bigg", r"\big", r"\Big", "\\ ")
+# Com fim de palavra: `\right` dentro de `\rightarrow` virava "arrow" (achado no dev).
+_SUMIR = re.compile(r"\\(?:left|right|displaystyle|bigg|Bigg|big|Big|qquad|quad)(?![A-Za-z])"
+                    r"|\\[!,;:]|\\ ")
 _DECORACAO = re.compile(r"\\(?:vec|hat|bar|mathbf|boldsymbol|bm|mathit|tilde|overline|"
                         r"overrightarrow|widetilde|widehat|mathcal|mathscr)\s*\{([^{}]*)\}")
 _TEXTO = re.compile(r"\\(?:mathrm|text|textrm|rm|mbox|operatorname|mathsf|textit|"
@@ -236,6 +237,26 @@ _OPERADORES = {"cdot", "times", "div", "pm", "mp", "ast", "star", "circ", "left"
 _UM_TOKEN = re.compile(r"\s*(?:[+-]?\d+(?:\.\d+)?|\\?[A-Za-z]+(?:\s*_\s*(?:\{[^{}]*\}|\w))?)\s*")
 
 
+def _expoente_de_funcao(s: str, fecha: int) -> bool:
+    """A chave que fecha em `fecha` é o expoente/subscrito de uma função conhecida?"""
+    nivel = 0
+    for j in range(fecha, -1, -1):
+        nivel += {"}": 1, "{": -1}.get(s[j], 0)
+        if nivel == 0:
+            antes = s[:j].rstrip()
+            if antes.endswith(("^", "_")):
+                m = re.search(r"\\([A-Za-z]+)\s*$", antes[:-1])
+                return bool(m and m.group(1) in _FUNCOES_CONHECIDAS)
+            return False
+    return False
+
+
+def _potencia_de_funcao(s: str) -> str:
+    """`f^{2}(z)` com argumento de um token é [f(z)]², notação comum de física."""
+    return re.sub(r"(?<![A-Za-z\\])([A-Za-z])\s*\^\s*\{?\s*(\d)\s*\}?\s*\((\s*(?:[+-]?\d+(?:\.\d+)?"
+                  r"|\\?[A-Za-z]+(?:\s*_\s*(?:\{[^{}]*\}|\w))?)\s*)\)", r"(\1(\3))^{\2}", s)
+
+
 def _multiplicacao_explicita(s: str) -> str:
     """Símbolo seguido de parêntese é PRODUTO (`m(g+a)^2` = m·(g+a)², `\\mu (g - a)`), a
     não ser que o argumento seja um token só: aí é valor de função (`\\theta(0)`, `x(t)`).
@@ -245,6 +266,8 @@ def _multiplicacao_explicita(s: str) -> str:
         base = m.group(1)
         if base.startswith("\\") and base[1:] in _FUNCOES_CONHECIDAS | _OPERADORES:
             continue
+        if base == "}" and _expoente_de_funcao(s, m.start(1)):
+            continue                     # `\tan^{-1}(…)`, `\sin^{2}(…)`, `\log_{2}(…)`
         nivel, fim = 0, None
         for j in range(m.end() - 1, len(s)):
             nivel += {"(": 1, ")": -1}.get(s[j], 0)
@@ -303,8 +326,7 @@ def limpar(s: str) -> str:
                s)
     s = s.replace("\\dfrac", "\\frac").replace("\\tfrac", "\\frac").replace("\\cfrac", "\\frac")
     s = _over(s)
-    for x in _SUMIR:
-        s = s.replace(x, " ")
+    s = _SUMIR.sub(" ", s)
     s = s.replace("~", " ").replace("\\{", "(").replace("\\}", ")")
     s = _DECORACAO.sub(r"\1", s)
     s = re.sub(r"\\mathrm\s*\{\s*([edi])\s*\}", r"\1", s)     # e de Euler, d, i
@@ -338,6 +360,7 @@ def limpar(s: str) -> str:
     s = re.sub(r"\\sqrt\s*(?![\[{(])(\\[A-Za-z]+|[A-Za-z0-9])", r"\\sqrt{\1}", s)
     s = _com_par(s, "\\sqrt", lambda x: "\\sqrt{" + x + "}")
     s = _funcao_de_fracao(s)
+    s = _potencia_de_funcao(s)
     s = _multiplicacao_explicita(s)
     # módulo: o parser frouxo descartava `\left|E\right|`; √((X)²) é o módulo nos reais
     s = re.sub(r"\|([^|]+)\|(?!\s*_)", r"\\sqrt{(\1)^{2}}", s)
@@ -697,9 +720,13 @@ def lado_esquerdo_e_grandeza(equacao: str) -> bool:
     return len(lados) == 2 and _GRANDEZA.fullmatch(lados[0]) is not None
 
 
-def _mesma_grandeza(a: str, b: str) -> bool:
+def _mesmo_lado(a: str, b: str) -> bool:
+    """Dois lados esquerdos são o mesmo: equivalentes se o parser lê os dois, ou o mesmo
+    texto normalizado (`T(r, t \\to \\infty)` não se lê)."""
     ea, eb = expressao(a), expressao(b)
-    return ea is not None and eb is not None and ea == eb
+    if ea is not None and eb is not None:
+        return _equivalentes(ea, eb) is Veredito.PASS
+    return texto_normalizado(a) == texto_normalizado(b)
 
 
 def _sem_texto_em_volta(s: str) -> str:
@@ -712,14 +739,15 @@ def _sem_texto_em_volta(s: str) -> str:
 def comparar_expressao(resposta: str, gabarito: str) -> Veredito:
     """Equivalência com todas as variáveis positivas.
 
-    Gabarito `G = expr` (G uma grandeza): compara-se expr. Resposta com relações
-    (`=`, `\\approx`): PASS se um dos lados for equivalente e cada outro lado for (a) uma
-    grandeza solta (igual a G, se o gabarito tiver G) ou (b) um número depois de
-    `\\approx`. `2M = expr` e `x = 3, y = 2` não passam."""
+    Gabarito `L = expr`: compara-se expr. Resposta com relações (`=`, `\\approx`): PASS se
+    um dos lados for equivalente a expr e cada outro lado for (a) o mesmo L do gabarito,
+    (b) uma grandeza solta, quando o gabarito não tem L, ou (c) um número depois de
+    `\\approx`. `2M = expr`, `\\omega = …` contra `\\omega' = …` e `x = 3, y = 2` não
+    passam."""
     if not verificavel(gabarito):
         return Veredito.INCONCLUSIVE
     g_lados = dividir_nivel_zero(limpar(gabarito), _IGUAL)
-    grandeza_g = g_lados[0] if len(g_lados) == 2 and _GRANDEZA.fullmatch(g_lados[0]) else None
+    esquerdo_g = g_lados[0] if len(g_lados) >= 2 else None
     g = expressao(g_lados[-1])
     if g is None:
         return (Veredito.PASS if texto_normalizado(resposta) == texto_normalizado(gabarito)
@@ -741,8 +769,9 @@ def comparar_expressao(resposta: str, gabarito: str) -> Veredito:
                 continue
             if sep in _APROXIMADO and numero(outro) is not None:
                 continue
-            if _GRANDEZA.fullmatch(outro) and (grandeza_g is None
-                                                or _mesma_grandeza(outro, grandeza_g)):
+            if esquerdo_g is not None and _mesmo_lado(outro, esquerdo_g):
+                continue
+            if esquerdo_g is None and _GRANDEZA.fullmatch(outro):
                 continue
             outros_ok = False
             break
@@ -803,16 +832,15 @@ def comparar_definicao(resposta: str, gabarito: str) -> Veredito:
     lado direito (com G conferido), pela regra da equação (lados trocados, termos
     movidos) ou isolando G na resposta. Desvio declarado no DOC-12 §3.7.4: a regra da EQ,
     sozinha, reprovaria `E V^2 = \\pi B u_0^2` contra `E = \\pi B u_0^2 / V^2`."""
-    vs = [comparar_expressao(resposta, gabarito)]
-    if vs[-1] is Veredito.PASS:
-        return Veredito.PASS
-    vs.append(comparar_equacao(resposta, gabarito))
-    if vs[-1] is Veredito.PASS:
-        return Veredito.PASS
-    vs.append(_isolando_a_grandeza(resposta, gabarito))
-    if vs[-1] is Veredito.PASS:
-        return Veredito.PASS
-    return Veredito.INCONCLUSIVE if Veredito.INCONCLUSIVE in vs else Veredito.FAIL
+    principal = comparar_expressao(resposta, gabarito)
+    if principal is Veredito.PASS:
+        return principal
+    # os caminhos da equação só PROMOVEM a PASS: um gabarito que não se lê como equação
+    # (`E_{gap} \approx …`) não torna inconclusivo o que o caminho principal decidiu
+    for caminho in (comparar_equacao, _isolando_a_grandeza):
+        if caminho(resposta, gabarito) is Veredito.PASS:
+            return Veredito.PASS
+    return principal
 
 
 # ── desigualdade e intervalo ─────────────────────────────────────────────────

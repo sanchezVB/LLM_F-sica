@@ -272,7 +272,7 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
      - variantes gregas (`\varepsilon` = `\epsilon`);
      - `\sqrt[n]{}`;
      - `m(g+a)^2` como m·(g+a)², não como função;
-     - equação de definição rearranjada, ou com outra variável isolada (mesmo conjunto-solução, conferido nos dois sentidos);
+     - gabarito de definição `G = expr` (G uma grandeza): o que se corrige é o valor de G. Ele passa pelo lado direito, com G conferido, pela regra da equação ou isolando G na resposta. **Desvio declarado, para o dono decidir:** a regra da EQ sozinha (razão constante) reprovaria `E V^2 = \pi B u_0^2` contra `E = \pi B u_0^2/V^2`. A EQ que não é definição segue a regra à letra, só com razão constante;
      - desigualdade e `x \in` contra intervalo;
      - várias caixas e os separadores `;`, `and` e `\quad` nas respostas múltiplas;
      - separador de milhar, Unicode, siunitx, `\over`, `\cfrac`, `e^{número}`;
