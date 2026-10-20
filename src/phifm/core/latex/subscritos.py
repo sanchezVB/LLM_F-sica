@@ -76,7 +76,14 @@ _BASE = rf"({_MACRO}|{_LETRA})"
 
 # `X_{...}` — o conteúdo é fatiado com contagem de chaves, porque
 # `E_{\mathrm{cin}}` aninha e regex não fecha par aninhado.
-_ABRE_CHAVE = re.compile(_BASE + r"\s*_\s*\{")
+#
+# A macro de fonte pode vir sem chaves em volta: `k_\mathrm{B}` e `m_\mathrm{e}`
+# são TeX válido, iguais a `k_{\mathrm{B}}`, e comuns em Física. Sem esta
+# forma o ANTLR lia `k_{mathrm}·B` — e desde 2026-10-19 o `verify.symbolic`
+# recusa a expressão inteira, por ter uma macro virado símbolo.
+_ABRE_CHAVE = re.compile(
+    _BASE + r"\s*_\s*(?:\\(?:mathrm|text|textrm|textup|mbox)\s*)?\{"
+)
 
 # `X_nome` já achatado — a ingestão pode já ter normalizado, e aí o ANTLR
 # recebe `E_cin` e estilhaça do mesmo jeito (`E_{c}*(i*n)`, que ainda por cima

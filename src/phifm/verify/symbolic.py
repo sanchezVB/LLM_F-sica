@@ -102,11 +102,95 @@ _FISICA = {n: sp.Symbol(n) for n in ("E", "N", "Q", "S", "O", "gamma", "beta", "
 
 # ── O LaTeX que o ANTLR lê errado ──────────────────────────────────────────
 #
-# Três defeitos do backend ANTLR do `sympy.parsing.latex` (SymPy 1.14), achados
-# em 2026-10-19 ao construir o corretor do portão G2, que os contornava por
-# conta própria em `eval/g2_corretor.py`. A correção mora aqui porque `parse` é
-# o barramento único dos cinco consumidores (DOC-10, DOC-01 P3): contornar só
-# no G2 deixaria o RLVR dando recompensa pela leitura errada.
+# Defeitos do backend ANTLR do `sympy.parsing.latex` (SymPy 1.14), achados em
+# 2026-10-19 ao construir o corretor do portão G2, que os contornava por conta
+# própria em `eval/g2_corretor.py`. A correção mora aqui porque `parse` é o
+# barramento único dos cinco consumidores (DOC-10, DOC-01 P3): contornar só no
+# G2 deixaria o RLVR dando recompensa pela leitura errada.
+#
+# A ordem em `_ler_latex` importa: a tipografia sai antes de tudo (`\big|` é
+# módulo), e as pontas são aparadas por último (as trocas anteriores podem
+# deixar um `\,` na ponta).
+
+# Letras gregas, que a gramática lê como `SYMBOL` e que de fato nomeiam grandeza.
+_GREGAS = frozenset({
+    "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
+    "theta", "vartheta", "iota", "kappa", "varkappa", "lambda", "mu", "nu", "xi",
+    "omicron", "pi", "varpi", "rho", "varrho", "sigma", "varsigma", "tau",
+    "upsilon", "phi", "varphi", "chi", "psi", "omega", "Gamma", "Delta", "Theta",
+    "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega",
+})
+
+# ⚠️ Tipografia. A regra `SYMBOL` da gramática aceita qualquer macro, então o
+# que é só tamanho ou estilo virava grandeza:
+#
+#     \displaystyle\frac{a}{b}  →  displaystyle·a/b
+#     \big( a \big)             →  a função `big` aplicada a a·big
+#
+# e a resposta certa reprovava contra o gabarito escrito sem elas. Saem
+# trocadas por `\,`, que a gramática pula: apagar sem deixar nada colaria os
+# vizinhos, e um espaço comum pode formar diferencial (`d\displaystyle x` →
+# `d x` → dx).
+_TIPOGRAFIA = re.compile(
+    r"\\(?:displaystyle|textstyle|scriptstyle|scriptscriptstyle|[Bb]igg?[lrm]?|"
+    r"limits|nolimits)(?![A-Za-z])"
+)
+
+# Constantes em tipo reto, pela ISO 80000-2: `\mathrm{e}` é o número de Euler,
+# `\mathrm{i}` a unidade imaginária e `\mathrm{d}` o operador diferencial — o
+# e, o i e o d em itálico são grandezas (carga, índice, distância). Sem isto,
+# `\mathrm{e}^{-\beta E}` virava mathrm/e^{βE}.
+#
+# O `d` vira a letra, e o lexer faz dele o diferencial como faria com `dx`. O e
+# e o i viram uma macro-sentinela, trocada pela constante depois do parse:
+# não há como escrever o e de Euler em LaTeX que o ANTLR leia como constante.
+#
+# Não vale logo depois de `_`: `m_\mathrm{e}` é a massa do elétron, e quem
+# trata subscrito é `normalizar_subscritos`.
+_RETAS = re.compile(r"(?<!_)\\(?:mathrm|textrm|operatorname)\s*\{\s*([dei])\s*\}")
+_SENTINELAS = {"e": "phifmeuler", "i": "phifmimaginaria"}
+_CONSTANTES_RETAS = {
+    sp.Symbol(_SENTINELAS["e"]): sp.E,
+    sp.Symbol(_SENTINELAS["i"]): sp.I,
+}
+
+
+def _reta(m: re.Match) -> str:
+    letra = m.group(1)
+    return "d" if letra == "d" else f"{{\\{_SENTINELAS[letra]}}}"
+
+
+# ⚠️ Macro que não nomeia grandeza. Mesmo com a tipografia fora, a regra
+# `SYMBOL` segue transformando em símbolo livre toda macro que a gramática não
+# conhece: `\text{m}` → m·text, `\vec{F}` → F·vec, `\dot{x}` → dot·x,
+# `a \approx b` → a·approx·b, `30^\circ` → 30^circ, `A^\dagger` → A^dagger.
+# Tratar uma a uma é correr atrás da próxima; o que se fecha aqui é a classe:
+# se o resultado tem um símbolo cujo nome vem de uma macro do texto, e essa
+# macro não é grega nem `\hbar`/`\ell`, a leitura é recusada e `parse` devolve
+# None — INCONCLUSIVE, nunca uma leitura com um `text` ou um `vec` dentro.
+#
+# Macros que a gramática conhece (`\frac`, `\sin`, `\cdot`, `\int`) não geram
+# símbolo, então não precisam de lista. Unidades (`5\,\text{m}`) caem aqui de
+# propósito: descartá-las aprovaria 5 km contra 5 m, e levá-las ao dimensional
+# exige uma gramática de unidades que ainda não existe.
+_MACROS_DE_GRANDEZA = _GREGAS | {"hbar", "hslash", "ell"}
+
+
+class _MacroLivre(ValueError):
+    """O ANTLR leu como grandeza uma macro que não é nome de grandeza."""
+
+
+def _recusar_macros_livres(e: sp.Basic, texto: str) -> None:
+    suspeitas = set(re.findall(r"\\([A-Za-z]+)", texto)) - _MACROS_DE_GRANDEZA
+    if not suspeitas:
+        return
+    nomes = [s.name for s in e.atoms(sp.Symbol)]
+    nomes += [f.func.__name__ for f in e.atoms(AppliedUndef)]
+    # O nome inteiro, e não só a base: `x_{\vec{v}}` sai o símbolo `x_{v*vec}`.
+    achadas = {p for n in nomes for p in re.findall(r"[A-Za-z]+", n)} & suspeitas
+    if achadas:
+        raise _MacroLivre(", ".join(sorted(achadas)))
+
 
 # ⚠️ Módulo descartado em silêncio. A gramática reserva `\left|` e `\right|`
 # como tokens próprios (L_BAR, R_BAR), feitos para o bra-ket, e a regra do
@@ -154,13 +238,7 @@ _PONTAS = re.compile(rf"^(?:{_PULADO})+|(?:{_PULADO})+$")
 # diferencial (`d\theta`, `d\phi`), que é a dela numa integral; `\pi` não,
 # porque constante não tem diferencial. Fora de macro nada muda: `dx` segue
 # ambíguo entre dx e d·x, e a leitura continua a da gramática.
-_GREGAS_DE_INTEGRACAO = frozenset({
-    "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
-    "theta", "vartheta", "iota", "kappa", "varkappa", "lambda", "mu", "nu", "xi",
-    "omicron", "varpi", "rho", "varrho", "sigma", "varsigma", "tau", "upsilon",
-    "phi", "varphi", "chi", "psi", "omega", "Gamma", "Delta", "Theta", "Lambda",
-    "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega", "ell",
-})
+_GREGAS_DE_INTEGRACAO = (_GREGAS - {"pi"}) | {"ell"}
 # A primeira alternativa consome a macro inteira, para o `d` de `\delta` ou de
 # `\dfrac` nunca ser lido como letra solta.
 _D_ANTES_DE_MACRO = re.compile(r"\\[A-Za-z]+|d(?=[ \t\r\n]*\\([A-Za-z]+))")
@@ -195,10 +273,14 @@ def _pi(e: sp.Basic) -> sp.Basic:
 
 
 def _ler_latex(texto: str) -> sp.Basic:
+    texto = _TIPOGRAFIA.sub(lambda _: "\\,", texto)
+    texto = _RETAS.sub(_reta, texto)
     texto = _MODULO.sub("|", texto)
     texto = _D_ANTES_DE_MACRO.sub(_separar_d, texto)
     texto = _PONTAS.sub("", texto)
-    return _pi(parse_latex(texto, strict=True))
+    e = _pi(parse_latex(texto, strict=True)).xreplace(_CONSTANTES_RETAS)
+    _recusar_macros_livres(e, texto)
+    return e
 
 
 def _declarados(claim: Claim) -> dict[str, sp.Symbol]:

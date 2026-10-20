@@ -10,6 +10,8 @@ construir o corretor do portão G2. O G2 os contornava por conta própria
   3. A primeira chamada carregava o ANTLR sob o teto de 5 s do `_com_limite`.
   4. `d \\sin\\theta` virava o símbolo `dsin` (token DIFFERENTIAL).
   5. `I` declarado como corrente só valia no dimensional.
+  6. Toda macro desconhecida virava símbolo livre (`\\displaystyle` →
+     `displaystyle`, `\\text{m}` → `text·m`, `\\vec{F}` → `vec·F`).
 
 Cada teste afirma a leitura certa E a consequência no barramento, porque o
 defeito só custa caro quando vira veredito.
@@ -218,3 +220,100 @@ def test_I_declarado_como_corrente_vale_no_simbolico_e_no_numerico(verificador):
     ctx = {"dimensions": {"I": "corrente"}}
     r = verificador().verify(Claim(lhs="I^2*R", rhs=r"I^{2} R", context=ctx))
     assert r.verdict is Verdict.PASS, r.evidence
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. Macro que não nomeia grandeza — some se é tipografia, recusa se não é
+# ═══════════════════════════════════════════════════════════════════════════
+
+a, b, x, y = sp.symbols("a b x y")
+
+
+@pytest.mark.parametrize(
+    "latex,esperado",
+    [
+        (r"\displaystyle\frac{a}{b}", a / b),      # virava displaystyle·a/b
+        (r"\textstyle x", x),
+        (r"\big( a \big)", a),                     # virava a função `big`
+        (r"\bigl(x+y\bigr)", x + y),
+        (r"\big|x\big|", sp.Abs(x)),               # tamanho de barra ainda é módulo
+    ],
+)
+def test_tipografia_some(latex, esperado):
+    assert _iguais(parse(latex), esperado), parse(latex)
+
+
+def test_limits_nao_atrapalha_o_somatorio():
+    assert parse(r"\sum\limits_{i=1}^{n} i").doit() == (n**2 + n) / 2
+
+
+@pytest.mark.parametrize(
+    "latex,esperado",
+    [
+        (r"\mathrm{e}^{-\beta E}", sp.exp(-sp.Symbol("beta") * E)),  # virava mathrm/e^{βE}
+        (r"\mathrm{e}", sp.E),
+        (r"\mathrm{i}\omega t", sp.I * sp.Symbol("omega") * sp.Symbol("t")),
+    ],
+)
+def test_constante_em_tipo_reto_e_a_da_iso(latex, esperado):
+    """ISO 80000-2: e, i e d retos são a constante e o operador; em itálico,
+    grandezas."""
+    assert _iguais(parse(latex), esperado), parse(latex)
+
+
+def test_d_reto_e_o_diferencial():
+    t = sp.Symbol("t")
+    assert parse(r"\int_0^1 x\,\mathrm{d}x") == sp.Integral(x, (x, 0, 1))
+    assert parse(r"\frac{\mathrm{d}x}{\mathrm{d}t}") == sp.Derivative(x, t)
+
+
+def test_e_reto_em_subscrito_e_o_eletron_e_nao_euler():
+    e = parse(r"m_\mathrm{e} c^2")
+    assert not e.has(sp.E)
+    assert _iguais(e, sp.Symbol("m_e") * sp.Symbol("c") ** 2)
+
+
+def test_sentinela_das_constantes_nao_vaza_para_um_nome():
+    assert parse(r"x_{\mathrm{e} + 1}") is None
+
+
+MACROS_SEM_GRANDEZA = [
+    r"5\,\text{m}",            # unidade: descartá-la aprovaria 5 km contra 5 m
+    r"12\,\text{m/s}",
+    r"364.7 \mathrm{nm}",
+    r"\vec{F}",
+    r"\dot{x}",
+    r"A^\dagger",
+    r"a \approx b",
+    r"30^\circ",
+    r"a \pm b",
+    r"\mathcal{E}",
+    r"\operatorname{sgn}(x)",
+    r"\mathbb{R}",
+    r"x_{\vec{v}}",            # a macro dentro do nome do símbolo também conta
+]
+
+
+@pytest.mark.parametrize("latex", MACROS_SEM_GRANDEZA)
+def test_macro_que_nao_nomeia_grandeza_leva_a_none(latex):
+    assert parse(latex) is None, parse(latex)
+
+
+def test_segunda_lei_vetorial_nao_reprova():
+    """Antes, `vec·F` contra `m·vec·a` dava FAIL por `equals()` — a 2ª lei de
+    Newton reprovada. Sem leitura confiável do vetor, o certo é se abster."""
+    r = SymbolicVerifier().verify(Claim(lhs=r"\vec{F}", rhs=r"m\vec{a}"))
+    assert r.verdict is Verdict.INCONCLUSIVE, r.evidence
+
+
+@pytest.mark.parametrize(
+    "latex,esperado",
+    [
+        (r"\hbar\omega", sp.Symbol("hbar") * sp.Symbol("omega")),
+        (r"\ell", sp.Symbol("ell")),
+        (r"\varepsilon_{0} E^2", sp.Symbol("varepsilon_0") * E**2),
+        (r"\frac{\partial f}{\partial x}", sp.Derivative(sp.Symbol("f"), x)),
+    ],
+)
+def test_macro_que_nomeia_grandeza_continua_lida(latex, esperado):
+    assert _iguais(parse(latex), esperado), parse(latex)
