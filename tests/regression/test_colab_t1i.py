@@ -62,7 +62,7 @@ def test_a_receita_e_a_de_todos_e_o_volume_o_do_T1g():
 
 
 def test_as_bases_sao_as_duas_que_o_T1h_mandou_subir():
-    assert t1i.BASES == {n: t1h.BASES[n] for n in ("gte-small", "bge-small")}
+    assert {n: t1h.BASES[n] for n in ("gte-small", "bge-small")} == t1i.BASES
 
 
 def test_os_pares_sao_os_do_T1g_e_a_validacao_e_a_de_400_mil():

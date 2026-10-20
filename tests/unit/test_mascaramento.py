@@ -452,7 +452,7 @@ def test_mascarar_e_mascarar_com_origem_SORTEIAM_igual():
     ids, marca, disp = _exemplo()
     for p in (0.0, 0.6, 1.0):
         cfg = ConfigMascara(p_equacao=p)
-        kw = dict(cfg=cfg, id_mask=ID_MASK, n_vocab=N_VOCAB, ids_especiais=ESPECIAIS)
+        kw = {"cfg": cfg, "id_mask": ID_MASK, "n_vocab": N_VOCAB, "ids_especiais": ESPECIAIS}
         e1, a1 = mascarar(ids, marca, disp, rng=np.random.default_rng(5), **kw)
         e2, a2, _ = mascarar_com_origem(ids, marca, disp,
                                         rng=np.random.default_rng(5), **kw)

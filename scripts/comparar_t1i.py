@@ -50,6 +50,7 @@ def ler_candidata(nd: dict, razao_custo: float) -> tuple[str, str]:
 
 def main() -> int:
     import t1i_pequenas_1m as t1i
+
     from comparar_t1h import medir_custo
 
     ap = argparse.ArgumentParser()
