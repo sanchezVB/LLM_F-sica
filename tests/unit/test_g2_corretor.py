@@ -124,6 +124,20 @@ def test_intervalo():
     assert c.comparar_intervalo(r"x > 1", r"(1, \infty)") is V.FAIL
 
 
+def test_desigualdade():
+    assert c.comparar_intervalo(r"N_{1} < \frac{N}{2}", r"N_1 < \frac{N}{2}") is V.PASS
+    assert c.comparar_intervalo(r"\frac{N}{2} > N_{1}", r"N_1 < \frac{N}{2}") is V.PASS
+    assert c.comparar_intervalo(r"2 N_{1} < N", r"N_1 < \frac{N}{2}") is V.PASS
+    assert c.comparar_intervalo(r"N_{1} \leq \frac{N}{2}", r"N_1 < \frac{N}{2}") is V.FAIL
+    assert c.comparar_intervalo(r"N_{1} > \frac{N}{2}", r"N_1 < \frac{N}{2}") is V.FAIL
+    assert c.comparar_intervalo(r"\Delta m \geq \frac{\hbar}{2 \tau}",
+                                r"\Delta m \geq \frac{\hbar}{2\tau}") is V.PASS
+
+
+def test_chaves_escapadas_sao_parenteses():
+    assert c.comparar_expressao(r"N H \{ \coth x - 1 \}", r"N H (\coth x - 1)") is V.PASS
+
+
 def test_letras_e_vf():
     assert c.comparar_letras("(C)", "C") is V.PASS
     assert c.comparar_letras(r"\text{B}", "b") is V.PASS
@@ -142,6 +156,77 @@ def test_varias_respostas_em_qualquer_ordem():
     assert c.comparar_varias("18", ["18", "36"], [num, num]) is V.FAIL
     # uma vírgula dentro de parênteses não separa respostas
     assert c._partes("(1, 2), 3") == ["(1, 2)", "3"]
+
+
+@pytest.mark.parametrize("resposta, gabarito", [
+    (r"\frac{1}{2} m \dot{x}^{2}", r"\frac{m}{2} \dot{x}^{2}"),
+    (r"m l^{2} \dot{\theta}_{1}", r"l^{2} m \dot{\theta}_{1}"),
+    (r"N \mu H \coth x", r"N \mu H \operatorname{coth} x"),
+    (r"\frac{1}{2}\langle E \rangle", r"\frac{\langle E\rangle}{2}"),
+    (r"\frac{d \sin\theta}{\lambda}", r"\frac{d}{\lambda} \sin\theta"),
+    (r"q |E|", r"|E| q"),
+    (r"q \left|E\right|", r"|E| q"),
+    (r"|a - b| m", r"m \left| b - a \right|"),
+    (r"-(a + b) c", r"-\left[a+b\right] c"),
+    (r"-(a + b)", r"-[a + b]"),
+    (r"\frac{1}{\tanh((2 s+1) x)}", r"\coth[(2 s+1) x]"),
+    (r"\frac{\cosh x}{\sinh x}", r"\operatorname{coth} x"),
+])
+def test_notacoes_de_fisica(resposta, gabarito):
+    assert c.comparar_expressao(resposta, gabarito) is V.PASS
+
+
+def test_modulo_nao_some():
+    # o parse do verify descartava `\left|E\right|`: q|E| e q ficavam iguais
+    assert c.comparar_expressao(r"q", r"q \left|E\right|") is V.FAIL
+    assert c.comparar_expressao(r"(a - b) m", r"m |a - b|") is V.FAIL
+
+
+def test_ponto_distingue_coordenada_de_velocidade():
+    assert c.comparar_expressao(r"m \dot{x}", r"m x") is V.FAIL
+
+
+def test_sobrescrito_antes_do_subscrito_nao_vira_zero():
+    g = r"\frac{1}{2}mv^2_2 - \frac{1}{2}mv^2_1"
+    assert c.comparar_expressao("0", g) is V.FAIL
+    assert c.comparar_expressao(r"\frac{m}{2}(v_{2}^{2} - v_{1}^{2})", g) is V.PASS
+
+
+def test_equacao_de_definicao_compara_o_lado_direito():
+    assert c.lado_esquerdo_e_grandeza(r"\kappa(p, T) = \frac{\zeta^{2}}{1-\zeta^{2}}")
+    assert c.lado_esquerdo_e_grandeza(r"T(r, t \rightarrow \infty) = T_0 + (T_1-T_0) \frac{R}{r}")
+    assert c.lado_esquerdo_e_grandeza(r"c_{p} = T")
+    assert not c.lado_esquerdo_e_grandeza(r"R_{1} \dot{\theta}_{1} = \dot{x}_{2}")
+    assert not c.lado_esquerdo_e_grandeza(r"\frac{\zeta}{2}")
+
+
+def test_teto_refaz_uma_vez_o_que_estourou():
+    chamadas = []
+
+    def lenta_na_primeira():
+        chamadas.append(1)
+        if len(chamadas) == 1:
+            time.sleep(1)
+        return V.PASS
+
+    assert c.com_teto(lenta_na_primeira, segundos=0.3) is V.PASS
+    assert len(chamadas) == 2
+
+
+def test_graus_e_minutos():
+    assert c.numero("64^\\circ 10'") == pytest.approx(64 + 10 / 60)
+
+
+@pytest.mark.parametrize("gabarito", [
+    r"\int_{0}^{\infty} f(r) \, \mathrm{d} r",
+    r"\sum_{n=1}^{\infty} \frac{1}{n^{2}}",
+    r"T \left(\frac{\partial S}{\partial T}\right)_{p}",
+    r"\frac{d v}{d t}",
+    r"\left.\frac{\mathrm{d} \psi}{\mathrm{d} r}\right|_{r=a}",
+])
+def test_calculo_nao_e_verificavel_por_regra(gabarito):
+    assert not c.verificavel(gabarito)
+    assert c.comparar_expressao(gabarito, gabarito) is V.INCONCLUSIVE
 
 
 def test_teto_de_tempo():

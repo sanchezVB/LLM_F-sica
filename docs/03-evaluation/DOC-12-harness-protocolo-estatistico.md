@@ -225,6 +225,39 @@ O **G2.3 decide** com três medidas:
 
 Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
+**Correções de dev do corretor, registradas antes do congelamento (2026-10-19).** O autoteste do gabarito no UG-dev excluía **17,9%** dos itens, contra o limite de 5%. A regra manda consertar o parser no dev, e foi o que se fez, olhando só gabaritos de dev. Tudo vale igual nos dois braços e entra no hash do congelamento (`g2_corretor.py`, `g2_itens.py`). As correções:
+
+1. **Tipo efetivo pela forma do gabarito no UGPhysics.** O rótulo do dataset erra:
+   - 105 dos 396 itens "NV" do dev têm gabarito simbólico, que passa a ser corrigido como EX;
+   - EQ do tipo `grandeza = número` vira NV pelo lado direito; EQ do tipo `grandeza = expressão` (`\kappa(p, T) = …`) vira EX pelo lado direito, porque é a definição da grandeza; EQ sem `=` vira EX;
+   - no OlympiadBench, "Numerical" com gabarito simbólico vira "Expression";
+   - EQ com várias equações separadas por vírgula vira várias respostas;
+   - IN escrito como desigualdade é comparado como desigualdade (mesma estrição e f_resp/f_gab constante positiva).
+
+   A linha de resposta do prompt segue o tipo efetivo.
+2. **Gabarito com cálculo** (integral, soma, produtório, ∂, limite, ∇, bra-ket, diferencial explícito, barra de avaliação) **não é verificável por regra**. O parser devolve uma expressão sem o significado, por exemplo ∂S/∂p de um símbolo vira 0. O comparador devolve INCONCLUSIVE, e o autoteste exclui o item dos dois braços. Prefere-se excluir a aprovar por coincidência de lixo.
+3. **Gabarito que o parser não lê** (termo espectral `{}^{3}P_{0}`) é comparado como texto normalizado.
+4. **Camada de Física sobre o `parse` do verify:**
+   - `\pi` vira π, porque o parser o devolvia como símbolo;
+   - `e^{x}` simbólico vira exp;
+   - `\mu (…)` deixa de ser lido como função;
+   - `I` é símbolo, não a unidade imaginária;
+   - `\dot{x}` vira um identificador próprio, para que x e ẋ não colapsem;
+   - `\langle E\rangle` simples vira identificador;
+   - `\operatorname{coth}` vira `\coth`;
+   - módulo |X| vira √(X²), porque o `parse` do verify **descartava `\left|E\right|` em silêncio**;
+   - `d` antes de comando deixa de ser lido como diferencial;
+   - linha e estrela viram subscrito nomeado;
+   - `\{ \}` e `[ ]` viram parênteses nas expressões;
+   - graus e minutos de arco viram número;
+   - `v^2_2` (sobrescrito antes do subscrito) vira `v_2^2`. Antes o subscrito se perdia, e um gabarito do OlympiadBench-zh virava **zero**, de modo que a resposta "0" passava;
+   - nomes de símbolo são normalizados (`v_{2}` e `v_2` são o mesmo);
+   - `\coth`, `\sech` e `\csch`, que o parser não conhece, viram recíprocas de `tanh`, `cosh` e `sinh`.
+5. **Aquecimento do parser.** A primeira chamada ao parser LaTeX passava do teto de 5 s do verify no Windows, e a primeira resposta saía INCONCLUSIVE. O corretor agora aquece o parser na importação.
+6. **Ordem da cascata e tempo.** A amostragem numérica vem antes do `simplify`, que só entra quando ela não decide. Antes, a mesma comparação saía PASS com a máquina livre e INCONCLUSIVE por tempo com a máquina carregada, e a correção não era reprodutível. O teto de 10 s é de relógio: quem estoura é refeito uma vez antes de virar INCONCLUSIVE. A correção da medida roda sem outra carga pesada na máquina.
+
+Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
+
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
 - **Previsão.** A maior probabilidade entre as fichas ` A`, ` B`, ` C` e ` D`, a temperatura 0.
 - **Guarda do instrumento.** O MMLU de 57 matérias da base tem de ficar a ±3 pontos de 62,63 (1,7B) e de 76,89 (8B). Fora disso, a medida para, e só se corrige bug.

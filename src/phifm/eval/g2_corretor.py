@@ -107,7 +107,7 @@ _ENVOLTORIOS = (("$$", "$$"), ("$", "$"), ("\\[", "\\]"), ("\\(", "\\)"))
 _SUMIR = (r"\left", r"\right", r"\displaystyle", r"\!", r"\,", r"\;", r"\:", r"\quad",
           r"\qquad", r"\big", r"\Big", r"\bigg", r"\Bigg")
 _DECORACAO = re.compile(r"\\(?:vec|hat|bar|mathbf|boldsymbol|bm|mathit|tilde|overline|"
-                        r"overrightarrow)\s*\{([^{}]*)\}")
+                        r"overrightarrow|widetilde|widehat|mathcal|mathscr)\s*\{([^{}]*)\}")
 _TEXTO = re.compile(r"\\(?:mathrm|text|textrm|rm|mbox|operatorname|mathsf|textit|"
                     r"textbf)\s*\{([^{}]*)\}")
 
@@ -121,19 +121,84 @@ def limpar(s: str) -> str:
     for x in _SUMIR:
         s = s.replace(x, " ")
     s = s.replace("−", "-").replace("~", " ").replace("\\cdot", "*").replace("×", "\\times")
+    s = s.replace("\\{", "(").replace("\\}", ")")       # chave escapada como parêntese
     s = _DECORACAO.sub(r"\1", s)
     s = re.sub(r"\\mathrm\s*\{\s*e\s*\}", "e", s)      # `\mathrm{e}^{x}` é o e de Euler
     s = re.sub(r"\\mathrm\s*\{\s*d\s*\}", "d", s)
+    s = re.sub(r"\\mathrm\s*\{\s*i\s*\}", "i", s)
+    # Ponto de derivada temporal vira subscrito nomeado: `\dot{\theta}_{1}` → `\theta_{dot1}`,
+    # `\ddot{x}` → `x_{ddot}`. Sem isto o parser lê `dot*theta` e θ e θ̇ colapsam.
+    s = re.sub(r"\\(ddot|dot)\s*\{\s*([^{}]*?)\s*\}\s*_\s*\{\s*(\w+)\s*\}", r"\2_{\1\3}", s)
+    s = re.sub(r"\\(ddot|dot)\s*\{\s*([^{}]*?)\s*\}\s*_\s*(\w)", r"\2_{\1\3}", s)
+    s = re.sub(r"\\(ddot|dot)\s*\{\s*([^{}]*?)\s*\}", r"\2_{\1}", s)
+    # Média: `\langle E \rangle` → `E_{avg}`, quando dentro há um símbolo só.
+    s = re.sub(r"\\langle\s*(\\?[A-Za-z]+(?:_\{?\w+\}?)?)\s*\\rangle", r"\1_{avg}", s)
+    # `\operatorname{coth}` → `\coth`, que o parser conhece como função.
+    s = re.sub(r"\\operatorname\s*\{\s*(sinh|cosh|tanh|coth|sech|csch|arcsin|arccos|"
+               r"arctan|arsinh|arcosh|artanh|sin|cos|tan|cot|sec|csc|exp|ln|log)\s*\}",
+               r"\\\1", s)
+    # O parser não conhece coth, sech e csch (lê `coth` como símbolo vezes o argumento):
+    # viram 1/tanh, 1/cosh e 1/sinh do argumento.
+    s = re.sub(r"\\(coth|sech|csch)\s*(\{[^{}]*\}|\([^()]*\)|\[[^\[\]]*\]|"
+               r"\\[A-Za-z]+(?:_\{?\w+\}?)?|[A-Za-z0-9](?:_\{?\w+\}?)?)",
+               lambda m: ("\\frac{1}{\\" + {"coth": "tanh", "sech": "cosh", "csch": "sinh"}[m.group(1)]
+                          + "{" + m.group(2) + "}}"), s)
+    # Linha e estrela viram subscrito nomeado, que o parser atravessa como identificador:
+    # `\gamma'` → `\gamma_{prime}`, `p^{*}` → `p_{star}`.
+    s = re.sub(r"(?<=[A-Za-z}])\s*''", "_{dprime}", s)
+    s = re.sub(r"(?<=[A-Za-z}])\s*'", "_{prime}", s)
+    s = re.sub(r"\^\s*\{\s*\*\s*\}|\^\s*\*", "_{star}", s)
+    # Sobrescrito antes do subscrito: `v^2_2` → `v_{2}^{2}`. Sem isto o subscrito se perdia,
+    # e `\frac{1}{2}mv^2_2 - \frac{1}{2}mv^2_1` virava ZERO (achado no OlympiadBench-zh).
+    s = re.sub(r"(\\?[A-Za-z]+)\s*\^\s*(\{[^{}]*\}|\w)\s*_\s*(\{[^{}]*\}|\w)",
+               lambda m: f"{m.group(1)}_{{{m.group(3).strip('{}')}}}^{{{m.group(2).strip('{}')}}}",
+               s)
+    # Módulo: o `parse` do verify DESCARTA `\left|E\right|` em silêncio (`q|E|` → `q`).
+    # √((X)²) é o módulo exato nos reais e o parser o lê.
+    s = re.sub(r"\|([^|]+)\|(?!\s*_)", r"\\sqrt{(\1)^{2}}", s)
+    # `d` solto antes de um comando (`d \sin\theta`, a rede de difração) vira o token de
+    # diferencial do parser (`dsin`); o `\,` o separa.
+    s = re.sub(r"(?<![A-Za-z\\_^])(?<!_\{)(?<!\^\{)d(\s*)(?=\\[A-Za-z])", r"d\\,\1", s)
     return s.strip().rstrip(".").strip()
+
+
+def dividir_nivel_zero(s: str, padrao: str) -> list[str]:
+    """Divide `s` em cada ocorrência de `padrao` FORA de {}, () e [], para que o `=` de
+    `\\sum_{n=1}` ou a vírgula de `(a, b)` não contem como separador."""
+    nivel, cortes, ultimo = 0, [], 0
+    marcas = {m.start(): m.end() for m in re.finditer(padrao, s)}
+    j = 0
+    while j < len(s):
+        if nivel == 0 and j in marcas:
+            cortes.append(s[ultimo:j])
+            ultimo = j = marcas[j]
+            continue
+        if s[j] in "{([":
+            nivel += 1
+        elif s[j] in "})]":
+            nivel = max(0, nivel - 1)
+        j += 1
+    cortes.append(s[ultimo:])
+    return cortes
 
 
 def _fisica(e: sp.Expr) -> sp.Expr:
     """π, exp e o "μ (…)" que o parser lê como função (ver o docstring do módulo)."""
     e = e.xreplace({sp.Symbol("pi"): sp.pi})
+    # O mesmo símbolo sai com nomes diferentes conforme a vizinhança: `m v_{2}` dá `v_2`, e
+    # `mv_{2}` (colado) dá `v_{2}`. O nome é normalizado sem chaves nem barras.
+    nomes = {s: sp.Symbol(re.sub(r"[{}\\\s]", "", s.name)) for s in e.free_symbols
+             if isinstance(s, sp.Symbol) and re.search(r"[{}\\\s]", s.name)}
+    if nomes:
+        e = e.xreplace(nomes)
+    if sp.Symbol("pi") in e.free_symbols:
+        e = e.xreplace({sp.Symbol("pi"): sp.pi})
     trocas = {}
     for f in e.atoms(AppliedUndef):
         if len(f.args) == 1:
             trocas[f] = sp.Symbol(f.func.__name__) * f.args[0]
+        else:       # `\kappa(p, T)`: o valor de uma grandeza, não um produto
+            trocas[f] = sp.Symbol(f.func.__name__)
     if trocas:
         e = e.xreplace(trocas)
     euler = sp.Symbol("e")
@@ -144,8 +209,17 @@ def _fisica(e: sp.Expr) -> sp.Expr:
     return e.replace(_exp, lambda x: sp.exp(x.exp))
 
 
+# Em resposta de Física, `I` é corrente, momento de inércia ou intensidade, não a unidade
+# imaginária (que se escreve `i` ou `\mathrm{i}`). O `parse` do verify mantém o `I` do SymPy
+# de propósito (onda plana); aqui ele é símbolo.
+_LOCAIS = {"I": sp.Symbol("I")}
+
+
 def expressao(s: str) -> sp.Expr | None:
-    e = parse(limpar(s))
+    # colchete como parêntese: sem comando LaTeX na string, o parser de texto lê `[a+b]`
+    # como lista e falha (nos intervalos, o colchete é tratado antes de chegar aqui)
+    s = limpar(s).replace("[", "(").replace("]", ")")
+    e = parse(s, locais=_LOCAIS)
     if e is None:
         return None
     try:
@@ -154,9 +228,12 @@ def expressao(s: str) -> sp.Expr | None:
         return None
 
 
+_IGUAL = r"=|\\approx|\\simeq|\\equiv"
+
+
 def _depois_do_igual(s: str) -> str:
     """O lado direito do último `=`, `\\approx` ou `\\simeq` de nível zero."""
-    partes = re.split(r"=|\\approx|\\simeq|\\equiv", s)
+    partes = dividir_nivel_zero(s, _IGUAL)
     return partes[-1].strip() if len(partes) > 1 else s
 
 
@@ -165,6 +242,11 @@ def numero(s: str) -> float | None:
     grau, por cento e separador de milhar; aceita `\\times 10^{n}`, notação e, frações e
     raízes. Com o que sobrar de letras depois do número (unidade solta), vale o número."""
     s = _depois_do_igual(limpar(s))
+    # graus e minutos de arco: `64^\circ 10'` (a linha já virou `_{prime}` em `limpar`)
+    gm = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*\^\s*\{?\s*\\circ\s*\}?\s*(\d+(?:\.\d+)?)\s*"
+                      r"(?:_\{prime\}|')\s*", s)
+    if gm:
+        return float(gm.group(1)) + float(gm.group(2)) / 60
     s = _TEXTO.sub(" ", s)
     s = re.sub(r"\^\s*\{?\s*\\circ\s*\}?|\\circ|\\%|%|\\degree", " ", s)
     s = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", s)
@@ -187,7 +269,8 @@ def numero(s: str) -> float | None:
 # ── comparadores ─────────────────────────────────────────────────────────────
 
 
-def _com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> Veredito:
+def _com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> tuple[Veredito, bool]:
+    """(veredito, estourou)."""
     caixa: dict = {}
 
     def corpo():
@@ -199,7 +282,7 @@ def _com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> Veredit
     t = threading.Thread(target=corpo, daemon=True, name="g2-corretor")
     t.start()
     t.join(segundos)
-    return Veredito.INCONCLUSIVE if t.is_alive() else caixa["v"]
+    return (Veredito.INCONCLUSIVE, True) if t.is_alive() else (caixa["v"], False)
 
 
 def comparar_numero(resposta: str, gabarito: str, rel: float | None = None,
@@ -222,9 +305,11 @@ def comparar_numero(resposta: str, gabarito: str, rel: float | None = None,
     return Veredito.PASS if abs(r - g) <= rel * escala * (1 + 1e-12) else Veredito.FAIL
 
 
-def _amostrar_iguais(a: sp.Expr, b: sp.Expr, razao: bool = False) -> Veredito:
+def _amostrar_iguais(a: sp.Expr, b: sp.Expr, razao: bool = False,
+                     positiva: bool = False) -> Veredito:
     """Avalia a e b em N_AMOSTRAS pontos reais positivos a 50 dígitos. Sem `razao`: iguais
-    em todos → PASS. Com `razao`: a/b constante e não nula em todos → PASS."""
+    em todos → PASS. Com `razao`: a/b constante e não nula em todos → PASS (e, com
+    `positiva`, a constante tem de ser positiva)."""
     simbolos = sorted(a.free_symbols | b.free_symbols, key=str)
     rng = random.Random(17)
     mp.mp.dps = 50
@@ -256,7 +341,7 @@ def _amostrar_iguais(a: sp.Expr, b: sp.Expr, razao: bool = False) -> Veredito:
         return Veredito.INCONCLUSIVE
     if razao:
         r0 = valores[0]
-        if abs(r0) < mp.mpf("1e-30"):
+        if abs(r0) < mp.mpf("1e-30") or (positiva and not r0.real > 0):
             return Veredito.FAIL
         ok = all(abs(v - r0) <= TOL_EXPRESSAO * abs(r0) for v in valores)
     else:
@@ -265,6 +350,10 @@ def _amostrar_iguais(a: sp.Expr, b: sp.Expr, razao: bool = False) -> Veredito:
 
 
 def _equivalentes(a: sp.Expr, b: sp.Expr) -> Veredito:
+    """Estrutural; depois a amostragem numérica, que decide quase tudo em milissegundos; o
+    `simplify`, que pode levar segundos e estourar o teto, só quando a amostragem não
+    decidiu. Antes era o contrário, e a mesma comparação saía PASS numa máquina livre e
+    INCONCLUSIVE por tempo numa máquina carregada."""
     try:
         if a == b or sp.srepr(a) == sp.srepr(b):
             return Veredito.PASS
@@ -277,20 +366,56 @@ def _equivalentes(a: sp.Expr, b: sp.Expr) -> Veredito:
                     else Veredito.FAIL)
         except Exception:
             return Veredito.INCONCLUSIVE
+    v = _amostrar_iguais(a, b)
+    if v is not Veredito.INCONCLUSIVE:
+        return v
     try:
         if sp.simplify(a - b) == 0:
             return Veredito.PASS
     except Exception:
         pass
-    return _amostrar_iguais(a, b)
+    return Veredito.INCONCLUSIVE
+
+
+def texto_normalizado(s: str) -> str:
+    """Para o que o parser não lê (termo espectral, notação de estado): a forma sem
+    espaços, sem `\\mathrm{}`/`\\text{}` e sem chaves soltas."""
+    s = _TEXTO.sub(r"\1", limpar(s))
+    return re.sub(r"[\s{}]", "", s)
+
+
+# Integral, soma, produtório, derivada parcial, limite, nabla, bra-ket: o parser devolve
+# uma expressão, mas sem o significado (∂S/∂p de um símbolo vira 0, `\sum` vira produto).
+# Duas respostas erradas podiam "coincidir" nesse lixo. Gabarito com isso não é
+# verificável por regra: INCONCLUSIVE, e o autoteste o exclui dos dois braços.
+_CALCULO = re.compile(r"\\(?:int|iint|iiint|oint|sum|prod|partial|lim|nabla|langle|rangle)"
+                      r"(?![A-Za-z])")
+_BARRA_DE_AVALIACAO = re.compile(r"\|\s*_")     # `\right|_{r=a}`
+# diferencial explícito: `\mathrm{d}`, `{\rm d}`, ou dX/dY (`\frac{d v}{d t}`, `\frac{d}{dx}`);
+# `\frac{d \sin\theta}{\lambda}` (a rede de difração) não é derivada e passa
+_DIFERENCIAL = re.compile(r"\\mathrm\s*\{\s*d\s*\}|\{\s*\\rm\s+d\s*\}|"
+                          r"\\frac\s*\{\s*d\s*(?:\^\s*\{?\s*\d\s*\}?)?\s*[^{}]*\}\s*\{\s*d\s*"
+                          r"[A-Za-z\\]")
+
+
+def verificavel(gabarito: str) -> bool:
+    """False para gabarito com cálculo, que a regra não sabe verificar."""
+    return (_DIFERENCIAL.search(gabarito) is None
+            and _BARRA_DE_AVALIACAO.search(gabarito) is None
+            and _CALCULO.search(limpar(gabarito)) is None)
 
 
 def comparar_expressao(resposta: str, gabarito: str) -> Veredito:
     """Equivalência simbólica com todas as variáveis positivas; um `x =` na frente, de um
-    lado ou dos dois, é ignorado."""
+    lado ou dos dois, é ignorado. Gabarito que o parser não lê é comparado como texto
+    normalizado: igual passa, diferente falha. Gabarito com cálculo (`verificavel`) dá
+    INCONCLUSIVE."""
+    if not verificavel(gabarito):
+        return Veredito.INCONCLUSIVE
     g = expressao(_depois_do_igual(limpar(gabarito)))
     if g is None:
-        return Veredito.INCONCLUSIVE
+        return (Veredito.PASS if texto_normalizado(resposta) == texto_normalizado(gabarito)
+                else Veredito.FAIL)
     r = expressao(_depois_do_igual(limpar(resposta)))
     if r is None:
         return Veredito.FAIL
@@ -298,7 +423,7 @@ def comparar_expressao(resposta: str, gabarito: str) -> Veredito:
 
 
 def _lados(s: str) -> tuple[sp.Expr, sp.Expr] | None:
-    partes = limpar(s).split("=")
+    partes = dividir_nivel_zero(limpar(s), "=")
     if len(partes) != 2:
         return None
     lados = (expressao(partes[0]), expressao(partes[1]))
@@ -308,6 +433,8 @@ def _lados(s: str) -> tuple[sp.Expr, sp.Expr] | None:
 def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
     """Equivalentes se (L − R) da resposta ÷ (L − R) do gabarito for uma constante não
     nula."""
+    if not verificavel(gabarito):
+        return Veredito.INCONCLUSIVE
     g = _lados(gabarito)
     if g is None:
         return Veredito.INCONCLUSIVE
@@ -315,13 +442,68 @@ def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
     if r is None:
         return Veredito.FAIL
     fr, fg = r[0] - r[1], g[0] - g[1]
+    v = _amostrar_iguais(fr, fg, razao=True)
+    if v is not Veredito.INCONCLUSIVE:
+        return v
     try:
         q = sp.simplify(fr / fg)
         if q.is_number and q != 0 and q.is_finite:
             return Veredito.PASS
     except Exception:
         pass
-    return _amostrar_iguais(fr, fg, razao=True)
+    return Veredito.INCONCLUSIVE
+
+
+_RELACAO = re.compile(r"\\geq?|\\leq?|\\geqslant|\\leqslant|\\gt|\\lt|≥|≤|>=|<=|>|<")
+
+
+def _desigualdade(s: str) -> tuple[sp.Expr, bool] | None:
+    """`L op R` como (f, estrita), com f > 0 (ou f ≥ 0) equivalente à desigualdade."""
+    s = limpar(s)
+    ops = list(_RELACAO.finditer(s))
+    if len(ops) != 1:
+        return None
+    op = ops[0].group()
+    lados = (expressao(s[:ops[0].start()]), expressao(s[ops[0].end():]))
+    if None in lados:
+        return None
+    maior = op in (">", ">=", "\\gt", "\\ge", "\\geq", "\\geqslant", "≥")
+    estrita = op in (">", "<", "\\gt", "\\lt")
+    f = lados[0] - lados[1] if maior else lados[1] - lados[0]
+    return f, estrita
+
+
+def comparar_desigualdade(resposta: str, gabarito: str) -> Veredito:
+    """Mesma desigualdade: mesma estrição, e f da resposta ÷ f do gabarito é uma constante
+    POSITIVA (multiplicar por negativo inverte o sentido)."""
+    g = _desigualdade(gabarito)
+    if g is None:
+        return Veredito.INCONCLUSIVE
+    r = _desigualdade(resposta)
+    if r is None or r[1] != g[1]:
+        return Veredito.FAIL
+    v = _amostrar_iguais(r[0], g[0], razao=True, positiva=True)
+    if v is not Veredito.INCONCLUSIVE:
+        return v
+    try:
+        q = sp.simplify(r[0] / g[0])
+        if q.is_number and q.is_finite and q.is_positive:
+            return Veredito.PASS
+    except Exception:
+        pass
+    return Veredito.INCONCLUSIVE
+
+
+# Uma grandeza só, com subscrito e argumentos opcionais: `H`, `c_{p}`, `\kappa(p, T)`,
+# `T(r, t \rightarrow \infty)`. Uma equação com esse lado esquerdo é a definição da
+# grandeza, e o que se compara é o lado direito.
+_GRANDEZA = re.compile(r"\s*\\?[A-Za-z]+\s*(?:_\s*(?:\{[^{}]*\}|\w))?\s*(?:\^\s*\{[^{}]*\})?"
+                       r"\s*(?:\([^()]*\))?\s*")
+
+
+def lado_esquerdo_e_grandeza(equacao: str) -> bool:
+    lados = dividir_nivel_zero(limpar(equacao), "=")
+    return len(lados) == 2 and _GRANDEZA.fullmatch(lados[0]) is not None
 
 
 def _intervalo(s: str):
@@ -348,7 +530,10 @@ def _extremo_igual(a: str, b: str, rel: float) -> Veredito:
 
 def comparar_intervalo(resposta: str, gabarito: str, rel: float = 1e-2) -> Veredito:
     """Mesmos colchetes e extremos iguais (numéricos a `rel` relativo, simbólicos por
-    equivalência). União por `\\cup`, na mesma ordem."""
+    equivalência). União por `\\cup`, na mesma ordem. Gabarito escrito como desigualdade
+    (`N_1 < N/2`) é comparado como desigualdade."""
+    if _RELACAO.search(limpar(gabarito)):
+        return comparar_desigualdade(resposta, gabarito)
     gs = [_intervalo(p) for p in re.split(r"\\cup|∪", gabarito)]
     if any(x is None for x in gs):
         return Veredito.INCONCLUSIVE
@@ -395,19 +580,7 @@ def comparar_vf(resposta: str, gabarito: str) -> Veredito:
 
 def _partes(s: str) -> list[str]:
     """Separa por vírgulas de nível zero (fora de {}, () e [])."""
-    partes, nivel, atual = [], 0, ""
-    for ch in s:
-        if ch in "{([":
-            nivel += 1
-        elif ch in "})]":
-            nivel -= 1
-        if ch == "," and nivel == 0:
-            partes.append(atual.strip())
-            atual = ""
-        else:
-            atual += ch
-    partes.append(atual.strip())
-    return [p for p in partes if p]
+    return [p.strip() for p in dividir_nivel_zero(s, ",") if p.strip()]
 
 
 def comparar_varias(resposta: str, gabaritos: list[str],
@@ -435,5 +608,10 @@ def comparar_varias(resposta: str, gabaritos: list[str],
 
 
 def com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> Veredito:
-    """A comparação inteira sob o teto de `LIMITE_S` (INCONCLUSIVE se estourar)."""
-    return _com_teto(fn, segundos)
+    """A comparação inteira sob o teto de `LIMITE_S`. O teto é de relógio, e o relógio
+    depende da carga da máquina: quem estoura é refeito UMA vez antes de virar
+    INCONCLUSIVE. A correção da medida roda com a máquina sem outra carga pesada."""
+    v, estourou = _com_teto(fn, segundos)
+    if estourou:
+        v, _ = _com_teto(fn, segundos)
+    return v

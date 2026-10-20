@@ -1,0 +1,68 @@
+"""O cliente de geração do G2, sem servidor: a guarda de repetição, a leitura do stream,
+a semente por amostra e a amostragem com tudo desligado além de T e top-p."""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(RAIZ / "src"))
+
+from phifm.eval import g2_geracao as ger  # noqa: E402
+
+
+def _linha(**d) -> bytes:
+    return ("data: " + json.dumps(d) + "\n").encode()
+
+
+def test_guarda_corta_na_quarta_repeticao_da_janela():
+    g = ger.GuardaDeRepeticao(janela=3, vezes=4)
+    assert not g.alimentar([1, 2, 3, 9])
+    assert not g.alimentar([1, 2, 3, 8, 1, 2, 3])   # (1,2,3) três vezes
+    assert g.alimentar([7, 1, 2, 3])                 # a quarta corta
+
+
+def test_guarda_nao_corta_texto_que_so_parece():
+    g = ger.GuardaDeRepeticao(janela=32, vezes=4)
+    assert not g.alimentar(list(range(5000)))
+
+
+def test_ler_fluxo_parada_normal_e_limite():
+    linhas = [_linha(content="The answer ", tokens=[1, 2]), b"\n",
+              _linha(content="is 5.", tokens=[3], stop=False),
+              _linha(content="", tokens=[], stop=True, stop_type="word", tokens_predicted=3)]
+    assert ger.ler_fluxo(linhas, ger.GuardaDeRepeticao()) == ("The answer is 5.", 3, "word")
+    fim = [_linha(content="x", tokens=[1], stop=True, stop_type="limit", tokens_predicted=4096)]
+    texto, n, parada = ger.ler_fluxo(fim, ger.GuardaDeRepeticao())
+    assert (texto, n, parada) == ("x", 4096, "limit")
+
+
+def test_ler_fluxo_corta_por_repeticao_e_conta_como_truncada():
+    linhas = [_linha(content="ab", tokens=[1, 2, 3]) for _ in range(10)]
+    texto, _, parada = ger.ler_fluxo(linhas, ger.GuardaDeRepeticao(janela=3, vezes=4))
+    assert parada == "repeticao"
+    a = ger.Amostra("b", "i", 0, 1, texto, 12, parada, 0.1)
+    assert a.truncada
+    assert not ger.Amostra("b", "i", 0, 1, "", 1, "word", 0.1).truncada
+
+
+def test_semente_e_estavel_e_distinta_por_amostra():
+    assert ger.semente("ugphysics", "X/1", 0) == ger.semente("ugphysics", "X/1", 0)
+    assert len({ger.semente("ugphysics", "X/1", j) for j in range(16)}) == 16
+    assert 0 <= ger.semente("a", "b", 3) < 2 ** 32
+
+
+def test_amostragem_desliga_os_padroes_do_servidor():
+    p = ger.amostragem()
+    assert p["temperature"] == 0.6 and p["top_p"] == 0.95
+    assert p["top_k"] == 0 and p["min_p"] == 0.0 and p["repeat_penalty"] == 1.0
+    assert p["dry_multiplier"] == 0.0 and p["xtc_probability"] == 0.0 and p["mirostat"] == 0
+
+
+def test_flags_do_servidor_dao_10240_por_slot():
+    s = ger.ServidorG2(Path("x.gguf"))
+    f = s.flags()
+    assert f[f.index("-c") + 1] == "40960" and f[f.index("-np") + 1] == "4"
+    assert "--no-kv-unified" in f and f[f.index("-ctk") + 1] == "q8_0"
+    assert s.porta != 8080
