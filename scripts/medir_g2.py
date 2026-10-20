@@ -34,6 +34,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
 from phifm.eval import g2, g2_geracao, g2_itens, g2_prompt  # noqa: E402
+from phifm.eval.g2_correcao import CorretorIsolado  # noqa: E402
 from phifm.eval.g2_corretor import Veredito  # noqa: E402
 
 AVAL = RAIZ / "data/processed/avaliacao"
@@ -116,21 +117,27 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
     por_id = {(i.bench, i.id): i for i in itens}
     amostras = [json.loads(x) for x in saida.read_text(encoding="utf-8").splitlines() if x.strip()]
     amostras = [a for a in amostras if a["hash_config"] == hc and (a["bench"], a["item_id"]) in por_id]
+    # A correção roda DEPOIS da geração, com o servidor já parado (a máquina sem outra carga
+    # pesada), num processo que pode ser morto (g2_correcao).
     vereditos = {}
-    for a in amostras:
-        if a["parada"] == "erro":
-            v = Veredito.ERROR
-        elif a["truncada"]:
-            v = Veredito.TRUNCADO
-        else:
-            v = g2_itens.corrigir(por_id[(a["bench"], a["item_id"])], a["texto"])
-        vereditos[(a["bench"], a["item_id"], a["j"])] = v
+    with CorretorIsolado() as cor:
+        for a in amostras:
+            if a["parada"] == "erro":
+                v = Veredito.ERROR
+            elif a["truncada"]:
+                v = Veredito.TRUNCADO
+            else:
+                v = cor.corrigir(por_id[(a["bench"], a["item_id"])], a["texto"])
+            vereditos[(a["bench"], a["item_id"], a["j"])] = v
+        mortes = cor.mortes
     resultado = {
         "o_que_e": f"G2, fase {fase}: agregados por benchmark (DOC-12 §3.7); as gerações ficam "
                    "fora do git",
         "modelo": nome, "braco": braco, "rotulo": rotulo, "hash_config": hc,
         "codigo_sha256": {n: g2.sha256_arquivo(RAIZ / f"src/phifm/eval/{n}.py")
-                          for n in ("g2_corretor", "g2_itens", "g2_prompt", "g2_geracao")},
+                          for n in ("g2_corretor", "g2_itens", "g2_prompt", "g2_geracao",
+                                    "g2_correcao")},
+        "correcoes_mortas_no_teto": mortes,
         "k": k, "segundos": round(time.time() - t0),
         "por_benchmark": _agregar(itens, amostras, vereditos),
     }
