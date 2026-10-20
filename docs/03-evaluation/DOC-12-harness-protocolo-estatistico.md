@@ -287,6 +287,18 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
      - não há atalho de porcentagem (60,5% ≠ 0,605) em nenhum benchmark;
      - se o enunciado usa ε e ϵ como símbolos distintos, a distinção se perde.
 
+8. **Segunda rodada do estresse (2026-10-20),** sobre a versão reescrita: 947 casos e 43 causas, quase todas confirmadas por verificador cético. Cada uma ganhou teste de regressão (`test_g2_corretor_estresse2.py`). As principais:
+   - **Extração:** a frase "final answer is" só vence a caixa se começar depois do fim dela e trouxer de fato uma resposta; comentário com "not", "either", "correct" ou "larger than" não vale. O corte de continuação só age em cabeçalho de começo de linha, no eco do prompt e em "Solution:". "Refer to Problem 2.1" e "Question: is this consistent?" não cortam.
+   - **Número:** o lado esquerdo é conferido também no caminho numérico. Qualificadores em `\text{}` ("less than", "not", "or zero") reprovam. Letra que é também símbolo de física (`30 T`, `7.617 kT`, `5.2 / g`, `m g h`) só vale como unidade se for a unidade declarada do item.
+   - **Carregador do OlympiadBench:** `$a$, $b$` deixava um `$` solto em cada parte, e 4 itens de dev nunca passavam. Corrigido, e o autoteste passa a excluir qualquer gabarito com `$`.
+   - **Torre de potências** (`10^{10^7}`): era calculada como inteiro (138 s) e deixava uma thread viva que contaminava os itens seguintes. Agora sai em 0,08 s.
+   - **Leitura:** argumento de função sem parênteses vai até o primeiro operador (`\cos\theta \cdot \frac{ma}{M}` era cos de tudo); versores (`\hat r` = e_r); Unicode grego; `\operatorname{erf}(…)` vira pseudofunção.
+   - **Decisões declaradas:**
+     - coeficiente decimal arredondado numa resposta simbólica não passa (0,333·aT⁴ ≠ aT⁴/3; a tolerância simbólica é 1e-9);
+     - nas respostas múltiplas, o casamento é em qualquer ordem, como no juiz oficial do OlympiadBench, e rótulos trocados não são conferidos;
+     - de `X \pm δ`, vale o valor central;
+     - a resposta numérica com unidade sem ambiguidade passa, mesmo que a unidade seja outra (não há conversão).
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

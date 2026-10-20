@@ -155,6 +155,17 @@ def test_expoente_de_um_caractere_nao_cola_digitos():
     assert c.comparar_expressao(r"[\text{Xe}] 4f^{14} 5d^{26} s^{2}", g) is not V.PASS
 
 
+def test_letras_and_nao_vira_alternativa():
+    assert c.letras("A and C") == frozenset({"A", "C"})
+    assert c.letras("B and C") == frozenset({"B", "C"})
+
+
+def test_funcao_nomeada_nao_e_linear():
+    g = r"\operatorname{erf}\left(\frac{x}{2a}\right)"
+    assert c.comparar_expressao(r"\operatorname{erf}\left(\frac{x}{2a}\right)", g) is V.PASS
+    assert c.comparar_expressao(r"2\operatorname{erf}\left(\frac{x}{4a}\right)", g) is V.FAIL
+
+
 def test_ch_russo_e_cosh():
     g = r"a \operatorname{ch} \left(\frac{x}{a}\right) - x"
     assert c.comparar_expressao(r"a \cosh\left(\frac{x}{a}\right) - x", g) is V.PASS

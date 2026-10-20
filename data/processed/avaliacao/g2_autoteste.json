@@ -1,14 +1,15 @@
 {
  "o_que_e": "autoteste do gabarito do G2 (DOC-12 §3.7.3): só contagens e ids",
  "codigo_sha256": {
-  "g2_corretor": "03724b3381c2e733e96efe7995ca0b5b34feeae2b37250875492a9659ae4e1f5",
-  "g2_itens": "a9748f31b7b59cb1c9c417a7335aa750a7a6d56972d74f6a4c83a698da8775b3"
+  "g2_corretor": "f349cd3eedc4b79bbfdac950a5aae4baf0a5ba2acc134f1a696b5ccea00852fb",
+  "g2_itens": "8db33a9703257c82b7acbf270449810f41decccd521725a8a8f724897d1a2e4f"
  },
  "conjuntos": {
   "ugphysics/dev": {
    "itens": 899,
    "excluidos": 46,
    "taxa_exclusao": 0.0512,
+   "refeitos_no_segundo_passe": 46,
    "acima_do_limite": false,
    "por_tipo": {
     "EQ": {
@@ -95,6 +96,7 @@
    "itens": 115,
    "excluidos": 0,
    "taxa_exclusao": 0.0,
+   "refeitos_no_segundo_passe": 0,
    "acima_do_limite": false,
    "por_tipo": {
     "Expression": {
@@ -114,13 +116,14 @@
    "ids_excluidos": []
   },
   "scibench/dev": {
-   "itens": 34,
+   "itens": 33,
    "excluidos": 0,
    "taxa_exclusao": 0.0,
+   "refeitos_no_segundo_passe": 0,
    "acima_do_limite": false,
    "por_tipo": {
     "NV": {
-     "itens": 34,
+     "itens": 33,
      "excluidos": 0
     }
    },

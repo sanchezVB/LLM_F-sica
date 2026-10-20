@@ -333,6 +333,8 @@ def _multiplicacao_explicita(s: str) -> str:
             continue
         if base == "}" and _expoente_de_funcao(s, m.start(1)):
             continue                     # `\tan^{-1}(…)`, `\sin^{2}(…)`, `\log_{2}(…)`
+        if base == "}" and re.search(r"F_\{[A-Za-z]+$", s[:m.start(1)]):
+            continue                     # função nomeada (`\operatorname{erf}`)
         nivel, fim = 0, None
         for j in range(m.end() - 1, len(s)):
             nivel += {"(": 1, ")": -1}.get(s[j], 0)
@@ -452,6 +454,9 @@ def limpar(s: str) -> str:
     s = re.sub(r"\\mathrm\s*\{\s*([edi])\s*\}", r"\1", s)     # e de Euler, d, i
     s = re.sub(r"\\(?:operatorname|mathrm)\s*\{\s*(ch|sh|th|cth)\s*\}",
                lambda m: "\\" + _HIPERBOLICAS_RUSSAS[m.group(1)], s)
+    # outra função nomeada (`\operatorname{erf}(x)`) vira a cabeça F_{erf}, que `_fisica`
+    # trata como pseudofunção; antes era o produto operatorname·e·r·f·x, linear em x
+    s = re.sub(r"\\operatorname\s*\{\s*([A-Za-z]{2,})\s*\}(?=\s*\()", r"F_{\1}", s)
     s = re.sub(r"\\log\s*_\s*\{?\s*e\s*\}?", r"\\ln", s)
     # ponto com o subscrito dentro: `\ddot{\theta_1}` → `\ddot{\theta}_{1}`
     s = re.sub(r"\\(ddot|dot)\s*\{\s*(\\?[A-Za-z]+)\s*_\s*(\{[^{}]*\}|\w)\s*\}", r"\\\1{\2}_\3", s)
@@ -582,6 +587,9 @@ def _fisica(e: sp.Basic) -> sp.Expr:
     trocas = {}
     for f in e.atoms(AppliedUndef):
         nome = _nome(f.func.__name__)
+        if nome.startswith("F_"):                      # função nomeada: nunca linear
+            trocas[f] = _pseudofuncao(nome, f.args)
+            continue
         if all(a.is_number for a in f.args):           # θ(0): o valor num ponto
             trocas[f] = sp.Symbol(f"{nome}_at_" + "_".join(_nome(str(a)) for a in f.args))
         elif (len(f.args) == 1 and isinstance(f.args[0], sp.Symbol)
@@ -1272,7 +1280,9 @@ def letras(s: str) -> frozenset[str]:
     item = r"\(?\s*[A-Ja-j]\s*\)?"
     sep = r"\s*(?:,|;|&|\band\b|\s)?\s*"
     if re.fullmatch(rf"{item}(?:{sep}{item})*", t):
-        return frozenset(x.upper() for x in re.findall(r"[A-Ja-j]", t))
+        # sem o "and" antes de ler as letras: o "a" e o "d" dele viravam alternativas
+        return frozenset(x.upper() for x in re.findall(r"[A-Ja-j]",
+                                                         re.sub(r"\band\b", " ", t)))
     if re.fullmatch(r"[A-J]{2,}", t):
         return frozenset(t)
     # um rótulo no começo, com o texto da opção depois (`(C) E = h\nu`, `C. 4.2 J`): só se
