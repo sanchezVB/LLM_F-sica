@@ -96,7 +96,8 @@ def olympiadbench(conjunto: str) -> list[Item]:
     linhas = pq.read_table(BENCH / f"olympiadbench/OlympiadBench/{sub}/{sub}.parquet").to_pylist()
     itens = []
     for x in linhas:
-        partes = [p for f in x["final_answer"] for p in c._partes(_sem_dolar(f))]
+        partes = [p.strip().strip("$").strip() for f in x["final_answer"]
+                  for p in c._partes(_sem_dolar(f))]   # sem o `$` solto de "$a$, $b$"
         tipos = [t.strip() for t in str(x["answer_type"]).split(",")]
         if len(tipos) != len(partes):
             tipos = [tipos[0]] * len(partes)
@@ -217,17 +218,21 @@ def _comparador(item: Item, k: int) -> Callable[[str, str], Veredito]:
     # ou a mesma equação rearranjada (`comparar_definicao`).
     expressao = (c.comparar_definicao if c.lado_esquerdo_e_grandeza(item.gabaritos[k])
                  else c.comparar_expressao)
+    # a unidade do item: a cauda igual a ela sai da resposta numérica (no OlympiadBench
+    # de várias respostas, a unidade vem por posição: "s,m")
+    unidades = [u.strip() for u in str(item.unidade or "").split(",")]
+    unidade = (unidades[k] if len(unidades) == len(item.gabaritos) else item.unidade) or None
     if item.bench == "scibench":
-        return partial(c.comparar_numero, rel=TOL_SCI, simetrico=True)
+        return partial(c.comparar_numero, rel=TOL_SCI, simetrico=True, unidade=unidade)
     if item.bench == "phybench":
         return expressao
     if item.bench == "olympiadbench":
         if tipo == "Numerical":
-            return (partial(c.comparar_numero, abs_=tol) if tol is not None
-                    else partial(c.comparar_numero, rel=TOL_OLY_SEM_ERRO))
+            return (partial(c.comparar_numero, abs_=tol, unidade=unidade) if tol is not None
+                    else partial(c.comparar_numero, rel=TOL_OLY_SEM_ERRO, unidade=unidade))
         return {"Equation": c.comparar_equacao,
                 "Interval": c.comparar_intervalo}.get(tipo, expressao)
-    return {"NV": partial(c.comparar_numero, rel=TOL_UG), "EX": expressao,
+    return {"NV": partial(c.comparar_numero, rel=TOL_UG, unidade=unidade), "EX": expressao,
             "EQ": c.comparar_equacao, "IN": c.comparar_intervalo, "MC": c.comparar_letras,
             "TF": c.comparar_vf}[tipo]
 
@@ -314,6 +319,8 @@ def autoteste(item: Item) -> dict:
             n_pert += 1
             if corrigir(item, "\\boxed{" + ", ".join(partes) + "}") is not Veredito.FAIL:
                 falhas_pert += 1
-    ok = proprio is Veredito.PASS and n_pert > 0 and falhas_pert == 0
+    # um `$` no gabarito é defeito de carregador (a resposta certa sem `$` nunca passaria)
+    ok = (proprio is Veredito.PASS and n_pert > 0 and falhas_pert == 0
+          and not any("$" in g for g in item.gabaritos))
     return {"id": item.id, "ok": ok, "proprio": str(proprio), "perturbacoes": n_pert,
             "perturbacoes_que_passaram": falhas_pert}
