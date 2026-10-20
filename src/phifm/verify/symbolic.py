@@ -97,6 +97,9 @@ _TRANSFORMS = standard_transformations + (
 # `sp.latex(sp.I)` escreve `i`. A consequência é que a mesma resposta muda de
 # sentido conforme a rota — `I^{2} R` é I²R, e `I^2 R`, sem `\` nem `^{`, vai
 # para o `parse_expr` e vale −R. Declarar o símbolo resolve as duas rotas.
+#
+# O dono reconfirmou a decisão em 2026-10-19, sabendo dessa consequência: na
+# sintaxe do SymPy, `I` sem declaração segue a unidade imaginária.
 _FISICA = {n: sp.Symbol(n) for n in ("E", "N", "Q", "S", "O", "gamma", "beta", "zeta")}
 
 
