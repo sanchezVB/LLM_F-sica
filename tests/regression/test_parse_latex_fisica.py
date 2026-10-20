@@ -277,8 +277,10 @@ def test_sentinela_das_constantes_nao_vaza_para_um_nome():
     assert parse(r"x_{\mathrm{e} + 1}") is None
 
 
+# Unidade é recusada por decisão do dono (2026-10-19): descartá-la aprovaria
+# 5 km contra 5 m. Quem compara números tira a unidade por conta própria.
 MACROS_SEM_GRANDEZA = [
-    r"5\,\text{m}",            # unidade: descartá-la aprovaria 5 km contra 5 m
+    r"5\,\text{m}",
     r"12\,\text{m/s}",
     r"364.7 \mathrm{nm}",
     r"\vec{F}",
@@ -297,6 +299,12 @@ MACROS_SEM_GRANDEZA = [
 @pytest.mark.parametrize("latex", MACROS_SEM_GRANDEZA)
 def test_macro_que_nao_nomeia_grandeza_leva_a_none(latex):
     assert parse(latex) is None, parse(latex)
+
+
+def test_unidade_diferente_nao_passa_por_igual():
+    """A razão da recusa, no barramento: 5 km contra 5 m não pode dar PASS."""
+    r = SymbolicVerifier().verify(Claim(lhs=r"5\,\text{km}", rhs=r"5\,\text{m}"))
+    assert r.verdict is not Verdict.PASS, r.evidence
 
 
 def test_segunda_lei_vetorial_nao_reprova():

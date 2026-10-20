@@ -170,9 +170,13 @@ def _reta(m: re.Match) -> str:
 # None — INCONCLUSIVE, nunca uma leitura com um `text` ou um `vec` dentro.
 #
 # Macros que a gramática conhece (`\frac`, `\sin`, `\cdot`, `\int`) não geram
-# símbolo, então não precisam de lista. Unidades (`5\,\text{m}`) caem aqui de
-# propósito: descartá-las aprovaria 5 km contra 5 m, e levá-las ao dimensional
-# exige uma gramática de unidades que ainda não existe.
+# símbolo, então não precisam de lista.
+#
+# **Unidade é recusada, por decisão do dono (2026-10-19).** `5\,\text{m}` dá
+# None aqui. Descartar a unidade aprovaria 5 km contra 5 m, e levá-la ao
+# dimensional exigiria uma gramática de unidades que não existe. Quem compara
+# NÚMEROS tira a unidade por conta própria, sabendo em que unidade está o
+# gabarito — é o que faz o `numero()` do corretor do G2.
 _MACROS_DE_GRANDEZA = _GREGAS | {"hbar", "hslash", "ell"}
 
 
