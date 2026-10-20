@@ -45,7 +45,9 @@ def _um(item: g2_itens.Item) -> dict:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--so", choices=tuple(CONJUNTOS))
-    p.add_argument("--processos", type=int, default=4)
+    # 1 por padrão: o teto da comparação é de relógio, e com 2 processos o autoteste do
+    # UG-dev trocou 10 ids de lado só por carga (sessão do verify, 2026-10-20)
+    p.add_argument("--processos", type=int, default=1)
     a = p.parse_args()
     codigo = {nome: g2.sha256_arquivo(RAIZ / f"src/phifm/eval/{nome}.py")
               for nome in ("g2_corretor", "g2_itens")}
@@ -58,8 +60,19 @@ def main() -> int:
         for bench, conjunto in CONJUNTOS[grupo]:
             itens = g2_itens.carregar(bench, conjunto)
             t0 = time.perf_counter()
-            with ProcessPoolExecutor(a.processos) as ex:
-                rs = list(ex.map(_um, itens, chunksize=4))
+            if a.processos > 1:
+                with ProcessPoolExecutor(a.processos) as ex:
+                    rs = list(ex.map(_um, itens, chunksize=4))
+            else:
+                rs = [_um(i) for i in itens]
+            # Segundo passe, sequencial: quem falhou é refeito com a máquina só para ele, e
+            # a exclusão só vale se falhar de novo (o estouro de tempo por carga não exclui)
+            por_id = {i.id: i for i in itens}
+            refeitos = 0
+            for k, r in enumerate(rs):
+                if not r["ok"]:
+                    rs[k] = _um(por_id[r["id"]])
+                    refeitos += 1
             falhos = [r for r in rs if not r["ok"]]
             taxa = len(falhos) / len(rs)
             por_tipo = collections.defaultdict(lambda: [0, 0])
@@ -68,6 +81,7 @@ def main() -> int:
                 por_tipo[r["tipo"]][1] += not r["ok"]
             resultado["conjuntos"][f"{bench}/{conjunto}"] = {
                 "itens": len(rs), "excluidos": len(falhos), "taxa_exclusao": round(taxa, 4),
+                "refeitos_no_segundo_passe": refeitos,
                 "acima_do_limite": conjunto == "teste" and taxa > LIMITE_EXCLUSAO,
                 "por_tipo": {t: {"itens": n, "excluidos": f} for t, (n, f) in sorted(por_tipo.items())},
                 "motivos": dict(collections.Counter(

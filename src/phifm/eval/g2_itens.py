@@ -146,16 +146,23 @@ def escala_da_unidade(unidade: str) -> tuple[float, str]:
 def scibench(conjunto: str) -> list[Item]:
     sufixo = {"teste": "", "dev": "_sol"}[conjunto]
     itens = []
+    vistos: set[str] = set()
     for livro in ("class", "fund", "thermo"):
         dados = json.loads((BENCH / f"scibench/{livro}{sufixo}.json").read_text(encoding="utf-8"))
         for x in dados:
+            # o problemid vem com espaço na frente (" 18.4"), e o `thermo_sol` traz um
+            # repetido, com o mesmo gabarito: conta uma vez só
+            item_id = f"{livro}/{str(x['problemid']).strip()}"
+            if item_id in vistos:
+                continue
+            vistos.add(item_id)
             escala, unidade = escala_da_unidade(str(x.get("unit", "")))
             numero_oficial = str(x["answer_number"]).strip()
             valor = float(numero_oficial) * escala
             expoente = round(math.log10(escala))
             exibida = (numero_oficial if expoente == 0
                        else f"{numero_oficial} \\times 10^{{{expoente}}}")
-            itens.append(Item("scibench", f"{livro}/{x['problemid']}", x["problem_text"],
+            itens.append(Item("scibench", item_id, x["problem_text"],
                               (repr(valor),), ("NV",), (None,), unidade or None,
                               x.get("solution"), {"livro": livro, "escala": escala,
                                                   "resposta_exibida": exibida}))
