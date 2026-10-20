@@ -133,7 +133,6 @@ def test_escritas_equivalentes_passam(resposta, gabarito):
     (r"\tan\varepsilon = \mu", r"\mu = \tan \varepsilon"),
     (r"\lambda (t_2 - t_1) = \ln\frac{C_1}{C_2}", r"\lambda = \frac{\ln(C_{1}/C_{2})}{t_{2} - t_{1}}"),
     (r"x + t = \frac{\sin t}{\sin 1}", r"x=\frac{\sin t}{\sin 1}-t"),
-    (r"E V^2 = \pi B u_0^2", r"E = \frac{\pi B u_0^2}{V^2}"),
 ])
 def test_definicao_rearranjada_passa(resposta, gabarito):
     assert c.comparar_definicao(resposta, gabarito) is V.PASS
@@ -153,13 +152,25 @@ def test_simbolo_antes_de_parentese_e_produto_salvo_token_unico():
     assert c.comparar_expressao(r"x(t) + 1", r"1 + x(t)") is V.PASS
 
 
-def test_equacao_com_outra_variavel_isolada():
-    assert c.comparar_equacao(r"n_1 = n_2 e^{-(E_1-E_2)/(kT)}",
-                              r"\frac{n_{1}}{n_{2}} = \exp\left(-\frac{E_{1}-E_{2}}{k T}\right)") is V.PASS
-    assert c.comparar_equacao(r"\dot{\theta} = \frac{b}{a+b}\dot{\varphi}",
-                              r"(a+b) \dot{\theta} - b \dot{\varphi} = 0") is V.PASS
-    assert c.comparar_equacao(r"n_1 = n_2 e^{(E_1-E_2)/(kT)}",
-                              r"\frac{n_{1}}{n_{2}} = \exp\left(-\frac{E_{1}-E_{2}}{k T}\right)") is V.FAIL
+def test_equacao_segue_a_regra_da_razao_constante():
+    """A regra aceita (§3.7.4) diz razão CONSTANTE. Multiplicar por variável não passa, e
+    isso vale igual nos dois braços (o verificador do estresse confirmou que não é
+    defeito)."""
+    gab = r"\frac{n_{1}}{n_{2}} = \exp\left(-\frac{E_{1}-E_{2}}{k T}\right)"
+    assert c.comparar_equacao(r"n_1 = n_2 e^{-(E_1-E_2)/(kT)}", gab) is V.FAIL
+    assert c.comparar_equacao(r"2\frac{n_1}{n_2} = 2 e^{-(E_1-E_2)/(kT)}", gab) is V.PASS
+
+
+def test_definicao_isolando_a_grandeza():
+    assert c.comparar_definicao(r"E V^2 = \pi B u_0^2", r"E = \frac{\pi B u_0^2}{V^2}") is V.PASS
+    assert c.comparar_definicao(r"E V = \pi B u_0^2", r"E = \frac{\pi B u_0^2}{V^2}") is V.FAIL
+
+
+def test_letras_coladas_nao_sao_grandeza():
+    assert c.comparar_expressao(r"kM = \frac{4 \pi^{2} r^{3}}{G t^{2}}",
+                                r"\frac{4 \pi^{2} r^{3}}{G t^{2}}") is V.FAIL
+    assert c.comparar_expressao(r"M = \frac{4 \pi^{2} r^{3}}{G t^{2}}",
+                                r"\frac{4 \pi^{2} r^{3}}{G t^{2}}") is V.PASS
 
 
 @pytest.mark.parametrize("texto, valor", [

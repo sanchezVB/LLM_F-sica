@@ -190,17 +190,17 @@ def tipo_efetivo(item: Item, k: int = 0) -> str:
     tipo = item.tipos[k]
     g = item.gabaritos[k]
     if item.bench == "olympiadbench":
-        return "Expression" if tipo == "Numerical" and c.numero(g, estrito=True) is None else tipo
+        return "Expression" if tipo == "Numerical" and c.numero(g) is None else tipo
     if item.bench != "ugphysics":
         return tipo
-    if tipo == "NV" and c.numero(g, estrito=True) is None:
+    if tipo == "NV" and c.numero(g) is None:
         return "EX"
     if tipo == "EQ":
         lados = c.dividir_nivel_zero(c.limpar(g), "=")
         if len(lados) == 1:
             return "EX"
         if c.lado_esquerdo_e_grandeza(g):
-            return "NV" if c.numero(lados[1], estrito=True) is not None else "EX"
+            return "NV" if c.numero(lados[1]) is not None else "EX"
     return tipo
 
 
@@ -244,7 +244,7 @@ def corrigir(item: Item, texto: str) -> Veredito:
 
 
 def _numero_perturbado(item: Item, k: int) -> list[str]:
-    v = c.numero(item.gabaritos[k], estrito=True)
+    v = c.numero(item.gabaritos[k])
     if v is None:
         return []
     tol = item.tolerancias[k] if item.tolerancias else None

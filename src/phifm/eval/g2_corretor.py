@@ -572,8 +572,8 @@ def com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> Veredito
 def comparar_numero(resposta: str, gabarito: str, rel: float | None = None,
                     abs_: float | None = None, simetrico: bool = False) -> Veredito:
     """|r − g| ≤ abs_ (absoluto) ou ≤ rel·|g| (relativo ao gabarito; com `simetrico`,
-    rel·max(|r|, |g|), o `math.isclose` do SciBench). O gabarito é lido em modo estrito."""
-    g = numero(gabarito, estrito=True)
+    rel·max(|r|, |g|), o `math.isclose` do SciBench)."""
+    g = numero(gabarito)
     if g is None:
         return Veredito.INCONCLUSIVE
     r = numero(resposta)
@@ -686,8 +686,10 @@ def texto_normalizado(s: str) -> str:
 
 
 # Uma grandeza só, com subscrito e argumentos opcionais: `H`, `c_{p}`, `\kappa(p, T)`.
-_GRANDEZA = re.compile(r"\s*\\?[A-Za-z]+\s*(?:_\s*(?:\{[^{}]*\}|\w))?\s*(?:\^\s*\{[^{}]*\})?"
-                       r"\s*(?:\([^()]*\))?\s*")
+# Letra solta é UMA letra: `kM` é k·M em LaTeX, não um nome (e `kM = …` não passava a ser
+# "uma grandeza igual à resposta").
+_GRANDEZA = re.compile(r"\s*(?:\\[A-Za-z]+|[A-Za-z])\s*(?:_\s*(?:\{[^{}]*\}|\w))?"
+                       r"\s*(?:\^\s*\{[^{}]*\})?\s*(?:\([^()]*\))?\s*")
 
 
 def lado_esquerdo_e_grandeza(equacao: str) -> bool:
@@ -758,35 +760,24 @@ def _lados(s: str) -> tuple[sp.Expr, sp.Expr] | None:
     return None if None in lados else lados  # type: ignore[return-value]
 
 
-def _vale_em(lados: tuple[sp.Expr, sp.Expr], var: sp.Symbol, sol: sp.Expr) -> bool:
+def _isolando_a_grandeza(resposta: str, gabarito: str) -> Veredito:
+    """Gabarito `G = expr` com G um símbolo: isola G na equação da resposta; PASS se
+    houver UMA solução e ela for equivalente a expr (`E V^2 = \\pi B u_0^2`)."""
+    g = _lados(gabarito)
+    r = _lados(_sem_texto_em_volta(resposta))
+    if g is None or r is None or not isinstance(g[0], sp.Symbol):
+        return Veredito.FAIL
     try:
-        a, b = lados[0].subs(var, sol), lados[1].subs(var, sol)
+        sols = [s for s in sp.solve(r[0] - r[1], g[0]) if g[0] not in s.free_symbols]
     except Exception:
-        return False
-    return _equivalentes(a, b) is Veredito.PASS
-
-
-def _mesmo_conjunto_solucao(r: tuple, g: tuple) -> bool:
-    """Isola uma variável no gabarito e confere a resposta na solução, e vice-versa (`n_1 =
-    n_2 e^{…}` contra `n_1/n_2 = e^{…}`)."""
-    preferidas = [x for x in g[0].free_symbols if g[0] == x]
-    comuns = sorted((g[0].free_symbols | g[1].free_symbols)
-                    & (r[0].free_symbols | r[1].free_symbols), key=str)
-    for var in (preferidas + [x for x in comuns if x not in preferidas])[:3]:
-        try:
-            sg = [s for s in sp.solve(g[0] - g[1], var) if var not in s.free_symbols][:4]
-            sr = [s for s in sp.solve(r[0] - r[1], var) if var not in s.free_symbols][:4]
-        except Exception:
-            continue
-        if sg and sr and any(_vale_em(r, var, s) for s in sg) and any(
-                _vale_em(g, var, s) for s in sr):
-            return True
-    return False
+        return Veredito.INCONCLUSIVE
+    return _equivalentes(sols[0], g[1]) if len(sols) == 1 else Veredito.FAIL
 
 
 def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
-    """Equivalentes se (L − R) da resposta ÷ (L − R) do gabarito for uma constante não
-    nula, ou se as duas tiverem o mesmo conjunto-solução numa das variáveis."""
+    """A regra (§3.7.4): equivalentes se (L − R) da resposta ÷ (L − R) do gabarito for
+    uma constante não nula. Só isso: `n_1 = n_2 e^{…}` contra `n_1/n_2 = e^{…}` não passa
+    (a razão é n_2), igual nos dois braços."""
     if not verificavel(gabarito):
         return Veredito.INCONCLUSIVE
     g = _lados(gabarito)
@@ -796,11 +787,7 @@ def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
     if r is None:
         return Veredito.FAIL
     v = _amostrar_iguais(r[0] - r[1], g[0] - g[1], razao=True)
-    if v is Veredito.PASS:
-        return v
-    if _mesmo_conjunto_solucao(r, g):
-        return Veredito.PASS
-    if v is Veredito.FAIL:
+    if v is not Veredito.INCONCLUSIVE:
         return v
     try:
         q = sp.simplify((r[0] - r[1]) / (g[0] - g[1]))
@@ -812,13 +799,20 @@ def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
 
 
 def comparar_definicao(resposta: str, gabarito: str) -> Veredito:
-    """Gabarito `G = expr`: passa pelo lado direito (com G conferido) ou como equação
-    (lados trocados, termos movidos, outra variável isolada)."""
-    v = comparar_expressao(resposta, gabarito)
-    if v is Veredito.PASS:
-        return v
-    w = comparar_equacao(resposta, gabarito)
-    return w if w is Veredito.PASS else (v if v is Veredito.INCONCLUSIVE else w)
+    """Gabarito `G = expr` (G uma grandeza): o que se corrige é o VALOR de G. Passa pelo
+    lado direito (com G conferido), pela regra da equação (lados trocados, termos
+    movidos) ou isolando G na resposta. Desvio declarado no DOC-12 §3.7.4: a regra da EQ,
+    sozinha, reprovaria `E V^2 = \\pi B u_0^2` contra `E = \\pi B u_0^2 / V^2`."""
+    vs = [comparar_expressao(resposta, gabarito)]
+    if vs[-1] is Veredito.PASS:
+        return Veredito.PASS
+    vs.append(comparar_equacao(resposta, gabarito))
+    if vs[-1] is Veredito.PASS:
+        return Veredito.PASS
+    vs.append(_isolando_a_grandeza(resposta, gabarito))
+    if vs[-1] is Veredito.PASS:
+        return Veredito.PASS
+    return Veredito.INCONCLUSIVE if Veredito.INCONCLUSIVE in vs else Veredito.FAIL
 
 
 # ── desigualdade e intervalo ─────────────────────────────────────────────────
