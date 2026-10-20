@@ -88,6 +88,20 @@ def test_livro_base_re_medida_so_com_outro_hash(tmp_path):
     g2.registrar_acesso("1.7B", "phigen", "medida", "h9", livro=livro)  # outro tamanho
 
 
+def test_livro_retomada_nao_conta_e_exige_o_mesmo_hash(tmp_path):
+    livro = tmp_path / "acessos.jsonl"
+    with pytest.raises(g2.AcessoRecusado):
+        g2.registrar_acesso("1.7B", "base", "retomada", "h1", livro=livro)
+    g2.registrar_acesso("1.7B", "base", "medida", "h1", livro=livro)
+    g2.registrar_acesso("1.7B", "base", "retomada", "h1", livro=livro)
+    g2.registrar_acesso("1.7B", "base", "retomada", "h1", livro=livro)
+    g2.registrar_acesso("1.7B", "phigen", "medida", "h1", livro=livro)
+    with pytest.raises(g2.AcessoRecusado):
+        g2.registrar_acesso("1.7B", "phigen", "retomada", "h2", livro=livro)
+    # a retomada não gasta a repetição por falha operacional
+    g2.registrar_acesso("1.7B", "base", "falha_operacional", "h1", livro=livro)
+
+
 def test_livro_repeticao_sem_medida_e_motivo_desconhecido(tmp_path):
     livro = tmp_path / "acessos.jsonl"
     with pytest.raises(g2.AcessoRecusado):

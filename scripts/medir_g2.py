@@ -103,7 +103,11 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
                                              "RX 7600 (Vulkan)", pedido)
         if fase == "teste":
             g2.exigir_aceite_e_congelamento()
-            g2.registrar_acesso(modelo, braco, "medida", hc)
+            # saída já começada com o MESMO hash: é a mesma medida continuando
+            continua = hc in {json.loads(x).get("hash_config")
+                              for x in (saida.read_text(encoding="utf-8").splitlines()
+                                        if saida.exists() else []) if x.strip()}
+            g2.registrar_acesso(modelo, braco, "retomada" if continua else "medida", hc)
         lote = g2_geracao.gerar_lote(srv.url, pedidos, g2_prompt.PARADAS, pedido, saida, hc)
         for feitas, a in enumerate(lote, start=1):
             if feitas % 25 == 0:
