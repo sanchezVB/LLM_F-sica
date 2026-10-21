@@ -96,7 +96,8 @@ def olympiadbench(conjunto: str) -> list[Item]:
     linhas = pq.read_table(BENCH / f"olympiadbench/OlympiadBench/{sub}/{sub}.parquet").to_pylist()
     itens = []
     for x in linhas:
-        partes = [p for f in x["final_answer"] for p in c._partes(_sem_dolar(f))]
+        partes = [p.strip().strip("$").strip() for f in x["final_answer"]
+                  for p in c._partes(_sem_dolar(f))]   # sem o `$` solto de "$a$, $b$"
         tipos = [t.strip() for t in str(x["answer_type"]).split(",")]
         if len(tipos) != len(partes):
             tipos = [tipos[0]] * len(partes)
@@ -132,7 +133,7 @@ def phybench(conjunto: str = "teste") -> list[Item]:
     return itens
 
 
-_ESCALA = re.compile(r"[$]?\s*10\^[{]?\s*(-?[0-9]+)\s*[}]?\s*[$]?")
+_ESCALA = re.compile(r"[$]?\s*10\s*\^\s*[{]?\s*(-?[0-9]+)\s*[}]?\s*[$]?")
 
 
 def escala_da_unidade(unidade: str) -> tuple[float, str]:
@@ -146,16 +147,23 @@ def escala_da_unidade(unidade: str) -> tuple[float, str]:
 def scibench(conjunto: str) -> list[Item]:
     sufixo = {"teste": "", "dev": "_sol"}[conjunto]
     itens = []
+    vistos: set[str] = set()
     for livro in ("class", "fund", "thermo"):
         dados = json.loads((BENCH / f"scibench/{livro}{sufixo}.json").read_text(encoding="utf-8"))
         for x in dados:
+            # o problemid vem com espaço na frente (" 18.4"), e o `thermo_sol` traz um
+            # repetido, com o mesmo gabarito: conta uma vez só
+            item_id = f"{livro}/{str(x['problemid']).strip()}"
+            if item_id in vistos:
+                continue
+            vistos.add(item_id)
             escala, unidade = escala_da_unidade(str(x.get("unit", "")))
             numero_oficial = str(x["answer_number"]).strip()
             valor = float(numero_oficial) * escala
             expoente = round(math.log10(escala))
             exibida = (numero_oficial if expoente == 0
                        else f"{numero_oficial} \\times 10^{{{expoente}}}")
-            itens.append(Item("scibench", f"{livro}/{x['problemid']}", x["problem_text"],
+            itens.append(Item("scibench", item_id, x["problem_text"],
                               (repr(valor),), ("NV",), (None,), unidade or None,
                               x.get("solution"), {"livro": livro, "escala": escala,
                                                   "resposta_exibida": exibida}))
@@ -206,17 +214,25 @@ def tipo_efetivo(item: Item, k: int = 0) -> str:
 
 def _comparador(item: Item, k: int) -> Callable[[str, str], Veredito]:
     tipo, tol = tipo_efetivo(item, k), item.tolerancias[k] if item.tolerancias else None
+    # Gabarito `G = expr` numa resposta simbólica: vale o lado direito (com G conferido)
+    # ou a mesma equação rearranjada (`comparar_definicao`).
+    expressao = (c.comparar_definicao if c.lado_esquerdo_e_grandeza(item.gabaritos[k])
+                 else c.comparar_expressao)
+    # a unidade do item: a cauda igual a ela sai da resposta numérica (no OlympiadBench
+    # de várias respostas, a unidade vem por posição: "s,m")
+    unidades = [u.strip() for u in str(item.unidade or "").split(",")]
+    unidade = (unidades[k] if len(unidades) == len(item.gabaritos) else item.unidade) or None
     if item.bench == "scibench":
-        return partial(c.comparar_numero, rel=TOL_SCI, simetrico=True)
+        return partial(c.comparar_numero, rel=TOL_SCI, simetrico=True, unidade=unidade)
     if item.bench == "phybench":
-        return c.comparar_expressao
+        return expressao
     if item.bench == "olympiadbench":
         if tipo == "Numerical":
-            return (partial(c.comparar_numero, abs_=tol) if tol is not None
-                    else partial(c.comparar_numero, rel=TOL_OLY_SEM_ERRO))
+            return (partial(c.comparar_numero, abs_=tol, unidade=unidade) if tol is not None
+                    else partial(c.comparar_numero, rel=TOL_OLY_SEM_ERRO, unidade=unidade))
         return {"Equation": c.comparar_equacao,
-                "Interval": c.comparar_intervalo}.get(tipo, c.comparar_expressao)
-    return {"NV": partial(c.comparar_numero, rel=TOL_UG), "EX": c.comparar_expressao,
+                "Interval": c.comparar_intervalo}.get(tipo, expressao)
+    return {"NV": partial(c.comparar_numero, rel=TOL_UG, unidade=unidade), "EX": expressao,
             "EQ": c.comparar_equacao, "IN": c.comparar_intervalo, "MC": c.comparar_letras,
             "TF": c.comparar_vf}[tipo]
 
@@ -230,7 +246,7 @@ def corrigir_resposta(item: Item, resposta: str) -> Veredito:
 
 
 def corrigir(item: Item, texto: str) -> Veredito:
-    resposta = c.extrair_resposta(texto)
+    resposta = c.extrair_respostas(texto, len(item.gabaritos))
     if resposta is None:
         return Veredito.SEM_RESPOSTA
     return corrigir_resposta(item, resposta)
@@ -269,7 +285,10 @@ def perturbacoes(item: Item, k: int = 0) -> list[str]:
     if item.bench == "scibench" or tipo in ("NV", "Numerical"):
         return _numero_perturbado(item, k)
     if tipo in ("EX", "Expression") or item.bench == "phybench":
-        return [f"{g} + 1", *_simbolo_trocado(g)]
+        # "0" pega o gabarito que o parser lê como zero (aconteceu com `v^2_2`)
+        e = c.expressao(c._depois_do_igual(c.limpar(g)))
+        zero = ["0"] if e is not None and e.free_symbols else []
+        return [f"{g} + 1", *_simbolo_trocado(g), *zero]
     if tipo in ("EQ", "Equation"):
         return [f"{g} + 1"]
     if tipo in ("IN", "Interval"):
@@ -300,6 +319,8 @@ def autoteste(item: Item) -> dict:
             n_pert += 1
             if corrigir(item, "\\boxed{" + ", ".join(partes) + "}") is not Veredito.FAIL:
                 falhas_pert += 1
-    ok = proprio is Veredito.PASS and n_pert > 0 and falhas_pert == 0
+    # um `$` no gabarito é defeito de carregador (a resposta certa sem `$` nunca passaria)
+    ok = (proprio is Veredito.PASS and n_pert > 0 and falhas_pert == 0
+          and not any("$" in g for g in item.gabaritos))
     return {"id": item.id, "ok": ok, "proprio": str(proprio), "perturbacoes": n_pert,
             "perturbacoes_que_passaram": falhas_pert}

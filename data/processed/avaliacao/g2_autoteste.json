@@ -1,0 +1,134 @@
+{
+ "o_que_e": "autoteste do gabarito do G2 (DOC-12 §3.7.3): só contagens e ids",
+ "codigo_sha256": {
+  "g2_corretor": "f349cd3eedc4b79bbfdac950a5aae4baf0a5ba2acc134f1a696b5ccea00852fb",
+  "g2_itens": "8db33a9703257c82b7acbf270449810f41decccd521725a8a8f724897d1a2e4f"
+ },
+ "conjuntos": {
+  "ugphysics/dev": {
+   "itens": 899,
+   "excluidos": 46,
+   "taxa_exclusao": 0.0512,
+   "refeitos_no_segundo_passe": 46,
+   "acima_do_limite": false,
+   "por_tipo": {
+    "EQ": {
+     "itens": 130,
+     "excluidos": 20
+    },
+    "EX": {
+     "itens": 277,
+     "excluidos": 23
+    },
+    "IN": {
+     "itens": 15,
+     "excluidos": 0
+    },
+    "MC": {
+     "itens": 40,
+     "excluidos": 1
+    },
+    "NV": {
+     "itens": 396,
+     "excluidos": 2
+    },
+    "TF": {
+     "itens": 41,
+     "excluidos": 0
+    }
+   },
+   "motivos": {
+    "proprio:inconclusive": 36,
+    "perturbacao_passou": 7,
+    "proprio:sem_resposta": 2,
+    "proprio:fail": 1
+   },
+   "ids_excluidos": [
+    "AtomicPhysics/1195",
+    "AtomicPhysics/673",
+    "ClassicalElectromagnetism/432",
+    "ClassicalElectromagnetism/77",
+    "ClassicalElectromagnetism/82",
+    "ClassicalMechanics/1763",
+    "ClassicalMechanics/2246",
+    "ClassicalMechanics/2353",
+    "ClassicalMechanics/2413",
+    "ClassicalMechanics/2452",
+    "ClassicalMechanics/2656",
+    "ClassicalMechanics/2834",
+    "Electrodynamics/125",
+    "Electrodynamics/271",
+    "Electrodynamics/457",
+    "Electrodynamics/479",
+    "QuantumMechanics/4143",
+    "QuantumMechanics/4175",
+    "QuantumMechanics/4357",
+    "QuantumMechanics/4359",
+    "QuantumMechanics/4552",
+    "QuantumMechanics/4585",
+    "QuantumMechanics/4626",
+    "QuantumMechanics/4627",
+    "QuantumMechanics/4685",
+    "QuantumMechanics/4699",
+    "QuantumMechanics/4748",
+    "QuantumMechanics/4797",
+    "QuantumMechanics/4815",
+    "QuantumMechanics/4871",
+    "QuantumMechanics/4879",
+    "QuantumMechanics/4969",
+    "QuantumMechanics/5350",
+    "StatisticalMechanics/3102",
+    "StatisticalMechanics/3267",
+    "TheoreticalMechanics/2628",
+    "Thermodynamics/2903",
+    "Thermodynamics/3047",
+    "Thermodynamics/3316",
+    "Thermodynamics/3321",
+    "Thermodynamics/3415",
+    "Thermodynamics/3422",
+    "Thermodynamics/3497",
+    "Thermodynamics/3569",
+    "Thermodynamics/3623",
+    "WaveOptics/5506"
+   ]
+  },
+  "olympiadbench/dev": {
+   "itens": 115,
+   "excluidos": 0,
+   "taxa_exclusao": 0.0,
+   "refeitos_no_segundo_passe": 0,
+   "acima_do_limite": false,
+   "por_tipo": {
+    "Expression": {
+     "itens": 41,
+     "excluidos": 0
+    },
+    "Interval": {
+     "itens": 3,
+     "excluidos": 0
+    },
+    "Numerical": {
+     "itens": 71,
+     "excluidos": 0
+    }
+   },
+   "motivos": {},
+   "ids_excluidos": []
+  },
+  "scibench/dev": {
+   "itens": 33,
+   "excluidos": 0,
+   "taxa_exclusao": 0.0,
+   "refeitos_no_segundo_passe": 0,
+   "acima_do_limite": false,
+   "por_tipo": {
+    "NV": {
+     "itens": 33,
+     "excluidos": 0
+    }
+   },
+   "motivos": {},
+   "ids_excluidos": []
+  }
+ }
+}

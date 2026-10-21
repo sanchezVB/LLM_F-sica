@@ -35,7 +35,8 @@ def main() -> int:
                 fichas[i] = len(tok.encode(d.get("solution") or "").ids)
     for livro in ("class", "fund", "thermo"):
         for x in json.loads((BENCH / f"scibench/{livro}_sol.json").read_text(encoding="utf-8")):
-            fichas[f"{livro}/{x['problemid']}"] = len(tok.encode(x.get("solution") or "").ids)
+            fichas.setdefault(f"{livro}/{str(x['problemid']).strip()}",
+                              len(tok.encode(x.get("solution") or "").ids))
     SAIDA.write_text(json.dumps({"tokenizador": "Qwen3 (tokenizer.json c0382117…)",
                                  "fichas_da_solucao": dict(sorted(fichas.items()))},
                                 ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

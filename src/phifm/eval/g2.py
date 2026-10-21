@@ -64,7 +64,10 @@ NAO_INFERIORIDADE_G2_3 = ("mmlu_sem_fisica",)
 DESCLASSIFICA_G2_3 = ("evalplus", "ifeval_envelope")
 
 # ── o livro de acessos ao teste (K10) ────────────────────────────────────────
-MOTIVOS_DE_ACESSO = ("medida", "falha_operacional")
+# `retomada`: continuar, pelos itens que faltam, uma medida interrompida (queda do Colab,
+# do servidor, da sessão do Windows). A regra prevê retomada por item (§3.7.5); ela fica
+# no livro, não conta como acesso novo e só vale com o MESMO hash da medida em curso.
+MOTIVOS_DE_ACESSO = ("medida", "falha_operacional", "retomada")
 
 
 class RegraNaoAceita(RuntimeError):
@@ -127,6 +130,14 @@ def motivo_de_recusa(registros: Sequence[dict], tamanho: str, braco: str, motivo
     mesmos = [r for r in registros if _chave(r) == _chave(novo)]
     medidas = sum(r["motivo"] == "medida" for r in mesmos)
     repeticoes = sum(r["motivo"] == "falha_operacional" for r in mesmos)
+    if motivo == "retomada":
+        abertas = [r for r in mesmos if r["motivo"] in ("medida", "falha_operacional")]
+        if not abertas:
+            return "retomada sem uma medida aberta"
+        if abertas[-1]["hash_config"] != hash_config:
+            return ("retomada com outro hash de configuração: isso não é continuar a mesma "
+                    "medida")
+        return None
     if motivo == "medida" and medidas:
         return (f"{braco} ({tamanho}) já teve o seu acesso ao teste; outro só por emenda "
                 "escrita (a reserva lacrada do UG existe para isso)")
