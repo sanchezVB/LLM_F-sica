@@ -31,7 +31,7 @@ from dataclasses import dataclass
 import sympy as sp
 
 from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import parse
+from phifm.verify.symbolic import _declarados, parse
 
 BASES = ("M", "L", "T", "I", "Theta", "N", "J")
 
@@ -328,7 +328,7 @@ class DimensionalVerifier:
 
         # Símbolo declarado é símbolo, não constante do SymPy: quem declarou
         # `I` como corrente não quer a unidade imaginária de volta.
-        locais = {n: sp.Symbol(n) for n in (claim.context.get("dimensions") or {})}
+        locais = _declarados(claim)
         a = parse(claim.lhs, locais)
         b = parse(claim.rhs, locais) if claim.rhs is not None else None
         if a is None or (claim.rhs is not None and b is None):

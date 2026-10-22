@@ -21,11 +21,13 @@ anotação de tipo confiável, expressões com operadores retornam
 
 from __future__ import annotations
 
+import contextlib
 import re
 import signal
 import threading
 
 import sympy as sp
+from sympy.core.function import AppliedUndef
 from sympy.parsing.latex import parse_latex
 from sympy.parsing.sympy_parser import (
     convert_xor,
@@ -87,8 +89,216 @@ _TRANSFORMS = standard_transformations + (
 #
 # **`I` fica de fora de propósito.** Onda plana `exp(I*k*x)` é comum e precisa
 # da unidade imaginária; corrente elétrica se resolve declarando o símbolo em
-# `context["dimensions"]`, que tem precedência (ver `parse(locais=...)`).
+# `context["dimensions"]`, que tem precedência (ver `parse(locais=...)` e
+# `_declarados`).
+#
+# ⚠️ Isto vale para a sintaxe do SymPy. Em LaTeX o `I` já sai símbolo, porque o
+# ANTLR não consulta namespace nenhum, e é a leitura certa: o próprio
+# `sp.latex(sp.I)` escreve `i`. A consequência é que a mesma resposta muda de
+# sentido conforme a rota — `I^{2} R` é I²R, e `I^2 R`, sem `\` nem `^{`, vai
+# para o `parse_expr` e vale −R. Declarar o símbolo resolve as duas rotas.
+#
+# O dono reconfirmou a decisão em 2026-10-19, sabendo dessa consequência: na
+# sintaxe do SymPy, `I` sem declaração segue a unidade imaginária.
 _FISICA = {n: sp.Symbol(n) for n in ("E", "N", "Q", "S", "O", "gamma", "beta", "zeta")}
+
+
+# ── O LaTeX que o ANTLR lê errado ──────────────────────────────────────────
+#
+# Defeitos do backend ANTLR do `sympy.parsing.latex` (SymPy 1.14), achados em
+# 2026-10-19 ao construir o corretor do portão G2, que os contornava por conta
+# própria em `eval/g2_corretor.py`. A correção mora aqui porque `parse` é o
+# barramento único dos cinco consumidores (DOC-10, DOC-01 P3): contornar só no
+# G2 deixaria o RLVR dando recompensa pela leitura errada.
+#
+# A ordem em `_ler_latex` importa: a tipografia sai antes de tudo (`\big|` é
+# módulo), e as pontas são aparadas por último (as trocas anteriores podem
+# deixar um `\,` na ponta).
+
+# Letras gregas, que a gramática lê como `SYMBOL` e que de fato nomeiam grandeza.
+_GREGAS = frozenset({
+    "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
+    "theta", "vartheta", "iota", "kappa", "varkappa", "lambda", "mu", "nu", "xi",
+    "omicron", "pi", "varpi", "rho", "varrho", "sigma", "varsigma", "tau",
+    "upsilon", "phi", "varphi", "chi", "psi", "omega", "Gamma", "Delta", "Theta",
+    "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega",
+})
+
+# ⚠️ Tipografia. A regra `SYMBOL` da gramática aceita qualquer macro, então o
+# que é só tamanho ou estilo virava grandeza:
+#
+#     \displaystyle\frac{a}{b}  →  displaystyle·a/b
+#     \big( a \big)             →  a função `big` aplicada a a·big
+#
+# e a resposta certa reprovava contra o gabarito escrito sem elas. Saem
+# trocadas por `\,`, que a gramática pula: apagar sem deixar nada colaria os
+# vizinhos, e um espaço comum pode formar diferencial (`d\displaystyle x` →
+# `d x` → dx).
+_TIPOGRAFIA = re.compile(
+    r"\\(?:displaystyle|textstyle|scriptstyle|scriptscriptstyle|[Bb]igg?[lrm]?|"
+    r"limits|nolimits)(?![A-Za-z])"
+)
+
+# Constantes em tipo reto, pela ISO 80000-2: `\mathrm{e}` é o número de Euler,
+# `\mathrm{i}` a unidade imaginária e `\mathrm{d}` o operador diferencial — o
+# e, o i e o d em itálico são grandezas (carga, índice, distância). Sem isto,
+# `\mathrm{e}^{-\beta E}` virava mathrm/e^{βE}.
+#
+# O `d` vira a letra, e o lexer faz dele o diferencial como faria com `dx`. O e
+# e o i viram uma macro-sentinela, trocada pela constante depois do parse:
+# não há como escrever o e de Euler em LaTeX que o ANTLR leia como constante.
+#
+# Não vale logo depois de `_`: `m_\mathrm{e}` é a massa do elétron, e quem
+# trata subscrito é `normalizar_subscritos`.
+_RETAS = re.compile(r"(?<!_)\\(?:mathrm|textrm|operatorname)\s*\{\s*([dei])\s*\}")
+_SENTINELAS = {"e": "phifmeuler", "i": "phifmimaginaria"}
+_CONSTANTES_RETAS = {
+    sp.Symbol(_SENTINELAS["e"]): sp.E,
+    sp.Symbol(_SENTINELAS["i"]): sp.I,
+}
+
+
+def _reta(m: re.Match) -> str:
+    letra = m.group(1)
+    return "d" if letra == "d" else f"{{\\{_SENTINELAS[letra]}}}"
+
+
+# ⚠️ Macro que não nomeia grandeza. Mesmo com a tipografia fora, a regra
+# `SYMBOL` segue transformando em símbolo livre toda macro que a gramática não
+# conhece: `\text{m}` → m·text, `\vec{F}` → F·vec, `\dot{x}` → dot·x,
+# `a \approx b` → a·approx·b, `30^\circ` → 30^circ, `A^\dagger` → A^dagger.
+# Tratar uma a uma é correr atrás da próxima; o que se fecha aqui é a classe:
+# se o resultado tem um símbolo cujo nome vem de uma macro do texto, e essa
+# macro não é grega nem `\hbar`/`\ell`, a leitura é recusada e `parse` devolve
+# None — INCONCLUSIVE, nunca uma leitura com um `text` ou um `vec` dentro.
+#
+# Macros que a gramática conhece (`\frac`, `\sin`, `\cdot`, `\int`) não geram
+# símbolo, então não precisam de lista.
+#
+# **Unidade é recusada, por decisão do dono (2026-10-19).** `5\,\text{m}` dá
+# None aqui. Descartar a unidade aprovaria 5 km contra 5 m, e levá-la ao
+# dimensional exigiria uma gramática de unidades que não existe. Quem compara
+# NÚMEROS tira a unidade por conta própria, sabendo em que unidade está o
+# gabarito — é o que faz o `numero()` do corretor do G2.
+_MACROS_DE_GRANDEZA = _GREGAS | {"hbar", "hslash", "ell"}
+
+
+class _MacroLivre(ValueError):
+    """O ANTLR leu como grandeza uma macro que não é nome de grandeza."""
+
+
+def _recusar_macros_livres(e: sp.Basic, texto: str) -> None:
+    suspeitas = set(re.findall(r"\\([A-Za-z]+)", texto)) - _MACROS_DE_GRANDEZA
+    if not suspeitas:
+        return
+    nomes = [s.name for s in e.atoms(sp.Symbol)]
+    nomes += [f.func.__name__ for f in e.atoms(AppliedUndef)]
+    # O nome inteiro, e não só a base: `x_{\vec{v}}` sai o símbolo `x_{v*vec}`.
+    achadas = {p for n in nomes for p in re.findall(r"[A-Za-z]+", n)} & suspeitas
+    if achadas:
+        raise _MacroLivre(", ".join(sorted(achadas)))
+
+
+# ⚠️ Módulo descartado em silêncio. A gramática reserva `\left|` e `\right|`
+# como tokens próprios (L_BAR, R_BAR), feitos para o bra-ket, e a regra do
+# módulo só aceita a barra crua. `\left|E\right|` não casa com regra nenhuma, e
+# a regra de entrada (`math: relation`) não exige o fim do texto — então o
+# parser para no último ponto que entendeu e joga o resto fora, sem erro:
+#
+#     q \left|E\right|   →  q       q|E| e q passavam por iguais
+#     \left|E\right| q   →  erro    e `parse` devolvia None
+#
+# `\lvert`, `\rvert` e `\vert` caem noutro canto da gramática (`SYMBOL`, que
+# aceita qualquer macro) e viravam os símbolos livres `lvert` e `rvert`. Toda
+# grafia do módulo vira a barra crua, que o bra-ket também aceita
+# (`ket: (L_BAR | BAR) expr R_ANGLE`). A barra crua não muda: casa e volta igual.
+_MODULO = re.compile(r"(?:\\(?:left|right)\s*)?(?:\||\\[lr]?vert(?![A-Za-z]))")
+
+# ⚠️ O resto do texto, descartado pelo mesmo motivo. Sem fim de texto na
+# gramática, QUALQUER sobra que o parser não entenda some (`q E ]` → `q*E`). O
+# modo `strict` do SymPy recusa a sobra, mas confere o primeiro e o último
+# token contra as pontas do texto, e por isso reprova LaTeX válido que comece
+# ou termine num token que a gramática pula — o `\left` de
+# `\left(\frac{a}{b}\right)^2`. Daí aparar as pontas antes.
+#
+# A lista é a dos tokens `-> skip` do LaTeX.g4 do SymPy 1.14. Se faltar algum,
+# o `strict` recusa, e a expressão sai `None`: INCONCLUSIVE, nunca uma leitura
+# errada.
+_PULADO = (
+    r"\s|\\[,:;!*\-./\"(=]|\\(?:quad|qquad|thinspace|medspace|thickspace|"
+    r"negthinspace|negmedspace|negthickspace|left|right|vrule|vcenter|vbox|"
+    r"vskip|vspace|hfil)(?![A-Za-z])"
+)
+_PONTAS = re.compile(rf"^(?:{_PULADO})+|(?:{_PULADO})+$")
+
+# ⚠️ `d` antes de macro. O lexer tem um token DIFFERENTIAL (`d`, espaço
+# opcional, e uma letra ou uma macro) para o `dx` das integrais. Como o lexer
+# fica com o casamento mais longo, `d` seguido de QUALQUER macro vira o
+# diferencial dela:
+#
+#     2d \sin\theta  →  2·dsin·θ     a lei de Bragg
+#     d \cdot F      →  dcdot·F      e `d\frac{1}{2}` → dfrac·1·2
+#
+# Função, operador e constante não são variável de integração, então ali o `d`
+# é a grandeza d. Um `\,` (espaço fino, que a gramática pula) entre os dois
+# quebra o token sem mudar o sentido. Letra grega fica com a leitura de
+# diferencial (`d\theta`, `d\phi`), que é a dela numa integral; `\pi` não,
+# porque constante não tem diferencial. Fora de macro nada muda: `dx` segue
+# ambíguo entre dx e d·x, e a leitura continua a da gramática.
+_GREGAS_DE_INTEGRACAO = (_GREGAS - {"pi"}) | {"ell"}
+# A primeira alternativa consome a macro inteira, para o `d` de `\delta` ou de
+# `\dfrac` nunca ser lido como letra solta.
+_D_ANTES_DE_MACRO = re.compile(r"\\[A-Za-z]+|d(?=[ \t\r\n]*\\([A-Za-z]+))")
+
+
+def _separar_d(m: re.Match) -> str:
+    macro = m.group(1)
+    if macro is None or macro in _GREGAS_DE_INTEGRACAO:
+        return m.group(0)
+    return "d\\,"
+
+
+def _eh_pi_aplicado(x: sp.Basic) -> bool:
+    return isinstance(x, AppliedUndef) and x.func.__name__ == "pi" and len(x.args) == 1
+
+
+def _pi(e: sp.Basic) -> sp.Basic:
+    """`\\pi` → π.
+
+    ⚠️ A gramática aceita qualquer macro como `SYMBOL` e só trata `\\infty` à
+    parte, então `\\pi` sai `Symbol('pi')` — do próprio ANTLR, não do `xreplace`
+    dos marcadores de subscrito: `\\frac{\\sqrt{2}\\pi}{6}` não tem marcador
+    nenhum e já sai assim. Com π livre, o `NumericVerifier` o sorteia como
+    variável, e uma resposta com 3.14159 nunca bate com o gabarito em π.
+
+    `\\pi(R^2 - r^2)`, a área da coroa, sai como uma função `pi` aplicada à
+    diferença, e vira o produto. π como campo (o momento conjugado da TQC)
+    fica de fora: em resposta de Física, `\\pi` é a constante.
+    """
+    e = e.replace(_eh_pi_aplicado, lambda x: sp.pi * x.args[0])
+    return e.xreplace({sp.Symbol("pi"): sp.pi})
+
+
+def _ler_latex(texto: str) -> sp.Basic:
+    texto = _TIPOGRAFIA.sub(lambda _: "\\,", texto)
+    texto = _RETAS.sub(_reta, texto)
+    texto = _MODULO.sub("|", texto)
+    texto = _D_ANTES_DE_MACRO.sub(_separar_d, texto)
+    texto = _PONTAS.sub("", texto)
+    e = _pi(parse_latex(texto, strict=True)).xreplace(_CONSTANTES_RETAS)
+    _recusar_macros_livres(e, texto)
+    return e
+
+
+def _declarados(claim: Claim) -> dict[str, sp.Symbol]:
+    """Os símbolos que `context["dimensions"]` declara, para `parse(locais=...)`.
+
+    Símbolo declarado é símbolo, não constante do SymPy: quem declarou `I` como
+    corrente não quer a unidade imaginária de volta. ⚠️ Até 2026-10-19 só o
+    dimensional passava a declaração ao `parse`; o simbólico e o numérico — os
+    que decidem PASS e FAIL — liam `I**2*R` como −R mesmo com `I` declarado.
+    """
+    return {n: sp.Symbol(n) for n in (claim.context.get("dimensions") or {})}
 
 
 class _Timeout(Exception):
@@ -158,6 +368,27 @@ def _com_limite(fn, *args, **kwargs):
     return caixa["valor"]
 
 
+def _aquecer() -> None:
+    """Carrega o parser LaTeX na importação, na thread que importa, sem teto.
+
+    ⚠️ A primeira chamada ao `parse_latex` carrega o ANTLR e a cadeia de
+    importação do bra-ket (`sympy.physics.quantum`, que traz numpy e
+    scipy.sparse). No Windows isso pode passar de `TIMEOUT_S`, e aí a primeira
+    verificação do processo saía INCONCLUSIVE por tempo — e a thread abandonada
+    pelo `_com_limite` seguia importando o numpy em paralelo com a principal (já
+    deu "partially initialized module numpy" num teste). Achado em 2026-10-19
+    no corretor do G2, que tinha o seu próprio aquecimento.
+
+    Sem o ANTLR instalado a chamada falha aqui e de novo em cada `parse`, que
+    cai no `parse_expr` como sempre caiu; importar o módulo não pode quebrar.
+    """
+    with contextlib.suppress(Exception):
+        _ler_latex(r"\frac{1}{2}")
+
+
+_aquecer()
+
+
 def parse(expr: str, locais: dict | None = None) -> sp.Expr | None:
     """Aceita LaTeX ou sintaxe SymPy. Devolve ``None`` se não parsear.
 
@@ -178,11 +409,13 @@ def parse(expr: str, locais: dict | None = None) -> sp.Expr | None:
     #
     # `^` sozinho não precisa do LaTeX: `convert_xor` já o traduz.
     #
+    # `|` precisa: no `parse_expr` ele é o `Or` lógico, e `q |E|` saía `None`.
+    #
     # A decisão sai do texto ORIGINAL porque a normalização logo abaixo apaga
     # justamente as marcas em que ela se baseia: `E_{tot} = E_{cin} + E_{pot}`
     # perde os `_{`, e sem eles a expressão iria para o `parse_expr`, que não
     # aceita `=` — equação inteira virando `None`.
-    usar_latex = "\\" in s or "_{" in s or "^{" in s
+    usar_latex = "\\" in s or "_{" in s or "^{" in s or "|" in s
 
     # Subscrito nomeado vira identificador ANTES de qualquer parser ver a
     # expressão: `E_{cin}` → `E_cin`, `\rho_{xy}` → `rho_xy`. Sem isto o ANTLR
@@ -203,7 +436,7 @@ def parse(expr: str, locais: dict | None = None) -> sp.Expr | None:
         # desfeita nos símbolos logo abaixo e não vaza para o chamador.
         blindado, marcadores = blindar_subscritos(s)
         try:
-            e = _com_limite(parse_latex, blindado)
+            e = _com_limite(_ler_latex, blindado)
             if marcadores:
                 e = e.xreplace(
                     {sp.Symbol(m): sp.Symbol(ident) for m, ident in marcadores.items()}
@@ -251,7 +484,8 @@ class SymbolicVerifier:
         return claim.rhs is not None
 
     def verify(self, claim: Claim) -> VerificationResult:
-        a, b = parse(claim.lhs), parse(claim.rhs or "")
+        locais = _declarados(claim)
+        a, b = parse(claim.lhs, locais), parse(claim.rhs or "", locais)
         if a is None or b is None:
             qual = "lhs" if a is None else "rhs"
             return VerificationResult(

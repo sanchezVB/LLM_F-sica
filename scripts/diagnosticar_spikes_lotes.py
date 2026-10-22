@@ -91,8 +91,8 @@ def main() -> int:
     fluxo = Fluxo(ConfigDados(raiz=a.dados, contexto=a.contexto,
                               sequencias=a.sequencias, semente=a.semente))
     cfg = ConfigMascara(taxa=a.taxa, p_equacao=a.p_equacao, semente=a.semente)
-    kw = dict(acumulacao=a.acumulacao, id_mask=a.id_mask, n_vocab=a.n_vocab,
-              especiais=frozenset(a.especiais))
+    kw = {"acumulacao": a.acumulacao, "id_mask": a.id_mask, "n_vocab": a.n_vocab,
+          "especiais": frozenset(a.especiais)}
 
     ini, fim = a.faixa or (250, max(a.passos))
     rng = np.random.default_rng(2026)

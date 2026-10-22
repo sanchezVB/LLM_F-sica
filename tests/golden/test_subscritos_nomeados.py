@@ -53,6 +53,10 @@ NOMEADOS = [
     (r"E_{\rm cin}", "E_cin"),
     (r"E_{\mathrm{cin}}", "E_cin"),
     (r"E_{\text{cin}}", "E_cin"),
+    # A macro de fonte sem chaves em volta é TeX válido e comum: k_B, m_e.
+    (r"E_\mathrm{cin}", "E_cin"),
+    (r"k_\mathrm{B}", "k_B"),
+    (r"m_\mathrm{e}", "m_e"),
 ]
 
 

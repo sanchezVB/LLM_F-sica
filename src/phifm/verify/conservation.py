@@ -26,7 +26,7 @@ from dataclasses import dataclass
 import sympy as sp
 
 from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _com_limite, _Timeout, parse
+from phifm.verify.symbolic import _com_limite, _declarados, _Timeout, parse
 
 TOL = sp.Rational(1, 10**12)
 AMOSTRAS = (sp.Rational(1, 3), sp.Rational(7, 5), sp.Rational(11, 4),
@@ -166,7 +166,8 @@ class ConservationVerifier:
         grandeza = spec.get("quantity", "invariante")
         var = sp.Symbol(spec.get("var", "t"))
         fonte = spec.get("expr") or claim.lhs
-        expr = parse(str(fonte))
+        locais = _declarados(claim)
+        expr = parse(str(fonte), locais)
         if expr is None:
             return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
 
@@ -177,7 +178,7 @@ class ConservationVerifier:
         # genérica e sua derivada não é nula por bom motivo nenhum.
         subs = {}
         for k, v in (spec.get("solution") or {}).items():
-            alvo = parse(str(v))
+            alvo = parse(str(v), locais)
             if alvo is None:
                 return VerificationResult(
                     Verdict.INCONCLUSIVE, self.id, 0.0, f"solução de {k} não parseou"

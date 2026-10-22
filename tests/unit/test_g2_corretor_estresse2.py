@@ -213,7 +213,10 @@ def test_verdade(resposta, esperado):
 
 
 def test_olympiad_sem_dolar_solto_e_autoteste_pega_dolar():
-    for i in g2_itens.carregar("olympiadbench", "dev"):
-        assert not any("$" in g for g in i.gabaritos), i.id
     item = Item("olympiadbench", "x", "Q", ("a$", "$b"), ("Expression", "Expression"), (None, None))
     assert not g2_itens.autoteste(item)["ok"]
+    # Os benchmarks ficam fora do git (/data/*): no CI e numa worktree nova não existem.
+    if not (g2_itens.BENCH / "olympiadbench").exists():
+        pytest.skip("os benchmarks do G2 não estão nesta cópia (data/raw/benchmarks)")
+    for i in g2_itens.carregar("olympiadbench", "dev"):
+        assert not any("$" in g for g in i.gabaritos), i.id
