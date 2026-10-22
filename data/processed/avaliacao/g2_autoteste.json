@@ -1,8 +1,13 @@
 {
  "o_que_e": "autoteste do gabarito do G2 (DOC-12 §3.7.3): só contagens e ids",
  "codigo_sha256": {
-  "g2_corretor": "f349cd3eedc4b79bbfdac950a5aae4baf0a5ba2acc134f1a696b5ccea00852fb",
-  "g2_itens": "8db33a9703257c82b7acbf270449810f41decccd521725a8a8f724897d1a2e4f"
+  "src/phifm/eval/g2_corretor.py": "0b9eda1a66bca5d3babffb39c52c38091e3e62540f5d8d389d92fe4474b1736e",
+  "src/phifm/eval/g2_itens.py": "8db33a9703257c82b7acbf270449810f41decccd521725a8a8f724897d1a2e4f",
+  "src/phifm/core/latex/subscritos.py": "d84132ef83b3fcabf57ad58b414fcbc1afa12ebd66795ea5d8da6ee0573fb08e",
+  "src/phifm/verify/symbolic.py": "724fd1d9373c4ed5deaa17796ac4dbca40b353e222c5cb9123cebd1ca9d8449a",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
  },
  "conjuntos": {
   "ugphysics/dev": {
@@ -10,6 +15,8 @@
    "excluidos": 46,
    "taxa_exclusao": 0.0512,
    "refeitos_no_segundo_passe": 46,
+   "trabalhador_morto_no_teto": 0,
+   "trabalhador_reiniciado_por_thread_vazada": 0,
    "acima_do_limite": false,
    "por_tipo": {
     "EQ": {
@@ -97,6 +104,8 @@
    "excluidos": 0,
    "taxa_exclusao": 0.0,
    "refeitos_no_segundo_passe": 0,
+   "trabalhador_morto_no_teto": 0,
+   "trabalhador_reiniciado_por_thread_vazada": 0,
    "acima_do_limite": false,
    "por_tipo": {
     "Expression": {
@@ -120,6 +129,8 @@
    "excluidos": 0,
    "taxa_exclusao": 0.0,
    "refeitos_no_segundo_passe": 0,
+   "trabalhador_morto_no_teto": 0,
+   "trabalhador_reiniciado_por_thread_vazada": 0,
    "acima_do_limite": false,
    "por_tipo": {
     "NV": {

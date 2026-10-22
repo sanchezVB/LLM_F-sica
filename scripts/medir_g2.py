@@ -134,9 +134,8 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
         "o_que_e": f"G2, fase {fase}: agregados por benchmark (DOC-12 §3.7); as gerações ficam "
                    "fora do git",
         "modelo": nome, "braco": braco, "rotulo": rotulo, "hash_config": hc,
-        "codigo_sha256": {n: g2.sha256_arquivo(RAIZ / f"src/phifm/eval/{n}.py")
-                          for n in ("g2_corretor", "g2_itens", "g2_prompt", "g2_geracao",
-                                    "g2_correcao")},
+        "codigo_sha256": g2.codigo_do_corretor(RAIZ, extras=tuple(
+            f"src/phifm/eval/{n}.py" for n in ("g2_prompt", "g2_geracao", "g2_correcao"))),
         "correcoes_mortas_no_teto": mortes,
         "k": k, "segundos": round(time.time() - t0),
         "por_benchmark": _agregar(itens, amostras, vereditos),
