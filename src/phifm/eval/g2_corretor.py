@@ -1038,6 +1038,12 @@ def _com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> tuple[V
     return (Veredito.INCONCLUSIVE, True) if t.is_alive() else (caixa["v"], False)
 
 
+def threads_vazadas() -> int:
+    """Comparações que estouraram o teto e seguem vivas, gastando CPU e disputando o GIL.
+    Python não mata thread: quem as tem tem de reiniciar o processo (`g2_correcao`)."""
+    return sum(t.name == "g2-corretor" and t.is_alive() for t in threading.enumerate())
+
+
 def com_teto(fn: Callable[[], Veredito], segundos: float = LIMITE_S) -> Veredito:
     """A comparação inteira sob o teto. O teto é de relógio, e o relógio depende da carga:
     quem estoura é refeito UMA vez antes de virar INCONCLUSIVE. A correção da medida roda
@@ -1317,18 +1323,36 @@ def _lados(s: str) -> tuple[sp.Expr, sp.Expr] | None:
     return None if None in lados else lados  # type: ignore[return-value]
 
 
+def _isolar(f: sp.Expr, x: sp.Symbol) -> sp.Expr | None:
+    """A solução de f = 0 em x quando f é LINEAR em x, em 1/x ou em √x (x > 0), sem
+    `sp.solve`: o `solve` entrava num `simplify`/`factor` sem fim, e a thread que estourava
+    o teto seguia viva e travava o autoteste inteiro (2026-10-22)."""
+    h = sp.Symbol("h_isolado", positive=True)
+    for troca, volta in ((h, lambda s: s), (1 / h, lambda s: 1 / s), (h ** 2, lambda s: s ** 2)):
+        fh = f.xreplace({x: troca})
+        a = sp.diff(fh, h)
+        if a == 0 or h in a.free_symbols:
+            continue
+        s = -fh.xreplace({h: 0}) / a
+        if s.has(sp.zoo, sp.nan) or x in s.free_symbols:
+            continue
+        return volta(s)
+    return None
+
+
 def _isolando_a_grandeza(resposta: str, gabarito: str) -> Veredito:
-    """Gabarito `G = expr` com G um símbolo: isola G na equação da resposta; PASS se
-    houver UMA solução e ela for equivalente a expr (`E V^2 = \\pi B u_0^2`)."""
+    """Gabarito `G = expr` com G um símbolo: isola G na equação da resposta; PASS se ela
+    for linear em G, 1/G ou √G e a solução for equivalente a expr (`E V^2 = \\pi B u_0^2`,
+    `1/E = …`)."""
     g = _lados(gabarito)
     r = _lados(_sem_texto_em_volta(resposta))
     if g is None or r is None or not isinstance(g[0], sp.Symbol):
         return Veredito.FAIL
     try:
-        sols = [s for s in sp.solve(r[0] - r[1], g[0]) if g[0] not in s.free_symbols]
+        sol = _isolar(r[0] - r[1], g[0])
     except Exception:
         return Veredito.INCONCLUSIVE
-    return _equivalentes(sols[0], g[1]) if len(sols) == 1 else Veredito.FAIL
+    return _equivalentes(sol, g[1]) if sol is not None else Veredito.FAIL
 
 
 def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
