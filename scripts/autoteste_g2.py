@@ -49,8 +49,7 @@ def main() -> int:
     # UG-dev trocou 10 ids de lado só por carga (sessão do verify, 2026-10-20)
     p.add_argument("--processos", type=int, default=1)
     a = p.parse_args()
-    codigo = {nome: g2.sha256_arquivo(RAIZ / f"src/phifm/eval/{nome}.py")
-              for nome in ("g2_corretor", "g2_itens")}
+    codigo = g2.codigo_do_corretor(RAIZ)
     anterior = json.loads(SAIDA.read_text(encoding="utf-8")) if SAIDA.exists() else {}
     resultado = {"o_que_e": "autoteste do gabarito do G2 (DOC-12 §3.7.3): só contagens e ids",
                  "codigo_sha256": codigo, "conjuntos": anterior.get("conjuntos", {})}

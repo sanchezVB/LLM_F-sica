@@ -299,6 +299,37 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
      - de `X \pm δ`, vale o valor central;
      - a resposta numérica com unidade sem ambiguidade passa, mesmo que a unidade seja outra (não há conversão).
 
+9. **Terceira rodada do estresse (2026-10-21),** dirigida ao código novo da segunda: 566 casos e 33 causas. Os dois atacantes terminaram, e os verificadores caíram no limite de sessão. Cada achado foi então reproduzido à mão antes da correção, e ganhou teste de regressão (`test_g2_corretor_estresse3.py`). A maior parte eram **regressões criadas pela segunda rodada**. O que mudou:
+   - **Extração.** A frase "final answer is" é lida na sentença inteira:
+     - não vale com condição, contrafactual ou pergunta antes dela ("Had we neglected recoil, the final answer is…");
+     - não vale com "?" na mesma sentença, nem com correção na seguinte ("No, …");
+     - o comentário depois do valor ("correct to three figures", "which is consistent") não a anula;
+     - enchimento antes do valor ("therefore", "given by") não a anula;
+     - com várias respostas, junta os n trechos da sentença, sem pedaço de unidade (`m/s$^2$`).
+
+     O corte de continuação só age depois de já haver uma resposta. "Solution:", o eco parcial e "**Problem**" sem número não cortam.
+   - **Número.**
+     - A unidade declarada só sai do fim se sobrar um número puro: com unidade "a", `6/a` e `8 − 2a` não viram 6.
+     - Lados vazios da cadeia (`\approx 13.06`) não contam. O lado do meio é comparado na tolerância do item. Uma expressão simbólica no meio (`v = \sqrt{2gh} \approx 80.4`) e `|v|`/`\text{speed}` no começo valem.
+     - Texto em `\text{}` sai, salvo qualificador (lista negra: not, less, more, than, or, zero, between, at least…): unidade por extenso ("meters") e "°C" voltam a passar.
+     - Unidade declarada comparada por tokens (`J \cdot s` = `J s`, `\AA` = Å). Letra com `/` ou `^` só vale de uma lista curta (m, s, K, N, J, W, V, A, C, Ω, Å): `h/g`, `g^{2}` e `ML^{2}` não passam.
+     - `10^14` é 10¹⁴, não 10¹·4. Isso consertou também um gabarito de dev do OlympiadBench que o carregador lia errado.
+     - Grupos SI depois da vírgula decimal (`48.189\,685`) se juntam.
+     - Em `1.50 \pm 0.05 \times 10^{-3}`, a escala fica com o valor central.
+   - **Leitura.**
+     - A função nomeada usa uma cabeça reservada (`\operatorname`, `\mathrm{erf}`, `erf(` em texto), e não mais todo `F_…`. Assim, F_N(1+μ), F_0[…] e F_1(t) voltam a ser grandezas. A pseudofunção tem coeficientes num espaço de 10⁴ e um termo constante do nome; antes, cn = dn e f(0) = 1 para todo nome.
+     - min e max são simétricos.
+     - O argumento de função leva o subscrito aninhado (`\theta_{\mathrm{c}}`) e o expoente do átomo único: `\ln r^{2}` = ln(r²).
+     - Os versores `\mathbf{i}`, `\hat{i}`, `\hat{x}` e `\mathbf{e}_r` = `\hat r` coincidem e não entram no argumento da função anterior.
+     - Grega Unicode com índice colado (`ε0`) vira ε₀.
+   - **Lados e intervalos.** `v(0)` não é `v`, e `B(a)` não é `B(r)`; só `v` contra `v(t)` dispensa os argumentos. Na desigualdade, a variável tem de ser grandeza solta: `\tan\alpha \le \mu` dá [tan α, ∞).
+   - **V/F e letras.**
+     - A polaridade oposta solta depois da primeira palavra reprova ("Yes; no", "No (yes for …)").
+     - "Yes it is" e "No - the rule forbids it" passam.
+     - No rótulo de alternativa, reprova a palavra que aponta para outra letra ("Maybe D", "or (B)"). O "not" ou "no" do texto da opção copiado não reprova.
+   - **Texto em volta da resposta simbólica.** Só ", where …" e "i.e." saem, e só sem qualificador. "for", "with" e "since" ficam, e o parser estrito recusa: antes, "X for case 1, Y for case 2" passava pela primeira.
+   - **Limitação declarada.** Bessel com índice (`J_{0}(kr)`) segue como produto, porque J₀·(…) também é corrente ou momento angular.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

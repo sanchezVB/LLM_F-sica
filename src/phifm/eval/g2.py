@@ -93,6 +93,29 @@ def sha256_arquivo(caminho: Path) -> str:
     return hashlib.sha256(Path(caminho).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
+# O que decide um veredito do corretor: os módulos dele, os de que ele depende e as versões
+# do parser. Antes o hash cobria só g2_corretor e g2_itens; uma mudança em subscritos.py ou
+# symbolic.py (o PR do parse do verify) mudava a correção sem mudar o hash (sessão do
+# verify, 2026-10-21).
+CODIGO_DO_CORRETOR = ("src/phifm/eval/g2_corretor.py", "src/phifm/eval/g2_itens.py",
+                      "src/phifm/core/latex/subscritos.py", "src/phifm/verify/symbolic.py")
+PACOTES_DO_CORRETOR = ("sympy", "antlr4-python3-runtime", "mpmath")
+
+
+def codigo_do_corretor(raiz: Path, extras: tuple[str, ...] = ()) -> dict[str, str | None]:
+    """{caminho: SHA-256} do código do corretor (e de `extras`), mais {pacote: versão}."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    hashes: dict[str, str | None] = {p: sha256_arquivo(raiz / p)
+                                     for p in CODIGO_DO_CORRETOR + tuple(extras)}
+    for pacote in PACOTES_DO_CORRETOR:
+        try:
+            hashes[pacote] = version(pacote)
+        except PackageNotFoundError:
+            hashes[pacote] = None
+    return hashes
+
+
 def exigir_aceite_e_congelamento(preregistro: Path = PREREGISTRO, aceita: bool | None = None,
                                  sha_congelado: str | None = None) -> str:
     """Levanta exceção se a regra não foi aceita, se o protocolo não foi congelado ou se o

@@ -77,24 +77,36 @@ class Veredito(StrEnum):
 # resposta do prompt, que só aparecem num problema novo. "Refer to Problem 2.1" no meio
 # da solução, "Problem analysis:" e a autoverificação ("Question: is this consistent?")
 # NÃO cortam (estresse, rodada 2). `[ \t]` e não `\s`: `\n\s*` era quadrático.
+#
+# Só se corta DEPOIS de já haver uma resposta (uma caixa ou a frase final): um "Solution:"
+# ou um eco no meio do raciocínio não pode apagar a resposta que vem depois (rodada 3).
+# "Solution:" sozinho não corta: sem "Problem:" antes (o servidor para em "\nProblem:"),
+# é o modelo recomeçando a própria solução.
 _NOVO_PROBLEMA = re.compile(
-    r"^[ \t]*(?:#+[ \t]*|\*\*)?(?:Problem|PROBLEM)(?:[ \t]*\d+(?:\.\d+)*)?[ \t]*\**[ \t]*"
-    r"(?::|\.(?!\d)|\)|\**[ \t]*$)"
+    r"^[ \t]*(?:#+[ \t]*|\*\*)?(?:Problem|PROBLEM)"
+    r"(?:[ \t]*\d+(?:\.\d+)*[ \t]*\**[ \t]*(?::|\.(?!\d)|\)|$)|[ \t]*\**[ \t]*:)"
     r"|The following are physics problems with step-by-step solutions"
     r"|put only the number in \\boxed\{\}|Give only the number in \\boxed\{\}"
-    r"|^[ \t]*The answer is (?:an expression|an equation|an interval|a number)"
-    r"|^[ \t]*Answer (?:with the option letter|True or False)"
-    r"|single symbolic expression in the given quantities"
-    r"|^[ \t]*Solution:", re.M)
+    r"|^[ \t]*The answer is (?:an expression|an equation|an interval)\.[ \t]*$"
+    r"|^[ \t]*Answer (?:with the option letter\(s\)|True or False)\.[ \t]*$"
+    r"|single symbolic expression in the given quantities", re.M)
 _FRASE_FINAL = re.compile(r"final(?:\*\*|__)?\s+answers?(?:\*\*|__)?\s*(?:is|are)\b\s*:?\s*",
                           re.I)
 _MATEMATICA = re.compile(r"\$\$(.+?)\$\$|\\\[(.+?)\\\]|\\\((.+?)\\\)|\$(.+?)\$"
                          r"|\\begin\{(?:equation|align)\*?\}(.+?)\\end\{(?:equation|align)\*?\}",
                          re.S)
-# depois da frase final, prosa que comenta em vez de responder: a frase não vale
-_HESITACAO = re.compile(r"\b(?:not|either|or|between|if|instead|than|otherwise|unless|larger|"
-                        r"smaller|differs?|correct|incorrect|reasonable|consistent|wrong|"
-                        r"true|false|depends?|depending)\b", re.I)
+# antes da frase, na mesma sentença: condição, contrafactual, verificação, pergunta
+_PREFIXO_HESITANTE = re.compile(
+    r"\b(?:if|had|would|could|should|naive|naively|without|assuming|suppose|verify|check|"
+    r"checking|rechecking|note|recall|whether|unless|otherwise|not|instead)\b|\?", re.I)
+# entre a frase e a matemática, só enchimento
+_ENCHIMENTO = re.compile(r"(?:\s|,|:|=|\*\*|therefore|thus|hence|then|simply|given by|equal to|"
+                         r"approximately|about|roughly|exactly|just|clearly|indeed)*", re.I)
+# logo depois do valor: dúvida ou alternativa
+_DEPOIS_HESITANTE = re.compile(r"\s*(?:[^\s\w$]{0,2}\s*)?(?:\?|or\b|than\b|not\b|vs\.?|versus\b|"
+                               r"instead\b|either\b|but\b|however\b|wait\b)", re.I)
+_PALAVRA_RESPOSTA = re.compile(r"(?:yes|no|true|false|correct|incorrect|option\s+[A-J]|"
+                               r"\(?[A-J]\)?)\.?", re.I)
 
 
 def _chaves(texto: str, ini: int) -> int | None:
@@ -132,34 +144,80 @@ def extrair_boxed(texto: str) -> str | None:
 
 
 def cortar_continuacao(texto: str) -> str:
-    """Corta no começo da LINHA do primeiro marcador de problema novo."""
-    m = _NOVO_PROBLEMA.search(texto)
-    if not m:
-        return texto
-    return texto[:texto.rfind("\n", 0, m.start()) + 1]
+    """Corta no começo da LINHA do primeiro marcador de problema novo que venha DEPOIS de
+    já haver uma resposta (caixa fechada ou frase final)."""
+    for m in _NOVO_PROBLEMA.finditer(texto):
+        antes = texto[:m.start()]
+        if caixas(antes) or _FRASE_FINAL.search(antes):
+            return texto[:texto.rfind("\n", 0, m.start()) + 1]
+    return texto
 
 
-def _frase_valida(resto: str) -> str | None:
-    """O que vem logo depois de "final answer is", se for de fato a resposta: um trecho
-    matemático ou um número nos primeiros caracteres, sem hesitação na mesma sentença
-    ("is not $X$", "either $X$ or $Y$", "is correct", "is larger than $X$")."""
-    resto = resto[:600]
-    sentenca = re.split(r"(?<=[.!?])\s+(?=[A-Z])|\n\s*\n", resto, maxsplit=1)[0]
+def _grupo(m: re.Match) -> str:
+    return next(g for g in m.groups() if g is not None).strip()
+
+
+def _ler_frase(texto: str, frase: re.Match, n: int, tem_caixa: bool) -> str | None:
+    """A resposta que a frase "final answer is" traz, ou None se a frase não responde.
+
+    - Na mesma sentença, ANTES da frase, não pode haver condição, contrafactual,
+      verificação nem pergunta ("Had we neglected recoil, the final answer is…").
+    - Entre a frase e o valor, só enchimento ("therefore", "given by", ",").
+    - Logo DEPOIS do valor, nada de "?", "or", "than", "not", "but"; o resto da sentença
+      ("correct to three figures", "which is consistent with…") não importa.
+    - Com uma caixa antes, a frase só vence se abrir a sentença e trouxer matemática ou
+      número; sem caixa, aceita também yes/no/true/false e a letra de uma alternativa.
+    - Com n > 1 respostas, junta os n primeiros trechos matemáticos da sentença."""
+    ini = max(texto.rfind(c, 0, frase.start()) for c in ".!?\n") + 1
+    prefixo = texto[ini:frase.start()]
+    if _PREFIXO_HESITANTE.search(prefixo):
+        return None
+    if tem_caixa and not re.fullmatch(r"\s*(?:(?:so|thus|therefore|hence|then|and|finally)"
+                                      r"\s*,?\s*)*(?:the\s*)?(?:\*\*)?\s*", prefixo, re.I):
+        return None
+    resto = texto[frase.end():frase.end() + 800]
     m = _MATEMATICA.search(resto)
-    if m and m.start() <= 8:
-        fim = m.end()
-        depois = re.split(r"(?<=[.!?])\s|\n\s*\n", resto[fim:], maxsplit=1)[0]
-        if _HESITACAO.search(resto[:m.start()] + " " + depois):
+    if m and _ENCHIMENTO.fullmatch(resto[:m.start()]):
+        depois = resto[m.end():]
+        if _DEPOIS_HESITANTE.match(depois):
             return None
-        return next(g for g in m.groups() if g is not None).strip() or None
-    if _HESITACAO.search(sentenca):
-        return None
+        # pergunta no fim da mesma sentença ("$13.06$ eV?") ou correção logo na seguinte
+        # ("No, …", "Wait", "Actually")
+        partes = re.split(r"(?<=[.!?])\s+|\n", depois, maxsplit=1)
+        sentenca, seguinte = partes[0], (partes[1] if len(partes) > 1 else "")
+        if "?" in sentenca or re.match(r"\s*(?:no\b\s*[,.!]|wait\b|actually\b|hmm\b|"
+                                       r"correction\b|rechecking\b|on second thought)",
+                                       seguinte, re.I):
+            return None
+        # com uma resposta só, um segundo valor logo em seguida ("$13.06$ eV, $12.75$ eV")
+        # é alternativa: a frase não decide
+        if n <= 1 and re.match(r"[A-Za-z/^{}\\ ]{0,12}\s*(?:,|;|\band\b|\bor\b)\s*\$", depois):
+            return None
+        partes = [_grupo(m)]
+        if n > 1:
+            fim = re.search(r"(?<=[.!?])\s|\n\s*\n", depois)
+            for m2 in _MATEMATICA.finditer(depois[:fim.start()] if fim else depois):
+                if len(partes) >= n:
+                    break
+                g = _grupo(m2)
+                # `m/s$^2$`, `$\mathrm{m/s}$`: pedaço de unidade, não resposta
+                if re.match(r"\s*[\^_]", g) or _cauda_e_unidade(_UNIDADE_EM_TEXTO.sub(" ", g)):
+                    continue
+                partes.append(g)
+        return ", ".join(partes) or None
     linha = resto.split("\n")[0].replace("**", "").replace("`", "")
-    linha = re.sub(r"^\s*(?:approximately|about|roughly|=|≈|~)\s*", "", linha, flags=re.I)
-    if not re.match(r"\s*[-+(]?\s*[\d\\A-Za-z]", linha):
+    if "$" in linha:
         return None
-    linha = re.split(r",\s+[A-Za-z]|\.\s+[A-Za-z]|\.\s*$", linha)[0]
-    return linha.strip().strip("$").strip() or None
+    linha = re.sub(r"^(?:\s|,|:|=|≈|~|approximately|about|roughly|therefore|thus|simply)*", "",
+                   linha, flags=re.I)
+    linha = re.split(r",\s+[A-Za-z]|;|\.\s+[A-Za-z]|\.\s*$", linha)[0].strip()
+    if not linha or _DEPOIS_HESITANTE.search(" " + linha):
+        return None
+    if re.match(r"[-+(]?\s*[\d\\]", linha):
+        return linha
+    if not tem_caixa and _PALAVRA_RESPOSTA.fullmatch(linha):
+        return linha
+    return None
 
 
 def _fim_da_ultima_caixa(texto: str, cx: list[tuple[int, str]]) -> int:
@@ -170,39 +228,46 @@ def _fim_da_ultima_caixa(texto: str, cx: list[tuple[int, str]]) -> int:
     return fim if fim is not None else cx[-1][0]
 
 
-def extrair_resposta(texto: str) -> str | None:
-    """A última caixa; mas, se uma frase "final answer is" começar DEPOIS do FIM da última
-    caixa e trouxer de fato uma resposta (`_frase_valida`), vale a frase. Sem nenhum dos
-    dois, None (= sem resposta). O texto é cortado antes de um problema novo inventado."""
-    texto = cortar_continuacao(texto)
-    cx = caixas(texto)
-    frases = list(_FRASE_FINAL.finditer(texto))
-    if frases and frases[-1].start() > _fim_da_ultima_caixa(texto, cx):
-        lida = _frase_valida(texto[frases[-1].end():])
-        if lida is not None or not cx:
+def _da_frase(texto: str, cx: list[tuple[int, str]], n: int) -> str | None:
+    """A última frase final, depois da última caixa, que de fato responde (com n partes,
+    quando n > 1); senão None."""
+    fim = _fim_da_ultima_caixa(texto, cx)
+    for f in reversed([f for f in _FRASE_FINAL.finditer(texto) if f.start() > fim]):
+        lida = _ler_frase(texto, f, n, bool(cx))
+        if lida is not None and (n <= 1 or len(respostas_da_caixa(lida)) >= n):
             return lida
-    if cx:
-        return cx[-1][1] or None
     return None
 
 
+def extrair_resposta(texto: str) -> str | None:
+    """A frase final que responde, se vier depois do FIM da última caixa (`_ler_frase`);
+    senão a última caixa; senão None (= sem resposta). O texto é cortado antes de um
+    problema novo inventado."""
+    texto = cortar_continuacao(texto)
+    cx = caixas(texto)
+    lida = _da_frase(texto, cx, 1)
+    if lida is not None:
+        return lida
+    return (cx[-1][1] or None) if cx else None
+
+
 def extrair_respostas(texto: str, n: int) -> str | None:
-    """Para item de n > 1 respostas, com a mesma precedência de `extrair_resposta`: se a
-    resposta escolhida traz menos de n partes, junta as últimas n caixas NÃO VAZIAS (uma
-    por resposta é hábito forte de modelo; a caixa vazia vem do eco da linha de
-    resposta)."""
+    """Para item de n > 1 respostas: a frase final com n partes; senão a última caixa, se
+    tiver n partes; senão as últimas n caixas NÃO VAZIAS juntas (uma por resposta é hábito
+    forte de modelo; a caixa vazia vem do eco da linha de resposta)."""
     if n <= 1:
         return extrair_resposta(texto)
-    cortado = cortar_continuacao(texto)
-    escolhida = extrair_resposta(texto)
-    cx = [c for _, c in caixas(cortado) if c.strip()]
-    frases = list(_FRASE_FINAL.finditer(cortado))
-    frase_venceu = bool(frases) and frases[-1].start() > _fim_da_ultima_caixa(
-        cortado, caixas(cortado)) and escolhida is not None and (not cx or escolhida != cx[-1])
-    if (escolhida is not None and not frase_venceu and len(respostas_da_caixa(escolhida)) < n
-            and len(cx) >= n):
-        return ", ".join(cx[-n:])
-    return escolhida
+    texto = cortar_continuacao(texto)
+    todas = caixas(texto)
+    lida = _da_frase(texto, todas, n)
+    if lida is not None:
+        return lida
+    cx = [c for _, c in todas if c.strip()]
+    if not cx:
+        return _da_frase(texto, todas, 1)
+    if len(respostas_da_caixa(cx[-1])) >= n or len(cx) < n:
+        return cx[-1]
+    return ", ".join(cx[-n:])
 
 
 # ── normalização ─────────────────────────────────────────────────────────────
@@ -228,14 +293,21 @@ _ENVOLTORIOS = (("$$", "$$"), ("$", "$"), ("\\[", "\\]"), ("\\(", "\\)"))
 _SUMIR = re.compile(r"\\(?:left|right)\s*\.|\\(?:left|right|displaystyle|textstyle|"
                     r"scriptstyle|biggl|biggr|Biggl|Biggr|bigl|bigr|Bigl|Bigr|bigm|Bigm|bigg|"
                     r"Bigg|big|Big|qquad|quad)(?![A-Za-z])|\\[!,;:]|\\ ")
-# versor: `\hat{r}`, `\hat{\mathbf{z}}` e `\boldsymbol{e}_r` são o mesmo e_r
-_VERSOR = re.compile(r"\\hat\s*(?:\{\s*(x|y|z|r|n|i|j|k|\\theta|\\phi|\\rho)\s*\}|"
-                     r"(x|y|z|r|n|i|j|k|\\theta|\\phi|\\rho)(?![A-Za-z]))")
+# Versor: `\hat{r}`, `\hat{\mathbf{z}}`, `\mathbf{\hat{r}}` e `\boldsymbol{e}_r` são o mesmo
+# e_r; î, `\mathbf{i}`, `\boldsymbol{i}` e `\vec{i}` são o mesmo e_x (e j, k → y, z). O
+# `\hat` de outra letra (n̂, operador x̂ p̂ de QM fica no x) só sai (rodada 3). O versor
+# passa por um marcador que `_argumento_de_funcao` não engole: `\cos\alpha \mathbf{i}` é
+# cos(α)·e_x, não cos(α·e_x).
+_VERSOR = re.compile(r"\\hat\s*(?:\{\s*(x|y|z|r|i|j|k|\\theta|\\phi|\\rho)\s*\}|"
+                     r"(x|y|z|r|i|j|k|\\theta|\\phi|\\rho)(?![A-Za-z]))")
+_VERSOR_IJK = re.compile(r"\\(?:mathbf|boldsymbol|bm|vec)\s*(?:\{\s*([ijk])\s*\}|([ijk])(?![A-Za-z]))")
+_VERSOR_E = re.compile(r"\\(?:mathbf|boldsymbol|bm|vec|hat)\s*(?:\{\s*e\s*\}|e(?![A-Za-z]))\s*_\s*"
+                       r"(\{[^{}]*\}|\\[A-Za-z]+|\w)")
+_CARTESIANO = {"i": "x", "j": "y", "k": "z"}
+_MARCA_VERSOR = "\\VERSOR"
 _HIPERBOLICAS_RUSSAS = {"ch": "cosh", "sh": "sinh", "th": "tanh", "cth": "coth"}
 _FUNCOES_SEM_PARENTESE = ("sinh", "cosh", "tanh", "coth", "arcsin", "arccos", "arctan",
                           "sin", "cos", "tan", "cot", "sec", "csc", "ln", "log", "exp")
-_DECORACAO = re.compile(r"\\(?:vec|hat|bar|mathbf|boldsymbol|bm|mathit|tilde|overline|"
-                        r"overrightarrow|widetilde|widehat|mathcal|mathscr)\s*\{([^{}]*)\}")
 _TEXTO = re.compile(r"\\(?:mathrm|text|textrm|rm|mbox|operatorname|mathsf|textit|"
                     r"textbf)\s*\{([^{}]*)\}")
 _VARIANTES = (("varepsilon", "epsilon"), ("varphi", "phi"), ("vartheta", "theta"),
@@ -333,8 +405,8 @@ def _multiplicacao_explicita(s: str) -> str:
             continue
         if base == "}" and _expoente_de_funcao(s, m.start(1)):
             continue                     # `\tan^{-1}(…)`, `\sin^{2}(…)`, `\log_{2}(…)`
-        if base == "}" and re.search(r"F_\{[A-Za-z]+$", s[:m.start(1)]):
-            continue                     # função nomeada (`\operatorname{erf}`)
+        if base == "}" and re.search(r"F_\{opfn[A-Za-z]+$", s[:m.start(1)]):
+            continue                     # função nomeada (`_funcoes_nomeadas`)
         nivel, fim = 0, None
         for j in range(m.end() - 1, len(s)):
             nivel += {"(": 1, ")": -1}.get(s[j], 0)
@@ -371,20 +443,36 @@ def _funcao_de_fracao(s: str) -> str:
 
 
 def _milhar(s: str) -> str:
-    """Grupos de milhar separados por `{,}`, `\\,`, `\\ `, `~` ou espaço: `6\\,000\\,000`."""
+    """Grupos de milhar separados por `{,}`, `\\,`, `\\ `, `~` ou espaço: `6\\,000\\,000`. E os
+    grupos de três depois da vírgula decimal, no estilo SI (`48.189\\,685`, `0.000\\,123`),
+    só com espaço fino (`\\,`, `\\ `, `~`): antes viravam produto (rodada 3)."""
+    s = re.sub(r"(?<![\w.^_{])(\d+\.(?:\d{3})+)((?:(?:\\,|\\ |~|\\;)\d{3})*(?:\\,|\\ |~|\\;)\d{1,3})"
+               r"(?![\d^.])", lambda m: m.group(1) + re.sub(r"\D", "", m.group(2)), s)
     return re.sub(r"(?<![\w.^_{])(\d{1,3})((?:(?:\{,\}|\\,|\\ |~|\\;| )\d{3})+)(?!\d)",
                   lambda m: m.group(1) + re.sub(r"\D", "", m.group(2)), s)
 
 
+def _marcar_versores(s: str) -> str:
+    def marca(x: str) -> str:
+        x = x.strip("{} ")
+        return f"{_MARCA_VERSOR}{{{_CARTESIANO.get(x, x)}}}"
+
+    s = _VERSOR_E.sub(lambda m: marca(m.group(1)), s)
+    s = _VERSOR_IJK.sub(lambda m: marca(m.group(1) or m.group(2)), s)
+    return _VERSOR.sub(lambda m: marca(m.group(1) or m.group(2)), s)
+
+
 def _decoracoes(s: str) -> str:
-    """Versores viram e_X; as outras decorações saem, com ou sem chaves, até não sobrar
-    nenhuma (`\\hat{\\mathbf{r}}`, `\\vec v`)."""
+    """Versores viram o marcador (`_VERSOR`); as outras decorações saem, com ou sem chaves
+    (também aninhadas), até não sobrar nenhuma (`\\hat{\\mathbf{r}}`, `\\vec v`)."""
     for _ in range(4):
         antes = s
+        s = _marcar_versores(s)
         s = re.sub(r"\\(?:mathbf|boldsymbol|bm|mathit|mathcal|mathscr|vec|bar|tilde|overline|"
-                   r"overrightarrow|widetilde|widehat)\s*\{([^{}]*)\}", r"\1", s)
-        s = _VERSOR.sub(lambda m: f"e_{{{m.group(1) or m.group(2)}}}", s)
-        s = _DECORACAO.sub(r"\1", s)
+                   r"overrightarrow|widetilde|widehat)\s*\{((?:[^{}]|\{[^{}]*\})*)\}", r"\1", s)
+        s = _marcar_versores(s)
+        s = re.sub(r"\\(?:vec|hat|bar|tilde|overline|overrightarrow|widetilde|widehat|mathbf|"
+                   r"boldsymbol|bm|mathit|mathcal|mathscr)\s*\{((?:[^{}]|\{[^{}]*\})*)\}", r"\1", s)
         s = re.sub(r"\\(?:vec|hat|bar|tilde|mathbf|boldsymbol|bm)\s*(\\[A-Za-z]+|[A-Za-z])", r"\1",
                    s)
         if s == antes:
@@ -398,35 +486,89 @@ def _argumento_de_funcao(s: str) -> str:
     vai até o primeiro operador, parêntese, fração, raiz ou outra função; `\\sin \\omega t`
     continua sin(ωt), como se escreve em física."""
     # só letras gregas e símbolos entram no argumento; relação e operador (`\approx`,
-    # `\cdot`, `\to`) fecham o argumento
+    # `\cdot`, `\to`) e o marcador de versor fecham o argumento. O átomo leva o subscrito
+    # (com um nível de chaves: `\theta_{\mathrm{c}}`) e o expoente: um átomo só com
+    # expoente fica dentro (`\ln r^{2}` = ln(r²), `\sin x^{2}` = sin(x²), como o parser
+    # lia); com vários átomos, o argumento para antes do que tem expoente
+    # (`\sin\varphi v^{2}` = sin(φ)·v²). Rodada 3: o expoente ficava fora, ln(r)².
     gregas = "|".join(_GREGAS + ("ell", "infty", "epsilon", "phi", "theta", "rho"))
-    atomo = rf"(?:\\(?:{gregas})(?![A-Za-z])|[A-Za-z0-9.]+)(?:\s*_\s*(?:\{{[^{{}}]*\}}|\w))?"
+    atomo = (rf"(?:\\(?:{gregas})(?![A-Za-z])|[A-Za-z0-9.]+)\s*{_SUBSCRITO}"
+             r"(?:\s*\^\s*(?:\{[^{}]*\}|\w))?")
     funcoes = "|".join(_FUNCOES_SEM_PARENTESE)
+    funcao = rf"\\(?:{funcoes})(?![A-Za-z])"
     padrao = re.compile(rf"\\({funcoes})(?![A-Za-z])(\s*\^\s*(?:\{{[^{{}}]*\}}|\w))?\s*"
                         rf"((?:{atomo})(?:\s*(?:{atomo}))*)")
 
     def troca(m: re.Match) -> str:
         arg = m.group(3)
-        if re.match(rf"\\(?:{funcoes})(?![A-Za-z])", arg):
+        if re.match(funcao, arg):
             return m.group(0)
-        partes = re.findall(atomo, arg)
-        # para antes de outra função conhecida dentro do argumento
-        ok = []
-        for p in partes:
-            if re.match(rf"\\(?:{funcoes})(?![A-Za-z])", p):
+        fim, n = 0, 0
+        for p in re.finditer(atomo, arg):
+            if re.match(funcao, p.group()):          # para antes de outra função
                 break
-            ok.append(p)
-        if not ok:
+            expoente = "^" in p.group()
+            if expoente and n:
+                break
+            fim, n = p.end(), n + 1
+            if expoente:
+                break
+        if not n:
             return m.group(0)
-        usado = arg[:arg.index(ok[-1]) + len(ok[-1])]
+        usado = arg[:fim].rstrip()
         # parênteses, e não chaves: com `\sin{\theta} \cdot (…)` o parser ainda lê sin(θ·(…))
         return f"\\{m.group(1)}{m.group(2) or ''}({usado})" + arg[len(usado):]
 
     return padrao.sub(troca, s)
 
 
+# Funções nomeadas que não são do parser (rodada 3). Viram uma cabeça reservada,
+# `F_{opfn<nome>}`, que `_fisica` troca por uma pseudofunção não linear; nenhum símbolo
+# de física se escreve assim (o `F_` puro pegava F_N, F_0[…] e F_1(t)). Vale para
+# `\operatorname{X}` (qualquer nome), para `\mathrm{X}`/`\text{X}`/`\rm{X}` e o texto puro
+# com X numa lista de funções especiais, seguidas de `(`, `[` ou `\frac`. Bessel com
+# índice (`J_{0}(kr)`) fica de fora: J_0·(…) também é corrente, momento angular.
+_CABECA_NOMEADA = "F_{opfn"
+_ESPECIAIS = ("erfc", "erfi", "erf", "sinc", "sgn", "sign", "Si", "Ci", "Ei", "Ai", "Bi",
+              "sn", "cn", "dn", "li", "Li", "Re", "Im", "Tr", "tr")
+_ESPECIAIS_TEXTO = ("erfc", "erfi", "erf", "sinc", "sgn")
+
+
+def _funcoes_nomeadas(s: str) -> str:
+    especiais = "|".join(_ESPECIAIS)
+    padrao = re.compile(
+        rf"\\operatorname\s*\{{\s*([A-Za-z]{{2,}})\s*\}}"
+        rf"|\\(?:mathrm|text|textrm|rm|mathit)\s*\{{\s*({especiais})\s*\}}"
+        rf"|(?<![A-Za-z\\{{])({'|'.join(_ESPECIAIS_TEXTO)})(?![A-Za-z])")
+    saida, i = "", 0
+    for m in padrao.finditer(s):
+        if m.start() < i:
+            continue
+        nome = m.group(1) or m.group(2) or m.group(3)
+        j = m.end()
+        while j < len(s) and s[j] == " ":
+            j += 1
+        cabeca = f"{_CABECA_NOMEADA}{nome}}}"
+        if s.startswith("\\frac", j):
+            a = _chaves(s, s.find("{", j)) if s.find("{", j) != -1 else None
+            if a is None or s[a + 1:].lstrip()[:1] != "{":
+                continue
+            b = _chaves(s, s.index("{", a + 1))
+            if b is None:
+                continue
+            saida += s[i:m.start()] + f"{cabeca}({s[j:b + 1]})"
+            i = b + 1
+        elif j < len(s) and s[j] in "([":
+            saida += s[i:m.start()] + cabeca
+            i = j
+    return saida + s[i:]
+
+
 def limpar(s: str) -> str:
     s = str(s).strip()
+    # grega em Unicode com índice colado: `ε0`, `μ0` → `\epsilon_{0}` (era ε·0, rodada 3)
+    s = re.sub("([μµ" + "".join(_GREGO_UNICODE) + r"])(\d+)",
+               lambda m: f"\\{_GREGO_UNICODE.get(m.group(1), 'mu')}_{{{m.group(2)}}} ", s)
     for a, b in _UNICODE + _UNICODE_EXTRA:
         s = s.replace(a, b)
     s = "".join(f"\\{_GREGO_UNICODE[ch]} " if ch in _GREGO_UNICODE else ch for ch in s)
@@ -454,9 +596,6 @@ def limpar(s: str) -> str:
     s = re.sub(r"\\mathrm\s*\{\s*([edi])\s*\}", r"\1", s)     # e de Euler, d, i
     s = re.sub(r"\\(?:operatorname|mathrm)\s*\{\s*(ch|sh|th|cth)\s*\}",
                lambda m: "\\" + _HIPERBOLICAS_RUSSAS[m.group(1)], s)
-    # outra função nomeada (`\operatorname{erf}(x)`) vira a cabeça F_{erf}, que `_fisica`
-    # trata como pseudofunção; antes era o produto operatorname·e·r·f·x, linear em x
-    s = re.sub(r"\\operatorname\s*\{\s*([A-Za-z]{2,})\s*\}(?=\s*\()", r"F_{\1}", s)
     s = re.sub(r"\\log\s*_\s*\{?\s*e\s*\}?", r"\\ln", s)
     # ponto com o subscrito dentro: `\ddot{\theta_1}` → `\ddot{\theta}_{1}`
     s = re.sub(r"\\(ddot|dot)\s*\{\s*(\\?[A-Za-z]+)\s*_\s*(\{[^{}]*\}|\w)\s*\}", r"\\\1{\2}_\3", s)
@@ -470,6 +609,9 @@ def limpar(s: str) -> str:
     s = re.sub(r"\\operatorname\s*\{\s*(sinh|cosh|tanh|coth|sech|csch|arcsin|arccos|"
                r"arctan|arsinh|arcosh|artanh|sin|cos|tan|cot|sec|csc|exp|ln|log)\s*\}",
                r"\\\1", s)
+    # outra função nomeada (`\operatorname{erf}(x)`, `\mathrm{erf}\frac{x}{a}`, `erf(x)`)
+    # vira a cabeça reservada; antes era o produto operatorname·e·r·f·x, linear em x
+    s = _funcoes_nomeadas(s)
     s = re.sub(r"\\(coth|sech|csch)\s*(\{[^{}]*\}|\([^()]*\)|\[[^\[\]]*\]|"
                r"\\[A-Za-z]+(?:_\{?\w+\}?)?|[A-Za-z0-9](?:_\{?\w+\}?)?)",
                lambda m: "\\frac{1}{\\" + _RECIPROCAS[m.group(1)] + "{" + m.group(2) + "}}", s)
@@ -487,14 +629,16 @@ def limpar(s: str) -> str:
     # subscrito de um caractere sem chaves: `k_BT` é k_B·T, `p_0R` é p_0·R (semântica LaTeX)
     if "\\" in s or "{" in s:
         s = re.sub(r"_\s*([A-Za-z0-9])", r"_{\1}", s)
-        # e o sobrescrito também: `x^2 3` era x^{23}, e `5d^2 6s^2` virava 5·d^{26}·s^2
-        s = re.sub(r"\^\s*([A-Za-z0-9])", r"^{\1}", s)
+        # e o sobrescrito também: `x^2 3` era x^{23}, e `5d^2 6s^2` virava 5·d^{26}·s^2.
+        # Dígitos COLADOS ficam juntos: `10^17` é 10¹⁷, não 10¹·7 (rodada 3)
+        s = re.sub(r"\^\s*([+-]?\d+|[A-Za-z])", r"^{\1}", s)
     # dígitos separados por espaço que não são grupo de milhar não se colam (`1 30` ≠ 130)
     s = re.sub(r"(?<=\d)\s+(?=\d)", r" \\cdot ", s)
     s = _raiz_n(s)
     s = re.sub(r"\\sqrt\s*(?![\[{(])(\\[A-Za-z]+|[A-Za-z0-9])", r"\\sqrt{\1}", s)
     s = _com_par(s, "\\sqrt", lambda x: "\\sqrt{" + x + "}")
     s = _argumento_de_funcao(s)
+    s = re.sub(re.escape(_MARCA_VERSOR) + r"\{([^{}]*)\}", r" e_{\1} ", s)
     s = _funcao_de_fracao(s)
     s = _potencia_de_funcao(s)
     s = _multiplicacao_explicita(s)
@@ -576,19 +720,24 @@ def _nome(s: str) -> str:
 def _pseudofuncao(nome: str, args: tuple) -> sp.Expr:
     """Uma função não linear fixa por nome: argumentos ou escalas diferentes dão valores
     diferentes, e a mesma chamada, o mesmo valor."""
-    h = int(hashlib.sha256(nome.encode()).hexdigest()[:12], 16)
-    # coeficientes distintos por posição: y(x, t) ≠ y(t, x) (antes podiam coincidir)
-    cs = [sp.Rational(3 + 17 * i + (h >> (5 * i)) % 13, 10) for i in range(len(args))]
+    h = int(hashlib.sha256(nome.encode()).hexdigest(), 16)
+    # coeficientes distintos por posição (y(x, t) ≠ y(t, x)), num espaço grande, e um termo
+    # constante do nome: com 13 formas, F_1 = F_2 e f(0) = 1 para todo nome (rodada 3)
+    cs = [sp.Rational(3000 + 17 * i + (h >> (16 * i)) % 10007, 10000) for i in range(len(args))]
+    c0 = sp.Rational(1 + (h >> 200) % 997, 100)
     soma = sum(c * a for c, a in zip(cs, args, strict=True))
-    return sp.exp(soma / 4) + sum(c * a ** 2 for c, a in zip(cs, args, strict=True))
+    return sp.exp(soma / 4) + c0 + sum(c * a ** 2 for c, a in zip(cs, args, strict=True))
 
 
 def _fisica(e: sp.Basic) -> sp.Expr:
     trocas = {}
     for f in e.atoms(AppliedUndef):
         nome = _nome(f.func.__name__)
-        if nome.startswith("F_"):                      # função nomeada: nunca linear
+        if nome.startswith("F_opfn"):                  # função nomeada: nunca linear
             trocas[f] = _pseudofuncao(nome, f.args)
+            continue
+        if nome in ("min", "max") and len(f.args) >= 2:   # simétricas: a ordem não importa
+            trocas[f] = (sp.Min if nome == "min" else sp.Max)(*f.args)
             continue
         if all(a.is_number for a in f.args):           # θ(0): o valor num ponto
             trocas[f] = sp.Symbol(f"{nome}_at_" + "_".join(_nome(str(a)) for a in f.args))
@@ -647,7 +796,17 @@ _UNIDADE = re.compile(
     r"years|au|AU|ly|pc|Da|u|amu|D|Torr|torr|mmHg|deg|degree|degrees|rev|rpm|psi|lb|ft|mi|"
     r"mph|erg|dyn|gauss|Gauss|Ci|sec|cc|kcal|kJ|kWh|C|F")
 # Unidade que é também símbolo usual de física: só vale se for a unidade do item
-_UNIDADE_AMBIGUA = {"kT", "Mg", "mg", "ms", "cd", "Gy", "Da", "au", "pc", "rev", "sec", "cc"}
+_UNIDADE_AMBIGUA = {"kT", "Mg", "mg", "ms", "cd", "Gy", "Da", "au", "pc", "rev", "sec", "cc",
+                    "ML", "mL", "mT"}
+# Letra única aceita como unidade numa unidade composta (`m/s`, `J/K`, `s^{-1}`); g, h, T,
+# L, F, G… ficam de fora: `h/g`, `g^{2}`, `T^{2}` são produtos de símbolos.
+_LETRA_UNIDADE = {"m", "s", "K", "N", "J", "W", "V", "A", "C", "Ω", "Å"}
+# Qualificador em `\text{}`: a resposta não é o número puro (rodadas 2 e 3). O resto do
+# texto sem algarismo sai (unidade por extenso, "exactly", "around").
+_QUALIFICADOR = re.compile(
+    r"\b(?:not|no|less|more|than|least|most|upper|lower|bound|or|zero|between|nearly|almost|"
+    r"max|min|maximum|minimum|up to|over|under|below|above|exceeds?|except|only|unless|if)\b",
+    re.I)
 _NUM = (r"(?:[+-]?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?"
         r"(?:\s*(?:\\times|\\cdot|\*|x)\s*10\s*\^\s*\{?\s*[+-]?\s*\d+\s*\}?)?"
         r"|[+-]?10\s*\^\s*\{?\s*[+-]?\s*\d+\s*\}?)")
@@ -682,27 +841,46 @@ def _cauda_e_unidade(t: str) -> bool:
     return not resto and all(_UNIDADE.fullmatch(x) or (x == "c" and com_ev) for x in tokens)
 
 
+def _tokens_de_unidade(t: str) -> list[str]:
+    """`\\mathrm{J \\cdot s}`, `J s`, `J·s` → ['J', 's']; `\\AA`/`Å` → ['Å']; com expoentes."""
+    t = str(t)
+    for _ in range(3):
+        t = re.sub(r"\\(?:mathrm|text|textrm|rm|mbox|operatorname)\s*\{((?:[^{}]|\{[^{}]*\})*)\}",
+                   r" \1 ", t)
+    t = t.replace("\\AA", "Å").replace("\\mathring{A}", "Å").replace("\\Omega", "Ω")
+    t = re.sub(r"(?:\\mu|μ|µ)\s*", "μ", t)
+    t = re.sub(r"\\cdot|·|\*|\\,|\\;|~", " ", t)
+    t = re.sub(r"\^\s*\{?\s*([+-]?)\s*(\d+)\s*\}?", r"^\1\2", t)
+    return sorted(re.findall(r"[A-Za-zμΩÅ°]+(?:\^[+-]?\d+)?|/", t))
+
+
 def _cauda_ok(t: str, unidade: str | None) -> bool:
     """A cauda depois do número pode ser descartada? Vale se for a unidade do PRÓPRIO
-    item, ou uma unidade sem ambiguidade. Letra solta (`30 T`, `-2 g`), várias letras
-    soltas (`m g h`), `kT`, `Mg` e divisão por uma unidade (`/ g`) não valem, a não ser
-    que sejam a unidade declarada: são também símbolos de física."""
+    item (comparada por tokens: `J \\cdot s` = `J s`), ou uma unidade sem ambiguidade.
+    Letra solta (`30 T`, `-2 g`), várias letras soltas (`m g h`), `kT`, `Mg`, `ML^2`,
+    divisão por uma unidade (`/ g`) e letra com expoente ou barra fora de
+    `_LETRA_UNIDADE` (`h/g`, `g^{2}`) não valem, a não ser que sejam a unidade declarada:
+    são também símbolos de física."""
     t = t.strip()
     if not t:
         return True
-    if unidade and texto_normalizado(t) == texto_normalizado(unidade):
+    if unidade and _tokens_de_unidade(t) == _tokens_de_unidade(unidade):
         return True
     if t.startswith("/") or not _cauda_e_unidade(t):
         return False
     tokens = re.findall(r"[A-Za-zμΩÅ]+", re.sub(r"(?:\\mu|μ)\s*", "μ", t))
     if any(x in _UNIDADE_AMBIGUA for x in tokens):
         return False
-    return not (all(len(x) == 1 for x in tokens) and not re.search(r"[/^]", t))
+    soltas = [x for x in tokens if len(x) == 1]
+    if not re.search(r"[/^]", t):
+        return not soltas or len(tokens) > len(soltas) and all(x in _LETRA_UNIDADE for x in soltas)
+    return all(x in _LETRA_UNIDADE for x in soltas)
 
 
 def _tirar_unidade_do_item(s: str, unidade: str | None) -> str:
     """Tira do FIM da resposta a unidade declarada do item, como o prompt a mostra
-    (`136 \\text{MeV}/c^{2}`, `0.22\\, k`, `13.06eV`), comparando sem espaços."""
+    (`136 \\text{MeV}/c^{2}`, `0.22\\, k`, `13.06eV`), comparando sem espaços, e SÓ quando o
+    que sobra é um número puro: com unidade "a", `6/a` e `8 - 2a` não viram 6 (rodada 3)."""
     if not unidade:
         return s
     u = re.sub(r"\s", "", limpar(unidade))
@@ -714,25 +892,33 @@ def _tirar_unidade_do_item(s: str, unidade: str | None) -> str:
         j -= 1
         if not s[j].isspace():
             falta -= 1
-    return s[:j]
+    if re.fullmatch(rf"\s*{_NUM}\s*(?:\\cdot|\\times|\*)?\s*", s[:j]):
+        return s[:j]
+    return s
 
 
 def _tirar_texto(s: str, unidade: str | None) -> str | None:
-    """Cada `\\text{}`/`\\mathrm{}`: com número dentro, é desembrulhado; unidade (com o
-    expoente) ou enchimento neutro sai; qualquer outra coisa é qualificador → None."""
-    saida, i = "", 0
+    """Cada `\\text{}`/`\\mathrm{}`: com número dentro, é desembrulhado; com qualificador
+    (not, less than, or zero…) a leitura recusa (None); o resto sai, com o expoente
+    (unidade, unidade por extenso, enchimento). Separador `/`, `*`, `\\cdot` que sobra
+    entre unidades tiradas sai também."""
+    saida, i, tirou = "", 0, False
     for m in _UNIDADE_EM_TEXTO.finditer(s):
         dentro = re.sub(r"\\[,;!: ]", " ", m.group(1)).strip()
         saida += s[i:m.start()]
         if re.search(r"\d", dentro):
             saida += f" {dentro} "
-        elif (dentro.lower() in _NEUTRO or _cauda_e_unidade(dentro)
-              or (unidade and texto_normalizado(dentro) == texto_normalizado(unidade))):
-            saida += " "
-        else:
+        elif _QUALIFICADOR.search(dentro):
             return None
+        else:
+            saida += " "
+            tirou = True
         i = m.end()
-    return saida + s[i:]
+    saida += s[i:]
+    if tirou:
+        saida = re.sub(r"(?:\s*(?:/|\*|\\cdot)\s*)+$", "", saida.strip())
+        saida = re.sub(r"(?<=\d)\s*(?:/|\*|\\cdot)\s*(?=\s*$)", "", saida)
+    return saida
 
 
 def numero(s: str, estrito: bool = False, unidade: str | None = None) -> float | None:
@@ -752,7 +938,11 @@ def numero(s: str, estrito: bool = False, unidade: str | None = None) -> float |
         return float(gm.group(1)) + float(gm.group(2)) / 60
     if _CONECTIVO.search(s):
         return None
-    s = re.sub(r"\\pm\s*\d+(?:\.\d*)?(?:\s*\\times\s*10\s*\^\s*\{?\s*[+-]?\d+\s*\}?)?", " ", s)
+    # incerteza: vale o valor central. O `\times 10^{n}` depois da incerteza só sai junto se
+    # o valor central já tiver a própria escala (`1.50 \pm 0.05 \times 10^{-3}` é 1,5e-3)
+    escala_propria = re.search(r"\\times\s*10\s*\^[^\\]*\\pm", s) is not None
+    s = re.sub(r"\\pm\s*\d+(?:\.\d*)?" + (r"(?:\s*\\times\s*10\s*\^\s*\{?\s*[+-]?\d+\s*\}?)?"
+                                         if escala_propria else ""), " ", s)
     s = _tirar_unidade_do_item(s, unidade)
     # o prefixo μ antes de uma unidade em `\mathrm{}` vai para dentro dela
     s = re.sub(r"\\mu\s*\\(mathrm|text|rm)\s*\{", r"\\\1{μ", s)
@@ -760,7 +950,7 @@ def numero(s: str, estrito: bool = False, unidade: str | None = None) -> float |
     if s is None:
         return None
     s = re.sub(r"\^\s*\{?\s*\\circ\s*\}?\s*[CF]?|\\circ|\\%|%|\\degree|\{\}", " ", s)
-    s = re.sub(r"(?:\s*(?:\*|\\cdot|/)\s*)+$", "", s).strip()
+    s = re.sub(r"(?:\s*(?:\*|\\cdot)\s*)+$", "", s).strip()
     e = expressao(s) if s else None
     if e is not None:
         if e.free_symbols == {sp.Symbol("e")}:
@@ -782,30 +972,51 @@ def numero(s: str, estrito: bool = False, unidade: str | None = None) -> float |
     return None
 
 
-def _numero_da_resposta(resposta: str, gabarito: str, unidade: str | None) -> float | None:
-    """O número de uma resposta que pode vir em cadeia (`v = 4.2`, `E \\approx -13.6`).
-    Os outros lados valem se forem o lado esquerdo do gabarito, uma grandeza solta (sem
-    expoente), quando o gabarito não tem lado esquerdo, ou o MESMO número. `2I + 1 = 7/2`,
-    `v^{2} = 1.41` e `8.2 \\approx 7.617` não passam (estresse, rodada 2)."""
-    lados = _dividir_com_sep(limpar(resposta), _IGUAL)
+_NOME_EM_TEXTO = re.compile(r"\s*\\(?:text|mathrm|textrm)\s*\{\s*[A-Za-z][A-Za-z ]*\}\s*")
+
+
+def _numero_da_resposta(resposta: str, gabarito: str, unidade: str | None,
+                        iguais: Callable[[float, float], bool]) -> float | None:
+    """O número de uma resposta que pode vir em cadeia (`v = 4.2`, `E \\approx -13.6`,
+    `v = \\sqrt{2gh} \\approx 80.4`, `\\approx 13.06`).
+
+    Lados vazios (a resposta que começa por `\\approx`) não contam. O PRIMEIRO lado tem de
+    ser o lado esquerdo do gabarito, ou, quando o gabarito não tem lado esquerdo, uma
+    grandeza solta sem expoente (também `|v|` e `\\text{speed}`), ou um número igual ao
+    final (na tolerância do item). No meio, uma expressão simbólica (com símbolos livres)
+    não se confere; um número tem de ser igual ao final. `2I + 1 = 7/2`, `v^{2} = 1.41` e
+    `8.2 \\approx 7.617` não passam."""
+    # `|v|` e `\left|v\right|` de uma grandeza solta valem como a grandeza
+    bruto = re.sub(r"\\left\s*\|\s*([^|]+?)\s*\\right\s*\||\|\s*([^|]+?)\s*\|",
+                   lambda m: (m.group(1) or m.group(2))
+                   if _GRANDEZA_SOLTA.fullmatch(m.group(1) or m.group(2)) else m.group(0),
+                   resposta)
+    lados = [(x, sep) for x, sep in _dividir_com_sep(limpar(bruto), _IGUAL) if x.strip()]
+    if not lados:
+        return None
     if len(lados) == 1:
-        return numero(resposta, unidade=unidade)
+        return numero(lados[0][0], unidade=unidade)
     valor = numero(lados[-1][0], unidade=unidade)
     if valor is None:
         return None
     g_lados = dividir_nivel_zero(limpar(gabarito), _IGUAL)
     esquerdo_g = g_lados[0] if len(g_lados) >= 2 else None
-    for lado, _sep in lados[:-1]:
+    for k, (lado, _sep) in enumerate(lados[:-1]):
         v = numero(lado, unidade=unidade)
         if v is not None:
-            if not math.isclose(v, valor, rel_tol=1e-6, abs_tol=1e-12):
+            if not iguais(v, valor):
                 return None
             continue
-        if esquerdo_g is not None and _mesmo_lado(lado, esquerdo_g):
-            continue
-        if esquerdo_g is None and _GRANDEZA_SOLTA.fullmatch(lado):
-            continue
-        return None
+        if k == 0:
+            if esquerdo_g is not None and _mesmo_lado(lado, esquerdo_g):
+                continue
+            if esquerdo_g is None and (_GRANDEZA_SOLTA.fullmatch(lado)
+                                       or _NOME_EM_TEXTO.fullmatch(lado)):
+                continue
+            return None
+        e = expressao(lado)
+        if e is None or not e.free_symbols:
+            return None
     return valor
 
 
@@ -842,20 +1053,24 @@ def comparar_numero(resposta: str, gabarito: str, rel: float | None = None,
                     unidade: str | None = None) -> Veredito:
     """|r − g| ≤ abs_ (absoluto) ou ≤ rel·|g| (relativo ao gabarito; com `simetrico`,
     rel·max(|r|, |g|), o `math.isclose` do SciBench). `unidade` é a do item."""
+    if abs_ is None and rel is None:
+        raise ValueError("comparar_numero precisa de rel ou abs_")
+
+    def iguais(r: float, g: float) -> bool:
+        if abs_ is not None:
+            return abs(r - g) <= abs_ * (1 + 1e-9)
+        escala = max(abs(r), abs(g)) if simetrico else abs(g)
+        if escala == 0:
+            return r == g
+        return abs(r - g) <= rel * escala * (1 + 1e-12)
+
     g = numero(gabarito)
     if g is None:
         return Veredito.INCONCLUSIVE
-    r = _numero_da_resposta(resposta, gabarito, unidade)
+    r = _numero_da_resposta(resposta, gabarito, unidade, iguais)
     if r is None:
         return Veredito.FAIL
-    if abs_ is not None:
-        return Veredito.PASS if abs(r - g) <= abs_ * (1 + 1e-9) else Veredito.FAIL
-    if rel is None:
-        raise ValueError("comparar_numero precisa de rel ou abs_")
-    escala = max(abs(r), abs(g)) if simetrico else abs(g)
-    if escala == 0:
-        return Veredito.PASS if r == g else Veredito.FAIL
-    return Veredito.PASS if abs(r - g) <= rel * escala * (1 + 1e-12) else Veredito.FAIL
+    return Veredito.PASS if iguais(r, g) else Veredito.FAIL
 
 
 def _sem_inteiros_gigantes(e: sp.Expr) -> sp.Expr:
@@ -1001,10 +1216,20 @@ def _sem_argumentos(s: str) -> str:
     return t if _GRANDEZA.fullmatch(t) else s
 
 
+def _argumentos(s: str) -> str | None:
+    m = re.search(r"\(([^()]*)\)\s*$", s.strip())
+    return m.group(1) if m and _sem_argumentos(s) != s else None
+
+
 def _mesmo_lado(a: str, b: str) -> bool:
     """Dois lados esquerdos são o mesmo: equivalentes se o parser lê os dois, ou o mesmo
-    texto normalizado; com ou sem a lista de argumentos (`v(t)` e `v`)."""
-    for x, y in ((a, b), (_sem_argumentos(a), _sem_argumentos(b))):
+    texto normalizado. Sem a lista de argumentos só quando UM lado não a tem e a do outro
+    é de variáveis (`v` e `v(t)`): `v(0)` não é `v`, nem `B(a)` é `B(r)` (rodada 3)."""
+    pares = [(a, b)]
+    xa, xb = _argumentos(a), _argumentos(b)
+    if (xa is None) != (xb is None) and not re.search(r"\d", xa or xb):
+        pares.append((_sem_argumentos(a), _sem_argumentos(b)))
+    for x, y in pares:
         ex, ey = expressao(x), expressao(y)
         if ex is not None and ey is not None:
             if _equivalentes(ex, ey) is Veredito.PASS:
@@ -1020,7 +1245,13 @@ def _sem_texto_em_volta(s: str) -> str:
     vazio e unidades no fim (com expoente e chaves aninhadas). Um qualificador ("not",
     "less than", "or zero") FICA, e o parser estrito então recusa a resposta."""
     s = limpar(s)
-    s = re.split(r",?\s*\\text\s*\{\s*(?:where|with|for|since|which|i\.e\.)\b", s)[0]
+    # só a definição de símbolos (", where …", "i.e.") sai, e só se não trouxer outra
+    # resposta ou qualificador; "for", "with", "since" ficam e o parser recusa (rodada 3:
+    # "X for case 1, Y for case 2" passava pela primeira)
+    m = re.search(r",?\s*\\text\s*\{\s*(?:where|i\.e\.)", s)
+    if m and not re.search(r"\b(?:or|otherwise|else|also|alternatively|for|if|unless)\b",
+                           s[m.end():]):
+        s = s[:m.start()]
     s = re.sub(r"\\text\s*\{\s*\}", " ", s)
     m = re.match(r"\s*\\(?:text|textrm|mathrm)\s*\{([^{}]*)\}", s)
     if m and m.group(1).strip().lower().rstrip(":") in _NEUTRO | {"the result is", "the answer is"}:
@@ -1210,15 +1441,18 @@ def _como_intervalo(s: str) -> tuple[str, str, str, str, str | None] | None:
     if len(ops) == 1:
         x, a = pedacos
         op = ops[0].group()
-        if not _GRANDEZA.fullmatch(x):
+        # a variável é uma grandeza SOLTA: `\tan(\alpha)` (o `\tan\alpha` depois de
+        # `limpar`) é extremo, não variável (rodada 3)
+        if not _GRANDEZA_SOLTA.fullmatch(x):
             x, a, op = a, x, _INVERSA[op]
-        if not _GRANDEZA.fullmatch(x):
+        if not _GRANDEZA_SOLTA.fullmatch(x):
             return None
         aberto = op in _ESTRITA
         return (("(", a, "oo", ")", x) if op in _MAIOR and aberto else
                 ("[", a, "oo", ")", x) if op in _MAIOR else
                 ("(", "-oo", a, ")", x) if aberto else ("(", "-oo", a, "]", x))
-    if len(ops) == 2 and all(o.group() not in _MAIOR for o in ops) and _GRANDEZA.fullmatch(pedacos[1]):
+    if (len(ops) == 2 and all(o.group() not in _MAIOR for o in ops)
+            and _GRANDEZA_SOLTA.fullmatch(pedacos[1])):
         return ("(" if ops[0].group() in _ESTRITA else "[", pedacos[0], pedacos[2],
                 ")" if ops[1].group() in _ESTRITA else "]", pedacos[1])
     return None
@@ -1286,12 +1520,18 @@ def letras(s: str) -> frozenset[str]:
     if re.fullmatch(r"[A-J]{2,}", t):
         return frozenset(t)
     # um rótulo no começo, com o texto da opção depois (`(C) E = h\nu`, `C. 4.2 J`): só se
-    # não houver outro rótulo, negação nem alternativa no resto
+    # não houver OUTRO rótulo no resto, nem hesitação. O texto da opção copiado pode ter
+    # not, no, or ("(D) The spin is not conserved"); o que recusa é a palavra que aponta
+    # para outra letra ("Maybe D", "or (B)") ou a dúvida declarada (rodada 3).
     m = re.match(r"^(?:\(\s*([A-Ja-j])\s*\)|([A-Ja-j])\s*[.):])", t)
     if m:
         resto = t[m.end():]
-        if (re.search(r"\(\s*[A-Ja-j]\s*\)|(?<![A-Za-z])[A-Ja-j]\s*[.):](?!\d)", resto)
-                or re.search(r"\b(?:not|no|wrong|incorrect|false|or|also)\b", resto, re.I)):
+        outra = r"(?:\(\s*[A-Ja-j]\s*\)|(?<![A-Za-z])[A-J](?![A-Za-z]))"
+        if (re.search(r"\(\s*[A-Ja-j]\s*\)|(?<![A-Za-z])(?<!\d)(?<!\d\s)[A-Ja-j]\s*[.):](?!\d)",
+                      resto)
+                or re.search(r"\b(?i:or|not|maybe|perhaps|possibly|alternatively|likely|either|"
+                             rf"also|and|nor|vs\.?|versus)\s*[,:]?\s*{outra}", resto)
+                or re.search(r"\b(?:maybe|perhaps|not sure|unsure|uncertain)\b", resto, re.I)):
             return frozenset()
         return frozenset((m.group(1) or m.group(2)).upper())
     return frozenset()
@@ -1310,7 +1550,9 @@ _NAO = {"no", "false", "incorrect"}
 
 def verdade(s: str) -> bool | None:
     """A primeira palavra decide (yes/true/correct ou no/false/incorrect), desde que a
-    oposta não apareça depois. Letra solta (T/F/Y/N) só se for a resposta inteira."""
+    oposta não apareça depois como resposta solta, no começo de uma oração (`Yes; no`,
+    `No, yes`, `No (yes for …)`, `yes or no`). "No, it is not true" e "True, there is no
+    contradiction" seguem decididos. Letra solta (T/F/Y/N) só se for a resposta inteira."""
     texto = limpar(s)
     for _ in range(3):                                   # `\text{\textbf{False}}`
         texto = _TEXTO.sub(r" \1 ", texto)
@@ -1328,16 +1570,23 @@ def verdade(s: str) -> bool | None:
         return re.search(r"(true|correct)$", texto.rstrip(".")) is not None
     if re.fullmatch(r"not (?:true|correct)\.?", texto):
         return False
-    # a primeira palavra decide quando vem seguida de pontuação ou do fim
-    # ("No, it is not true"); seguida de outra palavra, só se a oposta não aparecer
-    # ("Yes and no" e "No idea" não decidem)
-    m = re.match(r"(yes|no|true|false|correct|incorrect)\b\s*([,.;:(!]|$)?", texto)
+    if re.match(r"(?:no idea|yes and no|not sure|yes or no|no or yes)\b", texto):
+        return None
+    m = re.match(r"(yes|no|true|false|correct|incorrect)\b", texto)
     if not m:
         return None
     valor = m.group(1) in _SIM
-    if m.group(2) is not None:
-        return valor
-    return None
+    opostas = _NAO if valor else _SIM
+    # a oposta conta depois de "(" ("No (yes for a heavy nucleus)"), ou depois de pontuação
+    # ou "or" quando é a palavra inteira da oração ("Yes; no."); "Yes. No energy is lost"
+    # segue sim
+    resto = texto[m.end():]
+    for x in re.finditer(r"(\(|[,;.:!?\-–—]|\\cdot|\bor\b)\s*(yes|no|true|false|correct|incorrect)\b",
+                         resto):
+        if x.group(2) in opostas and (x.group(1) == "("
+                                      or re.match(r"\s*(?:[,;.:!?)\-–—]|$)", resto[x.end():])):
+            return None
+    return valor
 
 
 def comparar_vf(resposta: str, gabarito: str) -> Veredito:

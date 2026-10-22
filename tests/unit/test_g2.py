@@ -21,6 +21,13 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from phifm.eval import g2  # noqa: E402
 
+
+def test_hash_do_corretor_cobre_as_dependencias_e_o_parser():
+    codigo = g2.codigo_do_corretor(RAIZ)
+    assert {"src/phifm/core/latex/subscritos.py", "src/phifm/verify/symbolic.py",
+            "src/phifm/eval/g2_corretor.py", "src/phifm/eval/g2_itens.py"} <= set(codigo)
+    assert codigo["sympy"] and codigo["antlr4-python3-runtime"]
+
 N_BOOT = 2000
 
 
