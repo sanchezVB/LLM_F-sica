@@ -114,6 +114,27 @@ def test_pi_aplicado_a_parenteses_e_produto():
     assert _iguais(e, sp.pi * (R**2 - sp.Symbol("r") ** 2))
 
 
+@pytest.mark.parametrize(
+    "latex,esperado",
+    [
+        # O exemplo canônico do DOC-09 §5.1. A primeira correção levava o π
+        # para dentro da potência: (π·L/g)^{1/2}.
+        (r"2\pi\left(\frac{L}{g}\right)^{1/2}", 2 * sp.pi * sp.sqrt(sp.Symbol("L") / sp.Symbol("g"))),
+        (r"\pi (x + 1)^2", sp.pi * (sp.Symbol("x") + 1) ** 2),
+        (r"\pi\big(R^2 - r^2\big)", sp.pi * (R**2 - sp.Symbol("r") ** 2)),
+    ],
+)
+def test_expoente_depois_de_pi_fica_com_o_parentese(latex, esperado):
+    assert _iguais(parse(latex), esperado), parse(latex)
+
+
+def test_forma_canonica_do_pendulo_passa_no_barramento():
+    r = SymbolicVerifier().verify(
+        Claim(lhs=r"2\pi\left(\frac{L}{g}\right)^{1/2}", rhs=r"2\pi\sqrt{\frac{L}{g}}")
+    )
+    assert r.verdict is Verdict.PASS, r.evidence
+
+
 def test_pi_com_subscrito_continua_simbolo():
     assert parse(r"\pi_{0}") == sp.Symbol("pi_0")
 
