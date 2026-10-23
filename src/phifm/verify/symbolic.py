@@ -258,8 +258,21 @@ def _separar_d(m: re.Match) -> str:
     return "d\\,"
 
 
-def _eh_pi_aplicado(x: sp.Basic) -> bool:
-    return isinstance(x, AppliedUndef) and x.func.__name__ == "pi" and len(x.args) == 1
+# ⚠️ `\pi` antes de parêntese. A gramática lê `\pi(…)` como a função `pi`
+# aplicada ao parêntese, e um expoente depois fica com a CHAMADA inteira:
+#
+#     2\pi\left(\frac{L}{g}\right)^{1/2}  →  2·pi(L/g)^{1/2}
+#
+# Trocar a função pelo produto depois do parse (a primeira correção, de
+# 2026-10-19) levava o π para dentro da potência — (π·L/g)^{1/2} — e reprovava
+# o exemplo canônico do DOC-09 §5.1 contra `2\pi\sqrt{L/g}`. Um `\cdot`
+# explícito antes do parse impede a leitura como função, e o expoente fica com
+# o parêntese. π como campo (o momento conjugado da TQC) fica de fora: em
+# resposta de Física, `\pi` é a constante. O que pula a gramática (`\,`, `\;`)
+# pode vir entre os dois, e é onde a tipografia removida deixa o seu `\,`.
+_PI_ANTES_DE_PARENTESE = re.compile(
+    r"\\pi(?![A-Za-z])(?=(?:\s|\\[,;:!])*(?:\(|\\left\s*\())"
+)
 
 
 def _pi(e: sp.Basic) -> sp.Basic:
@@ -270,12 +283,7 @@ def _pi(e: sp.Basic) -> sp.Basic:
     dos marcadores de subscrito: `\\frac{\\sqrt{2}\\pi}{6}` não tem marcador
     nenhum e já sai assim. Com π livre, o `NumericVerifier` o sorteia como
     variável, e uma resposta com 3.14159 nunca bate com o gabarito em π.
-
-    `\\pi(R^2 - r^2)`, a área da coroa, sai como uma função `pi` aplicada à
-    diferença, e vira o produto. π como campo (o momento conjugado da TQC)
-    fica de fora: em resposta de Física, `\\pi` é a constante.
     """
-    e = e.replace(_eh_pi_aplicado, lambda x: sp.pi * x.args[0])
     return e.xreplace({sp.Symbol("pi"): sp.pi})
 
 
@@ -284,6 +292,7 @@ def _ler_latex(texto: str) -> sp.Basic:
     texto = _RETAS.sub(_reta, texto)
     texto = _MODULO.sub("|", texto)
     texto = _D_ANTES_DE_MACRO.sub(_separar_d, texto)
+    texto = _PI_ANTES_DE_PARENTESE.sub(lambda _: "\\pi\\cdot ", texto)
     texto = _PONTAS.sub("", texto)
     e = _pi(parse_latex(texto, strict=True)).xreplace(_CONSTANTES_RETAS)
     _recusar_macros_livres(e, texto)
