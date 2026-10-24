@@ -145,6 +145,14 @@ A economia é decisiva aqui: sem crítico, o RLVR do ΦGen-1,5B cabe numa única
 
 > **Por que R1 domina e os auxiliares são pequenos.** Um auxiliar com peso alto o suficiente para ser buscado isoladamente vira alvo de *reward hacking*. Com peso 0,15, o modelo não consegue compensar uma resposta errada acumulando consistência dimensional — mas ganha o suficiente para que, entre duas respostas igualmente corretas, prefira a dimensionalmente coerente.
 
+> **Emenda de 2026-10-23 ([ADR-0005](../adr/ADR-0005-resposta-ilegivel-e-condicao-necessaria.md)).** O R1 é `verify.recompensa.recompensa`. Ele vem da **equivalência do simbólico e do numérico juntos**; o R4 deixa de existir à parte, para o numérico não contar duas vezes. O R1 vale +1, −1 ou `None`:
+>
+> - **+1** só com PASS de um verificador de equivalência;
+> - **−1** para qualquer FAIL decisivo, **sem multiplicar pela confiança**, e para toda abstenção causada pela resposta;
+> - **`None`** — a amostra sai do grupo — para a abstenção causada pelo item ou pelo problema, que é o neutro do DOC-10 §2.1 no GRPO.
+>
+> Quem montar a soma ponderada tem de dar à amostra cujo R1 é −1 por motivo da resposta o **pior** valor em cada componente aplicável. Senão, uma errada legível que falha R2, R3 e R5 (−1,35) fica abaixo da ilegível (−1), e o atalho volta. Um R1 `None` mascara a amostra inteira, e um grupo com menos de duas amostras pontuadas sai do passo.
+
 **Correção por equivalência de CAS, nunca por casamento de string.** `2\pi\sqrt{L/g}` e `2\pi(L/g)^{1/2}` são a mesma resposta. Corrigir por string subestima sistematicamente a acurácia e — pior no contexto de RL — **treina o modelo a imitar a formatação do gabarito em vez de a física**.
 
 ### 5.2 Supervisão de processo: a vantagem que temos e os outros pagam caro
@@ -178,7 +186,9 @@ Formas concretas pelas quais o modelo pode enganar nossos verificadores:
 | Ataque | Como funciona | Mitigação |
 |---|---|---|
 | **Degenerescência algébrica** | Produzir `0 = 0` ou identidade trivial que o CAS aprova | Verificador rejeita respostas triviais e sem as variáveis do problema |
-| **Omissão de unidades** | Não escrever unidades faz o teste dimensional passar vacuamente | Ausência de unidades = falha, não neutro |
+| **Omissão de unidades** | Não escrever unidades faz o teste dimensional passar vacuamente | O dimensional não lê unidade escrita: lê as dimensões declaradas dos símbolos do enunciado (`context["dimensions"]`), então omitir a unidade não o faz passar. A resposta é pedida sem unidade, e com unidade vale −1 (formato; decisão de 2026-10-19 e ADR-0005) |
+| **Ilegibilidade oportunista** | Tornar ilegível uma resposta incerta (colar `\,\text{m}`, um `]`, `\vec`, `\text{não sei}`) para trocar o −1 por 0 | Abstenção causada pela resposta vale exatamente um FAIL; o neutro é sair do grupo, só para o que vem do item ou do problema (ADR-0005) |
+| **Discordância fabricada** | Fazer a condição necessária aprovar enquanto a equivalência reprova (erro de fator com a dimensão certa) para cair em "discordância" e valer 0 | Condição necessária aprovada não contradiz FAIL de equivalência; discordância só entre o simbólico e o numérico (DOC-10 §4, emenda de 2026-10-23) |
 | **Exploração de tolerância numérica** | Achar resposta dentro da tolerância mas conceitualmente errada | Múltiplas substituições aleatórias independentes; tolerância apertada |
 | **Inflação de cadeia de raciocínio** | Gerar passos longos que ganham recompensa de processo sem convergir | R1 domina; PRM só pontua passos que avançam para a resposta |
 | **Abstenção oportunista** | Abster-se sempre para colher R7 | R7 só é positivo em itens rotulados como devendo-abster; abstenção indevida é penalizada |

@@ -340,7 +340,8 @@ def test_segunda_lei_vetorial_nao_reprova():
     [
         (r"\hbar\omega", sp.Symbol("hbar") * sp.Symbol("omega")),
         (r"\ell", sp.Symbol("ell")),
-        (r"\varepsilon_{0} E^2", sp.Symbol("varepsilon_0") * E**2),
+        # `\varepsilon` e `\epsilon` são a mesma letra (ADR-0005 §4.7).
+        (r"\varepsilon_{0} E^2", sp.Symbol("epsilon_0") * E**2),
         (r"\frac{\partial f}{\partial x}", sp.Derivative(sp.Symbol("f"), x)),
     ],
 )

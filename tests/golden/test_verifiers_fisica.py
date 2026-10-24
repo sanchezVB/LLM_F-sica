@@ -437,13 +437,45 @@ def test_dimensional_pega_o_que_o_simbolico_deixa_passar(barramento_completo):
     assert r.verdict is Verdict.FAIL, r.evidence
 
 
-def test_discordancia_entre_verificadores_vira_erro_nao_voto(barramento_completo):
-    """Se o dimensional aprova e o simbólico reprova, o barramento não vota.
+def test_condicao_necessaria_aprovada_nao_contradiz_falha_de_equivalencia(barramento_completo):
+    """`m·v²` e `F·d` têm a mesma dimensão e NÃO são a mesma expressão.
 
-    `m·v²` e `F·d` têm a mesma dimensão e NÃO são a mesma expressão — o par
-    perfeito para exercitar a regra de discordância do DOC-10 §4.
+    Reescrita por decisão do dono em 2026-10-23 (ADR-0005 §6). Esta golden
+    exigia ERROR por "discordância": o dimensional aprovava, o simbólico
+    reprovava, e o barramento se recusava a votar. Mas o dimensional é condição
+    necessária — o PASS dele não afirma que as expressões são a mesma, então
+    não contradiz quem diz que não são. Com a regra antiga, o erro mais comum
+    de um modelo (fator ou sinal trocado, com a dimensão certa) valia 0 em vez
+    de −1 sempre que o contexto declarava SI.
+
+    A discordância verdadeira, entre dois verificadores de EQUIVALÊNCIA, segue
+    congelada em `test_verifier_bus.py::test_discordancia_nunca_e_resolvida_por_voto`.
     """
     r = barramento_completo.check(Claim(lhs="m*v**2", rhs="F*d", context=SI))
-    assert r.verdict is Verdict.ERROR
-    assert "DISCORDÂNCIA" in r.evidence
-    assert r.reward == 0.0, "discordância não pode virar gradiente"
+    assert r.verdict is Verdict.FAIL, r.evidence
+    assert "DISCORDÂNCIA" not in r.evidence
+    assert r.reward < 0
+
+
+def test_erro_de_fator_com_a_dimensao_certa_e_reprovado(barramento_completo):
+    """O caso que a regra antiga deixava sair de graça (ADR-0005 §1)."""
+    ctx = {**SI, "dimensions": {"m": "massa", "v": "velocidade"}}
+    r = barramento_completo.check(Claim(lhs="m*v**2", rhs="m*v**2/2", context=ctx))
+    assert r.verdict is Verdict.FAIL, r.evidence
+
+
+def test_condicao_necessaria_sozinha_nao_prova_equivalencia(barramento_completo):
+    """`m v² f(1)` passava só pelo dimensional, com o simbólico e o numérico
+    indecisos (ADR-0005 §1). Condição necessária aprovada, com verificador de
+    equivalência aplicável, não é PASS."""
+    ctx = {**SI, "dimensions": {"m": "massa", "v": "velocidade"}}
+    r = barramento_completo.check(Claim(lhs=r"m v^{2} f(1)", rhs=r"\frac{1}{2} m v^{2}", context=ctx))
+    assert r.verdict is not Verdict.PASS, r.evidence
+
+
+def test_relacao_fisica_certa_passa_pelas_condicoes(barramento_completo):
+    """Numa relação (`F = m a`), comparar os lados como símbolos independentes
+    não tem sentido; as condições necessárias decidem (ADR-0005 §4.1)."""
+    ctx = {**SI, "tipo": "relacao", "dimensions": {"m": "massa", "a": "aceleracao"}}
+    assert barramento_completo.check(Claim(lhs="F", rhs="m*a", context=ctx)).verdict is Verdict.PASS
+    assert barramento_completo.check(Claim(lhs="F", rhs="m*a**2", context=ctx)).verdict is Verdict.FAIL

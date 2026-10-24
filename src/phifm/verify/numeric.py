@@ -25,8 +25,22 @@ import random
 import mpmath as mp
 import sympy as sp
 
-from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _declarados, _tem_operadores, parse
+from phifm.verify.bus import (
+    Claim,
+    Motivo,
+    Papel,
+    Verdict,
+    VerificationResult,
+    tipo_da_afirmacao,
+)
+from phifm.verify.symbolic import (
+    _com_limite,
+    _declarados,
+    _ler_os_dois_lados,
+    _operadores,
+    _Timeout,
+    _vocabulario_extra,
+)
 
 N_SUBS = 20
 PRECISAO = 50
@@ -78,27 +92,41 @@ def _amostra(rng: random.Random, complexo: bool = False):
 
 class NumericVerifier:
     id = "numeric/mpmath@0.1.0"
+    papel = Papel.EQUIVALENCIA
 
     def applicable(self, claim: Claim) -> bool:
-        """Não aplicável a álgebra não-comutativa.
+        """Aplicável a toda equivalência; função só do ITEM.
 
         Substituição numérica é *estruturalmente incapaz* de verificar
         operadores: atribuir números a ``Â`` e ``B̂`` faz ``ÂB̂ − B̂Â`` valer 0
-        sempre, o que é falso em Mecânica Quântica. O simbólico já se abstém
-        nesse caso (DOC-10 §3.1), mas isso não basta — sem esta guarda o
-        numérico aprovava e o barramento concluía PASS.
+        sempre, o que é falso em Mecânica Quântica. Defeito encontrado pela
+        própria suíte golden em 2026-08-03: sem uma guarda, o numérico aprovava
+        e o barramento concluía PASS.
 
-        Defeito encontrado pela própria suíte golden em 2026-08-03. É o
-        argumento do DOC-10 §5 em ação: proteger um verificador não protege o
-        barramento.
+        ⚠️ A guarda agora é uma abstenção com motivo, em `verify`, e não esta
+        aplicabilidade: quando ela lia o texto da resposta, um `\\sigma` só na
+        resposta fazia o numérico sumir do vetor, e a resposta errada saía sem
+        FAIL nenhum (ADR-0005).
         """
-        return claim.rhs is not None and not _tem_operadores(claim)
+        return claim.rhs is not None and tipo_da_afirmacao(claim) == "equivalencia"
+
+    def _abster(self, motivo: Motivo, evidencia: str, **extra) -> VerificationResult:
+        return VerificationResult(
+            Verdict.INCONCLUSIVE, self.id, 0.0, evidencia, motivo=motivo, **extra
+        )
 
     def verify(self, claim: Claim) -> VerificationResult:
+        no_item, na_resposta = _operadores(claim)
+        if no_item:
+            return self._abster(
+                Motivo.OPERADORES,
+                "o item tem operadores: substituição numérica não verifica não-comutatividade",
+            )
         locais = _declarados(claim)
-        a, b = parse(claim.lhs, locais), parse(claim.rhs or "", locais)
-        if a is None or b is None:
-            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
+        a, b, abstencao = _ler_os_dois_lados(claim, locais, no_item, na_resposta)
+        if abstencao is not None:
+            return self._abster(*abstencao)
+        extras = _vocabulario_extra(a, b, claim)
 
         simbolos = sorted(a.free_symbols | b.free_symbols, key=str)
         if not simbolos:
@@ -110,39 +138,63 @@ class NumericVerifier:
             e.has(sp.I) for e in (a, b)
         )
         mp.mp.dps = PRECISAO
-        f_a, f_b = sp.lambdify(simbolos, a, "mpmath"), sp.lambdify(simbolos, b, "mpmath")
+        pontos = [[_amostra(rng, complexo) for _ in simbolos] for _ in range(N_SUBS)]
+        try:
+            f_b = sp.lambdify(simbolos, b, "mpmath")
+        except Exception as exc:
+            return self._abster(Motivo.GABARITO_ILEGIVEL, f"o gabarito não lambdifica: {exc}"[:200])
+        try:
+            f_a = sp.lambdify(simbolos, a, "mpmath")
+        except Exception as exc:
+            return self._abster(
+                Motivo.EXCECAO_NA_RESPOSTA, f"a resposta não lambdifica: {exc}"[:200]
+            )
 
-        ok = disc = indef = 0
+        # Cada lado sob o seu próprio teto: o gabarito já foi avaliado no
+        # autoteste do item, então um estouro só na resposta é da resposta.
+        try:
+            vb = _com_limite(_avaliar, f_b, pontos)
+        except _Timeout:
+            return self._abster(Motivo.TEMPO, "a avaliação do gabarito estourou o teto")
+        try:
+            va = _com_limite(_avaliar, f_a, pontos)
+        except _Timeout:
+            return self._abster(
+                Motivo.TEMPO_NA_RESPOSTA, "a avaliação da resposta estourou o teto"
+            )
+
+        ok = disc = 0
         contra: str | None = None
-
-        for _ in range(N_SUBS):
-            vals = [_amostra(rng, complexo) for _ in simbolos]
-            try:
-                va, vb = f_a(*vals), f_b(*vals)
-            except Exception:
-                indef += 1
+        for vals, x, y in zip(pontos, va, vb, strict=True):
+            if x is None or y is None:
                 continue
-            try:
-                if not (mp.isfinite(mp.re(va)) and mp.isfinite(mp.re(vb))):
-                    indef += 1
-                    continue
-                escala = max(abs(va), abs(vb), mp.mpf(1))
-                if abs(va - vb) / escala < TOL:
-                    ok += 1
-                else:
-                    disc += 1
-                    if contra is None:
-                        atrib = ", ".join(f"{s}={v:.3g}" for s, v in zip(simbolos, vals, strict=False))
-                        contra = f"{atrib} → {va} ≠ {vb}"
-            except Exception:
-                indef += 1
+            if _iguais(x, y):
+                ok += 1
+            else:
+                disc += 1
+                if contra is None:
+                    # `mp.nstr`: `f"{mpf:.3g}"` levanta, e no código antigo a
+                    # exceção era engolida e a 1ª discordância contava como
+                    # ponto indefinido.
+                    atrib = ", ".join(f"{s}={mp.nstr(v, 3)}"
+                                      for s, v in zip(simbolos, vals, strict=False))
+                    contra = f"{atrib} → {mp.nstr(x, 12)} ≠ {mp.nstr(y, 12)}"
 
         avaliadas = ok + disc
         if avaliadas < N_SUBS // 2:
-            return VerificationResult(
-                Verdict.INCONCLUSIVE, self.id, 0.0,
-                f"apenas {avaliadas}/{N_SUBS} substituições avaliáveis "
-                f"({indef} indefinidas — provável singularidade)",
+            no_gabarito = sum(y is not None for y in vb)
+            if no_gabarito < N_SUBS // 2:
+                motivo = Motivo.INDECIDIVEL
+            elif extras:
+                motivo = Motivo.VOCABULARIO
+            else:
+                # O gabarito avalia e a resposta não: `/0`, `0^{-m}`, função
+                # indefinida. É a resposta que impede a verificação.
+                motivo = Motivo.RESPOSTA_INDEFINIDA
+            return self._abster(
+                motivo,
+                f"apenas {avaliadas}/{N_SUBS} substituições avaliáveis (gabarito "
+                f"avaliável em {no_gabarito}, resposta em {sum(x is not None for x in va)})",
             )
 
         if disc == 0:
@@ -154,8 +206,8 @@ class NumericVerifier:
         if complexo and disc <= MAX_DISCORDANCIA_ISOLADA and ok > disc:
             # Discordância isolada em meio a concordância ampla é assinatura de
             # corte de ramo, não de expressões diferentes.
-            return VerificationResult(
-                Verdict.INCONCLUSIVE, self.id, 0.0,
+            return self._abster(
+                Motivo.INDECIDIVEL,
                 f"{disc} discordância(s) isolada(s) em {avaliadas} — provável corte de ramo",
                 counterexample=contra,
             )
@@ -169,16 +221,68 @@ class NumericVerifier:
     def _constantes(self, a: sp.Expr, b: sp.Expr) -> VerificationResult:
         mp.mp.dps = PRECISAO
         try:
-            va, vb = mp.mpf(str(sp.N(a, PRECISAO))), mp.mpf(str(sp.N(b, PRECISAO)))
-        except Exception:
-            try:
-                va, vb = complex(sp.N(a, PRECISAO)), complex(sp.N(b, PRECISAO))
-            except Exception:
-                return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não avaliou")
-        escala = max(abs(va), abs(vb), 1)
-        if abs(va - vb) / escala < float(TOL):
+            vb = _com_limite(_numero, b)
+        except _Timeout:
+            return self._abster(Motivo.TEMPO, "a avaliação do gabarito estourou o teto")
+        if vb is None:
+            return self._abster(Motivo.GABARITO_ILEGIVEL, "o gabarito constante não avaliou")
+        try:
+            va = _com_limite(_numero, a)
+        except _Timeout:
+            return self._abster(
+                Motivo.TEMPO_NA_RESPOSTA, "a avaliação da resposta estourou o teto"
+            )
+        if va is None:
+            return self._abster(Motivo.RESPOSTA_INDEFINIDA, "a resposta constante não avaliou")
+        if _iguais(va, vb):
             return VerificationResult(Verdict.PASS, self.id, 0.95, f"iguais: {va}")
         return VerificationResult(
             Verdict.FAIL, self.id, 1.0, "constantes diferentes",
             counterexample=f"{va} ≠ {vb}",
         )
+
+
+def _finito(v) -> bool:
+    try:
+        return bool(mp.isfinite(mp.re(v)) and mp.isfinite(mp.im(v)))
+    except Exception:
+        return False
+
+
+def _avaliar(f, pontos: list[list]) -> list:
+    """O valor em cada ponto, ou None onde não avalia ou não é finito."""
+    saida = []
+    for vals in pontos:
+        try:
+            v = f(*vals)
+        except Exception:
+            saida.append(None)
+            continue
+        saida.append(v if _finito(v) else None)
+    return saida
+
+
+def _numero(e: sp.Expr):
+    """O valor de uma constante a `PRECISAO` dígitos, ou None."""
+    try:
+        v = sp.N(e, PRECISAO)
+        re_, im_ = (mp.mpf(str(p)) for p in v.as_real_imag())
+        v = mp.mpc(re_, im_) if im_ != 0 else re_
+    except Exception:
+        return None
+    return v if _finito(v) else None
+
+
+def _iguais(x, y) -> bool:
+    """Igualdade relativa a `TOL`.
+
+    ⚠️ Sem o piso absoluto de 1 que havia aqui: com ele, `0` contra um gabarito
+    de 1,87·10⁻⁶⁴ — grandeza comum em SI — passava (|diferença| < 10⁻³⁵), e a
+    resposta errada saía do grupo por discordância com o simbólico (ADR-0005).
+    O piso só vale quando o gabarito é exatamente zero, onde o erro relativo
+    não existe.
+    """
+    escala = max(abs(x), abs(y)) if y != 0 else max(abs(x), mp.mpf(1))
+    if escala == 0:
+        return True
+    return bool(abs(x - y) / escala < TOL)
