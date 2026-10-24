@@ -368,6 +368,19 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
      - A frase com alternativa entre as partes não decide ("$2$ and $8$ or $9$").
    - **O que ficou de fora.** O atacante de regressões caiu três vezes no limite de sessão. No lugar dele, a regressão foi conferida pela suíte das rodadas 1 a 3 (todas passam, com as duas mudanças de política anotadas) e pelo autoteste do dev contra a versão anterior. A recomendação é parar as rodadas aqui: cada rodada acha furos mais raros, e a auditoria das gerações reais de dev mede melhor o que falta.
 
+11. **Autoteste do teste (2026-10-23, com o OK do dono).** Na primeira passada, o OlympiadBench-teste excluiu 22 de 236 itens (9,3%), acima do limite de 5%. A causa foi achada só por flags estruturais, sem olhar gabarito nem enunciado: em 16 itens Numerical, o campo `error` do benchmark vale 0. Com tolerância 0, a perturbação de 3× a tolerância é o próprio gabarito e passa; na medida, o comparador exigiria igualdade exata.
+    - **Decisão declarada:** `error` 0 é tolerância não declarada, e vale o 1e-2 relativo do OlympiadBench sem `error` (`g2_itens.tolerancias_olympiad`). Vale igual para os dois braços.
+    - **Resultado final** (`g2_autoteste.json`, todos abaixo do limite, sem morte nem reinício do trabalhador):
+
+      | Benchmark | Itens | Excluídos | Taxa | Composição |
+      |---|---|---|---|---|
+      | UGPhysics-teste | 1.999 | 82 | 4,1% | 65 INCONCLUSIVE (cálculo), 12 perturbação que passa, 3 FAIL, 2 sem resposta |
+      | OlympiadBench-teste | 236 | 5 | 2,1% | 4 INCONCLUSIVE e 1 perturbação que passa, em equações e expressões |
+      | PHYBench | 100 | 1 | 1,0% | — |
+      | SciBench-teste | 193 | 0 | 0% | — |
+
+      Os ids excluídos saem dos dois braços.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

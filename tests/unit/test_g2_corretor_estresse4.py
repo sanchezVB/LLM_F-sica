@@ -275,6 +275,21 @@ def test_intervalo_com_not_reprova():
     assert c.comparar_intervalo(r"\arcsin(r) > 2 a_{0}", r"(2 a_{0}, \infty)") is V.FAIL
 
 
+def test_error_zero_do_olympiad_e_tolerancia_nao_declarada():
+    """Achado do autoteste do OlympiadBench-teste (só por flags estruturais): `error` 0 fazia
+    a perturbação igual ao gabarito, e 16 Numerical eram excluídos."""
+    from phifm.eval import g2_itens
+    from phifm.eval.g2_itens import Item
+    assert g2_itens.tolerancias_olympiad("0", 1) == [None]
+    assert g2_itens.tolerancias_olympiad("0.1,0", 2) == [0.1, None]
+    assert g2_itens.tolerancias_olympiad(None, 2) == [None, None]
+    assert g2_itens.tolerancias_olympiad("0.5", 3) == [0.5, 0.5, 0.5]
+    item = Item("olympiadbench", "x", "Q", ("3.0",), ("Numerical",),
+                tuple(g2_itens.tolerancias_olympiad("0", 1)))
+    r = g2_itens.autoteste(item)
+    assert r["ok"] and r["perturbacoes"] == 2
+
+
 def test_frase_com_alternativa_entre_as_partes():
     texto = PRE + "The final answers are $3e-05$ and $1.8e-05$ or $5.4e-05$."
     assert c.extrair_respostas(texto, 2) is None
