@@ -395,6 +395,17 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **Inconclusivo.** Os 8 eram itens que o autoteste já exclui (cálculo, gabarito sem leitura), mas a medida ainda os gerava e contava. **Mudança:** `medir_g2` não gera nem conta os ids excluídos. No teste, exige o autoteste da MESMA versão do corretor.
     - **FAIL.** Uma amostra de 40 FAIL foi conferida à mão: em todas, a extração pegou a resposta que o modelo deu, e a resposta estava errada. Nenhum defeito do corretor apareceu ali; a auditoria cega (item 3 do §3.7.3) mede isso com 200 gerações.
 
+13. **Iteração 2 do dev (2026-10-24, com o OK do dono)**, com a guarda de laço, a frase "The answer is" e sem os itens excluídos. Outro sorteio de 300 do UG-dev. Agregados em `g2_dev_1.7B_base_it2.json`.
+
+    | Benchmark | Acerto | Sem resposta | Truncado | Fichas médias |
+    |---|---|---|---|---|
+    | UGPhysics | 12,0% | 2,0% | 7,3% | 353 |
+    | OlympiadBench-zh | 17,4% | 0% | 10,4% | 363 |
+    | SciBench | 0% | 4,2% | 8,3% | 526 |
+
+    - **Truncado.** As 36 truncadas pararam todas pela guarda nova, nenhuma pelo teto de 4.096 fichas, e nenhuma tinha resposta completa antes do corte. São laços do próprio modelo base, e não defeito do harness. Com a amostragem do protocolo (T=0,6, top-p 0,95, sem penalidades, igual nos dois braços), o alvo de ≤3% não é atingível pela base. **Fica para o dono** aceitar o laço como 0, que é o previsto, ou mudar a amostragem nos dois braços.
+    - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
