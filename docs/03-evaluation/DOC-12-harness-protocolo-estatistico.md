@@ -404,6 +404,13 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     | SciBench | 0% | 4,2% | 8,3% | 526 |
 
     - **Truncado.** As 36 truncadas pararam todas pela guarda nova, nenhuma pelo teto de 4.096 fichas, e nenhuma tinha resposta completa antes do corte. São laços do próprio modelo base, e não defeito do harness. Com a amostragem do protocolo (T=0,6, top-p 0,95, sem penalidades, igual nos dois braços), o alvo de ≤3% não é atingível pela base. **Decisão do dono (2026-10-24):** o laço vale 0, a amostragem fica como está, e o alvo de ≤3% passa a valer só para defeito do harness (teto de fichas, paradas, guarda). Se o ΦGen laçar menos, isso aparece como ganho real. O dono também aceitou as duas decisões declaradas desta etapa: vale a última caixa (item 10) e o `error` 0 do OlympiadBench é tolerância não declarada (item 11).
+
+14. **Auditoria cega do corretor (2026-10-24, §3.7.3 item 3).**
+    - **Amostra.** `scripts/auditar_g2.py sortear` escolheu 200 gerações de dev corrigidas (das iterações 1 e 2, sem truncadas e sem os itens excluídos), estratificadas: 130 do UG, 50 do OlympiadBench e 20 do SciBench. Elas foram corrigidas com o corretor atual (24 PASS, 167 FAIL, 9 sem resposta). Os ids, os veredictos e o SHA-256 deles foram gravados no commit `a821268`, ANTES do julgamento.
+    - **Julgamento.** Dois juízes Claude independentes por lote de 10 leram só o enunciado, a linha de resposta, o gabarito, o critério e a geração, sem ver o veredito do corretor nem rodar código dele. Concordaram entre si nas 200, e não houve desempate.
+    - **Resultado** (`g2_auditoria.json`): concordância de **99,5%** no PASS contra o resto (199 de 200) e **κ = 0,977**. O alvo (≥95% e κ ≥ 0,8) foi cumprido na primeira passada.
+    - **O desacordo**, um só, é de notação: gabarito `v_m = \sqrt{2kT/m}` e resposta `v_p = \sqrt{2kT/M}`, a mesma velocidade mais provável com outro índice e massa maiúscula. Os juízes aprovaram, e o corretor reprova, porque compara símbolos (M ≠ m). **Limitação declarada:** o corretor não identifica símbolos renomeados. Isso vale igual nos dois braços.
+
     - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
 
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
