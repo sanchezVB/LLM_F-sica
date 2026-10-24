@@ -69,44 +69,76 @@ class Veredito(StrEnum):
 
 
 # ── extração ─────────────────────────────────────────────────────────────────
-
-# Um problema novo inventado depois da resposta. As paradas do servidor só cortam
-# `\nProblem:`; o resto chega aqui e a caixa dele não pode valer. O corte é só em
-# cabeçalho de COMEÇO DE LINHA no formato do próprio few-shot (`Problem:`, `Problem 2:`,
-# `## Problem 2`, `**Problem 3.**`), no eco do cabeçalho do documento e nas linhas de
-# resposta do prompt, que só aparecem num problema novo. "Refer to Problem 2.1" no meio
-# da solução, "Problem analysis:" e a autoverificação ("Question: is this consistent?")
-# NÃO cortam (estresse, rodada 2). `[ \t]` e não `\s`: `\n\s*` era quadrático.
 #
-# Só se corta DEPOIS de já haver uma resposta (uma caixa ou a frase final): um "Solution:"
-# ou um eco no meio do raciocínio não pode apagar a resposta que vem depois (rodada 3).
-# "Solution:" sozinho não corta: sem "Problem:" antes (o servidor para em "\nProblem:"),
-# é o modelo recomeçando a própria solução.
-_NOVO_PROBLEMA = re.compile(
+# Política (rodada 4 do estresse, 2026-10-23): vale a ÚLTIMA caixa não vazia, como no juiz
+# oficial do OlympiadBench e do UGPhysics. A frase "final answer is" só é lida quando NÃO
+# há caixa. Nas rodadas 2 e 3, a frase depois da caixa podia vencê-la, e cada rodada achou
+# furos nos dois sentidos: o comentário hesitante vencia a caixa certa, e a correção
+# legítima perdia para a caixa intermediária. O few-shot termina sempre em
+# `The final answer is $\boxed{…}$`.
+
+# Problema novo inventado depois da resposta (o servidor só para em `\nProblem:`).
+# FORTE, corta sozinho: `Problem:`, `Problem 2:`, `## Problem 2`, o eco do cabeçalho do
+# documento e as linhas de resposta do prompt, cada uma INTEIRA como `g2_prompt` a gera (um
+# teste confere as duas listas). FRACO: `Question:`, `Example 3:`, `Exercise 1.2`,
+# `Problem 2.`, `Q:`. Esses só cortam se depois vier uma linha `Solution:` ou um eco; sem
+# isso, é o raciocínio ("Question: is this consistent?"). `[ \t]` e não `\s`: `\n\s*` era
+# quadrático.
+_PROBLEMA_FORTE = re.compile(
     r"^[ \t]*(?:#+[ \t]*|\*\*)?(?:Problem|PROBLEM)"
-    r"(?:[ \t]*\d+(?:\.\d+)*[ \t]*\**[ \t]*(?::|\.(?!\d)|\)|$)|[ \t]*\**[ \t]*:)"
-    r"|The following are physics problems with step-by-step solutions"
-    r"|put only the number in \\boxed\{\}|Give only the number in \\boxed\{\}"
-    r"|^[ \t]*The answer is (?:an expression|an equation|an interval)\.[ \t]*$"
-    r"|^[ \t]*Answer (?:with the option letter\(s\)|True or False)\.[ \t]*$"
-    r"|single symbolic expression in the given quantities", re.M)
+    r"(?:[ \t]*\d+(?:\.\d+)*[ \t]*\**[ \t]*(?::|$)|[ \t]*\**[ \t]*:)", re.M)
+_PROBLEMA_FRACO = re.compile(
+    r"^[ \t]*(?:#+[ \t]*|\*\*)?(?:Problem|PROBLEM|Question|Exercise|Example|Q)"
+    r"[ \t]*(?:#?\d+(?:\.\d+)*|[IVX]+)?[ \t]*(?:\([^)\n]*\))?[ \t]*\**[ \t]*[:.\-)]", re.M)
+_ECO = re.compile(
+    r"The following are physics problems with step-by-step solutions"
+    r"|Each solution ends with: The final answer is"
+    r"|^[ \t]*(?:"
+    r"The answer is a number(?: in [^\n]*?)?; put only the number in \\boxed\{\}\."
+    r"|The answer has \d+ equations; put all of them in one \\boxed\{\}, separated by commas\."
+    r"|The answer is (?:a numerical value|an expression|an equation|an interval)\."
+    r"(?:[ \t]+This problem has \d+ answers; put all of them in one \\boxed\{\}, separated by "
+    r"commas\.)?(?:[ \t]+Give the unit outside the \\boxed\{\}\.)?"
+    r"|Answer with the option letter\(s\)\.|Answer True or False\."
+    r"|Give the final answer as a single symbolic expression in the given quantities, in one "
+    r"\\boxed\{\}\."
+    r"|(?:The unit of the answer is [^\n]*?\. )?Give only the number in \\boxed\{\}\."
+    r")[ \t]*$", re.M)
+_SOLUCAO = re.compile(r"^[ \t]*(?:\*\*)?Solution(?:\*\*)?[ \t]*:", re.M)
+_LINHA_EM_BRANCO = re.compile(r"\n[ \t]*\n")
 _FRASE_FINAL = re.compile(r"final(?:\*\*|__)?\s+answers?(?:\*\*|__)?\s*(?:is|are)\b\s*:?\s*",
                           re.I)
 _MATEMATICA = re.compile(r"\$\$(.+?)\$\$|\\\[(.+?)\\\]|\\\((.+?)\\\)|\$(.+?)\$"
                          r"|\\begin\{(?:equation|align)\*?\}(.+?)\\end\{(?:equation|align)\*?\}",
                          re.S)
-# antes da frase, na mesma sentença: condição, contrafactual, verificação, pergunta
-_PREFIXO_HESITANTE = re.compile(
-    r"\b(?:if|had|would|could|should|naive|naively|without|assuming|suppose|verify|check|"
-    r"checking|rechecking|note|recall|whether|unless|otherwise|not|instead)\b|\?", re.I)
-# entre a frase e a matemática, só enchimento
-_ENCHIMENTO = re.compile(r"(?:\s|,|:|=|\*\*|therefore|thus|hence|then|simply|given by|equal to|"
-                         r"approximately|about|roughly|exactly|just|clearly|indeed)*", re.I)
+# condição ou contrafactual que GOVERNA a frase: no começo da oração dela, ou de uma oração
+# anterior ligada por vírgula ("Had we neglected recoil, the final answer is…"). "Note
+# that", "does not depend", "Without loss of generality, …, and the final answer is" não
+# governam (rodada 4).
+_CONDICAO = re.compile(
+    r"(?:[^,]*,\s*)*?(?:\*\*)?\s*(?:if|had|would|could|should|suppose|supposing|assuming|unless|"
+    r"whether|without|naive|naively)\b[^,]*,?\s*(?:then\s*,?\s*)?(?:the\s+)?(?:\*\*)?\s*", re.I)
+# entre a frase e a matemática, só enchimento (com o símbolo da grandeza e rótulos)
+_ENCHIMENTO = re.compile(
+    r"(?:\s|,|:|=|≈|~|∼|\\approx|\\sim|\*\*|therefore|thus|hence|then|simply|given by|equal to|"
+    r"approximately|about|roughly|exactly|just|clearly|indeed|nearly|that|respectively|"
+    r"\\?[A-Za-z]+(?:_\{?\w+\}?)?\s*(?:=|≈|\\approx)|\(\s*\w{1,3}\s*\)|\b\w\))*", re.I)
 # logo depois do valor: dúvida ou alternativa
 _DEPOIS_HESITANTE = re.compile(r"\s*(?:[^\s\w$]{0,2}\s*)?(?:\?|or\b|than\b|not\b|vs\.?|versus\b|"
                                r"instead\b|either\b|but\b|however\b|wait\b)", re.I)
+# no resto da sentença: outro valor ligado ao primeiro, ou uma condição
+_OUTRO_VALOR = re.compile(r"(?:,|;|\(|\bor\b|\band\b|\bthan\b|\bnot\b)\s*(?:[A-Za-z]+\s+){0,3}"
+                          r"\$[^$]*\d", re.I)
+_CONDICAO_DEPOIS = re.compile(r"\b(?:if|unless|otherwise|assuming|provided|instead)\b|\?", re.I)
+# a sentença seguinte retrata a frase
+_RETRATACAO = re.compile(
+    r"\s*(?:\*\*)?\s*(?:no\b(?:\s*,|\s+wait)|wait\b|oops\b|hold on\b|but\b|however\b|"
+    r"correction\s*[:!]|on second thought|let me (?:re|double)|i made|that'?s wrong|"
+    r"this is wrong|actually,?\s+(?:it|the|this) (?:is|should))", re.I)
 _PALAVRA_RESPOSTA = re.compile(r"(?:yes|no|true|false|correct|incorrect|option\s+[A-J]|"
                                r"\(?[A-J]\)?)\.?", re.I)
+_CAIXA_VAZIA = re.compile(r"\s*(?:\.\.\.|…|\\[lcv]?dots|\\text\s*\{\s*(?:answer|\.\.\.)?\s*\}|"
+                          r"answer|\?+)?\s*", re.I)
 
 
 def _chaves(texto: str, ini: int) -> int | None:
@@ -122,19 +154,38 @@ def _chaves(texto: str, ini: int) -> int | None:
     return None
 
 
-def caixas(texto: str) -> list[tuple[int, str]]:
-    """(posição, conteúdo) de cada `\\boxed{…}`/`\\fbox{…}` de chaves balanceadas, em ordem.
-    Caixa cortada (sem a chave de fechar) não entra."""
+def _pares_de_chaves(texto: str) -> dict[int, int]:
+    """{abre: fecha} de todas as chaves balanceadas, numa passada só. Com uma `_chaves` por
+    caixa, cada `\\boxed{` sem fechar varria o texto até o fim, e o corte da continuação
+    ficou quadrático (rodada 4: 15 s fora do teto numa geração degenerada)."""
+    pilha, pares = [], {}
+    for j, ch in enumerate(texto):
+        if ch == "{":
+            pilha.append(j)
+        elif ch == "}" and pilha:
+            pares[pilha.pop()] = j
+    return pares
+
+
+def _caixas_com_fim(texto: str) -> list[tuple[int, int, str]]:
+    """(início, fim, conteúdo) de cada `\\boxed{…}`/`\\fbox{…}` fechada, em ordem."""
+    pares = _pares_de_chaves(texto)
     achadas = []
     for m in re.finditer(r"\\(?:boxed|fbox)\s*", texto):
         j = m.end()
         if j < len(texto) and texto[j] == "{":
-            fim = _chaves(texto, j)
-            if fim is not None:
-                achadas.append((m.start(), texto[j + 1:fim].strip()))
+            if j in pares:
+                achadas.append((m.start(), pares[j] + 1, texto[j + 1:pares[j]].strip()))
         elif j < len(texto) and m.group().endswith(" ") and texto[j:].split():
-            achadas.append((m.start(), texto[j:].split()[0].strip("$.,")))   # `\boxed 5`
+            palavra = texto[j:].split()[0]                    # `\boxed 5`
+            achadas.append((m.start(), j + len(palavra), palavra.strip("$.,")))
     return achadas
+
+
+def caixas(texto: str) -> list[tuple[int, str]]:
+    """(posição, conteúdo) de cada `\\boxed{…}`/`\\fbox{…}` de chaves balanceadas, em ordem.
+    Caixa cortada (sem a chave de fechar) não entra."""
+    return [(ini, conteudo) for ini, _, conteudo in _caixas_com_fim(texto)]
 
 
 def extrair_boxed(texto: str) -> str | None:
@@ -143,131 +194,196 @@ def extrair_boxed(texto: str) -> str | None:
     return cx[-1][1] if cx else None
 
 
+def _sem_envoltorio(s: str) -> str:
+    """Tira o envoltório que cobre a caixa INTEIRA: `{D}`, `\\textbf{…}`, `\\mathbf{…}`,
+    `\\boldsymbol{…}`, `\\bm{…}`, com chaves balanceadas. O `\\text{…}` fica: V/F e letras o
+    leem."""
+    for _ in range(5):
+        s = s.strip()
+        m = re.match(r"\\(?:textbf|mathbf|boldsymbol|bm)\s*\{|\{", s)
+        if not m or _chaves(s, m.end() - 1) != len(s) - 1:
+            break
+        s = s[m.end():-1]
+    return s.strip()
+
+
+def _caixas_validas(texto: str) -> list[str]:
+    """O conteúdo das caixas, sem envoltório, sem as vazias e sem as de placeholder (o eco
+    de `\\boxed{}` e de `\\boxed{...}` do prompt)."""
+    return [c for c in (_sem_envoltorio(c) for _, _, c in _caixas_com_fim(texto))
+            if not _CAIXA_VAZIA.fullmatch(c)]
+
+
+def _armado_em(texto: str) -> int | None:
+    """A posição a partir da qual o texto já tem uma resposta, ou None. Arma: a linha
+    canônica (frase final e caixa na mesma linha), uma caixa seguida de linha em branco, ou
+    a frase final que se lê sem caixa. A caixa intermediária no meio do raciocínio e a frase
+    recusada ("note that the final answer is independent of…") não armam (rodada 4)."""
+    candidatos = []
+    for ini, fim, conteudo in _caixas_com_fim(texto):
+        if _CAIXA_VAZIA.fullmatch(conteudo):
+            continue
+        linha_ini = texto.rfind("\n", 0, ini) + 1
+        if _FRASE_FINAL.search(texto, linha_ini, ini):
+            candidatos.append(fim)
+            break
+        # a caixa fecha o parágrafo: a linha dela é seguida de uma linha em branco
+        fim_da_linha = texto.find("\n", fim)
+        branco = _LINHA_EM_BRANCO.match(texto, fim_da_linha) if fim_da_linha != -1 else None
+        if branco:
+            candidatos.append(branco.start())
+            break
+    for f in _FRASE_FINAL.finditer(texto):
+        if _ler_frase(texto, f, 1) is not None:
+            candidatos.append(f.end())
+            break
+    return min(candidatos) if candidatos else None
+
+
 def cortar_continuacao(texto: str) -> str:
     """Corta no começo da LINHA do primeiro marcador de problema novo que venha DEPOIS de
-    já haver uma resposta (caixa fechada ou frase final)."""
-    for m in _NOVO_PROBLEMA.finditer(texto):
-        antes = texto[:m.start()]
-        if caixas(antes) or _FRASE_FINAL.search(antes):
-            return texto[:texto.rfind("\n", 0, m.start()) + 1]
-    return texto
+    já haver uma resposta (`_armado_em`). Também corta antes de um `Solution:` que venha
+    depois da resposta com o enunciado inventado entre os dois (uma linha não vazia): um
+    `Solution:` logo em seguida é o modelo refazendo a própria conta."""
+    arme = _armado_em(texto)
+    if arme is None:
+        return texto
+    seguintes = [m.start() for m in _SOLUCAO.finditer(texto, arme)]
+    seguintes += [m.start() for m in _ECO.finditer(texto, arme)]
+    cortes = []
+    for padrao in (_PROBLEMA_FORTE, _ECO):
+        m = padrao.search(texto, arme)
+        if m:
+            cortes.append(m.start())
+    for m in _PROBLEMA_FRACO.finditer(texto, arme):
+        if any(p > m.start() for p in seguintes):
+            cortes.append(m.start())
+            break
+    fim_da_linha = texto.find("\n", arme)
+    if fim_da_linha != -1:
+        for m in _SOLUCAO.finditer(texto, fim_da_linha + 1):
+            if texto[fim_da_linha + 1:m.start()].strip():
+                cortes.append(fim_da_linha + 1)
+            break
+    if not cortes:
+        return texto
+    corte = min(cortes)
+    return texto[:texto.rfind("\n", 0, corte) + 1]
 
 
 def _grupo(m: re.Match) -> str:
     return next(g for g in m.groups() if g is not None).strip()
 
 
-def _ler_frase(texto: str, frase: re.Match, n: int, tem_caixa: bool) -> str | None:
-    """A resposta que a frase "final answer is" traz, ou None se a frase não responde.
+def _pedaco_de_unidade(g: str) -> bool:
+    """`m/s$^2$`, `$\\mathrm{m/s}$`, `$\\rm m/s^2$`, `$\\mu$m`, `$\\circ$`, `$\\,$`: pedaço de
+    unidade ou espaço, não resposta."""
+    g = re.sub(r"\\[,;:! ]|~", "", g).strip()
+    if not g or re.match(r"[\^_]", g):
+        return True
+    if re.fullmatch(r"\\mu|μ|\\circ|\^?\{?\\circ\}?|\\%|%|\\Omega|Ω", g):
+        return True
+    g = re.sub(r"^\\(?:rm|mathrm)\b\s*", "", g)
+    return _cauda_e_unidade(_UNIDADE_EM_TEXTO.sub(" ", g))
 
-    - Na mesma sentença, ANTES da frase, não pode haver condição, contrafactual,
-      verificação nem pergunta ("Had we neglected recoil, the final answer is…").
-    - Entre a frase e o valor, só enchimento ("therefore", "given by", ",").
-    - Logo DEPOIS do valor, nada de "?", "or", "than", "not", "but"; o resto da sentença
-      ("correct to three figures", "which is consistent with…") não importa.
-    - Com uma caixa antes, a frase só vence se abrir a sentença e trouxer matemática ou
-      número; sem caixa, aceita também yes/no/true/false e a letra de uma alternativa.
-    - Com n > 1 respostas, junta os n primeiros trechos matemáticos da sentença."""
-    ini = max(texto.rfind(c, 0, frase.start()) for c in ".!?\n") + 1
-    prefixo = texto[ini:frase.start()]
-    if _PREFIXO_HESITANTE.search(prefixo):
-        return None
-    if tem_caixa and not re.fullmatch(r"\s*(?:(?:so|thus|therefore|hence|then|and|finally)"
-                                      r"\s*,?\s*)*(?:the\s*)?(?:\*\*)?\s*", prefixo, re.I):
+
+def _sentenca(depois: str) -> tuple[str, str]:
+    partes = re.split(r"(?<=[.!?])\s+|\n", depois, maxsplit=1)
+    return partes[0], (partes[1] if len(partes) > 1 else "")
+
+
+def _ler_frase(texto: str, frase: re.Match, n: int) -> str | None:
+    """A resposta que a frase "final answer is" traz, ou None se a frase não responde. Só
+    vale sem caixa (a caixa vence sempre).
+
+    - Na oração, ANTES da frase, nenhuma condição ou contrafactual que a governe.
+    - Entre a frase e o valor, só enchimento ("therefore", "≈", "E =", "(1)").
+    - Depois do valor, na sentença: nada de "?", "or", "if", "unless", e nenhum outro valor
+      ligado ao primeiro ("$13.06$ eV, or $12.75$ eV"); a sentença seguinte não retrata
+      ("But that ignores…"). O comentário ("correct to three figures") não importa.
+    - Com n > 1 respostas, junta os n primeiros trechos da sentença, pulando pedaço de
+      unidade e rótulo entre parênteses (`$5$ m/s$^2$ ($a$)`)."""
+    ini = max(texto.rfind(c, 0, frase.start()) for c in ".!?\n;") + 1
+    if _CONDICAO.fullmatch(texto[ini:frase.start()]):
         return None
     resto = texto[frase.end():frase.end() + 800]
     m = _MATEMATICA.search(resto)
     if m and _ENCHIMENTO.fullmatch(resto[:m.start()]):
         depois = resto[m.end():]
-        if _DEPOIS_HESITANTE.match(depois):
+        sentenca, seguinte = _sentenca(depois)
+        if (_DEPOIS_HESITANTE.match(depois) or _RETRATACAO.match(seguinte)
+                or _CONDICAO_DEPOIS.search(sentenca)):
             return None
-        # pergunta no fim da mesma sentença ("$13.06$ eV?") ou correção logo na seguinte
-        # ("No, …", "Wait", "Actually")
-        partes = re.split(r"(?<=[.!?])\s+|\n", depois, maxsplit=1)
-        sentenca, seguinte = partes[0], (partes[1] if len(partes) > 1 else "")
-        if "?" in sentenca or re.match(r"\s*(?:no\b\s*[,.!]|wait\b|actually\b|hmm\b|"
-                                       r"correction\b|rechecking\b|on second thought)",
-                                       seguinte, re.I):
+        primeiro = _grupo(m)
+        # `$0.3\,\mu$m`: o μ só existe em modo matemático, e a letra da unidade fica fora
+        mu = re.match(r"[A-Za-z]+", depois)
+        if re.search(r"(?:\\mu|μ)\s*$", primeiro) and mu:
+            primeiro = f"{primeiro} {mu.group()}"
+        if n <= 1:
+            return None if _OUTRO_VALOR.search(sentenca) else primeiro
+        # alternativa entre as partes ("$2$ and $8$ or $9$", "$2$ (or $3$)")
+        if re.search(r"\bor\b\s*(?:[A-Za-z]+\s+){0,3}\$", sentenca, re.I):
             return None
-        # com uma resposta só, um segundo valor logo em seguida ("$13.06$ eV, $12.75$ eV")
-        # é alternativa: a frase não decide
-        if n <= 1 and re.match(r"[A-Za-z/^{}\\ ]{0,12}\s*(?:,|;|\band\b|\bor\b)\s*\$", depois):
-            return None
-        partes = [_grupo(m)]
-        if n > 1:
-            fim = re.search(r"(?<=[.!?])\s|\n\s*\n", depois)
-            for m2 in _MATEMATICA.finditer(depois[:fim.start()] if fim else depois):
-                if len(partes) >= n:
-                    break
-                g = _grupo(m2)
-                # `m/s$^2$`, `$\mathrm{m/s}$`: pedaço de unidade, não resposta
-                if re.match(r"\s*[\^_]", g) or _cauda_e_unidade(_UNIDADE_EM_TEXTO.sub(" ", g)):
-                    continue
+        partes = [primeiro]
+        for m2 in _MATEMATICA.finditer(sentenca):
+            if len(partes) >= n:
+                break
+            g = _grupo(m2)
+            entre_parenteses = (sentenca[:m2.start()].rstrip().endswith("(")
+                                and sentenca[m2.end():].lstrip().startswith(")"))
+            if not entre_parenteses and not _pedaco_de_unidade(g):
                 partes.append(g)
-        return ", ".join(partes) or None
+        return ", ".join(partes)
+    # texto puro: até o primeiro `$`, ", i.e.", ", where", ", which", ";" ou fim de sentença
     linha = resto.split("\n")[0].replace("**", "").replace("`", "")
-    if "$" in linha:
-        return None
+    linha = re.split(r"\$|,\s*(?:i\.e\.|where|which)\b|;", linha)[0]
     linha = re.sub(r"^(?:\s|,|:|=|≈|~|approximately|about|roughly|therefore|thus|simply)*", "",
                    linha, flags=re.I)
-    linha = re.split(r",\s+[A-Za-z]|;|\.\s+[A-Za-z]|\.\s*$", linha)[0].strip()
-    if not linha or _DEPOIS_HESITANTE.search(" " + linha):
+    linha = re.split(r",\s+[A-Za-z]|\.\s+[A-Za-z]|\.\s*$", linha)[0].strip()
+    sentenca, seguinte = _sentenca(resto)
+    if (not linha or _DEPOIS_HESITANTE.search(" " + linha) or _RETRATACAO.match(seguinte)
+            or "?" in sentenca):
         return None
-    if re.match(r"[-+(]?\s*[\d\\]", linha):
+    if re.match(r"[-+(]?\s*[\d\\]", linha) or _PALAVRA_RESPOSTA.fullmatch(linha):
         return linha
-    if not tem_caixa and _PALAVRA_RESPOSTA.fullmatch(linha):
+    # começa por letra: `E = 13.06 eV`, `B^2/(2 M c^2)`; prosa ("independent of the mass") não
+    if re.search(r"[=^/_*()\d]", linha) and not re.search(r"\b[A-Za-z]{3,}\s+[A-Za-z]{2,}\b", linha):
         return linha
     return None
 
 
-def _fim_da_ultima_caixa(texto: str, cx: list[tuple[int, str]]) -> int:
-    if not cx:
-        return -1
-    j = texto.find("{", cx[-1][0])
-    fim = _chaves(texto, j) if j != -1 else None
-    return fim if fim is not None else cx[-1][0]
-
-
-def _da_frase(texto: str, cx: list[tuple[int, str]], n: int) -> str | None:
-    """A última frase final, depois da última caixa, que de fato responde (com n partes,
-    quando n > 1); senão None."""
-    fim = _fim_da_ultima_caixa(texto, cx)
-    for f in reversed([f for f in _FRASE_FINAL.finditer(texto) if f.start() > fim]):
-        lida = _ler_frase(texto, f, n, bool(cx))
+def _da_frase(texto: str, n: int) -> str | None:
+    """A última frase final que de fato responde (com n partes, quando n > 1); senão None."""
+    for f in reversed(list(_FRASE_FINAL.finditer(texto))):
+        lida = _ler_frase(texto, f, n)
         if lida is not None and (n <= 1 or len(respostas_da_caixa(lida)) >= n):
             return lida
     return None
 
 
 def extrair_resposta(texto: str) -> str | None:
-    """A frase final que responde, se vier depois do FIM da última caixa (`_ler_frase`);
-    senão a última caixa; senão None (= sem resposta). O texto é cortado antes de um
-    problema novo inventado."""
+    """A última caixa não vazia; sem caixa, a frase final que responde (`_ler_frase`);
+    senão None (= sem resposta). O texto é cortado antes de um problema novo inventado."""
     texto = cortar_continuacao(texto)
-    cx = caixas(texto)
-    lida = _da_frase(texto, cx, 1)
-    if lida is not None:
-        return lida
-    return (cx[-1][1] or None) if cx else None
+    cx = _caixas_validas(texto)
+    if cx:
+        return cx[-1]
+    return _da_frase(texto, 1)
 
 
 def extrair_respostas(texto: str, n: int) -> str | None:
-    """Para item de n > 1 respostas: a frase final com n partes; senão a última caixa, se
-    tiver n partes; senão as últimas n caixas NÃO VAZIAS juntas (uma por resposta é hábito
-    forte de modelo; a caixa vazia vem do eco da linha de resposta)."""
+    """Para item de n > 1 respostas: a última caixa, se tiver n partes; senão as últimas n
+    caixas não vazias juntas (uma por resposta é hábito forte de modelo); sem caixa, a
+    frase final com n partes, ou com uma."""
     if n <= 1:
         return extrair_resposta(texto)
     texto = cortar_continuacao(texto)
-    todas = caixas(texto)
-    lida = _da_frase(texto, todas, n)
-    if lida is not None:
-        return lida
-    cx = [c for _, c in todas if c.strip()]
-    if not cx:
-        return _da_frase(texto, todas, 1)
-    if len(respostas_da_caixa(cx[-1])) >= n or len(cx) < n:
-        return cx[-1]
-    return ", ".join(cx[-n:])
+    cx = _caixas_validas(texto)
+    if cx:
+        if len(respostas_da_caixa(cx[-1])) >= n or len(cx) < n:
+            return cx[-1]
+        return ", ".join(cx[-n:])
+    return _da_frase(texto, n) or _da_frase(texto, 1)
 
 
 # ── normalização ─────────────────────────────────────────────────────────────
@@ -793,7 +909,8 @@ def _depois_do_igual(s: str) -> str:
 _UNIDADE = re.compile(
     r"(?:[YZEPTGMkhdcmunpfazyμ]|da)?(?:m|s|g|N|J|W|Pa|K|C|V|A|Ω|ohm|Ohm|Hz|eV|mol|L|l|atm|"
     r"bar|cal|rad|sr|T|G|F|H|S|Wb|Bq|Gy|Sv|lm|lx|cd|Å|b|B)|min|h|hr|d|day|days|yr|year|"
-    r"years|au|AU|ly|pc|Da|u|amu|D|Torr|torr|mmHg|deg|degree|degrees|rev|rpm|psi|lb|ft|mi|"
+    r"years|au|AU|ly|pc|[kMG]pc|[kMG]yr|Da|u|amu|D|Torr|torr|mmHg|deg|degree|degrees|rev|rpm|"
+    r"psi|lb|ft|mi|"
     r"mph|erg|dyn|gauss|Gauss|Ci|sec|cc|kcal|kJ|kWh|C|F")
 # Unidade que é também símbolo usual de física: só vale se for a unidade do item
 _UNIDADE_AMBIGUA = {"kT", "Mg", "mg", "ms", "cd", "Gy", "Da", "au", "pc", "rev", "sec", "cc",
@@ -817,7 +934,20 @@ _CONECTIVO = re.compile(r"\\text\s*\{\s*(?:or|and|to|ou|e|between|from)\s*\}|\b(
 # conteúdo de `\text{}` que pode sumir sem mudar o sentido; o resto (not, less than, at
 # least, or zero, upper bound…) é qualificador e a leitura recusa
 _NEUTRO = {"", "approximately", "approx", "approx.", "about", "roughly", "the answer is",
-           "the result is", "answer", "result", "answer:", "result:", "is", "=", "≈"}
+           "the result is", "answer", "result", "answer:", "result:", "is", "=", "≈",
+           "exactly", "around", "in total", "total"}
+# Unidade por extenso que pode sair de um `\text{}` (rodada 3: "2.8 \text{ meters}"). A
+# rodada 4 mostrou que a lista NEGRA da rodada 3 deixava sair texto que muda o valor
+# ("thousand", "half of", "negative"), qualificador em chinês e símbolo em texto (N_A,
+# const): o `\text{}` volta a ser lista BRANCA, agora com as unidades por extenso.
+_UNIDADE_POR_EXTENSO = re.compile(
+    r"(?:(?:kilo|mega|giga|tera|milli|micro|nano|pico|femto|centi|square|cubic)[- ]?)?"
+    r"(?:met(?:er|re)|second|gram|joule|newton|watt|volt|amp(?:ere)?|ohm|coulomb|farad|henry|"
+    r"tesla|weber|pascal|kelvin|hertz|radian|steradian|lit(?:er|re)|mole?|electron[- ]?volt|"
+    r"calorie|degree|minute|hour|day|year|light[- ]year|parsec|barn|lux|lumen|candela|"
+    r"becquerel|gray|sievert|photon|atmosphere|torr|bar|gauss|erg|dyne|revolution|cycle|"
+    r"turn|fringe|atom|nucleon|electron|particle|count|event)s?"
+    r"|celsius|fahrenheit|per|squared|cubed|square|cubic", re.I)
 
 
 def _valor_num(t: str) -> float:
@@ -854,6 +984,20 @@ def _tokens_de_unidade(t: str) -> list[str]:
     return sorted(re.findall(r"[A-Za-zμΩÅ°]+(?:\^[+-]?\d+)?|/", t))
 
 
+def _so_estrutura_de_unidade(t: str) -> bool:
+    """A cauda tem só a FORMA de unidade: letras, `/`, `*`, `\\cdot`, parênteses no meio e
+    expoente inteiro colado a letra. Número, `+`, `-` ou `=` fora de expoente, ou começo por
+    `^` ou `(`, é conta, não unidade. Antes, a comparação por tokens com a unidade do item
+    ignorava dígitos e operadores, e `130 \\cdot 2 N`, `60–90 GeV` e `80.4^{2} m/s` passavam
+    pelo primeiro número (rodada 4)."""
+    t = re.sub(r"\\(?:mathrm|text|textrm|rm|mbox|operatorname)\s*\{((?:[^{}]|\{[^{}]*\})*)\}",
+               r" \1 ", t).strip()
+    if re.match(r"[\^(]", t):
+        return False
+    t = re.sub(r"(?<=[A-Za-zμΩÅ°}])\s*\^\s*\{?\s*[+-]?\s*\d+(?:\.\d+)?\s*\}?", "", t)
+    return not re.search(r"[\d+\-=]", t)
+
+
 def _cauda_ok(t: str, unidade: str | None) -> bool:
     """A cauda depois do número pode ser descartada? Vale se for a unidade do PRÓPRIO
     item (comparada por tokens: `J \\cdot s` = `J s`), ou uma unidade sem ambiguidade.
@@ -864,8 +1008,15 @@ def _cauda_ok(t: str, unidade: str | None) -> bool:
     t = t.strip()
     if not t:
         return True
-    if unidade and _tokens_de_unidade(t) == _tokens_de_unidade(unidade):
-        return True
+    if not _so_estrutura_de_unidade(t):
+        return False
+    if unidade:
+        tu, tc = _tokens_de_unidade(unidade), _tokens_de_unidade(t)
+        if tc == tu:
+            return True
+        # `$0.3\,\mu$m`, `\boxed{8.7\,\mu}b`: o prefixo μ separado da letra da unidade
+        if tc == ["μ"] and any(x.startswith("μ") and len(x) > 1 for x in tu):
+            return True
     if t.startswith("/") or not _cauda_e_unidade(t):
         return False
     tokens = re.findall(r"[A-Za-zμΩÅ]+", re.sub(r"(?:\\mu|μ)\s*", "μ", t))
@@ -897,18 +1048,37 @@ def _tirar_unidade_do_item(s: str, unidade: str | None) -> str:
     return s
 
 
+def _texto_neutro(dentro: str, unidade: str | None) -> bool:
+    """O `\\text{}` pode sair sem mudar o valor? Só unidade (símbolo, por extenso, a do
+    item), grau e enchimento neutro. Letra fora do ASCII (o qualificador em chinês) não."""
+    t = dentro.replace("\\AA", "Å").replace("\\mathring{A}", "Å").strip()
+    t = re.sub(r"\^?\s*\{?\s*\\circ\s*\}?|°", " °", t)
+    if re.search(r"[^\x00-\x7f°ÅμµΩ]", t):
+        return False
+    if t.lower().strip(" ()") in _NEUTRO or not t.strip(" ()"):
+        return True
+    if unidade and _tokens_de_unidade(t) == _tokens_de_unidade(unidade):
+        return True
+    sem_grau = re.sub(r"°\s*[CF]?", " ", t).strip()
+    if not sem_grau or _cauda_e_unidade(sem_grau):
+        return True
+    palavras = re.findall(r"[A-Za-z]+(?:[- ](?:volts?|years?))?|[^\sA-Za-z]", sem_grau)
+    return bool(palavras) and all(_UNIDADE_POR_EXTENSO.fullmatch(p) or p in "/()."
+                                  for p in palavras)
+
+
 def _tirar_texto(s: str, unidade: str | None) -> str | None:
-    """Cada `\\text{}`/`\\mathrm{}`: com número dentro, é desembrulhado; com qualificador
-    (not, less than, or zero…) a leitura recusa (None); o resto sai, com o expoente
-    (unidade, unidade por extenso, enchimento). Separador `/`, `*`, `\\cdot` que sobra
-    entre unidades tiradas sai também."""
+    """Cada `\\text{}`/`\\mathrm{}`: com número dentro, é desembrulhado; se for unidade,
+    grau ou enchimento neutro (`_texto_neutro`), sai com o expoente; qualquer outro texto
+    é qualificador ou símbolo, e a leitura recusa (None). Separador `/`, `*`, `\\cdot` que
+    sobra entre unidades tiradas sai também."""
     saida, i, tirou = "", 0, False
     for m in _UNIDADE_EM_TEXTO.finditer(s):
         dentro = re.sub(r"\\[,;!: ]", " ", m.group(1)).strip()
         saida += s[i:m.start()]
         if re.search(r"\d", dentro):
             saida += f" {dentro} "
-        elif _QUALIFICADOR.search(dentro):
+        elif not _texto_neutro(dentro, unidade):
             return None
         else:
             saida += " "
@@ -938,11 +1108,15 @@ def numero(s: str, estrito: bool = False, unidade: str | None = None) -> float |
         return float(gm.group(1)) + float(gm.group(2)) / 60
     if _CONECTIVO.search(s):
         return None
-    # incerteza: vale o valor central. O `\times 10^{n}` depois da incerteza só sai junto se
-    # o valor central já tiver a própria escala (`1.50 \pm 0.05 \times 10^{-3}` é 1,5e-3)
-    escala_propria = re.search(r"\\times\s*10\s*\^[^\\]*\\pm", s) is not None
-    s = re.sub(r"\\pm\s*\d+(?:\.\d*)?" + (r"(?:\s*\\times\s*10\s*\^\s*\{?\s*[+-]?\d+\s*\}?)?"
-                                         if escala_propria else ""), " ", s)
+    # incerteza: vale o valor central. A escala depois da incerteza só sai junto se o valor
+    # central já tiver a própria escala, com `\times`, `\cdot`, `*` ou o `10^` nu
+    # (`3 \cdot 10^{3} \pm 2 \times 10^{2}` é 3e3); senão é do central
+    # (`1.50 \pm 0.05 \times 10^{-3}` é 1,5e-3)
+    if "\\pm" in s:
+        escala_propria = re.search(r"10\s*\^", s[:s.index("\\pm")]) is not None
+        s = re.sub(r"\\pm\s*\d+(?:\.\d*)?"
+                   + (r"(?:\s*(?:\\times|\\cdot|\*)\s*10\s*\^\s*\{?\s*[+-]?\d+\s*\}?)?"
+                      if escala_propria else ""), " ", s)
     s = _tirar_unidade_do_item(s, unidade)
     # o prefixo μ antes de uma unidade em `\mathrm{}` vai para dentro dela
     s = re.sub(r"\\mu\s*\\(mathrm|text|rm)\s*\{", r"\\\1{μ", s)
@@ -972,7 +1146,16 @@ def numero(s: str, estrito: bool = False, unidade: str | None = None) -> float |
     return None
 
 
-_NOME_EM_TEXTO = re.compile(r"\s*\\(?:text|mathrm|textrm)\s*\{\s*[A-Za-z][A-Za-z ]*\}\s*")
+_NOME_EM_TEXTO = re.compile(r"\s*\\(?:text|mathrm|textrm)\s*\{\s*([A-Za-z][A-Za-z ]*)\}\s*")
+
+
+def _nome_em_texto(lado: str) -> bool:
+    """`\\text{speed} = 80.4`: um nome de grandeza em texto, e não um qualificador
+    (`\\text{upper bound} = 60`, `\\text{at most} = …`, `\\text{error} = …`, rodada 4)."""
+    m = _NOME_EM_TEXTO.fullmatch(lado)
+    return bool(m) and not (_QUALIFICADOR.search(m.group(1)) or re.search(
+        r"\b(?:error|uncertainty|limit|bound|tolerance|deviation|range|estimate)\b",
+        m.group(1), re.I))
 
 
 def _numero_da_resposta(resposta: str, gabarito: str, unidade: str | None,
@@ -1010,8 +1193,7 @@ def _numero_da_resposta(resposta: str, gabarito: str, unidade: str | None,
         if k == 0:
             if esquerdo_g is not None and _mesmo_lado(lado, esquerdo_g):
                 continue
-            if esquerdo_g is None and (_GRANDEZA_SOLTA.fullmatch(lado)
-                                       or _NOME_EM_TEXTO.fullmatch(lado)):
+            if esquerdo_g is None and (_GRANDEZA_SOLTA.fullmatch(lado) or _nome_em_texto(lado)):
                 continue
             return None
         e = expressao(lado)
@@ -1142,6 +1324,20 @@ def _amostrar_iguais(a: sp.Expr, b: sp.Expr, razao: bool = False,
     return Veredito.PASS if ok else Veredito.FAIL
 
 
+def _torre(e: sp.Basic, limite: int = 3) -> bool:
+    """Potência ou exponencial com expoente simbólico aninhada em `limite` níveis ou mais
+    (`e^{e^{e^{v}}}`, `x^{x^{x}}`): a amostragem estourava o teto e deixava a thread viva
+    (rodada 4). `e^{-x^2}` e `e^{-e^{x}}` passam."""
+    def profundidade(x: sp.Basic) -> int:
+        propria = (isinstance(x, sp.Pow) and bool(x.exp.free_symbols)) or isinstance(x, sp.exp)
+        return int(propria) + max((profundidade(a) for a in x.args), default=0)
+
+    try:
+        return profundidade(e) >= limite
+    except RecursionError:
+        return True
+
+
 def _equivalentes(a: sp.Expr, b: sp.Expr) -> Veredito:
     """Estrutural; amostragem numérica; `simplify` só se a amostragem não decidir."""
     try:
@@ -1149,6 +1345,8 @@ def _equivalentes(a: sp.Expr, b: sp.Expr) -> Veredito:
             return Veredito.PASS
     except Exception:
         pass
+    if _torre(a) or _torre(b):
+        return Veredito.INCONCLUSIVE
     if not (a.free_symbols | b.free_symbols):
         a, b = _sem_inteiros_gigantes(a), _sem_inteiros_gigantes(b)
         try:
@@ -1184,10 +1382,23 @@ _DIFERENCIAL = re.compile(r"\\mathrm\s*\{\s*d\s*\}|\{\s*\\rm\s+d\s*\}|"
                           r"[A-Za-z\\]")
 
 
+# Na RESPOSTA, também a derivada escrita com o `d` no meio do numerador
+# (`\frac{Q\, d\sigma}{d\varepsilon}`): com grega, o `d` virava produto, e a derivada não
+# calculada passava como o quociente σQ/ε (rodada 4).
+_DIFERENCIAL_NA_RESPOSTA = re.compile(r"\\frac\s*\{[^{}]*(?<![A-Za-z\\])d\s*(?:\\[A-Za-z]+|[A-Za-z(])"
+                                      r"[^{}]*\}\s*\{\s*d\s*(?:\\[A-Za-z]+|[A-Za-z])")
+
+
 def verificavel(gabarito: str) -> bool:
     return (_DIFERENCIAL.search(gabarito) is None
             and _BARRA_DE_AVALIACAO.search(gabarito) is None
             and _CALCULO.search(limpar(gabarito)) is None)
+
+
+def _resposta_verificavel(resposta: str) -> bool:
+    """A resposta sem cálculo (∑ até 2·10⁶, ∫, derivada não calculada): com cálculo, ela
+    reprova, porque não se confere (rodada 4)."""
+    return verificavel(resposta) and _DIFERENCIAL_NA_RESPOSTA.search(resposta) is None
 
 
 def texto_normalizado(s: str) -> str:
@@ -1205,10 +1416,12 @@ _SUBSCRITO = r"(?:_\s*(?:\{(?:[^{}]|\{[^{}]*\})*\}|\w))?"
 _GRANDEZA = re.compile(rf"\s*(?:\\[Dd]elta\s*)?(?:\\[A-Za-z]+|[A-Za-z])\s*{_SUBSCRITO}"
                        r"\s*(?:\^\s*\{[^{}]*\})?\s*(?:\([^()]*\))?\s*")
 # Do OUTRO lado de uma resposta, quando o gabarito não tem lado esquerdo: uma grandeza
-# sem expoente e que não é função (`v^{2} = …`, `\ln(C) = …`, `C^{-1} = …` não valem).
+# sem expoente e que não é função (`v^{2} = …`, `\ln(C) = …`, `C^{-1} = …` não valem). O
+# comando tem de ser letra grega, `\ell` ou `\hbar`: com a lista negra de funções,
+# `\arcsin\theta = X` e `\coth = X` valiam como `v = X` (rodada 4).
 _GRANDEZA_SOLTA = re.compile(
-    r"\s*(?:\\[Dd]elta\s*)?(?:\\(?!(?:ln|log|exp|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|"
-    rf"sqrt|frac)(?![A-Za-z]))[A-Za-z]+|[A-Za-z])\s*{_SUBSCRITO}\s*(?:\([^()]*\))?\s*")
+    r"\s*(?:\\[Dd]elta\s*)?(?:\\(?:" + "|".join(_GREGAS + ("ell",)) + r")(?![A-Za-z])|[A-Za-z])"
+    rf"\s*{_SUBSCRITO}\s*(?:\([^()]*\))?\s*")
 
 
 def lado_esquerdo_e_grandeza(equacao: str) -> bool:
@@ -1254,9 +1467,13 @@ def _sem_texto_em_volta(s: str) -> str:
     # só a definição de símbolos (", where …", "i.e.") sai, e só se não trouxer outra
     # resposta ou qualificador; "for", "with", "since" ficam e o parser recusa (rodada 3:
     # "X for case 1, Y for case 2" passava pela primeira)
-    m = re.search(r",?\s*\\text\s*\{\s*(?:where|i\.e\.)", s)
-    if m and not re.search(r"\b(?:or|otherwise|else|also|alternatively|for|if|unless)\b",
-                           s[m.end():]):
+    # (rodada 4: "whereas" casava com "where", e "i.e. at most …" saía; a cláusula com
+    # desigualdade é condição, não definição)
+    m = re.search(r",?\s*\\text\s*\{\s*(?:where\b|i\.e\.)", s)
+    if m and not (_QUALIFICADOR.search(s[m.end():]) or re.search(
+            r"\b(?:otherwise|else|also|alternatively|for|with|however|but|whereas|when|while|"
+            r"elsewhere|after|before|exact|general|case)\b|<|>|\\[lg]eq?\b|\\[lg]t\b|\\neq\b",
+            s[m.end():], re.I)):
         s = s[:m.start()]
     s = re.sub(r"\\text\s*\{\s*\}", " ", s)
     m = re.match(r"\s*\\(?:text|textrm|mathrm)\s*\{([^{}]*)\}", s)
@@ -1280,6 +1497,8 @@ def comparar_expressao(resposta: str, gabarito: str) -> Veredito:
     passam."""
     if not verificavel(gabarito):
         return Veredito.INCONCLUSIVE
+    if not _resposta_verificavel(resposta):      # cálculo na RESPOSTA (\sum até 2·10⁶, ∫): não se confere
+        return Veredito.FAIL
     g_lados = dividir_nivel_zero(limpar(gabarito), _IGUAL)
     esquerdo_g = g_lados[0] if len(g_lados) >= 2 else None
     g = expressao(g_lados[-1])
@@ -1352,7 +1571,14 @@ def _isolando_a_grandeza(resposta: str, gabarito: str) -> Veredito:
         sol = _isolar(r[0] - r[1], g[0])
     except Exception:
         return Veredito.INCONCLUSIVE
-    return _equivalentes(sol, g[1]) if sol is not None else Veredito.FAIL
+    if sol is None:
+        return Veredito.FAIL
+    # a solução tem de satisfazer a equação da resposta: pela raiz, `\sqrt{G} = -X` dava
+    # G = X², que não a satisfaz (rodada 4)
+    residuo = _equivalentes((r[0] - r[1]).xreplace({g[0]: sol}), sp.Integer(0))
+    if residuo is not Veredito.PASS:
+        return residuo
+    return _equivalentes(sol, g[1])
 
 
 def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
@@ -1364,6 +1590,8 @@ def comparar_equacao(resposta: str, gabarito: str) -> Veredito:
     g = _lados(gabarito)
     if g is None:
         return Veredito.INCONCLUSIVE
+    if not _resposta_verificavel(resposta):
+        return Veredito.FAIL
     r = _lados(_sem_texto_em_volta(resposta))
     if r is None:
         return Veredito.FAIL
@@ -1424,6 +1652,8 @@ def comparar_desigualdade(resposta: str, gabarito: str) -> Veredito:
     g = _desigualdade(gabarito)
     if g is None:
         return Veredito.INCONCLUSIVE
+    if not _resposta_verificavel(resposta):
+        return Veredito.FAIL
     r = _desigualdade(resposta)
     if r is None or r[1] != g[1]:
         return Veredito.FAIL
@@ -1443,6 +1673,8 @@ def _como_intervalo(s: str) -> tuple[str, str, str, str, str | None] | None:
     """Intervalo literal, `x \\in [a, b)`, `x ≥ a`, `a < x ≤ b` → (abre, a, b, fecha, x), com
     x a variável quando a forma a traz (senão None)."""
     s = limpar(s).replace("\\infty", "oo").replace("\\infin", "oo")
+    if re.search(r"\\not(?![A-Za-z])|\\notin\b|\\neq\b", s):     # `\not\in (a, b)` (rodada 4)
+        return None
     var = None
     m = re.match(rf"^\s*((?:\\?[A-Za-z]+){_SUBSCRITO})\s*\\in\s*", s)
     if m:
@@ -1550,12 +1782,21 @@ def letras(s: str) -> frozenset[str]:
     m = re.match(r"^(?:\(\s*([A-Ja-j])\s*\)|([A-Ja-j])\s*[.):])", t)
     if m:
         resto = t[m.end():]
-        outra = r"(?:\(\s*[A-Ja-j]\s*\)|(?<![A-Za-z])[A-J](?![A-Za-z]))"
-        if (re.search(r"\(\s*[A-Ja-j]\s*\)|(?<![A-Za-z])(?<!\d)(?<!\d\s)[A-Ja-j]\s*[.):](?!\d)",
-                      resto)
-                or re.search(r"\b(?i:or|not|maybe|perhaps|possibly|alternatively|likely|either|"
-                             rf"also|and|nor|vs\.?|versus)\s*[,:]?\s*{outra}", resto)
-                or re.search(r"\b(?:maybe|perhaps|not sure|unsure|uncertain)\b", resto, re.I)):
+        # a OUTRA letra é qualquer uma menos a do rótulo ("C. Option C is correct" segue C)
+        letra = (m.group(1) or m.group(2)).upper()
+        outras = "".join(x for x in "ABCDEFGHIJ" if x != letra)
+        outra = rf"(?:\(\s*[{outras}{outras.lower()}]\s*\)|(?<![A-Za-z])[{outras}](?![A-Za-z]))"
+        if (re.search(rf"\(\s*[{outras}{outras.lower()}]\s*\)|(?<![A-Za-z])(?<!\d)(?<!\d\s)"
+                      rf"[{outras}{outras.lower()}]\s*[.):](?!\d)", resto)
+                or re.search(r"\b(?i:or|not|maybe|perhaps|possibly|probably|alternatively|likely|"
+                             rf"either|also|and|nor|vs\.?|versus|option|answer|choice)\s*[,:]?\s*{outra}",
+                             resto)
+                or re.search(r"\b(?:maybe|perhaps|not sure|unsure|uncertain)\b", resto, re.I)
+                # a outra letra sozinha no resto ("C. B"), ou afirmada ("C. B is also
+                # correct", "C. B too") (rodada 4)
+                or re.fullmatch(rf"\s*[,;:]?\s*{outra}\s*\.?\s*", resto)
+                or re.search(rf"{outra}\s*(?i:(?:is|are)\s+)?(?i:also|too|as well|equally|correct|"
+                             r"valid|works|right)\b", resto)):
             return frozenset()
         return frozenset((m.group(1) or m.group(2)).upper())
     return frozenset()
@@ -1596,18 +1837,26 @@ def verdade(s: str) -> bool | None:
         return False
     if re.match(r"(?:no idea|yes and no|not sure|yes or no|no or yes)\b", texto):
         return None
+    # a primeira palavra que NÃO é a resposta: "No doubt, …", "No matter what", "Correct
+    # answer is no", "False alarm", "True only if …" (rodada 4)
+    if re.match(r"no\s+(?:doubt|question|matter|problem|wonder|way)\b|"
+                r"(?:correct|true|false|incorrect)\s+(?:answer|statement|option|alarm|choice)\b|"
+                r"(?:yes|no|true|false|correct|incorrect)\b\s*,?\s*(?:only\s+)?if\b", texto):
+        return None
     m = re.match(r"(yes|no|true|false|correct|incorrect)\b", texto)
     if not m:
         return None
     valor = m.group(1) in _SIM
     opostas = _NAO if valor else _SIM
-    # a oposta conta depois de "(" ("No (yes for a heavy nucleus)"), ou depois de pontuação
-    # ou "or" quando é a palavra inteira da oração ("Yes; no."); "Yes. No energy is lost"
-    # segue sim
+    # a oposta conta depois de "(" ("No (yes for a heavy nucleus)"), ou depois de pontuação,
+    # "or" ou "is" quando é a palavra inteira da oração ("Yes; no.", "Yes, the answer is
+    # no"); "Yes. No energy is lost" segue sim
+    # Depois de "/" e "&" ("Yes/No", "Yes \& no") a oposta conta sempre (rodada 4).
     resto = texto[m.end():]
-    for x in re.finditer(r"(\(|[,;.:!?\-–—]|\\cdot|\bor\b)\s*(yes|no|true|false|correct|incorrect)\b",
-                         resto):
-        if x.group(2) in opostas and (x.group(1) == "("
+    for x in re.finditer(r"(\(|/|&|[,;.:!?\-–—]|\\cdot|\bor(?:\s+(?:rather|maybe|perhaps|possibly))?\b"
+                         r"|\bis\b)\s*"
+                         r"(yes|no|true|false|correct|incorrect)\b", resto):
+        if x.group(2) in opostas and (x.group(1) in ("(", "/", "&")
                                       or re.match(r"\s*(?:[,;.:!?)\-–—]|$)", resto[x.end():])):
             return None
     return valor

@@ -330,6 +330,44 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
    - **Texto em volta da resposta simbólica.** Só ", where …" e "i.e." saem, e só sem qualificador. "for", "with" e "since" ficam, e o parser estrito recusa: antes, "X for case 1, Y for case 2" passava pela primeira.
    - **Limitação declarada.** Bessel com índice (`J_{0}(kr)`) segue como produto, porque J₀·(…) também é corrente ou momento angular.
 
+10. **Quarta rodada do estresse (2026-10-23):** 963 casos e 23 causas nos dois atacantes que terminaram (falsos positivos e extração). De novo, a maioria era regressão das rodadas 2 e 3. Cada achado ganhou teste de regressão (`test_g2_corretor_estresse4.py`). O que mudou:
+   - **Decisão declarada: vale a ÚLTIMA caixa não vazia, como nos juízes oficiais do OlympiadBench e do UGPhysics.** A frase "final answer is" só é lida quando não há caixa. Nas rodadas 2 e 3, a frase depois da caixa podia vencê-la, e cada rodada achou furos nos dois sentidos: comentário hesitante vencendo a caixa certa, e correção legítima perdendo para a caixa intermediária. Com o few-shot terminando sempre em `The final answer is $\boxed{…}$`, a regra simples erra menos e erra igual nos dois braços. O custo: uma resposta que encaixota um resultado intermediário e dá o final só em prosa reprova. A auditoria das 200 gerações de dev (§3.7.3, item 3) mede quanto isso acontece.
+   - **Caixa.** A caixa vazia e a de placeholder (`\boxed{}`, `\boxed{...}`, do eco do prompt) não contam. O envoltório que cobre a caixa inteira sai (`{D}`, `\textbf{…}`, `\mathbf{…}`).
+   - **Corte de continuação.**
+     - Só arma com uma resposta de fato: a linha canônica (frase e caixa na mesma linha), uma caixa que fecha o parágrafo, ou a frase que se lê sem caixa.
+     - `Problem:` e o eco cortam sozinhos. O eco é a linha de resposta INTEIRA, como `g2_prompt` a gera, e um teste confere as duas listas: as linhas do OlympiadBench tinham deixado de casar.
+     - `Question:`, `Example 3:`, `Exercise 1.2` e `Problem 2.` só cortam se depois vier `Solution:` ou um eco.
+     - `Solution:` depois da resposta, com um enunciado inventado entre os dois, corta.
+     - O corte é linear: uma geração degenerada com centenas de caixas abertas levava 15 s fora do teto.
+   - **Frase sem caixa.**
+     - Recusa só a condição que governa a oração dela ("Had we neglected recoil, …"); "Note that" e "does not depend" não recusam.
+     - Aceita "≈", "E =" e rótulos "(1)" antes do valor.
+     - Depois do valor, recusa outro valor ligado ao primeiro ("$13.06$ eV, or $12.75$ eV"), "if" e "unless" na sentença, e a retratação na sentença seguinte ("But…", "However…", "Oops"). "Actually, this agrees…" não conta.
+     - Em texto puro, para no primeiro `$` ou em ", i.e.", e aceita `E = 13.06 eV` e uma expressão que começa por letra.
+   - **Número.**
+     - A cauda tem de ter a FORMA de unidade antes de ser comparada com a unidade do item. A comparação por tokens ignorava dígitos e operadores, e `130 \cdot 2 N`, `60–90 GeV` e `80.4^{2} m/s` passavam.
+     - O `\text{}` volta a ser lista BRANCA, agora com as unidades por extenso. A lista negra da rodada 3 deixava sair "thousand", "negative", qualificador em chinês e símbolo em texto (`N_A`).
+     - `\pm` reconhece a escala do central com `\cdot` e o `10^` nu.
+     - O μ separado da letra da unidade (`$0.3\,\mu$m`) vale contra a unidade do item.
+   - **Expressão.**
+     - Resposta com cálculo (`\sum`, `\int`) reprova.
+     - Torre de potências com expoente simbólico (3 níveis ou mais) é INCONCLUSIVE sem ser calculada; antes, estourava o teto e deixava a thread viva.
+     - "whereas" não é "where", e a cláusula com desigualdade ou qualificador não sai.
+     - Do outro lado da resposta, só letra grega, `\ell` ou letra solta valem como grandeza: `\arcsin\theta = X` não vale.
+   - **V/F e letras.**
+     - "No doubt", "No matter", "Correct answer is no", "False alarm" e "True only if" não decidem.
+     - A oposta depois de "is" reprova ("Yes, the answer is no").
+     - No rótulo de alternativa, a outra letra sozinha ("C. B") ou afirmada ("B is also correct", "B too") reprova.
+   - **Segunda leva**, do atacante de falsos positivos refeito (300 casos):
+     - `\text{upper bound} = 60` e `\text{error} = …`: o nome em texto do lado esquerdo não pode ser qualificador.
+     - "Yes/No" e "Yes \& no" não decidem.
+     - "Option D is also valid" reprova; o rótulo C seguido de "Option C" segue C.
+     - O isolamento pela raiz confere a solução na equação da resposta: `\sqrt{G} = -X` não dá G = X².
+     - Derivada não calculada na resposta (`\frac{Q\,d\sigma}{d\varepsilon}`) reprova.
+     - `\not\in` não é intervalo.
+     - A frase com alternativa entre as partes não decide ("$2$ and $8$ or $9$").
+   - **O que ficou de fora.** O atacante de regressões caiu três vezes no limite de sessão. No lugar dele, a regressão foi conferida pela suíte das rodadas 1 a 3 (todas passam, com as duas mudanças de política anotadas) e pelo autoteste do dev contra a versão anterior. A recomendação é parar as rodadas aqui: cada rodada acha furos mais raros, e a auditoria das gerações reais de dev mede melhor o que falta.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

@@ -49,6 +49,27 @@ def test_linhas_de_olympiad_phybench_e_scibench():
     assert "\\boxed{8.8 \\times 10^{10}}" in gp.formatar_exemplo(sci, gp.linha_de_resposta(sci))
 
 
+def test_toda_linha_de_resposta_e_eco_para_o_corretor():
+    """O corretor corta um problema novo inventado quando o modelo ecoa a linha de resposta;
+    a lista dele (`_ECO`) não pode divergir do que `linha_de_resposta` gera (rodada 4: as
+    linhas compostas do OlympiadBench tinham deixado de casar)."""
+    from phifm.eval import g2_corretor as c
+    itens = [_ug("NV", "3.2"), _ug("NV", "3.2", "m/s^2"), _ug("EX", "x"), _ug("EQ", "a = b"),
+             _ug("IN", "(0, 1)"), _ug("MC", "C"), _ug("TF", "True"),
+             Item("ugphysics", "M/2", "Q", ("a = b", "c = d"), ("EQ", "EQ"), (None, None)),
+             Item("phybench", "1", "Q", ("x",), ("EX",)),
+             Item("scibench", "class/1", "Q", ("8.8",), ("NV",), (None,), "m"),
+             Item("scibench", "class/2", "Q", ("8.8",), ("NV",), (None,))]
+    for tipo in ("Numerical", "Expression", "Equation", "Interval"):
+        for n in (1, 2):
+            for unidade in (None, "m"):
+                itens.append(Item("olympiadbench", "1", "Q", ("3",) * n, (tipo,) * n,
+                                  (None,) * n, unidade))
+    for item in itens:
+        linha = gp.linha_de_resposta(item)
+        assert c._ECO.search("\n" + linha + "\n"), linha
+
+
 def test_irmao_de_teste_por_13grama():
     teste = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen"
     from phifm.eval import g2
