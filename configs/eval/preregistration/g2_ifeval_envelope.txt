@@ -1,0 +1,20 @@
+The following are queries from users, each followed by a helpful, accurate and well-written answer.
+
+# Query
+Why does ice float on water?
+
+# Answer
+Ice floats because it is less dense than liquid water. When water freezes, its molecules settle into a hexagonal crystal lattice held together by hydrogen bonds, and this open structure takes up more space than the same molecules do in the liquid. Solid ice is therefore about 9% less dense than cold liquid water, so the buoyant force on it exceeds its weight until roughly a tenth of its volume sits above the surface.
+
+# Query
+Give some advice to someone who is starting to learn to cook.
+
+# Answer
+Start with a few simple dishes you enjoy eating and cook them several times, so you can notice what changes when you adjust the heat, the salt or the timing. Keep your knives sharp, read the whole recipe before you begin, and prepare your ingredients in advance. Taste as you go, and do not be discouraged by mistakes: most of what good cooks know comes from dishes that did not turn out as planned.
+
+# Query
+Summarize the main idea of the theory of plate tectonics.
+
+# Answer
+Plate tectonics holds that the Earth's outer shell, the lithosphere, is broken into large rigid plates that move slowly over the softer mantle beneath them. Their motion, driven mainly by mantle convection and by the pull of sinking slabs, explains why earthquakes and volcanoes cluster along plate boundaries, how mountain ranges rise where plates collide, and why the continents have drifted apart over hundreds of millions of years.
+

@@ -411,6 +411,15 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **Resultado** (`g2_auditoria.json`): concordância de **99,5%** no PASS contra o resto (199 de 200) e **κ = 0,977**. O alvo (≥95% e κ ≥ 0,8) foi cumprido na primeira passada.
     - **O desacordo**, um só, é de notação: gabarito `v_m = \sqrt{2kT/m}` e resposta `v_p = \sqrt{2kT/M}`, a mesma velocidade mais provável com outro índice e massa maiúscula. Os juízes aprovaram, e o corretor reprova, porque compara símbolos (M ≠ m). **Limitação declarada:** o corretor não identifica símbolos renomeados. Isso vale igual nos dois braços.
 
+15. **Congelamento (2026-10-24).** `scripts/congelar_g2.py`, depois da auditoria cumprida e com o autoteste da mesma versão do corretor.
+    - **`g2_congelamento.json`** guarda o SHA-256 de:
+      - o código da medida: corretor, itens, `subscritos.py`, `symbolic.py`, prompt, geração, correção isolada e `medir_g2.py`, mais as versões do sympy, antlr4 e mpmath;
+      - os dados: partição, exemplos, autoteste e o envelope do IFEval, escrito agora (preâmbulo e 3 demonstrações sem restrições verificáveis);
+      - o hash da configuração da geração da 1,7B (`e1535689…`).
+    - **`g2.yaml`** recebeu a guarda de laço, os hashes dos exemplos e do envelope, o hash da configuração e o hash do congelamento (`230829b2…`).
+    - **`PROTOCOLO_G2_SHA256`** = `daf804d7…`.
+    - Daqui em diante, `medir_g2 teste` recusa se o g2.yaml, qualquer arquivo de código ou de dados do congelamento, ou uma versão de pacote mudar. Mudança só por emenda registrada aqui.
+
     - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
 
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
