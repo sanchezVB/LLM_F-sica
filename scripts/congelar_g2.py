@@ -16,7 +16,6 @@ Rodar de novo recusa: o protocolo já está congelado.
 from __future__ import annotations
 
 import json
-import re
 import sys
 from datetime import date
 from pathlib import Path
