@@ -158,6 +158,7 @@ No verify, para os cinco consumidores:
 
 - `REWARD` continua como está, para os consumidores que leem o veredito combinado.
 - A golden `test_expressao_ininteligivel_nao_vira_falha` continua valendo: o barramento dá INCONCLUSIVE para resposta ilegível. Quem dá −1 é a recompensa do RLVR.
+- **Como entra no G2, por decisão do dono (2026-10-24): emenda registrada.** O protocolo do G2 foi congelado em `5bde25c` com o SHA-256 de `verify/symbolic.py`. Este trabalho só é mesclado depois de: a medida da base no teste terminar; a sessão do G2 medir no dev quantos veredictos mudam com o `symbolic.py` novo; o autoteste ser refeito; e as gerações já gravadas da base serem recorrigidas na CPU com o corretor novo, com o mesmo hash de geração. Assim a base e o ΦGen ficam corrigidos pelo mesmo corretor. O registro da emenda no DOC-12 é da sessão do G2.
 - **O corretor do G2 não é editado, mas muda pelo `parse`.** Ele usa o `parse` do verify como último recurso para texto puro e o `normalizar_subscritos` no leitor estrito. As leituras do §4.7 (Unicode, variantes, números absurdos) podem mudar vereditos dele, e o hash do corretor (`g2.codigo_do_corretor()`, que cobre `verify/symbolic.py`) muda. O autoteste do dev tem de ser refeito depois do merge. O G2 mantém o motor de comparação próprio: é o verificador reservado do DOC-09 §5.4. Ele já dá FAIL para resposta ilegível, e nessa classe o RLVR passa a concordar com ele; para resposta certa com unidade ou decoração, o G2 lê e o RLVR dá −1, de propósito.
 
 ## 6. Testes
