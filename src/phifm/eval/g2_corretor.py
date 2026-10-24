@@ -106,7 +106,9 @@ _ECO = re.compile(
     r")[ \t]*$", re.M)
 _SOLUCAO = re.compile(r"^[ \t]*(?:\*\*)?Solution(?:\*\*)?[ \t]*:", re.M)
 _LINHA_EM_BRANCO = re.compile(r"\n[ \t]*\n")
-_FRASE_FINAL = re.compile(r"final(?:\*\*|__)?\s+answers?(?:\*\*|__)?\s*(?:is|are)\b\s*:?\s*",
+# "The final answer is", e também "The answer is" (iteração 1 do dev: "The answer is True."
+# sem caixa virava sem resposta); só vale sem caixa e se trouxer valor (`_ler_frase`)
+_FRASE_FINAL = re.compile(r"(?:final(?:\*\*|__)?\s+)?answers?(?:\*\*|__)?\s*(?:is|are)\b\s*:?\s*",
                           re.I)
 _MATEMATICA = re.compile(r"\$\$(.+?)\$\$|\\\[(.+?)\\\]|\\\((.+?)\\\)|\$(.+?)\$"
                          r"|\\begin\{(?:equation|align)\*?\}(.+?)\\end\{(?:equation|align)\*?\}",

@@ -59,16 +59,33 @@ def _exemplos_do(item: g2_itens.Item, exemplos: dict[str, list[g2_itens.Item]]
     return [e for e in exemplos["scibench"] if e.extra["livro"] == item.extra["livro"]]
 
 
+def excluidos(conjunto: str) -> dict[str, set[str]]:
+    """{bench: ids} que o autoteste exclui dos DOIS braços (§3.7.3, item 1). No teste, a
+    lista tem de ser da MESMA versão do corretor; no dev, a divergência só avisa. Antes, o
+    item excluído era gerado e contado (iteração 1 do dev, 2026-10-24)."""
+    aut = json.loads((AVAL / "g2_autoteste.json").read_text(encoding="utf-8"))
+    if aut.get("codigo_sha256") != g2.codigo_do_corretor(RAIZ):
+        aviso = "g2_autoteste.json é de outra versão do corretor: refaça o autoteste"
+        if conjunto == "teste":
+            raise SystemExit(aviso)
+        print(f"AVISO: {aviso}", flush=True)
+    return {k.split("/")[0]: set(v["ids_excluidos"]) for k, v in aut["conjuntos"].items()
+            if k.endswith("/" + conjunto)}
+
+
 def itens_de_dev(n_ug: int, iteracao: int, exemplos: dict[str, list[g2_itens.Item]]
                  ) -> list[g2_itens.Item]:
+    fora = excluidos("dev")
     usados = {e.id for es in exemplos.values() for e in es}
-    ug = sorted((i for i in g2_itens.carregar("ugphysics", "dev") if i.id not in usados),
-                key=lambda i: i.id)
+
+    def validos(bench: str) -> list[g2_itens.Item]:
+        return [i for i in g2_itens.carregar(bench, "dev")
+                if i.id not in usados and i.id not in fora.get(bench, set())]
+
+    ug = sorted(validos("ugphysics"), key=lambda i: i.id)
     if n_ug:
         ug = random.Random(g2.SEMENTE_G2 + 100 + iteracao).sample(ug, min(n_ug, len(ug)))
-    oly = g2_itens.carregar("olympiadbench", "dev")
-    sci = [i for i in g2_itens.carregar("scibench", "dev") if i.id not in usados]
-    return ug + oly + sci
+    return ug + validos("olympiadbench") + validos("scibench")
 
 
 def _agregar(itens: list[g2_itens.Item], amostras: list[dict], vereditos: dict) -> dict:
@@ -165,7 +182,9 @@ def main() -> int:
         rotulo = f"it{a.iteracao}" + ("_ugcompleto" if a.ug == 0 else "")
     else:
         g2.exigir_aceite_e_congelamento()          # antes de LER qualquer coisa do teste
-        itens = [i for b in g2.BENCH_G2_1 for i in g2_itens.carregar(b, "teste")]
+        fora = excluidos("teste")
+        itens = [i for b in g2.BENCH_G2_1 for i in g2_itens.carregar(b, "teste")
+                 if i.id not in fora.get(b, set())]
         k, rotulo = K_TESTE, "veredito"
     print(f"{a.fase}: {len(itens)} itens, k={k}")
     r = rodar(a.fase, a.modelo, rotulo, itens, exemplos, k, a.braco)

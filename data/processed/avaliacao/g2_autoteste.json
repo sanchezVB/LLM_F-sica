@@ -1,7 +1,7 @@
 {
  "o_que_e": "autoteste do gabarito do G2 (DOC-12 §3.7.3): só contagens e ids",
  "codigo_sha256": {
-  "src/phifm/eval/g2_corretor.py": "46cf2bc97cf35379ac24d340ffa11c41973fc7bcdb1f2a8178caabf63c684216",
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
   "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
   "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
   "src/phifm/verify/symbolic.py": "6a48ca36eb8349ca6407c0813fc5c70951f95f471b266a9f1cf7eb773246e714",

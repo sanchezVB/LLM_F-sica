@@ -381,6 +381,20 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
       Os ids excluídos saem dos dois braços.
 
+12. **Iteração 1 do dev na GPU (2026-10-23, com o OK do dono).** Qwen3-1.7B-Base, k=1, 439 itens (300 do UG-dev sorteados, 115 do OlympiadBench-zh e os 24 do SciBench que não são exemplo), em 17 min na RX 7600. Agregados em `g2_dev_1.7B_base_it1.json`.
+
+    | Benchmark | Acerto | Sem resposta | Truncado | Inconclusivo | Fichas médias |
+    |---|---|---|---|---|---|
+    | UGPhysics | 6,0% | 4,7% | 8,7% | 2,7% | 327 |
+    | OlympiadBench-zh | 17,4% | 0% | 9,6% | 0% | 312 |
+    | SciBench | 4,2% | 0% | 12,5% | 0% | 558 |
+
+    O alvo de sem resposta (≤5%) foi cumprido. O de truncado (≤3%) não. O que se viu e o que mudou:
+    - **Truncado.** Todos os 40 vieram da guarda de repetição, nenhum do teto de fichas. A maioria é laço de verdade do modelo. Pelo menos 5, porém, foram cortados no meio da caixa final: a guarda antiga cortava a janela de 32 fichas que aparecesse 4 vezes em QUALQUER ponto, e numa derivação a expressão longa aparece derivada, simplificada, retomada e posta na caixa. Isso pesa diferente conforme o estilo do braço. **Mudança:** a guarda corta a janela que volta 4 vezes em intervalos IGUAIS (±2 fichas), que é a assinatura do laço, ou 8 vezes de qualquer jeito. Simulada nas 40 truncadas com o tokenizador do GGUF: as 5 cortadas na caixa seguiriam gerando, e os laços continuam cortados, no máximo umas voltas depois.
+    - **Sem resposta.** 2 dos 14 respondiam em texto, sem caixa ("The answer is True."). **Mudança:** a frase "The answer is X" (sem "final") também é lida quando não há caixa. Os outros 12 não deram resposta.
+    - **Inconclusivo.** Os 8 eram itens que o autoteste já exclui (cálculo, gabarito sem leitura), mas a medida ainda os gerava e contava. **Mudança:** `medir_g2` não gera nem conta os ids excluídos. No teste, exige o autoteste da MESMA versão do corretor.
+    - **FAIL.** Uma amostra de 40 FAIL foi conferida à mão: em todas, a extração pegou a resposta que o modelo deu, e a resposta estava errada. Nenhum defeito do corretor apareceu ali; a auditoria cega (item 3 do §3.7.3) mede isso com 200 gerações.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
