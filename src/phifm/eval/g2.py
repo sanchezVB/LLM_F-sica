@@ -40,7 +40,7 @@ LIVRO_DE_ACESSOS = RAIZ / "data/processed/avaliacao/g2_acessos.jsonl"
 REGRA_G2_ACEITA = True
 # Preenchido no congelamento, com o hash do g2.yaml completo (partição, exemplos, envelope,
 # código do extrator e do corretor, motor). Antes disso, None.
-PROTOCOLO_G2_SHA256: str | None = None
+PROTOCOLO_G2_SHA256: str | None = "daf804d752a187272aa9f469d3603852ebcb1397b646b01820d5c3f1cbf29bfa"
 
 SEMENTE_G2 = 20261019
 N_BOOTSTRAP = 10_000
@@ -116,11 +116,52 @@ def codigo_do_corretor(raiz: Path, extras: tuple[str, ...] = ()) -> dict[str, st
     return hashes
 
 
+# Congelado junto com o g2.yaml: tudo o que decide a geração e a correção da medida. O
+# g2.yaml guarda o hash de `g2_congelamento.json`, e a medida no teste recusa se algum
+# arquivo daqui mudar depois. O g2.py fica de fora: a trava dele é o próprio hash do yaml.
+CONGELAMENTO = RAIZ / "configs/eval/preregistration/g2_congelamento.json"
+CODIGO_DA_MEDIDA = ("src/phifm/eval/g2_prompt.py", "src/phifm/eval/g2_geracao.py",
+                    "src/phifm/eval/g2_correcao.py", "scripts/medir_g2.py")
+DADOS_DA_MEDIDA = ("data/processed/avaliacao/g2_particao.json",
+                   "data/processed/avaliacao/g2_exemplos.json",
+                   "data/processed/avaliacao/g2_autoteste.json",
+                   "configs/eval/preregistration/g2_ifeval_envelope.txt")
+
+
+def estado_congelavel(raiz: Path = RAIZ) -> dict[str, dict]:
+    """O código (com as versões do parser) e os dados da medida, por SHA-256."""
+    return {"codigo": codigo_do_corretor(raiz, extras=CODIGO_DA_MEDIDA),
+            "dados": {p: sha256_arquivo(raiz / p) for p in DADOS_DA_MEDIDA}}
+
+
+def exigir_estado_congelado(raiz: Path = RAIZ, congelamento: Path = CONGELAMENTO,
+                            sha_do_congelamento: str | None = None) -> None:
+    """Levanta ProtocoloMudou se `g2_congelamento.json` não é o que o g2.yaml registra, ou
+    se algum arquivo ou versão de pacote difere do que ele grava."""
+    if sha_do_congelamento is not None and sha256_arquivo(congelamento) != sha_do_congelamento:
+        raise ProtocoloMudou("g2_congelamento.json não é o registrado no g2.yaml")
+    gravado = json.loads(congelamento.read_text(encoding="utf-8"))
+    atual = estado_congelavel(raiz)
+    difere = [k for grupo in ("codigo", "dados") for k, v in gravado[grupo].items()
+              if atual[grupo].get(k) != v]
+    if difere:
+        raise ProtocoloMudou(f"mudou depois do congelamento: {', '.join(difere)}; mudança só "
+                             "por emenda registrada")
+
+
+def _sha_do_congelamento_no_yaml(preregistro: Path) -> str | None:
+    import yaml
+
+    conf = yaml.safe_load(preregistro.read_text(encoding="utf-8")) or {}
+    return (conf.get("congelamento") or {}).get("sha256")
+
+
 def exigir_aceite_e_congelamento(preregistro: Path = PREREGISTRO, aceita: bool | None = None,
                                  sha_congelado: str | None = None) -> str:
-    """Levanta exceção se a regra não foi aceita, se o protocolo não foi congelado ou se o
-    g2.yaml mudou depois do congelamento. Devolve o hash conferido. `aceita` e
-    `sha_congelado` só existem para os testes; o normal é ler as constantes."""
+    """Levanta exceção se a regra não foi aceita, se o protocolo não foi congelado, se o
+    g2.yaml mudou depois do congelamento ou, com o g2.yaml de verdade, se o código ou os
+    dados da medida mudaram (`exigir_estado_congelado`). Devolve o hash conferido.
+    `aceita` e `sha_congelado` só existem para os testes; o normal é ler as constantes."""
     aceita = REGRA_G2_ACEITA if aceita is None else aceita
     sha_congelado = PROTOCOLO_G2_SHA256 if sha_congelado is None else sha_congelado
     if not aceita:
@@ -133,6 +174,11 @@ def exigir_aceite_e_congelamento(preregistro: Path = PREREGISTRO, aceita: bool |
     if atual != sha_congelado:
         raise ProtocoloMudou(f"g2.yaml mudou depois do congelamento: {atual[:12]}… ≠ "
                              f"{sha_congelado[:12]}…; mudança só por emenda registrada")
+    if Path(preregistro) == PREREGISTRO:
+        sha = _sha_do_congelamento_no_yaml(preregistro)
+        if not sha:
+            raise ProtocoloNaoCongelado("o g2.yaml não registra o g2_congelamento.json")
+        exigir_estado_congelado(sha_do_congelamento=sha)
     return atual
 
 

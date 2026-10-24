@@ -38,7 +38,7 @@ g2_1:
   decodificacao: {temperatura: 0.6, top_p: 0.95, top_k: 0, min_p: 0.0, penalidades: false,
                   max_fichas: 4096, semente_da_amostra: "sha256('bench:id:j')"}
   paradas: ["\n\nProblem:", "\nProblem:", "<|endoftext|>", "<|im_end|>"]
-  guarda_de_repeticao: {janela_fichas: 32, repeticoes: 4}
+  guarda_de_repeticao: {janela_fichas: 32, repeticoes: 4, folga_fichas: 2, teto: 8, regra: intervalos iguais}
   k: {ugphysics: 3, olympiadbench: 8, phybench: 16, scibench: 8}
 
 recortes:
@@ -80,7 +80,7 @@ exemplos_few_shot:
   olympiadbench: 4 do UG-dev (2 NV com unidade, 2 EX), solução de 200 a 800 fichas
   phybench: 3 EX do UG-dev, nível Math Derivation, solução de 200 a 800 fichas
   scibench: 3 _sol por livro
-  sha256: null               # congelamento
+  sha256: 6458b8466cf5cd86a9e1c30aee9a0035208b0bb8297163b51d79b60009a213b5
 
 g2_3:
   margem_pontos: 2.0
@@ -102,7 +102,9 @@ g2_3:
     medida: prompt-level strict, média das amostras
     decodificacao: {k: 16, temperatura: 0.7, top_p: 0.8, top_k: 20, gulosa: 1, max_fichas: 1280}
     paradas: ["\n# Query", "<|endoftext|>", "<|im_end|>"]
-    envelope_sha256: null    # congelamento
+    envelope: configs/eval/preregistration/g2_ifeval_envelope.txt   # preâmbulo + 3 demonstrações
+    consulta: "envelope + '# Query\\n' + prompt + '\\n\\n# Answer\\n'"
+    envelope_sha256: 975e81b603eb7eabc24c36841cf1e9a51a13f854f16a2db9dad41bfc8a3ec4fa
   durante_o_treino: [MMLU validation (1531), MBPP sem as tarefas do MBPP+]
 
 g2_2:
@@ -136,7 +138,8 @@ motor:
   gguf_sha256: {Qwen3-1.7B-Base: 7cce0c435a35314314ccd9cdd524f502ab11bc60c07addc9e7151de6a51d95e6,
                 Qwen3-8B-Base: null}   # a 8B, no Kaggle
   conversao_local: "torch 2.4.1+cpu, transformers 5.0.0, numpy 2.5.1, sentencepiece 0.2.2 (.venv-treino)"
-  hash_da_configuracao: null                                   # congelamento
+  hash_da_configuracao: {Qwen3-1.7B-Base: e15356892060e5f4b634d650fa346d14f4ef1d031cc83917590d51dda2f3d91e,
+                         Qwen3-8B-Base: no livro de acessos, na medida do Kaggle}
 
 acessos:
   livro: data/processed/avaliacao/g2_acessos.jsonl
@@ -190,3 +193,9 @@ dados:
     Qwen3-1.7B-Base/model.safetensors: 6df85b39330e5a425ee36253d0f894e4387e4f0a15b9c53cb467d668e6b3a841
     Qwen3-8B-Base/model.safetensors.index.json: cd39d5e44c5aadfd1954b598883aea1c4a98822a2f7723d214ef2278b7fec2e4
   a_baixar: [EvalPlus (HumanEval+ e MBPP+), código oficial do IFEval, MMLU validation, MBPP, fonte do llama.cpp b11159]
+
+# Preenchido por scripts/congelar_g2.py. Depois disto, o medir_g2 teste recusa se o
+# g2.yaml, o código ou os dados da medida mudarem (g2.exigir_aceite_e_congelamento).
+congelamento: {arquivo: configs/eval/preregistration/g2_congelamento.json,
+               sha256: 230829b22642bea68fc449ed0a8bd54786b324173e64589d6fb50bf35f524058,
+               em: "2026-10-24"}

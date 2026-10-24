@@ -290,6 +290,19 @@ def test_error_zero_do_olympiad_e_tolerancia_nao_declarada():
     assert r["ok"] and r["perturbacoes"] == 2
 
 
+@pytest.mark.parametrize("texto, esperado", [
+    # iteração 1 do dev: a resposta em texto, sem caixa e sem "final"
+    ("Therefore, the decay is possible. The answer is True.", "True"),
+    (r"so it violates isospin. The answer is False.", "False"),
+    ("The answer is $5$ m/s.", "5"),
+    # a frase do prompt e a prosa não são resposta
+    ("The answer is a number; put only the number in \\boxed{}.", None),
+    ("The answer is independent of the mass.", None),
+])
+def test_frase_the_answer_is_sem_caixa(texto, esperado):
+    assert c.extrair_resposta(texto) == esperado
+
+
 def test_frase_com_alternativa_entre_as_partes():
     texto = PRE + "The final answers are $3e-05$ and $1.8e-05$ or $5.4e-05$."
     assert c.extrair_respostas(texto, 2) is None
