@@ -21,12 +21,13 @@ negativo em RLVR é o do DOC-10 §2.1.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 
 import sympy as sp
 
-from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _com_limite, _declarados, _Timeout, parse
+from phifm.verify.bus import Claim, Motivo, Papel, Verdict, VerificationResult
+from phifm.verify.symbolic import _com_limite, _declarados, _Timeout, nome_canonico, parse
 
 TOL = sp.Rational(1, 10**12)
 AMOSTRAS = (sp.Rational(1, 3), sp.Rational(7, 5), sp.Rational(11, 4),
@@ -120,14 +121,21 @@ def _somar(lista: list[str]) -> tuple[Numeros, list[str]]:
 
 class ConservationVerifier:
     id = "conservation/sympy@0.1.0"
+    # Condição necessária: conservar a energia não prova a solução inteira.
+    papel = Papel.CONDICAO
 
     def applicable(self, claim: Claim) -> bool:
         return bool(claim.context.get("conserved") or claim.context.get("reaction"))
 
     def verify(self, claim: Claim) -> VerificationResult:
+        """Abstenção sem motivo próprio é do problema: a conservação não fechou."""
         if claim.context.get("reaction"):
-            return self._reacao(claim.context["reaction"])
-        return self._continua(claim, claim.context["conserved"])
+            r = self._reacao(claim.context["reaction"])
+        else:
+            r = self._continua(claim, claim.context["conserved"])
+        if r.verdict is Verdict.INCONCLUSIVE and r.motivo is None:
+            r = dataclasses.replace(r, motivo=Motivo.INDECIDIVEL)
+        return r
 
     # ── discreta ──────────────────────────────────────────────────────────
     def _reacao(self, spec: dict) -> VerificationResult:
@@ -144,6 +152,7 @@ class ConservationVerifier:
                 Verdict.INCONCLUSIVE, self.id, 0.0,
                 "partícula fora da tabela: " + ", ".join(sorted(set(fa + fd)))
                 + " — tabela incompleta por escolha, ver docstring",
+                motivo=Motivo.SEM_CONVENCAO,
             )
 
         violadas = [(nome, va, vd) for (nome, va), (_, vd) in zip(na.itens(), nd.itens(), strict=False)
@@ -164,12 +173,15 @@ class ConservationVerifier:
     # ── contínua ──────────────────────────────────────────────────────────
     def _continua(self, claim: Claim, spec: dict) -> VerificationResult:
         grandeza = spec.get("quantity", "invariante")
-        var = sp.Symbol(spec.get("var", "t"))
+        var = sp.Symbol(nome_canonico(spec.get("var", "t")))
         fonte = spec.get("expr") or claim.lhs
         locais = _declarados(claim)
         expr = parse(str(fonte), locais)
         if expr is None:
-            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
+            # `expr` vem do item; sem ela, a fonte é a resposta.
+            motivo = Motivo.GABARITO_ILEGIVEL if spec.get("expr") else Motivo.RESPOSTA_ILEGIVEL
+            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou",
+                                      motivo=motivo)
 
         if grandeza in ("unitaridade", "unitarity", "norma"):
             return self._unitaridade(expr, spec)
@@ -183,7 +195,7 @@ class ConservationVerifier:
                 return VerificationResult(
                     Verdict.INCONCLUSIVE, self.id, 0.0, f"solução de {k} não parseou"
                 )
-            subs[sp.Symbol(k)] = alvo
+            subs[sp.Symbol(nome_canonico(k))] = alvo
         if subs:
             expr = expr.subs(subs)
 
@@ -229,9 +241,14 @@ class ConservationVerifier:
             )
 
         if d is not None:
+            # ⚠️ Era FAIL 0,85. Mas aqui o simplify só não zerou a derivada e a
+            # amostragem não avaliou: pelo teorema de Richardson isso não prova
+            # nada, e com a recompensa do RLVR um FAIL vale −1 cheio (ADR-0005).
             return VerificationResult(
-                Verdict.FAIL, self.id, 0.85,
-                f"d({grandeza})/d{var} ≠ 0", counterexample=str(d),
+                Verdict.INCONCLUSIVE, self.id, 0.0,
+                f"d({grandeza})/d{var} não zerou no simplify e a amostragem não "
+                "avaliou — a derivada não nula não está provada",
+                counterexample=str(d), motivo=Motivo.INDECIDIVEL,
             )
         return VerificationResult(
             Verdict.INCONCLUSIVE, self.id, 0.0,
@@ -241,7 +258,7 @@ class ConservationVerifier:
     def _unitaridade(self, psi: sp.Expr, spec: dict) -> VerificationResult:
         """‖ψ‖² = 1 sobre o domínio. Norma > 1 ou < 1 é estado não normalizado,
         e um modelo que devolve isso não resolveu o problema — só a forma."""
-        var = sp.Symbol(spec.get("integrate", spec.get("var", "x")))
+        var = sp.Symbol(nome_canonico(spec.get("integrate", spec.get("var", "x"))))
         dom = spec.get("domain", (-sp.oo, sp.oo))
         a, b = (_p(dom[0]), _p(dom[1]))
         try:

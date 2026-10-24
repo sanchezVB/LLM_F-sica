@@ -26,12 +26,14 @@ que alegasse mais estaria adivinhando.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 
 import sympy as sp
+from sympy.core.function import AppliedUndef
 
-from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _declarados, parse
+from phifm.verify.bus import Claim, Motivo, Papel, Verdict, VerificationResult
+from phifm.verify.symbolic import _declarados, nome_canonico, parse
 
 BASES = ("M", "L", "T", "I", "Theta", "N", "J")
 
@@ -214,6 +216,19 @@ def dimensao(expr: sp.Expr, tabela: dict[str, Dim]) -> Dim:
                 raise Incoerente(dims[0], d, str(expr))
         return dims[0]
 
+    # Funções que preservam a dimensão do argumento: `|v|` é uma velocidade.
+    # Antes caíam no ramo genérico abaixo, que exige argumento adimensional, e
+    # `|v|` dava FAIL dimensional em Física certa.
+    if isinstance(expr, (sp.Abs, sp.conjugate, sp.re, sp.im)):
+        return dimensao(expr.args[0], tabela)
+    if isinstance(expr, sp.sign):
+        return ADIM
+    if isinstance(expr, AppliedUndef):
+        # Função indefinida não tem dimensão conhecida. Tratá-la como as
+        # transcendentes (adimensional com argumento adimensional) fazia
+        # `m v² f(1)` passar pelo dimensional — o atalho do ADR-0005 §1.
+        raise Indeterminada(str(expr), "função indefinida")
+
     if isinstance(expr, sp.Function):
         # sin, cos, exp, log... exigem argumento adimensional e devolvem
         # adimensional. É uma restrição real: `sin(t)` com t em segundos é
@@ -243,6 +258,7 @@ def _tabela(claim: Claim) -> dict[str, Dim]:
         "area": _d(L=2), "volume": _d(L=3), "corrente": _d(I=1),
     }
     for nome, spec in (claim.context.get("dimensions") or {}).items():
+        nome = nome_canonico(nome)
         if isinstance(spec, str):
             if spec not in ATALHOS:
                 raise Indeterminada(nome, f"grandeza declarada desconhecida: {spec}")
@@ -287,6 +303,9 @@ def _inferir(expr: sp.Expr, alvo: Dim, tabela: dict[str, Dim]) -> Dim | None:
 
 class DimensionalVerifier:
     id = "dimensional/si7@0.1.0"
+    # Condição necessária: `F·d` tem a dimensão de `m·v²` e não é `m·v²`. O
+    # PASS daqui nunca prova equivalência (ADR-0005 §4.2).
+    papel = Papel.CONDICAO
 
     def applicable(self, claim: Claim) -> bool:
         """Precisa de dois lados para comparar, ou de uma soma para checar.
@@ -299,6 +318,15 @@ class DimensionalVerifier:
         return any(op in claim.lhs for op in ("+", "-"))
 
     def verify(self, claim: Claim) -> VerificationResult:
+        """Toda abstenção do dimensional sem motivo próprio é de convenção que
+        falta — sistema de unidades, dimensão não declarada, símbolo ambíguo:
+        o item não disse o bastante. Só a resposta que não lê é da resposta."""
+        r = self._verificar(claim)
+        if r.verdict is Verdict.INCONCLUSIVE and r.motivo is None:
+            r = dataclasses.replace(r, motivo=Motivo.SEM_CONVENCAO)
+        return r
+
+    def _verificar(self, claim: Claim) -> VerificationResult:
         sistema = claim.context.get("unit_system")
         if sistema is None:
             # DOC-10 §3.2: não escolher sistema por conta própria. Assumir SI
@@ -331,8 +359,12 @@ class DimensionalVerifier:
         locais = _declarados(claim)
         a = parse(claim.lhs, locais)
         b = parse(claim.rhs, locais) if claim.rhs is not None else None
-        if a is None or (claim.rhs is not None and b is None):
-            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
+        if claim.rhs is not None and b is None:
+            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "o gabarito não parseou",
+                                      motivo=Motivo.GABARITO_ILEGIVEL)
+        if a is None:
+            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "a resposta não parseou",
+                                      motivo=Motivo.RESPOSTA_ILEGIVEL)
 
         try:
             da = dimensao(a, tabela)
