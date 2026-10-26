@@ -24,10 +24,12 @@ sequência convergente (DOC-10 §3.4).
 
 from __future__ import annotations
 
+import dataclasses
+
 import sympy as sp
 
-from phifm.verify.bus import Claim, Verdict, VerificationResult
-from phifm.verify.symbolic import _com_limite, _declarados, _Timeout, parse
+from phifm.verify.bus import Claim, Motivo, Papel, Verdict, VerificationResult
+from phifm.verify.symbolic import _com_limite, _declarados, _Timeout, nome_canonico, parse
 
 # Sequência do cruzamento numérico. Não desce além de 1e-6 porque abaixo disso
 # o próprio cancelamento em ponto flutuante domina o resíduo que se mede.
@@ -129,9 +131,13 @@ def _iguais(a: sp.Expr, b: sp.Expr) -> bool:
         return False
 
 
-def _cruzamento_numerico(expr: sp.Expr, esperado: sp.Expr, var: sp.Symbol, to) -> bool:
+def _cruzamento_numerico(expr: sp.Expr, esperado: sp.Expr, var: sp.Symbol, to) -> bool | None:
     """Avalia numa sequência convergente. Livres restantes recebem valores
-    fixos e primos entre si — coincidência em valores redondos é comum."""
+    fixos e primos entre si — coincidência em valores redondos é comum.
+
+    ``True`` concorda, ``False`` discorda, ``None`` não avaliou. Os dois últimos
+    eram o mesmo ``False``, e um estouro de tempo virava FAIL (ADR-0005).
+    """
     livres = sorted((expr.free_symbols | esperado.free_symbols) - {var}, key=str)
     fixos = {s: sp.Rational(p, 7) for s, p in zip(livres, (3, 5, 11, 13, 17, 19, 23), strict=False)}
     for eps in SEQUENCIA:
@@ -140,9 +146,9 @@ def _cruzamento_numerico(expr: sp.Expr, esperado: sp.Expr, var: sp.Symbol, to) -
             va = sp.N(expr.subs({var: ponto, **fixos}), 30)
             vb = sp.N(esperado.subs({var: ponto, **fixos}), 30)
         except Exception:
-            return False
+            return None
         if not (va.is_number and vb.is_number):
-            return False
+            return None
         escala = max(abs(va), abs(vb), sp.Float(1))
         if abs(va - vb) / escala > TOL_REL:
             return False
@@ -151,12 +157,21 @@ def _cruzamento_numerico(expr: sp.Expr, esperado: sp.Expr, var: sp.Symbol, to) -
 
 class LimitsVerifier:
     id = "limits/sympy@0.1.0"
+    # Condição necessária: reduzir ao limite certo não prova a expressão toda.
+    papel = Papel.CONDICAO
 
     def applicable(self, claim: Claim) -> bool:
         spec = claim.context.get("limit")
         return isinstance(spec, dict) and bool(spec.get("expected") or claim.rhs)
 
     def verify(self, claim: Claim) -> VerificationResult:
+        """Abstenção sem motivo próprio é do problema: o limite não fechou."""
+        r = self._verificar(claim)
+        if r.verdict is Verdict.INCONCLUSIVE and r.motivo is None:
+            r = dataclasses.replace(r, motivo=Motivo.INDECIDIVEL)
+        return r
+
+    def _verificar(self, claim: Claim) -> VerificationResult:
         spec = dict(claim.context["limit"])
 
         nome = spec.get("name")
@@ -176,13 +191,17 @@ class LimitsVerifier:
 
         modo = spec.get("mode", "auto")
         to = _ponto(spec.get("to", 0))
-        var = sp.Symbol(spec["var"])
+        var = sp.Symbol(nome_canonico(spec["var"]))
 
         locais = _declarados(claim)
         expr = parse(claim.lhs, locais)
         esperado = parse(str(spec.get("expected") or claim.rhs or ""), locais)
-        if expr is None or esperado is None:
-            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "não parseou")
+        if esperado is None:
+            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "o esperado não parseou",
+                                      motivo=Motivo.GABARITO_ILEGIVEL)
+        if expr is None:
+            return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, "a resposta não parseou",
+                                      motivo=Motivo.RESPOSTA_ILEGIVEL)
 
         if not expr.has(var):
             # Sem a variável, o "limite" é a própria expressão. Passar aqui
@@ -220,7 +239,8 @@ class LimitsVerifier:
                 )
 
         # ── cruzamento numérico ───────────────────────────────────────────
-        if _cruzamento_numerico(expr, esperado, var, to):
+        cruzamento = _cruzamento_numerico(expr, esperado, var, to)
+        if cruzamento:
             return VerificationResult(
                 Verdict.PASS, self.id, 0.7,
                 f"{rotulo}: concordância numérica ao longo da sequência convergente "
@@ -234,6 +254,14 @@ class LimitsVerifier:
             )
 
         obtido = lim if lim is not None else _termo_dominante(expr, var, to)
+        if obtido is None or cruzamento is None:
+            # Sem um limite obtido ou sem o cruzamento ter avaliado, não há o
+            # que reprovar: o limite e a série estouraram ou levantaram.
+            return VerificationResult(
+                Verdict.INCONCLUSIVE, self.id, 0.0,
+                f"{rotulo}: nem o limite nem a avaliação numérica fecharam",
+                motivo=Motivo.TEMPO if obtido is None else Motivo.INDECIDIVEL,
+            )
         return VerificationResult(
             Verdict.FAIL, self.id, 0.9,
             f"{rotulo}: não reduz ao esperado",

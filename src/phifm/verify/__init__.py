@@ -15,21 +15,29 @@ from __future__ import annotations
 from phifm.verify.bus import (
     REWARD,
     Claim,
+    Motivo,
+    Papel,
+    Regra,
     Verdict,
     VerificationResult,
     Verifier,
     VerifierBus,
+    classificar,
 )
 from phifm.verify.conservation import ConservationVerifier
 from phifm.verify.dimensional import DimensionalVerifier
 from phifm.verify.limits import LimitsVerifier
 from phifm.verify.numeric import NumericVerifier
+from phifm.verify.recompensa import Recompensa, admitir, avaliar, recompensa
+from phifm.verify.resposta import ler_gabarito, ler_resposta
 from phifm.verify.symbolic import SymbolicVerifier
 
 __all__ = [
-    "REWARD", "Claim", "Verdict", "Verifier", "VerificationResult", "VerifierBus",
+    "REWARD", "Claim", "Motivo", "Papel", "Regra", "Verdict", "Verifier",
+    "VerificationResult", "VerifierBus", "classificar",
     "ConservationVerifier", "DimensionalVerifier", "LimitsVerifier",
     "NumericVerifier", "SymbolicVerifier",
+    "Recompensa", "admitir", "avaliar", "recompensa", "ler_gabarito", "ler_resposta",
     "barramento_padrao",
 ]
 

@@ -61,6 +61,12 @@ Se `INCONCLUSIVE` for tratado como `FAIL`, o modelo recebe recompensa negativa p
 
 **Regra:** `INCONCLUSIVE` mapeia para recompensa **neutra** (zero), nunca negativa. E a taxa de `INCONCLUSIVE` por tipo de problema é monitorada — se subir, o verificador é que precisa melhorar, não o modelo.
 
+> **Emenda de 2026-10-23 ([ADR-0005](../adr/ADR-0005-resposta-ilegivel-e-condicao-necessaria.md)).** A regra vale para o que o *problema* ou o *item* causam — a verificação que não fecha, o teto que estoura, a convenção que falta. Não vale para o que a *resposta* causa: uma resposta que o parser não lê, que não se compara com o gabarito, que introduz símbolos ou funções que o gabarito não tem. Tratar isso como neutro abria um atalho: uma resposta errada (−1) que se tornava ilegível subia para 0, e no GRPO, num grupo de respostas erradas, 0 recebe a mesma vantagem de uma resposta certa. Por isso:
+>
+> - o veredito continua `INCONCLUSIVE`, com um **motivo** estruturado (`verify.bus.Motivo`), para todos os consumidores;
+> - a **recompensa do RLVR** (`verify.recompensa`) lê o motivo: abstenção causada pela resposta vale exatamente um FAIL (−1); a causada pelo item ou pelo problema tira a amostra do grupo (`None`). **No GRPO, o neutro é sair do grupo, não valer 0**;
+> - a taxa é monitorada **por motivo**: se a de motivos da resposta subir, é a política aprendendo um atalho, e não o verificador piorando.
+
 ### 2.2 Há um limite matemático, e ele precisa ser declarado
 
 > **Teorema de Richardson (1968).** Para expressões envolvendo racionais, π, `log`, `exp`, `sin` e valor absoluto, decidir se uma expressão é identicamente zero é **indecidível**.
@@ -164,6 +170,21 @@ qualquer ERROR                                    →  ERROR (registrado, invest
 ```
 
 **Discordância entre verificadores é um evento de primeira classe.** Se o simbólico diz `PASS` e o numérico diz `FAIL`, há um bug em um dos dois — e isso é registrado, alertado e investigado, jamais resolvido por voto majoritário. Voto majoritário aqui esconderia exatamente o tipo de defeito que o §1 alerta ser global.
+
+> **Emenda de 2026-10-23 ([ADR-0005 §4.3](../adr/ADR-0005-resposta-ilegivel-e-condicao-necessaria.md)).** Os verificadores têm dois **papéis**. O simbólico e o numérico provam **equivalência**; o dimensional, o de limites e o de conservação provam só uma **condição necessária** — `F·d` tem a dimensão de `m·v²` e não é `m·v²`. O código tratava qualquer mistura de PASS e FAIL como discordância, e com isso o erro mais comum (fator ou sinal trocado, com a dimensão certa) valia 0. A álgebra passa a ser, na ordem, com "FAIL" sempre de alta confiança:
+>
+> | caso | resultado |
+> |---|---|
+> | equivalência PASS e equivalência FAIL | `ERROR`, discordância |
+> | equivalência PASS e condição FAIL | `ERROR`, contradição |
+> | qualquer FAIL | `FAIL` |
+> | equivalência PASS | `PASS` |
+> | só condição PASS, com verificador de equivalência aplicável | `INCONCLUSIVE` |
+> | só condição PASS, sem verificador de equivalência (relação, `context["tipo"] = "relacao"`) | `PASS` |
+> | só `ERROR` | `ERROR` |
+> | o resto | `INCONCLUSIVE` |
+>
+> FAIL abaixo da alta confiança conta como abstenção, como a primeira linha da tabela acima já pedia. A função é `verify.bus.classificar`, e a recompensa do RLVR usa a mesma.
 
 ---
 
