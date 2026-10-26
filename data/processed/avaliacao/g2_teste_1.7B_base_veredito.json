@@ -1,0 +1,83 @@
+{
+ "o_que_e": "G2, fase teste: agregados por benchmark (DOC-12 §3.7); as gerações ficam fora do git",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "rotulo": "veredito",
+ "hash_config": "e15356892060e5f4b634d650fa346d14f4ef1d031cc83917590d51dda2f3d91e",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "6a48ca36eb8349ca6407c0813fc5c70951f95f471b266a9f1cf7eb773246e714",
+  "src/phifm/eval/g2_prompt.py": "2d4ecf88f6ae11e2ea9ad9f46b0934afe60b3d09ee7dac79b0341c8e1cec43be",
+  "src/phifm/eval/g2_geracao.py": "9273738eee946be6ee6c4fc6d1c73c6daf1837ae58c738b88663610ea1916545",
+  "src/phifm/eval/g2_correcao.py": "76ad3f332169d85a78e8996946f30e6c6de7ab58c7943dc0ff4ee719dd26fd4a",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "correcoes_mortas_no_teto": 0,
+ "k": {
+  "ugphysics": 3,
+  "olympiadbench": 8,
+  "phybench": 16,
+  "scibench": 8
+ },
+ "segundos": 9216,
+ "por_benchmark": {
+  "olympiadbench": {
+   "itens": 231,
+   "amostras": 1848,
+   "acerto": 0.0433,
+   "fracoes": {
+    "fail": 0.7684,
+    "pass": 0.0433,
+    "sem_resposta": 0.0281,
+    "truncado": 0.1602
+   },
+   "fichas_media": 577.0,
+   "fichas_p95": 1602
+  },
+  "phybench": {
+   "itens": 99,
+   "amostras": 1584,
+   "acerto": 0.0013,
+   "fracoes": {
+    "fail": 0.8062,
+    "inconclusive": 0.0032,
+    "pass": 0.0013,
+    "sem_resposta": 0.0114,
+    "truncado": 0.178
+   },
+   "fichas_media": 562.9,
+   "fichas_p95": 1274
+  },
+  "scibench": {
+   "itens": 193,
+   "amostras": 1544,
+   "acerto": 0.1056,
+   "fracoes": {
+    "fail": 0.7953,
+    "pass": 0.1056,
+    "sem_resposta": 0.0013,
+    "truncado": 0.0978
+   },
+   "fichas_media": 451.4,
+   "fichas_p95": 1117
+  },
+  "ugphysics": {
+   "itens": 1917,
+   "amostras": 5751,
+   "acerto": 0.1003,
+   "fracoes": {
+    "fail": 0.8214,
+    "inconclusive": 0.001,
+    "pass": 0.1003,
+    "sem_resposta": 0.023,
+    "truncado": 0.0543
+   },
+   "fichas_media": 333.9,
+   "fichas_p95": 801
+  }
+ }
+}

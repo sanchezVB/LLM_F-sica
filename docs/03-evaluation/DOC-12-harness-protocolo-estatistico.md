@@ -420,6 +420,21 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **`PROTOCOLO_G2_SHA256`** = `daf804d7…`.
     - Daqui em diante, `medir_g2 teste` recusa se o g2.yaml, qualquer arquivo de código ou de dados do congelamento, ou uma versão de pacote mudar. Mudança só por emenda registrada aqui.
 
+16. **Medida da Qwen3-1.7B-Base no teste (2026-10-24 a 25, com o OK do dono).** Hash de configuração `e1535689…`, o do congelamento. Itens sem os excluídos pelo autoteste, k = 3/8/16/8: 10.727 gerações na RX 7600. Agregados oficiais em `g2_teste_1.7B_base_veredito.json`, com o corretor congelado:
+
+    | Benchmark | Itens | Acerto (avg@k) | Truncado | Sem resposta | Fichas médias |
+    |---|---|---|---|---|---|
+    | UGPhysics | 1.917 | 10,0% | 5,4% | 2,3% | 334 |
+    | OlympiadBench | 231 | 4,3% | 16,0% | 2,8% | 577 |
+    | PHYBench | 99 | 0,1% | 17,8% | 1,1% | 563 |
+    | SciBench | 193 | 10,6% | 9,8% | 0,1% | 451 |
+
+    Macro da base: ~6,3 pontos. O livro de acessos (`g2_acessos.jsonl`) registra a medida e 6 retomadas, todas com o mesmo hash. As interrupções e as causas foram estas:
+    - **WMI.** O processo lançado por `Win32_Process.Create` entra no job do hospedeiro do WMI, com cota de 512 MB. O servidor e o Python passavam da cota, e a árvore inteira morria sem erro em log. **Mudança:** lançar pelo Explorer.
+    - **Cascata minha.** Um script de comparação sem a guarda `__main__`, com o trabalhador isolado em spawn, abriu processos em cascata.
+    - **Pausas e desligamento.** Duas pausas pedidas pelo dono e um desligamento do computador.
+    - **Separador cru.** Uma geração trazia o caractere U+0085 cru. Os leitores congelados partem a linha nele com `splitlines()`, e a retomada parava. **Reparo:** o registro foi remontado, conferido pelo `sha256_texto`, e regravado com o caractere escapado, sem mudar o texto. Até o fim da medida, o supervisor escapou o caractere antes de cada tentativa. A correção do leitor entra na emenda 1.
+
     - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
 
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
