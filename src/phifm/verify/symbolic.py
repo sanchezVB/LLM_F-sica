@@ -39,7 +39,14 @@ from sympy.parsing.sympy_parser import (
 )
 
 from phifm.core.latex.subscritos import blindar_subscritos, normalizar_subscritos
-from phifm.verify.bus import Claim, Verdict, VerificationResult
+from phifm.verify.bus import (
+    Claim,
+    Motivo,
+    Papel,
+    Verdict,
+    VerificationResult,
+    tipo_da_afirmacao,
+)
 
 TIMEOUT_S = 5
 
@@ -307,7 +314,8 @@ def _declarados(claim: Claim) -> dict[str, sp.Symbol]:
     dimensional passava a declaração ao `parse`; o simbólico e o numérico — os
     que decidem PASS e FAIL — liam `I**2*R` como −R mesmo com `I` declarado.
     """
-    return {n: sp.Symbol(n) for n in (claim.context.get("dimensions") or {})}
+    return {nome_canonico(n): sp.Symbol(nome_canonico(n))
+            for n in (claim.context.get("dimensions") or {})}
 
 
 class _Timeout(Exception):
@@ -398,6 +406,91 @@ def _aquecer() -> None:
 _aquecer()
 
 
+# ── Unicode, variantes gregas e números absurdos ──────────────────────────
+#
+# Texto puro com Unicode (`½mv²`) ia para o `parse_expr`, que lia `mv²` como um
+# símbolo só: a resposta certa reprovava (ADR-0005 §4.7). A tradução emite
+# LaTeX, e não nomes nus, para a expressão ir à rota do ANTLR, que separa `m v`.
+# O que sobrar fora do ASCII dá None — ler `é` como símbolo é pior que recusar.
+_UNICODE_SIMPLES = {
+    "×": r"\times ", "·": r"\cdot ", "⋅": r"\cdot ", "∙": r"\cdot ", "−": "-", "–": "-",
+    "π": r"\pi ", "ħ": r"\hbar ", "ℏ": r"\hbar ", "∞": r"\infty ", "µ": r"\mu ", "≈": r"\approx ",
+    "′": "'", "ϵ": r"\epsilon ", "ϑ": r"\theta ", "ϕ": r"\phi ", "ϱ": r"\rho ", "ϰ": r"\kappa ",
+    "α": r"\alpha ", "β": r"\beta ", "γ": r"\gamma ", "δ": r"\delta ", "ε": r"\epsilon ",
+    "ζ": r"\zeta ", "η": r"\eta ", "θ": r"\theta ", "ι": r"\iota ", "κ": r"\kappa ",
+    "λ": r"\lambda ", "μ": r"\mu ", "ν": r"\nu ", "ξ": r"\xi ", "ρ": r"\rho ", "σ": r"\sigma ",
+    "τ": r"\tau ", "υ": r"\upsilon ", "φ": r"\phi ", "χ": r"\chi ", "ψ": r"\psi ", "ω": r"\omega ",
+    "Γ": r"\Gamma ", "Δ": r"\Delta ", "Θ": r"\Theta ", "Λ": r"\Lambda ", "Ξ": r"\Xi ",
+    "Π": r"\Pi ", "Σ": r"\Sigma ", "Υ": r"\Upsilon ", "Φ": r"\Phi ", "Ψ": r"\Psi ", "Ω": r"\Omega ",
+}
+_FRACOES = {"½": (1, 2), "⅓": (1, 3), "⅔": (2, 3), "¼": (1, 4), "¾": (3, 4)}
+_SOBRESCRITOS = dict(zip("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+", strict=True))
+_SUBSCRITOS = dict(zip("₀₁₂₃₄₅₆₇₈₉", "0123456789", strict=True))
+_ESPACOS = re.compile("[  -   　]")
+
+
+def traduzir_unicode(s: str) -> str | None:
+    """Unicode de Física para LaTeX, ou None se sobrar algo fora do ASCII."""
+    if s.isascii():
+        return s
+    s = _ESPACOS.sub(" ", s).replace("​", "")
+    # `2½` é dois e meio, não 2·½.
+    s = re.sub("(\\d)\\s*([½⅓⅔¼¾])",
+               lambda m: "({}+\\frac{{{}}}{{{}}})".format(m.group(1), *_FRACOES[m.group(2)]), s)
+    s = re.sub("[½⅓⅔¼¾]", lambda m: "\\frac{{{}}}{{{}}}".format(*_FRACOES[m.group(0)]), s)
+    s = re.sub("[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+",
+               lambda m: "^{" + "".join(_SOBRESCRITOS[c] for c in m.group(0)) + "}", s)
+    s = re.sub("[₀₁₂₃₄₅₆₇₈₉]+",
+               lambda m: "_{" + "".join(_SUBSCRITOS[c] for c in m.group(0)) + "}", s)
+    s = "".join(_UNICODE_SIMPLES.get(c, c) for c in s)
+    return s if s.isascii() else None
+
+
+# `\varepsilon` e `\epsilon` são a mesma letra; `\varepsilon_0` não casava com
+# o `epsilon_0` da tabela de dimensões. `\varpi` fica de fora de propósito: virar
+# `\pi` o transformaria na constante π. `\varsigma` também, por não ser comum.
+_VARIANTE = re.compile(r"(?<![A-Za-z])(\\?)var(epsilon|theta|phi|rho|kappa)(?![A-Za-z])")
+
+
+def nome_canonico(nome: str) -> str:
+    """A forma canônica de um nome com variante grega: `varepsilon_0` → `epsilon_0`.
+
+    Vale para o texto e para as chaves do contexto (`dimensions`, a variável
+    de um limite), que precisam casar com o símbolo lido.
+    """
+    return _VARIANTE.sub(r"\1\2", nome)
+
+
+# Número que nenhuma resposta de Física escreve e que trava quem o avalia: uma
+# torre de expoentes inteiros (`10^{10^{8}}`) ou um expoente de cinco dígitos.
+# O `parse` não os avalia, mas o `simplify` e o numérico sim — sem teto no
+# numérico, e com memória de gigabytes (ADR-0005).
+_NUMERO_ABSURDO = re.compile(
+    r"\d\s*(?:\^|\*\*)\s*[{(]?\s*\d+\s*[})]?\s*(?:\^|\*\*)\s*[{(]?\s*\d"
+    r"|(?:\^|\*\*)\s*[{(]?\s*[+-]?\d{5,}"
+    r"|\d{60,}"
+)
+
+
+# ⚠️ Subscrito de um token, sem chaves, depois de uma macro: `\epsilon_0`. A
+# normalização de subscritos só pega o achatado de dois caracteres ou mais, e a
+# blindagem não pega o que vem depois de `\`, então o ANTLR o lê como
+# `epsilon_{0}` — enquanto `\epsilon_{0}` vira `epsilon_0`. Dois símbolos para a
+# mesma grandeza, e a resposta certa reprovava (achado em 2026-10-24, nos testes
+# do ADR-0005). O lugar natural seria `core.latex.subscritos`, mas ele está no
+# congelamento do G2; aqui só se achata um nome inteiro de um token só.
+_SUBSCRITO_DO_ANTLR = re.compile(r"([A-Za-z]+)_\{([A-Za-z0-9]+)\}")
+
+
+def _achatar_subscrito_do_antlr(e: sp.Basic) -> sp.Basic:
+    trocas = {}
+    for s in e.atoms(sp.Symbol):
+        m = _SUBSCRITO_DO_ANTLR.fullmatch(s.name)
+        if m:
+            trocas[s] = sp.Symbol(f"{m.group(1)}_{m.group(2)}")
+    return e.xreplace(trocas) if trocas else e
+
+
 def parse(expr: str, locais: dict | None = None) -> sp.Expr | None:
     """Aceita LaTeX ou sintaxe SymPy. Devolve ``None`` se não parsear.
 
@@ -406,8 +499,12 @@ def parse(expr: str, locais: dict | None = None) -> sp.Expr | None:
     corrente elétrica, e não como unidade imaginária, consegue dizer isso.
     """
     s = expr.strip().strip("$").strip()
-    if not s:
+    if not s or _NUMERO_ABSURDO.search(s):
         return None
+    s = traduzir_unicode(s)
+    if s is None:
+        return None
+    s = nome_canonico(s)
     ld = {**_FISICA, **(locais or {})}
 
     # ⚠️ Sublinhado ou `^` soltos NÃO são evidência de LaTeX. A heurística
@@ -450,7 +547,13 @@ def parse(expr: str, locais: dict | None = None) -> sp.Expr | None:
                 e = e.xreplace(
                     {sp.Symbol(m): sp.Symbol(ident) for m, ident in marcadores.items()}
                 )
-            return e
+                # O marcador também pode ter virado nome de FUNÇÃO (`E_0(x)`), e
+                # a letra-base dele muda conforme o texto.
+                cabecas = {f: sp.Function(marcadores[f.func.__name__])(*f.args)
+                           for f in e.atoms(AppliedUndef) if f.func.__name__ in marcadores}
+                if cabecas:
+                    e = e.xreplace(cabecas)
+            return _achatar_subscrito_do_antlr(e)
         except Exception:
             pass
     try:
@@ -466,6 +569,101 @@ def _tem_operadores(claim: Claim) -> bool:
         return True
     texto = f"{claim.lhs} {claim.rhs or ''}"
     return bool(_NONCOMMUTATIVE.search(texto))
+
+
+def _operadores(claim: Claim) -> tuple[bool, bool]:
+    """(no item, só na resposta).
+
+    ⚠️ Separar os dois é o que impede a resposta de desligar verificadores:
+    um `\\sigma` só na resposta fazia o numérico se declarar inaplicável e
+    sumir do vetor, e a resposta errada saía sem nenhum FAIL (ADR-0005). O
+    item é o gabarito e o contexto; a resposta não decide se há operadores.
+    """
+    no_item = bool(claim.context.get("noncommutative")) or bool(
+        _NONCOMMUTATIVE.search(claim.rhs or "")
+    )
+    na_resposta = not no_item and bool(_NONCOMMUTATIVE.search(claim.lhs))
+    return no_item, na_resposta
+
+
+def _cabecas(e: sp.Basic) -> set[str]:
+    """Nomes das funções indefinidas (`f(x)`, `m(1)`)."""
+    return {f.func.__name__ for f in e.atoms(AppliedUndef)}
+
+
+def _reinterpretar_produtos(resposta: sp.Basic, gabarito: sp.Basic) -> sp.Basic:
+    """`m(g + a)` → m·(g + a), quando `m` é um SÍMBOLO do gabarito e não uma função dele.
+
+    A gramática lê letra seguida de parêntese como aplicação de função. Quando
+    o nome é uma grandeza do gabarito, a leitura de produto é a da Física — e
+    a de função abria um atalho: `m v^{2} m(1)` saía com o simbólico e o
+    numérico indecisos e o dimensional aprovando (ADR-0005). Fica função o que
+    o gabarito também usa como função, e o que ele não usa (`f`, `V(r)`), que
+    cai na regra de vocabulário.
+    """
+    simbolos = {s.name for s in gabarito.free_symbols}
+    funcoes = _cabecas(gabarito)
+
+    def _eh_produto(x: sp.Basic) -> bool:
+        return (isinstance(x, AppliedUndef) and len(x.args) == 1
+                and x.func.__name__ in simbolos and x.func.__name__ not in funcoes)
+
+    return resposta.replace(_eh_produto, lambda x: sp.Symbol(x.func.__name__) * x.args[0])
+
+
+def _vocabulario_extra(resposta: sp.Basic, gabarito: sp.Basic, claim: Claim) -> list[str]:
+    """Símbolos e funções da resposta que o gabarito e o contexto não têm.
+
+    Funções e símbolos em conjuntos separados: `m(1)` com `m` só como símbolo
+    no gabarito é vocabulário novo. O contexto conta pelas chaves de
+    `dimensions` e por `simbolos`, nunca pelo texto do enunciado — palavras de
+    uma letra do português liberariam símbolos.
+    """
+    declarados = {nome_canonico(n) for n in (
+        *(claim.context.get("dimensions") or {}), *(claim.context.get("simbolos") or ()))}
+    extras = ({s.name for s in resposta.free_symbols} - {s.name for s in gabarito.free_symbols}
+              - declarados)
+    extras |= {f"{c}()" for c in _cabecas(resposta) - _cabecas(gabarito) - declarados}
+    return sorted(extras)
+
+
+def _ler_os_dois_lados(claim: Claim, locais: dict, no_item: bool, na_resposta: bool):
+    """Lê gabarito e resposta, nessa ordem, e devolve ``(a, b, abstencao)``.
+
+    O gabarito primeiro: se ele não lê, a culpa é do item, e a resposta nem
+    importa. Depois os tipos: o `parse` devolve `Eq`, tupla e booleano apesar
+    da anotação, e o numérico comparava o booleano de dois `Eq` — qualquer par
+    de equações passava (ADR-0005).
+    """
+    b = parse(claim.rhs or "", locais)
+    if b is None:
+        return None, None, (Motivo.GABARITO_ILEGIVEL, "não foi possível parsear o gabarito (rhs)")
+    if not isinstance(b, sp.Expr):
+        return None, None, (Motivo.GABARITO_INCOMPARAVEL,
+                            f"o gabarito não é uma expressão: {type(b).__name__}")
+    a = parse(claim.lhs, locais)
+    if a is None:
+        # Com operadores no item, a recusa do `\hat` na resposta é do item.
+        motivo = Motivo.OPERADORES if no_item else Motivo.RESPOSTA_ILEGIVEL
+        return None, None, (motivo, "não foi possível parsear a resposta (lhs)")
+    if not isinstance(a, sp.Expr):
+        return None, None, (Motivo.RESPOSTA_INCOMPARAVEL,
+                            f"a resposta não é uma expressão: {type(a).__name__} "
+                            "contra uma expressão")
+    if na_resposta:
+        return None, None, (Motivo.OPERADORES_NA_RESPOSTA,
+                            "marcador de operador só na resposta — o item não tem operadores")
+    return _reinterpretar_produtos(a, b), b, None
+
+
+def _equals_semeado(a: sp.Expr, b: sp.Expr):
+    """`equals` sorteia pontos com o RNG global do SymPy: o mesmo Claim dava
+    INCONCLUSIVE numa chamada e FAIL na seguinte. Semente fixa a cada chamada
+    torna o verify determinístico (DOC-10 §10)."""
+    from sympy.core.random import seed
+
+    seed(17)
+    return a.equals(b)
 
 
 def _degenerada(resposta: sp.Expr, gabarito: sp.Expr) -> bool:
@@ -488,54 +686,68 @@ def _degenerada(resposta: sp.Expr, gabarito: sp.Expr) -> bool:
 
 class SymbolicVerifier:
     id = "symbolic/sympy@0.1.0"
+    papel = Papel.EQUIVALENCIA
 
     def applicable(self, claim: Claim) -> bool:
-        return claim.rhs is not None
+        # Numa relação (`E = m c²`), comparar os lados como símbolos
+        # independentes não tem sentido (ADR-0005 §4.1).
+        return claim.rhs is not None and tipo_da_afirmacao(claim) == "equivalencia"
+
+    def _abster(self, motivo: Motivo, evidencia: str) -> VerificationResult:
+        return VerificationResult(Verdict.INCONCLUSIVE, self.id, 0.0, evidencia, motivo=motivo)
 
     def verify(self, claim: Claim) -> VerificationResult:
         locais = _declarados(claim)
-        a, b = parse(claim.lhs, locais), parse(claim.rhs or "", locais)
-        if a is None or b is None:
-            qual = "lhs" if a is None else "rhs"
-            return VerificationResult(
-                Verdict.INCONCLUSIVE, self.id, 0.0, f"não foi possível parsear {qual}"
-            )
+        no_item, na_resposta = _operadores(claim)
+        a, b, abstencao = _ler_os_dois_lados(claim, locais, no_item, na_resposta)
+        if abstencao is not None:
+            return self._abster(*abstencao)
+        extras = _vocabulario_extra(a, b, claim)
 
         # ── comparação estrutural (barata, decide a maioria dos casos) ────
-        try:
-            if a == b or sp.srepr(a) == sp.srepr(b):
-                return VerificationResult(Verdict.PASS, self.id, 1.0, "idênticas estruturalmente")
-        except Exception:
-            pass
+        # ⚠️ Não com operadores no item: na rota do `parse_expr`, `A*B` e
+        # `B*A` saem na mesma ordem canônica e passavam por idênticos.
+        if not no_item:
+            try:
+                if a == b or sp.srepr(a) == sp.srepr(b):
+                    return VerificationResult(Verdict.PASS, self.id, 1.0, "idênticas estruturalmente")
+            except Exception:
+                pass
 
-        operadores = _tem_operadores(claim)
-
+        motivo_final = Motivo.INDECIDIVEL
         try:
             d = _com_limite(sp.simplify, a - b)
-        except (_Timeout, Exception):
-            return VerificationResult(
-                Verdict.INCONCLUSIVE, self.id, 0.0,
-                f"simplify não concluiu em {TIMEOUT_S}s — delegar ao numérico",
-            )
+        except _Timeout:
+            d, motivo_final = None, Motivo.TEMPO
+        except Exception:
+            d, motivo_final = None, Motivo.EXCECAO_NA_RESPOSTA
 
-        if d == 0:
-            if operadores:
+        if d is not None and d == 0:
+            if no_item:
                 # Ver docstring: o SymPy comutou o que talvez não comute.
-                return VerificationResult(
-                    Verdict.INCONCLUSIVE, self.id, 0.0,
+                return self._abster(
+                    Motivo.OPERADORES,
                     "expressão contém operadores/matrizes e o SymPy assume "
                     "comutatividade — diferença nula NÃO prova equivalência",
                 )
             return VerificationResult(Verdict.PASS, self.id, 1.0, "simplify(a−b) = 0")
 
-        try:
-            eq = _com_limite(a.equals, b)
-        except (_Timeout, Exception):
-            eq = None
+        eq = None
+        if d is not None:
+            try:
+                eq = _com_limite(_equals_semeado, a, b)
+            except _Timeout:
+                motivo_final = Motivo.TEMPO
+            except Exception:
+                motivo_final = Motivo.EXCECAO_NA_RESPOSTA
 
-        if eq is True and not operadores:
+        if eq is True:
+            if no_item:
+                return self._abster(
+                    Motivo.OPERADORES, "equals() confirmou, mas o item tem operadores"
+                )
             return VerificationResult(Verdict.PASS, self.id, 0.95, "equals() confirmou")
-        if eq is False or d != 0:
+        if eq is False or (d is not None and d != 0):
             # Só AGORA a degenerescência é diagnosticável: sabemos que as
             # expressões diferem, então uma resposta constante trivial é
             # tentativa de burlar, não resposta legítima.
@@ -547,13 +759,23 @@ class SymbolicVerifier:
                     counterexample=f"{a} vs {b}",
                 )
             if eq is False:
+                # `d` já vem do simplify com teto; um segundo simplify aqui,
+                # sem teto, era um caminho para a resposta travar o verificador.
                 return VerificationResult(
                     Verdict.FAIL, self.id, 0.95, "equals() refutou",
-                    counterexample=f"a−b = {sp.simplify(d)}",
+                    counterexample=f"a−b = {d}",
                 )
 
-        return VerificationResult(
-            Verdict.INCONCLUSIVE, self.id, 0.0,
-            "cascata simbólica não decidiu — delegar ao numérico "
-            "(indecidibilidade de Richardson não é falha do modelo)",
-        )
+        if extras:
+            return self._abster(
+                Motivo.VOCABULARIO,
+                f"a resposta usa o que o gabarito e o contexto não têm: {', '.join(extras)}",
+            )
+        if no_item:
+            return self._abster(Motivo.OPERADORES, "o item tem operadores e a cascata não decidiu")
+        evidencia = {
+            Motivo.TEMPO: f"simplify ou equals não concluiu em {TIMEOUT_S}s — delegar ao numérico",
+            Motivo.EXCECAO_NA_RESPOSTA: "o simplify ou o equals levantou exceção com esta resposta",
+        }.get(motivo_final, "cascata simbólica não decidiu — delegar ao numérico "
+                            "(indecidibilidade de Richardson não é falha do modelo)")
+        return self._abster(motivo_final, evidencia)

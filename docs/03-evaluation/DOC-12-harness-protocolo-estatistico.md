@@ -330,6 +330,113 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
    - **Texto em volta da resposta simbólica.** Só ", where …" e "i.e." saem, e só sem qualificador. "for", "with" e "since" ficam, e o parser estrito recusa: antes, "X for case 1, Y for case 2" passava pela primeira.
    - **Limitação declarada.** Bessel com índice (`J_{0}(kr)`) segue como produto, porque J₀·(…) também é corrente ou momento angular.
 
+10. **Quarta rodada do estresse (2026-10-23):** 963 casos e 23 causas nos dois atacantes que terminaram (falsos positivos e extração). De novo, a maioria era regressão das rodadas 2 e 3. Cada achado ganhou teste de regressão (`test_g2_corretor_estresse4.py`). O que mudou:
+   - **Decisão declarada: vale a ÚLTIMA caixa não vazia, como nos juízes oficiais do OlympiadBench e do UGPhysics.** A frase "final answer is" só é lida quando não há caixa. Nas rodadas 2 e 3, a frase depois da caixa podia vencê-la, e cada rodada achou furos nos dois sentidos: comentário hesitante vencendo a caixa certa, e correção legítima perdendo para a caixa intermediária. Com o few-shot terminando sempre em `The final answer is $\boxed{…}$`, a regra simples erra menos e erra igual nos dois braços. O custo: uma resposta que encaixota um resultado intermediário e dá o final só em prosa reprova. A auditoria das 200 gerações de dev (§3.7.3, item 3) mede quanto isso acontece.
+   - **Caixa.** A caixa vazia e a de placeholder (`\boxed{}`, `\boxed{...}`, do eco do prompt) não contam. O envoltório que cobre a caixa inteira sai (`{D}`, `\textbf{…}`, `\mathbf{…}`).
+   - **Corte de continuação.**
+     - Só arma com uma resposta de fato: a linha canônica (frase e caixa na mesma linha), uma caixa que fecha o parágrafo, ou a frase que se lê sem caixa.
+     - `Problem:` e o eco cortam sozinhos. O eco é a linha de resposta INTEIRA, como `g2_prompt` a gera, e um teste confere as duas listas: as linhas do OlympiadBench tinham deixado de casar.
+     - `Question:`, `Example 3:`, `Exercise 1.2` e `Problem 2.` só cortam se depois vier `Solution:` ou um eco.
+     - `Solution:` depois da resposta, com um enunciado inventado entre os dois, corta.
+     - O corte é linear: uma geração degenerada com centenas de caixas abertas levava 15 s fora do teto.
+   - **Frase sem caixa.**
+     - Recusa só a condição que governa a oração dela ("Had we neglected recoil, …"); "Note that" e "does not depend" não recusam.
+     - Aceita "≈", "E =" e rótulos "(1)" antes do valor.
+     - Depois do valor, recusa outro valor ligado ao primeiro ("$13.06$ eV, or $12.75$ eV"), "if" e "unless" na sentença, e a retratação na sentença seguinte ("But…", "However…", "Oops"). "Actually, this agrees…" não conta.
+     - Em texto puro, para no primeiro `$` ou em ", i.e.", e aceita `E = 13.06 eV` e uma expressão que começa por letra.
+   - **Número.**
+     - A cauda tem de ter a FORMA de unidade antes de ser comparada com a unidade do item. A comparação por tokens ignorava dígitos e operadores, e `130 \cdot 2 N`, `60–90 GeV` e `80.4^{2} m/s` passavam.
+     - O `\text{}` volta a ser lista BRANCA, agora com as unidades por extenso. A lista negra da rodada 3 deixava sair "thousand", "negative", qualificador em chinês e símbolo em texto (`N_A`).
+     - `\pm` reconhece a escala do central com `\cdot` e o `10^` nu.
+     - O μ separado da letra da unidade (`$0.3\,\mu$m`) vale contra a unidade do item.
+   - **Expressão.**
+     - Resposta com cálculo (`\sum`, `\int`) reprova.
+     - Torre de potências com expoente simbólico (3 níveis ou mais) é INCONCLUSIVE sem ser calculada; antes, estourava o teto e deixava a thread viva.
+     - "whereas" não é "where", e a cláusula com desigualdade ou qualificador não sai.
+     - Do outro lado da resposta, só letra grega, `\ell` ou letra solta valem como grandeza: `\arcsin\theta = X` não vale.
+   - **V/F e letras.**
+     - "No doubt", "No matter", "Correct answer is no", "False alarm" e "True only if" não decidem.
+     - A oposta depois de "is" reprova ("Yes, the answer is no").
+     - No rótulo de alternativa, a outra letra sozinha ("C. B") ou afirmada ("B is also correct", "B too") reprova.
+   - **Segunda leva**, do atacante de falsos positivos refeito (300 casos):
+     - `\text{upper bound} = 60` e `\text{error} = …`: o nome em texto do lado esquerdo não pode ser qualificador.
+     - "Yes/No" e "Yes \& no" não decidem.
+     - "Option D is also valid" reprova; o rótulo C seguido de "Option C" segue C.
+     - O isolamento pela raiz confere a solução na equação da resposta: `\sqrt{G} = -X` não dá G = X².
+     - Derivada não calculada na resposta (`\frac{Q\,d\sigma}{d\varepsilon}`) reprova.
+     - `\not\in` não é intervalo.
+     - A frase com alternativa entre as partes não decide ("$2$ and $8$ or $9$").
+   - **O que ficou de fora.** O atacante de regressões caiu três vezes no limite de sessão. No lugar dele, a regressão foi conferida pela suíte das rodadas 1 a 3 (todas passam, com as duas mudanças de política anotadas) e pelo autoteste do dev contra a versão anterior. A recomendação é parar as rodadas aqui: cada rodada acha furos mais raros, e a auditoria das gerações reais de dev mede melhor o que falta.
+
+11. **Autoteste do teste (2026-10-23, com o OK do dono).** Na primeira passada, o OlympiadBench-teste excluiu 22 de 236 itens (9,3%), acima do limite de 5%. A causa foi achada só por flags estruturais, sem olhar gabarito nem enunciado: em 16 itens Numerical, o campo `error` do benchmark vale 0. Com tolerância 0, a perturbação de 3× a tolerância é o próprio gabarito e passa; na medida, o comparador exigiria igualdade exata.
+    - **Decisão declarada:** `error` 0 é tolerância não declarada, e vale o 1e-2 relativo do OlympiadBench sem `error` (`g2_itens.tolerancias_olympiad`). Vale igual para os dois braços.
+    - **Resultado final** (`g2_autoteste.json`, todos abaixo do limite, sem morte nem reinício do trabalhador):
+
+      | Benchmark | Itens | Excluídos | Taxa | Composição |
+      |---|---|---|---|---|
+      | UGPhysics-teste | 1.999 | 82 | 4,1% | 65 INCONCLUSIVE (cálculo), 12 perturbação que passa, 3 FAIL, 2 sem resposta |
+      | OlympiadBench-teste | 236 | 5 | 2,1% | 4 INCONCLUSIVE e 1 perturbação que passa, em equações e expressões |
+      | PHYBench | 100 | 1 | 1,0% | — |
+      | SciBench-teste | 193 | 0 | 0% | — |
+
+      Os ids excluídos saem dos dois braços.
+
+12. **Iteração 1 do dev na GPU (2026-10-23, com o OK do dono).** Qwen3-1.7B-Base, k=1, 439 itens (300 do UG-dev sorteados, 115 do OlympiadBench-zh e os 24 do SciBench que não são exemplo), em 17 min na RX 7600. Agregados em `g2_dev_1.7B_base_it1.json`.
+
+    | Benchmark | Acerto | Sem resposta | Truncado | Inconclusivo | Fichas médias |
+    |---|---|---|---|---|---|
+    | UGPhysics | 6,0% | 4,7% | 8,7% | 2,7% | 327 |
+    | OlympiadBench-zh | 17,4% | 0% | 9,6% | 0% | 312 |
+    | SciBench | 4,2% | 0% | 12,5% | 0% | 558 |
+
+    O alvo de sem resposta (≤5%) foi cumprido. O de truncado (≤3%) não. O que se viu e o que mudou:
+    - **Truncado.** Todos os 40 vieram da guarda de repetição, nenhum do teto de fichas. A maioria é laço de verdade do modelo. Pelo menos 5, porém, foram cortados no meio da caixa final: a guarda antiga cortava a janela de 32 fichas que aparecesse 4 vezes em QUALQUER ponto, e numa derivação a expressão longa aparece derivada, simplificada, retomada e posta na caixa. Isso pesa diferente conforme o estilo do braço. **Mudança:** a guarda corta a janela que volta 4 vezes em intervalos IGUAIS (±2 fichas), que é a assinatura do laço, ou 8 vezes de qualquer jeito. Simulada nas 40 truncadas com o tokenizador do GGUF: as 5 cortadas na caixa seguiriam gerando, e os laços continuam cortados, no máximo umas voltas depois.
+    - **Sem resposta.** 2 dos 14 respondiam em texto, sem caixa ("The answer is True."). **Mudança:** a frase "The answer is X" (sem "final") também é lida quando não há caixa. Os outros 12 não deram resposta.
+    - **Inconclusivo.** Os 8 eram itens que o autoteste já exclui (cálculo, gabarito sem leitura), mas a medida ainda os gerava e contava. **Mudança:** `medir_g2` não gera nem conta os ids excluídos. No teste, exige o autoteste da MESMA versão do corretor.
+    - **FAIL.** Uma amostra de 40 FAIL foi conferida à mão: em todas, a extração pegou a resposta que o modelo deu, e a resposta estava errada. Nenhum defeito do corretor apareceu ali; a auditoria cega (item 3 do §3.7.3) mede isso com 200 gerações.
+
+13. **Iteração 2 do dev (2026-10-24, com o OK do dono)**, com a guarda de laço, a frase "The answer is" e sem os itens excluídos. Outro sorteio de 300 do UG-dev. Agregados em `g2_dev_1.7B_base_it2.json`.
+
+    | Benchmark | Acerto | Sem resposta | Truncado | Fichas médias |
+    |---|---|---|---|---|
+    | UGPhysics | 12,0% | 2,0% | 7,3% | 353 |
+    | OlympiadBench-zh | 17,4% | 0% | 10,4% | 363 |
+    | SciBench | 0% | 4,2% | 8,3% | 526 |
+
+    - **Truncado.** As 36 truncadas pararam todas pela guarda nova, nenhuma pelo teto de 4.096 fichas, e nenhuma tinha resposta completa antes do corte. São laços do próprio modelo base, e não defeito do harness. Com a amostragem do protocolo (T=0,6, top-p 0,95, sem penalidades, igual nos dois braços), o alvo de ≤3% não é atingível pela base. **Decisão do dono (2026-10-24):** o laço vale 0, a amostragem fica como está, e o alvo de ≤3% passa a valer só para defeito do harness (teto de fichas, paradas, guarda). Se o ΦGen laçar menos, isso aparece como ganho real. O dono também aceitou as duas decisões declaradas desta etapa: vale a última caixa (item 10) e o `error` 0 do OlympiadBench é tolerância não declarada (item 11).
+
+14. **Auditoria cega do corretor (2026-10-24, §3.7.3 item 3).**
+    - **Amostra.** `scripts/auditar_g2.py sortear` escolheu 200 gerações de dev corrigidas (das iterações 1 e 2, sem truncadas e sem os itens excluídos), estratificadas: 130 do UG, 50 do OlympiadBench e 20 do SciBench. Elas foram corrigidas com o corretor atual (24 PASS, 167 FAIL, 9 sem resposta). Os ids, os veredictos e o SHA-256 deles foram gravados no commit `a821268`, ANTES do julgamento.
+    - **Julgamento.** Dois juízes Claude independentes por lote de 10 leram só o enunciado, a linha de resposta, o gabarito, o critério e a geração, sem ver o veredito do corretor nem rodar código dele. Concordaram entre si nas 200, e não houve desempate.
+    - **Resultado** (`g2_auditoria.json`): concordância de **99,5%** no PASS contra o resto (199 de 200) e **κ = 0,977**. O alvo (≥95% e κ ≥ 0,8) foi cumprido na primeira passada.
+    - **O desacordo**, um só, é de notação: gabarito `v_m = \sqrt{2kT/m}` e resposta `v_p = \sqrt{2kT/M}`, a mesma velocidade mais provável com outro índice e massa maiúscula. Os juízes aprovaram, e o corretor reprova, porque compara símbolos (M ≠ m). **Limitação declarada:** o corretor não identifica símbolos renomeados. Isso vale igual nos dois braços.
+
+15. **Congelamento (2026-10-24).** `scripts/congelar_g2.py`, depois da auditoria cumprida e com o autoteste da mesma versão do corretor.
+    - **`g2_congelamento.json`** guarda o SHA-256 de:
+      - o código da medida: corretor, itens, `subscritos.py`, `symbolic.py`, prompt, geração, correção isolada e `medir_g2.py`, mais as versões do sympy, antlr4 e mpmath;
+      - os dados: partição, exemplos, autoteste e o envelope do IFEval, escrito agora (preâmbulo e 3 demonstrações sem restrições verificáveis);
+      - o hash da configuração da geração da 1,7B (`e1535689…`).
+    - **`g2.yaml`** recebeu a guarda de laço, os hashes dos exemplos e do envelope, o hash da configuração e o hash do congelamento (`230829b2…`).
+    - **`PROTOCOLO_G2_SHA256`** = `daf804d7…`.
+    - Daqui em diante, `medir_g2 teste` recusa se o g2.yaml, qualquer arquivo de código ou de dados do congelamento, ou uma versão de pacote mudar. Mudança só por emenda registrada aqui.
+
+16. **Medida da Qwen3-1.7B-Base no teste (2026-10-24 a 25, com o OK do dono).** Hash de configuração `e1535689…`, o do congelamento. Itens sem os excluídos pelo autoteste, k = 3/8/16/8: 10.727 gerações na RX 7600. Agregados oficiais em `g2_teste_1.7B_base_veredito.json`, com o corretor congelado:
+
+    | Benchmark | Itens | Acerto (avg@k) | Truncado | Sem resposta | Fichas médias |
+    |---|---|---|---|---|---|
+    | UGPhysics | 1.917 | 10,0% | 5,4% | 2,3% | 334 |
+    | OlympiadBench | 231 | 4,3% | 16,0% | 2,8% | 577 |
+    | PHYBench | 99 | 0,1% | 17,8% | 1,1% | 563 |
+    | SciBench | 193 | 10,6% | 9,8% | 0,1% | 451 |
+
+    Macro da base: ~6,3 pontos. O livro de acessos (`g2_acessos.jsonl`) registra a medida e 6 retomadas, todas com o mesmo hash. As interrupções e as causas foram estas:
+    - **WMI.** O processo lançado por `Win32_Process.Create` entra no job do hospedeiro do WMI, com cota de 512 MB. O servidor e o Python passavam da cota, e a árvore inteira morria sem erro em log. **Mudança:** lançar pelo Explorer.
+    - **Cascata minha.** Um script de comparação sem a guarda `__main__`, com o trabalhador isolado em spawn, abriu processos em cascata.
+    - **Pausas e desligamento.** Duas pausas pedidas pelo dono e um desligamento do computador.
+    - **Separador cru.** Uma geração trazia o caractere U+0085 cru. Os leitores congelados partem a linha nele com `splitlines()`, e a retomada parava. **Reparo:** o registro foi remontado, conferido pelo `sha256_texto`, e regravado com o caractere escapado, sem mudar o texto. Até o fim da medida, o supervisor escapou o caractere antes de cada tentativa. A correção do leitor entra na emenda 1.
+
+    - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

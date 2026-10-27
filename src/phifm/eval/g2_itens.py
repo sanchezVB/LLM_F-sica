@@ -89,6 +89,23 @@ def ugphysics(conjunto: str) -> list[Item]:
     return itens
 
 
+def tolerancias_olympiad(error, n: int) -> list[float | None]:
+    """O campo `error` do OlympiadBench, uma tolerância absoluta por resposta. `error` 0 é
+    tolerância não declarada (vale o 1e-2 relativo), não igualdade exata: com 0, a
+    perturbação de 3× a tolerância era o próprio gabarito, e o autoteste excluía 16 dos 113
+    Numerical do OlympiadBench-teste (2026-10-23)."""
+    erros: list[float | None] = []
+    for e in (str(error).split(",") if error not in (None, "") else []):
+        try:
+            v = float(e)
+        except ValueError:
+            v = None
+        erros.append(v if v is not None and v > 0 else None)
+    if len(erros) != n:
+        erros = (erros[:1] * n) if erros else [None] * n
+    return erros
+
+
 def olympiadbench(conjunto: str) -> list[Item]:
     import pyarrow.parquet as pq
 
@@ -101,14 +118,7 @@ def olympiadbench(conjunto: str) -> list[Item]:
         tipos = [t.strip() for t in str(x["answer_type"]).split(",")]
         if len(tipos) != len(partes):
             tipos = [tipos[0]] * len(partes)
-        erros: list[float | None] = []
-        for e in (str(x["error"]).split(",") if x.get("error") not in (None, "") else []):
-            try:
-                erros.append(float(e))
-            except ValueError:
-                erros.append(None)
-        if len(erros) != len(partes):
-            erros = (erros[:1] * len(partes)) if erros else [None] * len(partes)
+        erros = tolerancias_olympiad(x.get("error"), len(partes))
         contexto = (x.get("context") or "").strip()
         enunciado = f"{contexto}\n\n{x['question']}" if contexto else x["question"]
         itens.append(Item(

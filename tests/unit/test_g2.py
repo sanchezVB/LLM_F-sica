@@ -22,6 +22,20 @@ sys.path.insert(0, str(RAIZ / "src"))
 from phifm.eval import g2  # noqa: E402
 
 
+def test_estado_congelado_recusa_codigo_ou_dados_mudados(tmp_path):
+    estado = g2.estado_congelavel(RAIZ)
+    cong = tmp_path / "cong.json"
+    cong.write_text(json.dumps(estado), encoding="utf-8")
+    g2.exigir_estado_congelado(RAIZ, cong, g2.sha256_arquivo(cong))      # igual: passa
+    with pytest.raises(g2.ProtocoloMudou):
+        g2.exigir_estado_congelado(RAIZ, cong, "0" * 64)                 # outro arquivo
+    mudado = json.loads(json.dumps(estado))
+    mudado["codigo"]["src/phifm/eval/g2_corretor.py"] = "0" * 64
+    cong.write_text(json.dumps(mudado), encoding="utf-8")
+    with pytest.raises(g2.ProtocoloMudou, match="g2_corretor"):
+        g2.exigir_estado_congelado(RAIZ, cong)
+
+
 def test_hash_do_corretor_cobre_as_dependencias_e_o_parser():
     codigo = g2.codigo_do_corretor(RAIZ)
     assert {"src/phifm/core/latex/subscritos.py", "src/phifm/verify/symbolic.py",

@@ -1,0 +1,30 @@
+{
+ "o_que_e": "o congelamento do protocolo do G2 (DOC-12 §3.7.3): o código e os dados da medida por SHA-256; o g2.yaml guarda o hash deste arquivo",
+ "em": "2026-10-24",
+ "codigo": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "6a48ca36eb8349ca6407c0813fc5c70951f95f471b266a9f1cf7eb773246e714",
+  "src/phifm/eval/g2_prompt.py": "2d4ecf88f6ae11e2ea9ad9f46b0934afe60b3d09ee7dac79b0341c8e1cec43be",
+  "src/phifm/eval/g2_geracao.py": "9273738eee946be6ee6c4fc6d1c73c6daf1837ae58c738b88663610ea1916545",
+  "src/phifm/eval/g2_correcao.py": "76ad3f332169d85a78e8996946f30e6c6de7ab58c7943dc0ff4ee719dd26fd4a",
+  "scripts/medir_g2.py": "14551236291c4c6ff1d3066b5ac83d9ff84652d697d08a139e03a3dad0483690",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "dados": {
+  "data/processed/avaliacao/g2_particao.json": "3198479eab6879066616493bd6db663f31502d30d45d6f8fa3a0340edab4aa0b",
+  "data/processed/avaliacao/g2_exemplos.json": "6458b8466cf5cd86a9e1c30aee9a0035208b0bb8297163b51d79b60009a213b5",
+  "data/processed/avaliacao/g2_autoteste.json": "f49e27b7e47ea8e7216004c4c9f2714285b108c6b6dd375dc27203b838c92afb",
+  "configs/eval/preregistration/g2_ifeval_envelope.txt": "975e81b603eb7eabc24c36841cf1e9a51a13f854f16a2db9dad41bfc8a3ec4fa"
+ },
+ "hash_da_configuracao": {
+  "Qwen3-1.7B-Base": "e15356892060e5f4b634d650fa346d14f4ef1d031cc83917590d51dda2f3d91e"
+ },
+ "auditoria": {
+  "concordancia_pass": 0.995,
+  "kappa_pass": 0.9767
+ }
+}

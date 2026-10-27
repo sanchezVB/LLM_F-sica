@@ -233,7 +233,9 @@ def test_desigualdade_geqslant():
 @pytest.mark.parametrize("texto, esperado", [
     (r"... so $\boxed{352}$." + "\n\nProblem 2: A block. Solution: $a = \\boxed{4.9}$", "352"),
     (r"... so $\boxed{352}$." + "\n\n**Problem:** x. $v = \\boxed{7}$", "352"),
-    (r"First, $T = \boxed{300}$ K. Then ... The final answer is 352 m/s.", "352 m/s"),
+    # rodada 4: vale a última caixa, como nos juízes oficiais; a frase só é lida sem caixa
+    (r"First, $T = \boxed{300}$ K. Then ... The final answer is 352 m/s.", "300"),
+    ("First, T = 300 K. Then ... The final answer is 352 m/s.", "352 m/s"),
     ("The final answer is $352$ m/s.", "352"),
     ("The final answer is approximately 352 m/s.", "352 m/s"),
     (r"The final answer is $\frac{3}{2} Nk$, where $k$ is Boltzmann's constant.", r"\frac{3}{2} Nk"),

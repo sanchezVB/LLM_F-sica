@@ -1,0 +1,101 @@
+{
+ "o_que_e": "exemplos few-shot do G2 (DOC-12 §3.7.4): ids de DEV e o sha256 do texto formatado; o conteúdo fica fora do git",
+ "exemplos": {
+  "ugphysics": {
+   "ids": [
+    "QuantumMechanics/5085",
+    "Solid-StatePhysics/4044",
+    "StatisticalMechanics/3537",
+    "ClassicalMechanics/2280"
+   ],
+   "fichas_da_solucao": [
+    151,
+    254,
+    226,
+    519
+   ],
+   "tipos": [
+    "NV",
+    "NV",
+    "EX",
+    "EQ"
+   ],
+   "sha256_do_texto": "4b62de9d37d1de09c6d5d9b74f0f8539d3d1f4c18f5d2ef8ced64c4e4ee882e0"
+  },
+  "olympiadbench": {
+   "ids": [
+    "ClassicalMechanics/2253",
+    "Relativity/2469",
+    "AtomicPhysics/1241",
+    "StatisticalMechanics/3632"
+   ],
+   "fichas_da_solucao": [
+    340,
+    279,
+    336,
+    215
+   ],
+   "tipos": [
+    "NV",
+    "NV",
+    "EX",
+    "EX"
+   ],
+   "sha256_do_texto": "a47875b6f633998256514b268cf1b6c9726f974cfc822aa5f0351c15b1b721d6"
+  },
+  "phybench": {
+   "ids": [
+    "ClassicalMechanics/2144",
+    "WaveOptics/5285",
+    "TheoreticalMechanics/2798"
+   ],
+   "fichas_da_solucao": [
+    498,
+    206,
+    537
+   ],
+   "tipos": [
+    "EX",
+    "EX",
+    "EX"
+   ],
+   "sha256_do_texto": "ced15319b9018afde6afa7e5c5896372fbaaa5900749ab6b968aef1659eb7278"
+  },
+  "scibench": {
+   "ids": [
+    "class/2.6",
+    "class/5.5",
+    "class/7.10",
+    "fund/10.04",
+    "fund/8.04",
+    "fund/14.01",
+    "thermo/19.6",
+    "thermo/17.9",
+    "thermo/5.6"
+   ],
+   "fichas_da_solucao": [
+    541,
+    643,
+    856,
+    439,
+    283,
+    198,
+    440,
+    356,
+    394
+   ],
+   "tipos": [
+    "NV",
+    "NV",
+    "NV",
+    "NV",
+    "NV",
+    "NV",
+    "NV",
+    "NV",
+    "NV"
+   ],
+   "sha256_do_texto": "4bfb589de15cdd15608bff69bf1f07c279a9487e92f76a6aac0d3f724d2aa228"
+  }
+ }
+}

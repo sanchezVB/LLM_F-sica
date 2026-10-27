@@ -28,7 +28,7 @@ from phifm.eval.g2_itens import Item  # noqa: E402
     (r"$\boxed{\text{No}}$." + "\n\nWe can verify that the final answer is correct.", r"\text{No}"),
     (r"The final answer is $\boxed{13.06}$. This final answer is reasonable since it is close.",
      "13.06"),
-    (r"First, $T = \boxed{300}$ K. ... The final answer is 352 m/s.", "352 m/s"),
+    (r"First, $T = \boxed{300}$ K. ... The final answer is 352 m/s.", "300"),   # rodada 4
     ("The **final answer** is $13.06$ eV.", "13.06"),
 ])
 def test_frase_final_so_vence_quando_responde(texto, esperado):

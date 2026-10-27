@@ -59,16 +59,33 @@ def _exemplos_do(item: g2_itens.Item, exemplos: dict[str, list[g2_itens.Item]]
     return [e for e in exemplos["scibench"] if e.extra["livro"] == item.extra["livro"]]
 
 
+def excluidos(conjunto: str) -> dict[str, set[str]]:
+    """{bench: ids} que o autoteste exclui dos DOIS braços (§3.7.3, item 1). No teste, a
+    lista tem de ser da MESMA versão do corretor; no dev, a divergência só avisa. Antes, o
+    item excluído era gerado e contado (iteração 1 do dev, 2026-10-24)."""
+    aut = json.loads((AVAL / "g2_autoteste.json").read_text(encoding="utf-8"))
+    if aut.get("codigo_sha256") != g2.codigo_do_corretor(RAIZ):
+        aviso = "g2_autoteste.json é de outra versão do corretor: refaça o autoteste"
+        if conjunto == "teste":
+            raise SystemExit(aviso)
+        print(f"AVISO: {aviso}", flush=True)
+    return {k.split("/")[0]: set(v["ids_excluidos"]) for k, v in aut["conjuntos"].items()
+            if k.endswith("/" + conjunto)}
+
+
 def itens_de_dev(n_ug: int, iteracao: int, exemplos: dict[str, list[g2_itens.Item]]
                  ) -> list[g2_itens.Item]:
+    fora = excluidos("dev")
     usados = {e.id for es in exemplos.values() for e in es}
-    ug = sorted((i for i in g2_itens.carregar("ugphysics", "dev") if i.id not in usados),
-                key=lambda i: i.id)
+
+    def validos(bench: str) -> list[g2_itens.Item]:
+        return [i for i in g2_itens.carregar(bench, "dev")
+                if i.id not in usados and i.id not in fora.get(bench, set())]
+
+    ug = sorted(validos("ugphysics"), key=lambda i: i.id)
     if n_ug:
         ug = random.Random(g2.SEMENTE_G2 + 100 + iteracao).sample(ug, min(n_ug, len(ug)))
-    oly = g2_itens.carregar("olympiadbench", "dev")
-    sci = [i for i in g2_itens.carregar("scibench", "dev") if i.id not in usados]
-    return ug + oly + sci
+    return ug + validos("olympiadbench") + validos("scibench")
 
 
 def _agregar(itens: list[g2_itens.Item], amostras: list[dict], vereditos: dict) -> dict:
@@ -114,9 +131,31 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
             if feitas % 25 == 0:
                 print(f"   {feitas}/{len(pedidos)} amostras · {time.time() - t0:.0f} s · "
                       f"última: {a.bench} {a.fichas} fichas ({a.parada})", flush=True)
+    return corrigir_e_agregar(fase, modelo, braco, rotulo, itens, k, saida, hc, t0)
+
+
+def _amostras(saida: Path, hc: str, por_id: dict) -> list[dict]:
+    """As amostras do hash, UMA por (bench, id, j): a linha `erro` de uma rodada
+    interrompida e refeita depois sai (a iteração 2 do dev contava 4 amostras duas vezes)."""
+    por_chave: dict[tuple, dict] = {}
+    for x in saida.read_text(encoding="utf-8").splitlines():
+        if not x.strip():
+            continue
+        a = json.loads(x)
+        if a["hash_config"] != hc or (a["bench"], a["item_id"]) not in por_id:
+            continue
+        chave = (a["bench"], a["item_id"], a["j"])
+        if a["parada"] != "erro" or chave not in por_chave:
+            por_chave[chave] = a
+    return list(por_chave.values())
+
+
+def corrigir_e_agregar(fase: str, modelo: str, braco: str, rotulo: str,
+                       itens: list[g2_itens.Item], k: dict[str, int], saida: Path, hc: str,
+                       t0: float, segundos: int | None = None) -> dict:
+    nome, _ = MODELOS[modelo]
     por_id = {(i.bench, i.id): i for i in itens}
-    amostras = [json.loads(x) for x in saida.read_text(encoding="utf-8").splitlines() if x.strip()]
-    amostras = [a for a in amostras if a["hash_config"] == hc and (a["bench"], a["item_id"]) in por_id]
+    amostras = _amostras(saida, hc, por_id)
     # A correção roda DEPOIS da geração, com o servidor já parado (a máquina sem outra carga
     # pesada), num processo que pode ser morto (g2_correcao).
     vereditos = {}
@@ -137,7 +176,7 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
         "codigo_sha256": g2.codigo_do_corretor(RAIZ, extras=tuple(
             f"src/phifm/eval/{n}.py" for n in ("g2_prompt", "g2_geracao", "g2_correcao"))),
         "correcoes_mortas_no_teto": mortes,
-        "k": k, "segundos": round(time.time() - t0),
+        "k": k, "segundos": segundos if segundos is not None else round(time.time() - t0),
         "por_benchmark": _agregar(itens, amostras, vereditos),
     }
     if fase == "dev":       # só no dev: no teste, nada por item até o veredito (lacre)
@@ -157,6 +196,8 @@ def main() -> int:
     p.add_argument("--iteracao", type=int, default=1)
     p.add_argument("--ug", type=int, default=UG_DEV_POR_ITERACAO,
                    help="itens do UG-dev por iteração (0 = todos)")
+    p.add_argument("--so-corrigir", action="store_true",
+                   help="dev: refaz só a correção e o agregado das gerações já feitas, sem GPU")
     a = p.parse_args()
     exemplos = _exemplos()
     if a.fase == "dev":
@@ -165,10 +206,21 @@ def main() -> int:
         rotulo = f"it{a.iteracao}" + ("_ugcompleto" if a.ug == 0 else "")
     else:
         g2.exigir_aceite_e_congelamento()          # antes de LER qualquer coisa do teste
-        itens = [i for b in g2.BENCH_G2_1 for i in g2_itens.carregar(b, "teste")]
+        fora = excluidos("teste")
+        itens = [i for b in g2.BENCH_G2_1 for i in g2_itens.carregar(b, "teste")
+                 if i.id not in fora.get(b, set())]
         k, rotulo = K_TESTE, "veredito"
     print(f"{a.fase}: {len(itens)} itens, k={k}")
-    r = rodar(a.fase, a.modelo, rotulo, itens, exemplos, k, a.braco)
+    if a.so_corrigir:
+        if a.fase != "dev":
+            raise SystemExit("--so-corrigir é só para o dev")
+        anterior = json.loads((AVAL / f"g2_dev_{a.modelo}_{a.braco}_{rotulo}.json")
+                              .read_text(encoding="utf-8"))
+        saida = SAIDAS / f"dev_{a.modelo}_{a.braco}_{rotulo}.jsonl"
+        r = corrigir_e_agregar("dev", a.modelo, a.braco, rotulo, itens, k, saida,
+                               anterior["hash_config"], time.time(), anterior.get("segundos"))
+    else:
+        r = rodar(a.fase, a.modelo, rotulo, itens, exemplos, k, a.braco)
     for b, x in r["por_benchmark"].items():
         print(f"{b}: acerto {x['acerto']} · {x['fracoes']} · fichas média {x['fichas_media']}")
     return 0
