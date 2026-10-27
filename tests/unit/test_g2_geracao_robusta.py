@@ -11,18 +11,39 @@ import pytest
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from phifm.eval import g2_geracao_robusta as g2_geracao as ger  # noqa: E402
+from phifm.eval import g2_geracao_robusta as ger  # noqa: E402
 
 
 def _linha(**d) -> bytes:
     return ("data: " + json.dumps(d) + "\n").encode()
 
 
-def test_guarda_corta_na_quarta_repeticao_da_janela():
+def test_guarda_corta_na_quarta_repeticao_da_janela_em_laco():
     g = ger.GuardaDeRepeticao(janela=3, vezes=4)
     assert not g.alimentar([1, 2, 3, 9])
-    assert not g.alimentar([1, 2, 3, 8, 1, 2, 3])   # (1,2,3) três vezes
-    assert g.alimentar([7, 1, 2, 3])                 # a quarta corta
+    assert not g.alimentar([1, 2, 3, 8, 1, 2, 3])   # (1,2,3) três vezes, a cada 4 fichas
+    assert g.alimentar([7, 1, 2, 3])                 # a quarta, no mesmo intervalo, corta
+
+
+def test_guarda_nao_corta_expressao_retomada_ao_longo_da_derivacao():
+    """A expressão longa derivada, simplificada, retomada e posta na caixa: 4 vezes, mas em
+    intervalos desiguais. A guarda antiga cortava no meio da caixa final (iteração 1)."""
+    g = ger.GuardaDeRepeticao(janela=3, vezes=4)
+    novas = iter(range(100, 10_000))              # texto entre as retomadas, sem repetição
+    texto = []
+    for n in (10, 3, 25, 6):
+        texto += [1, 2, 3] + [next(novas) for _ in range(n)]
+    assert not g.alimentar(texto + [1, 2, 3])
+
+
+def test_guarda_corta_na_oitava_vez_mesmo_sem_intervalos_iguais():
+    g = ger.GuardaDeRepeticao(janela=3, vezes=4, teto=8)
+    novas = iter(range(100, 10_000))
+    texto = []
+    for k in range(7):
+        texto += [1, 2, 3] + [next(novas) for _ in range(1 + 2 * k)]
+    assert not g.alimentar(texto)
+    assert g.alimentar([1, 2, 3])
 
 
 def test_guarda_nao_corta_texto_que_so_parece():

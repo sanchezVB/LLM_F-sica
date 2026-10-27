@@ -8,12 +8,12 @@ de amostragem, igual para a base e para o ΦGen.
   DESLIGADOS (top-k, min-p, typical, penalidades, DRY, XTC, mirostat), porque os padrões do
   servidor não são neutros. A semente da amostra j é `sha256('bench:id:j')`, a mesma nos
   dois braços. Até 4.096 fichas.
-- **Guarda de repetição, no cliente, por streaming.** Se uma janela de 32 fichas aparece 4
-  vezes, a geração é cortada. O corte conta como TRUNCADO: sem a guarda, ela iria até o
-  teto. Interpretação fixada antes de medir.
-- **Retomada.** Cada tentativa vira uma linha de jsonl, com os hashes do texto, do motor
-  e da execução completa. Só se retomam a mesma configuração e os mesmos pedidos.
-  Tentativas com erro podem ser repetidas; cada amostra lógica conta uma vez.
+- **Guarda de repetição, no cliente, por streaming.** Se uma janela de 32 fichas volta 4
+  vezes em intervalos iguais (±2 fichas), ou 8 vezes de qualquer jeito, a geração é
+  cortada: é laço. O corte conta como TRUNCADO: sem a guarda, ela iria até o teto.
+  Interpretação fixada antes de medir.
+- **Retomada.** Cada amostra vira uma linha de jsonl, com o SHA-256 do texto. Rodar de novo
+  pula o que já foi gerado.
 
 O hash da configuração reúne o commit do servidor, as flags, o SHA-256 do GGUF, a GPU e o
 pedido. Ele vai em toda linha. A base só vale no veredito com o MESMO hash do ΦGen.
@@ -30,7 +30,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections import Counter
+from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -43,6 +43,8 @@ COMMIT_DO_SERVIDOR = "b11159 (6b790a9c2)"
 FICHAS_MAX = 4096
 JANELA_REPETICAO = 32
 VEZES_REPETICAO = 4
+FOLGA_REPETICAO = 2       # fichas de diferença aceitas entre os intervalos de um laço
+TETO_REPETICAO = 8        # a mesma janela 8 vezes corta, com intervalos iguais ou não
 
 
 def amostragem(temperatura: float = 0.6, top_p: float = 0.95) -> dict:
@@ -60,22 +62,35 @@ def semente(bench: str, item_id: str, j: int) -> int:
 
 
 class GuardaDeRepeticao:
-    """Corta quando uma janela de `janela` fichas aparece `vezes` vezes."""
+    """Corta o LAÇO: uma janela de `janela` fichas que volta `vezes` vezes em intervalos
+    iguais (±`folga`), ou `teto` vezes de qualquer jeito.
 
-    def __init__(self, janela: int = JANELA_REPETICAO, vezes: int = VEZES_REPETICAO):
-        self.janela, self.vezes = janela, vezes
+    Na iteração 1 do dev (2026-10-24), a guarda antiga (a janela 4 vezes em qualquer ponto)
+    cortou respostas legítimas: numa derivação, a expressão longa aparece derivada,
+    simplificada, retomada e posta na caixa, e o corte vinha no meio da caixa final. Isso
+    pesa diferente conforme o estilo do braço. O laço de verdade se repete em intervalos
+    iguais, e a guarda nova o corta, no máximo umas voltas depois da antiga."""
+
+    def __init__(self, janela: int = JANELA_REPETICAO, vezes: int = VEZES_REPETICAO,
+                 folga: int = FOLGA_REPETICAO, teto: int = TETO_REPETICAO):
+        self.janela, self.vezes, self.folga, self.teto = janela, vezes, folga, teto
         self.fichas: list[int] = []
-        self._contagem: Counter = Counter()
+        self._posicoes: dict[tuple, list[int]] = defaultdict(list)
 
     def alimentar(self, novas: Iterable[int]) -> bool:
-        """True se, com as fichas novas, alguma janela chegou a `vezes`."""
+        """True se, com as fichas novas, alguma janela fechou um laço."""
         for f in novas:
             self.fichas.append(f)
             if len(self.fichas) >= self.janela:
-                chave = tuple(self.fichas[-self.janela:])
-                self._contagem[chave] += 1
-                if self._contagem[chave] >= self.vezes:
+                pos = self._posicoes[tuple(self.fichas[-self.janela:])]
+                pos.append(len(self.fichas))
+                if len(pos) >= self.teto:
                     return True
+                if len(pos) >= self.vezes:
+                    ult = pos[-self.vezes:]
+                    intervalos = [b - a for a, b in zip(ult, ult[1:], strict=False)]
+                    if max(intervalos) - min(intervalos) <= self.folga:
+                        return True
         return False
 
 
@@ -171,19 +186,13 @@ class ServidorG2:
                 self._processo.wait(timeout=15)
             except subprocess.TimeoutExpired:
                 self._processo.kill()
-                self._processo.wait()
         self._processo = None
         if self._arq_log is not None:
             self._arq_log.close()
             self._arq_log = None
 
     def __enter__(self):
-        try:
-            self.iniciar()
-        except BaseException:
-            # __exit__ não é chamado se __enter__ falhar.
-            self.parar()
-            raise
+        self.iniciar()
         return self
 
     def __exit__(self, *_):
@@ -194,7 +203,8 @@ def hash_da_configuracao(servidor: ServidorG2, gguf_sha256: str, gpu: str,
                          pedido: dict) -> str:
     conf = {"servidor": COMMIT_DO_SERVIDOR, "flags": servidor.flags(), "gguf": gguf_sha256,
             "gpu": gpu, "pedido": pedido, "fichas_max": FICHAS_MAX,
-            "guarda": [JANELA_REPETICAO, VEZES_REPETICAO]}
+            "guarda": [JANELA_REPETICAO, VEZES_REPETICAO, FOLGA_REPETICAO, TETO_REPETICAO,
+                       "intervalos iguais"]}
     return hashlib.sha256(json.dumps(conf, sort_keys=True).encode()).hexdigest()
 
 

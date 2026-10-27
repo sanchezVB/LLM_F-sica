@@ -9,7 +9,7 @@ mudanças não demonstram um aumento de acerto do modelo.
   configuração são recusados. Retentativas contam uma vez e o agregado exige todos
   os itens/amostras. Resultados publicados não são recalculados com nova tentativa.
 - Pré-condições G2: código, autoteste, exclusões, partição, dados, quantização e motor
-  são conferidos antes da geração. O protocolo ainda precisa ser concluído e congelado.
+  são conferidos antes da geração. O protocolo oficial já foi congelado no main. O executor novo é `medir_g2_robusto.py`; requer uma emenda e nova validação antes de uso no teste.
 - Pré-treino: checkpoint completo do detector, métricas, contadores e RNG por processo;
   escrita atômica e cópia anterior. Rollback preserva a memória dos spikes. A continuidade
   de checkpoint antigo exige `train_phienc.py --permitir-legado`, sem equivalência prometida.
@@ -57,8 +57,8 @@ fluxo de inferência Vulkan documentado; treino grande requer hardware/stack apr
 ## O que falta executar com os artefatos reais
 
 1. Disponibilizar corpus, referências e modelos locais; conferir os caminhos do HD.
-2. Atualizar autoteste depois do parser atual; concluir os exemplos few-shot e o dev.
-3. Conferir e congelar protocolo/artefatos, então medir as bases. Não preencher hashes
+2. Preservar a avaliação oficial 1,7B registrada no main. Para o executor robusto, atualizar autoteste depois do parser atual e validar no dev.
+3. Registrar emenda e novo congelamento para o executor robusto antes de remedir bases. Não preencher hashes
    para contornar a ausência dos arquivos.
 4. Auditar corpus completo e executar piloto causal no hardware adequado; medir retenção
    de capacidades gerais e ganho físico com os controles pré-registrados.
@@ -67,3 +67,10 @@ fluxo de inferência Vulkan documentado; treino grande requer hardware/stack apr
 
 Os arquivos externos não estão nesta máquina. Não foram executados treinos de 1,7B,
 benchmarks lacrados ou medições reais de melhoria do assistente durante esta alteração.
+
+## Estado incorporado do main
+
+A integração inclui o commit `6058d0e`: avaliação oficial da base 1,7B já registrada,
+auditoria cega do corretor e ADR-0005. `medir_g2.py`, `g2.py`, `g2_geracao.py` e o
+pré-registro oficial foram preservados. `medir_g2_robusto.py` é o executor novo para
+desenvolvimento e proposta de emenda; seus logs não retomam os logs históricos.

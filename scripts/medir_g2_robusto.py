@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""A medida de física do G2 (DOC-12 §3.7): gera, corrige e agrega.
+"""Executor experimental separado do protocolo oficial congelado.
+
+A medida de física do G2 (DOC-12 §3.7): gera, corrige e agrega.
 
     # DEV (permitido agora): itens de dev, k=1, para afinar extrator e corretor
-    .venv\\Scripts\\python.exe scripts\\medir_g2.py dev --modelo 1.7B --iteracao 1 [--ug 300]
+    .venv\\Scripts\\python.exe scripts\\medir_g2_robusto.py dev --modelo 1.7B --iteracao 1 [--ug 300]
 
     # TESTE: recusa sem o aceite da regra, sem o congelamento e sem o livro de acessos
-    .venv\\Scripts\\python.exe scripts\\medir_g2.py teste --modelo 1.7B --braco base
+    .venv\\Scripts\\python.exe scripts\\medir_g2_robusto.py teste --modelo 1.7B --braco base
 
 Na fase de dev, cada iteração usa ~300 itens sorteados do UG-dev (com `--ug 0`, o UG-dev
 inteiro), os 115 do OlympiadBench-zh e os `_sol` do SciBench que não viraram exemplo. Itens
