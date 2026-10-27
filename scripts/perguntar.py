@@ -9,9 +9,10 @@ foi este script que o subiu. A busca roda na CPU: com o modelo carregado sobram 
 8 GB da RX 7600, e a matriz do índice em float32 ocupa 2,4 GB. Custa ~1,4 s por pergunta,
 contra ~10 s do modelo escrevendo — não é o gargalo.
 
-⚠️ A qualidade das respostas NÃO foi medida. O portão confere que toda citação aponta
-para uma fonte fornecida, não que a fonte diga o que a frase afirma. Ver
-`phifm.rag.assistente`.
+O portão padrão confere que toda citação aponta para uma fonte fornecida. O experimento
+`--verificar-evidencias` também pede ao modelo local um julgamento semântico por frase,
+conferindo os trechos citados; a qualidade desse juiz ainda precisa ser medida. Ver
+`phifm.rag.evidencias` e `scripts/avaliar_evidencias.py`.
 """
 from __future__ import annotations
 
@@ -47,6 +48,9 @@ def mostrar(r, consulta: bool) -> None:
         print("\n⚠️ frases sem citação — não confie nelas sem conferir:")
         for frase in r.frases_sem_fonte:
             print(f"   · {frase}")
+    if r.evidencias is not None:
+        print(f"\nVerificação experimental: {r.evidencias.sustentadas} fragmento(s) "
+              f"sustentado(s), {r.evidencias.rejeitadas} retido(s) pelo juiz.")
 
 
 def main() -> int:
@@ -60,6 +64,10 @@ def main() -> int:
                    help="desliga o ΦRank, que reordena os 50 primeiros da busca (adotado em 2026-10-07, DOC-13 §9.2: +10,6 pontos de acerto, ~+11 s na CPU)")
     p.add_argument("--mostrar-consulta", action="store_true",
                    help="imprime o resumo hipotético que foi à busca")
+    p.add_argument("--verificar-evidencias", action="store_true",
+                   help="EXPERIMENTAL: julga cada frase contra trechos das fontes e se "
+                        "abstém quando falta sustentação; usa o mesmo modelo local como "
+                        "juiz, cuja qualidade ainda precisa de avaliação")
     p.add_argument("--passagens", action="store_true",
                    help="OPCIONAL (DOC-13 §9.6: ganha no corpo do artigo, perde um pouco no "
                         "resumo — não é o padrão): anexa às fontes os trechos do texto "
@@ -79,6 +87,7 @@ def main() -> int:
     a = p.parse_args()
 
     from phifm.rag.assistente import SISTEMA_RESPOSTA_V2, Assistente
+    from phifm.rag.evidencias import VerificadorEvidencias
     from phifm.rag.llm import ModeloLocal
     from phifm.retrieval.indice import Busca
 
@@ -104,7 +113,9 @@ def main() -> int:
     # Com --passagens, a dupla medida (A‴): os trechos e a instrução v2.
     assistente = Assistente(busca, modelo, a.spine, k=a.k, reordenador=reordenador,
                             passagens=passagens, sistema_com_passagens=SISTEMA_RESPOSTA_V2,
-                            lexica=lexica, reordenar_pelo_texto=not a.sem_ordem_pelo_texto)
+                            lexica=lexica, reordenar_pelo_texto=not a.sem_ordem_pelo_texto,
+                            verificador_evidencias=(VerificadorEvidencias(modelo)
+                                                    if a.verificar_evidencias else None))
     print(f"pronto em {time.perf_counter() - t0:.1f} s · "
           f"{busca.vetores.shape[0]:,} artigos no índice")
     try:

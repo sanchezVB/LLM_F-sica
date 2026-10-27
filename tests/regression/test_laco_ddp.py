@@ -14,8 +14,10 @@ Os contadores do mascaramento, somados entre processos, têm de coincidir EXATAM
 from __future__ import annotations
 
 import json
+import random
 import sys
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 
 import numpy as np
@@ -41,6 +43,7 @@ from phifm.training.pretrain.laco import (  # noqa: E402
     NOME_METRICAS,
     ConfigTreino,
     Distribuicao,
+    Metricas,
     Treinador,
 )
 from phifm.training.pretrain.mascaramento import ConfigMascara  # noqa: E402
@@ -189,3 +192,139 @@ def test_dois_processos_terminam_com_os_mesmos_pesos_que_um(tmp_path):
     diferenca = max(float((p1["modelo"][k] - p2["modelo"][k]).abs().max())
                     for k in p1["modelo"])
     assert diferenca < 1e-3, f"pesos divergem por {diferenca:.2e}"
+
+
+def _trabalhador_retomada(rank, mundo, raiz, store, saida, modo):
+    """Reinícios reais do grupo DDP, com RNG distinto em cada processo."""
+    import io
+    import os
+
+    import torch.distributed as dist
+
+    if sys.platform == "win32":
+        os.environ.setdefault("GLOO_SOCKET_IFNAME", "Loopback Pseudo-Interface 1")
+    dist.init_process_group("gloo", init_method=Path(store).as_uri(), rank=rank,
+                            world_size=mundo, timeout=timedelta(seconds=60))
+    try:
+        tr = _treinador(Path(raiz), total=4, acumulacao=2,
+                        distribuicao=Distribuicao(rank, mundo))
+        if modo == "falha_gravacao":
+            Path(saida).mkdir(parents=True, exist_ok=True)
+            salvar = torch.save
+
+            def falhar(*args, **kwargs):
+                # all_gather_object também usa torch.save, em BytesIO. O erro
+                # simulado é no DISCO do rank 0, não nessa serialização coletiva.
+                if len(args) > 1 and isinstance(args[1], io.BytesIO):
+                    return salvar(*args, **kwargs)
+                raise OSError("disco cheio simulado")
+
+            if rank == 0:
+                torch.save = falhar
+            try:
+                tr._gravar(Path(saida), 0, Metricas())
+            except RuntimeError as exc:
+                (Path(saida) / f"erro_rank{rank}.txt").write_text(str(exc))
+            else:
+                raise AssertionError("o erro de gravação não chegou ao processo")
+            return
+
+        random.seed(19 + rank)
+        np.random.seed(19 + rank)
+        # O restart começa de estados diferentes de propósito.
+        if modo == "retomar":
+            torch.rand(7 + rank)
+            random.random()
+            np.random.random(7 + rank)
+            retomar = tr.retomar
+
+            def conferir_restauracao(pasta, **kwargs):
+                estado = torch.load(Path(pasta) / NOME_ESTADO, weights_only=False)
+                indice = retomar(pasta, **kwargs)
+                assert tr.detector.estado() == estado["detector_estado"]
+                local = estado["estados_por_processo"][rank]
+                assert torch.equal(torch.get_rng_state(), local["rng_torch"])
+                assert random.getstate() == local["rng_python"]
+                assert np.array_equal(np.random.get_state()[1], local["rng_numpy"][1])
+                return indice
+
+            tr.retomar = conferir_restauracao
+        else:
+            assert tr.detector.observar(0, float("inf"), 1).e_spike
+        passo_original = tr._passo
+
+        def passo(indice):
+            r = passo_original(indice)
+            torch.rand(rank + 1)
+            random.random()
+            np.random.random(rank + 1)
+            return r
+
+        tr._passo = passo
+        if modo == "interromper":
+            gravar = tr._gravar
+
+            def interromper(pasta, indice, m, **kwargs):
+                gravar(pasta, indice, m, **kwargs)
+                if indice == 2:
+                    raise RuntimeError("sessão interrompida")
+
+            tr._gravar = interromper
+        try:
+            tr.treinar(Path(saida))
+        except RuntimeError as exc:
+            if modo != "interromper" or str(exc) != "sessão interrompida":
+                raise
+    finally:
+        dist.destroy_process_group()
+
+
+def _rodar_retomada_ddp(raiz, saida, modo):
+    with tempfile.TemporaryDirectory(prefix="phifm_resume_") as pasta:
+        store = Path(pasta) / "store"
+        torch.multiprocessing.spawn(
+            _trabalhador_retomada,
+            args=(2, str(raiz), str(store), str(saida), modo),
+            nprocs=2, join=True)
+
+
+def test_ddp_retomado_preserva_estado_de_cada_processo(tmp_path):
+    raiz = _dados(tmp_path / "dados")
+    continuo, retomado = tmp_path / "continuo", tmp_path / "retomado"
+    _rodar_retomada_ddp(raiz, continuo, "continuo")
+    _rodar_retomada_ddp(raiz, retomado, "interromper")
+    _rodar_retomada_ddp(raiz, retomado, "retomar")
+    a = torch.load(continuo / NOME_ESTADO, weights_only=False)
+    b = torch.load(retomado / NOME_ESTADO, weights_only=False)
+    assert a["passo"] == b["passo"] == 4
+    # A restauração é conferida EXATAMENTE antes de continuar no trabalhador.
+    # Depois de novos forwards, vale a mesma tolerância numérica de DDP acima:
+    # o Transformers 5 tem arredondamento dependente do processo.
+    for campo in ("config", "spikes", "reduzir_lr_ate", "versao"):
+        assert a["detector_estado"][campo] == b["detector_estado"][campo]
+    for campo in ("perdas", "normas"):
+        assert a["detector_estado"][campo] == pytest.approx(
+            b["detector_estado"][campo], abs=1e-5)
+    assert a["metricas_estado"]["tokens"] == b["metricas_estado"]["tokens"]
+    assert a["metricas_estado"]["rollbacks"] == b["metricas_estado"]["rollbacks"]
+    assert [h["lr"] for h in a["metricas_estado"]["historico"]] == [
+        h["lr"] for h in b["metricas_estado"]["historico"]]
+    for aa, bb in zip(a["estados_por_processo"], b["estados_por_processo"], strict=True):
+        assert aa["contadores"] == bb["contadores"]
+        assert torch.equal(aa["rng_torch"], bb["rng_torch"])
+        assert aa["rng_python"] == bb["rng_python"]
+        assert aa["rng_numpy"][0] == bb["rng_numpy"][0]
+        assert np.array_equal(aa["rng_numpy"][1], bb["rng_numpy"][1])
+        assert aa["rng_numpy"][2:] == bb["rng_numpy"][2:]
+    # Mesma tolerância de execução DDP já motivada no teste acima, para
+    # arredondamento dependente do processo no Transformers 5.
+    assert max(float((a["modelo"][k] - b["modelo"][k]).abs().max())
+               for k in a["modelo"]) < 1e-3
+
+
+def test_falha_de_gravacao_e_propagada_a_todos_os_processos(tmp_path):
+    raiz = _dados(tmp_path / "dados")
+    saida = tmp_path / "saida"
+    _rodar_retomada_ddp(raiz, saida, "falha_gravacao")
+    for rank in range(2):
+        assert "disco cheio simulado" in (saida / f"erro_rank{rank}.txt").read_text()

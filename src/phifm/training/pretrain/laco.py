@@ -94,9 +94,14 @@ uniforme.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
 import os
+import pickle
+import random
+import shutil
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -123,6 +128,30 @@ log = logging.getLogger(__name__)
 
 NOME_ESTADO = "estado_pretreino.pt"
 NOME_METRICAS = "phienc.json"
+NOME_ESTADO_ANTERIOR = NOME_ESTADO + ".anterior"
+VERSAO_ESTADO = 2
+
+
+def _gravar_atomico(destino: Path, gravar, *, anterior: Path | None = None) -> None:
+    """Publica só o arquivo completo; uma falha preserva o checkpoint vigente."""
+    temporario = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=destino.parent, prefix=destino.name + ".",
+                                         suffix=".tmp", delete=False) as f:
+            temporario = Path(f.name)
+            gravar(f)
+            f.flush()
+            os.fsync(f.fileno())
+        if anterior is not None and destino.exists():
+            # Primeiro tornar o anterior durável, depois trocar o vigente.
+            def copiar(f):
+                with destino.open("rb") as origem:
+                    shutil.copyfileobj(origem, f)
+            _gravar_atomico(anterior, copiar)
+        temporario.replace(destino)
+    finally:
+        if temporario is not None:
+            temporario.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)
@@ -252,6 +281,10 @@ class Treinador:
         self.passos_warmup, self.passos_decay = plano_wsd(
             cfg.total_passos, cfg.frac_warmup, cfg.frac_decay)
         self.contadores = Contadores()
+        self.metricas = Metricas()
+        self.retomada_legada = False
+        self._recuperado_do_anterior = False
+        self._hashes_dos_dados: dict[str, str] | None = None
         log.info("WSD: warmup %d · platô %d · decay %d · pico %.1e",
                  self.passos_warmup,
                  cfg.total_passos - self.passos_warmup - self.passos_decay,
@@ -428,10 +461,13 @@ class Treinador:
 
     # ── o laço ──────────────────────────────────────────────────────────────
 
-    def treinar(self, saida: Path) -> Metricas:
+    def treinar(self, saida: Path, *, permitir_legado: bool = False) -> Metricas:
         saida.mkdir(parents=True, exist_ok=True)
-        m = Metricas()
-        passo = self.retomar(saida)
+        passo = self.retomar(saida, permitir_legado=permitir_legado)
+        m = self.metricas
+        if not (saida / NOME_ESTADO).exists() and not (saida / NOME_ESTADO_ANTERIOR).exists():
+            # Um spike antes do primeiro checkpoint também precisa de pesos válidos.
+            self._gravar(saida, 0, m)
         tokens_por_passo = self.fluxo.tokens_por_passo() * self.cfg.acumulacao
         t0 = time.perf_counter()
         tokens_desde_log = 0
@@ -458,6 +494,8 @@ class Treinador:
             else:
                 m.passos_pulados_pelo_scaler += 1
 
+            m.tokens += tokens_por_passo
+
             if passo % self.cfg.passos_log == 0:
                 dt = time.perf_counter() - t0
                 # Média entre processos: é esta vazão que decide abortar por tempo,
@@ -477,11 +515,11 @@ class Treinador:
                              m.epoca, tratada)
                 m.historico.append({k: v for k, v in asdict(m).items()
                                     if k != "historico"})
-                self._conferir_orcamento_de_sessao(m, saida, passo)
+                # Os pesos já incluem este passo: a retomada começa no próximo.
+                self._conferir_orcamento_de_sessao(m, saida, passo + 1)
                 t0, tokens_desde_log = time.perf_counter(), 0
 
             passo += 1
-            m.tokens += tokens_por_passo
             if passo % self.cfg.passos_estado == 0:
                 self._gravar(saida, passo, m)
 
@@ -491,6 +529,50 @@ class Treinador:
 
     # ── estado ──────────────────────────────────────────────────────────────
 
+    def _identidade_do_treino(self) -> dict:
+        if self._hashes_dos_dados is None:
+            # O número de tokens e o manifesto não detectam um arquivo trocado
+            # por outro de mesmo tamanho. Ler uma vez por treinador, em blocos,
+            # sem copiar a fatia inteira para RAM.
+            self._hashes_dos_dados = {}
+            for nome, array in (("tokens", self.fluxo.tokens), ("marcas", self.fluxo.marcas)):
+                h = hashlib.sha256()
+                bloco = memoryview(array).cast("B")
+                for inicio in range(0, len(bloco), 1 << 22):
+                    h.update(bloco[inicio:inicio + (1 << 22)])
+                self._hashes_dos_dados[nome] = h.hexdigest()
+        treino = asdict(self.cfg)
+        # O WSD permite estender o total; frequência de log/estado e orçamento são
+        # escolhas operacionais. As demais escolhas mudam o experimento.
+        for nome in ("total_passos", "frac_warmup", "frac_decay", "passos_log",
+                     "passos_estado", "limite_horas"):
+            treino.pop(nome)
+        return {"modelo": self.cfg_enc.como_dict(), "treino": treino,
+                "mascara": asdict(self.cfg_mascara),
+                "dados": {"manifesto": self.fluxo.manifesto,
+                          "sha256": self._hashes_dos_dados,
+                          "tokens": int(self.fluxo.tokens.size),
+                          "contexto": self.fluxo.cfg.contexto,
+                          "sequencias": self.fluxo.cfg.sequencias,
+                          "semente": self.fluxo.cfg.semente},
+                "processos": self.dist.mundo, "amp": self.amp,
+                "detector": asdict(self.detector.cfg)}
+
+    def _estado_local(self) -> dict:
+        return {"contadores": asdict(self.contadores),
+                "rng_torch": torch.get_rng_state(),
+                "rng_cuda": (torch.cuda.get_rng_state(self.dev)
+                             if self.dev.type == "cuda" else None),
+                "rng_numpy": np.random.get_state(), "rng_python": random.getstate()}
+
+    def _estados_por_processo(self) -> list[dict]:
+        local = self._estado_local()
+        if self.dist.mundo == 1:
+            return [local]
+        estados = [None] * self.dist.mundo
+        torch.distributed.all_gather_object(estados, local)
+        return estados
+
     def _gravar(self, saida: Path, passo: int, m: Metricas,
                 concluido: bool = False, motivo: str = "") -> None:
         """Grava o estado. Chamado em TODOS os processos; só o 0 escreve.
@@ -499,10 +581,31 @@ class Treinador:
         e a barreira no fim impede um processo de retomar de um arquivo pela metade.
         """
         contadores = self.contadores_globais()
-        if not self.dist.principal:
-            self._barreira()
-            return
-        torch.save({
+        estados = self._estados_por_processo()
+        self.metricas = m
+        erro = None
+        if self.dist.principal:
+            try:
+                self._publicar_checkpoint(saida, passo, m, contadores, estados,
+                                          concluido=concluido, motivo=motivo)
+            except Exception as exc:
+                erro = exc
+        if self.dist.mundo > 1:
+            # Uma falha de disco no rank 0 precisa encerrar TODOS os processos;
+            # a antiga barreira deixava os demais esperando indefinidamente.
+            status = [None if erro is None else f"{type(erro).__name__}: {erro}"]
+            torch.distributed.broadcast_object_list(status, src=0)
+            if status[0] is not None:
+                raise RuntimeError(f"falha ao gravar checkpoint no processo 0: {status[0]}") from erro
+        elif erro is not None:
+            raise erro
+
+    def _publicar_checkpoint(self, saida: Path, passo: int, m: Metricas,
+                             contadores: Contadores, estados: list[dict], *,
+                             concluido: bool, motivo: str) -> None:
+        """Parte de I/O executada só no processo principal, sem coletivos."""
+        estado = {
+            "versao_estado": VERSAO_ESTADO,
             "passo": passo,
             "modelo": self._nucleo().state_dict(),
             "opt": self.opt.state_dict(),
@@ -512,8 +615,16 @@ class Treinador:
             "passos_warmup": self.passos_warmup,
             "passos_decay": self.passos_decay,
             "detector": self.detector.como_dict(),
-        }, saida / NOME_ESTADO)
-        (saida / NOME_METRICAS).write_text(json.dumps({
+            "detector_estado": self.detector.estado(),
+            "metricas_estado": asdict(m),
+            "estados_por_processo": estados,
+            "identidade": self._identidade_do_treino(),
+            "retomada_legada": self.retomada_legada,
+        }
+        anterior = None if self._recuperado_do_anterior else saida / NOME_ESTADO_ANTERIOR
+        _gravar_atomico(saida / NOME_ESTADO, lambda f: torch.save(estado, f), anterior=anterior)
+        self._recuperado_do_anterior = False
+        relatorio = {
             "modelo": self.cfg_enc.como_dict(),
             "treino": asdict(self.cfg),
             "mascara": asdict(self.cfg_mascara),
@@ -528,6 +639,7 @@ class Treinador:
             "historico": m.historico,
             "concluido": concluido,
             "motivo_da_parada": motivo,
+            "retomada_legada": self.retomada_legada,
             "amp": self.amp,
             "dispositivo": str(self.dev),
             "distribuicao": {
@@ -538,20 +650,78 @@ class Treinador:
             "ressalva_mfu": (f"MFU contra {self.pico_flops:.1e} FLOPS NOMINAIS; sem "
                              "FA-2 (a T4 é SM 7.5) o teto prático é bem menor, "
                              "então esta MFU é um limite superior otimista"),
-        }, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
-        self._barreira()
+        }
+        conteudo = json.dumps(relatorio, indent=2, ensure_ascii=False, default=str).encode("utf-8")
+        _gravar_atomico(saida / NOME_METRICAS, lambda f: f.write(conteudo))
 
-    def retomar(self, saida: Path) -> int:
+    def _ler_checkpoint(self, saida: Path) -> dict | None:
         p = saida / NOME_ESTADO
-        if not p.exists():
-            return 0
-        est = torch.load(p, map_location=self.dev, weights_only=False)
+        anterior = saida / NOME_ESTADO_ANTERIOR
+        if not p.exists() and not anterior.exists():
+            return None
+        def ler(caminho):
+            est = torch.load(caminho, map_location="cpu", weights_only=False)
+            campos = {"passo", "modelo", "opt"}
+            if isinstance(est, dict) and est.get("versao_estado") == VERSAO_ESTADO:
+                campos |= {"detector_estado", "metricas_estado", "estados_por_processo",
+                           "identidade", "passos_warmup", "passos_decay"}
+            if (not isinstance(est, dict) or not campos <= est.keys()
+                    or type(est["passo"]) is not int or est["passo"] < 0):
+                raise ValueError("estrutura incompleta no checkpoint")
+            return est
+
+        try:
+            return ler(p)
+        except (OSError, EOFError, RuntimeError, ValueError, pickle.UnpicklingError) as erro:
+            if not anterior.exists():
+                raise
+            log.warning("checkpoint vigente ilegível (%s); recuperando o anterior: %s", erro, anterior)
+            est = ler(anterior)
+            self._recuperado_do_anterior = True
+            return est
+
+    def _restaurar_pesos(self, est: dict) -> None:
         self._nucleo().load_state_dict(est["modelo"])
         self.opt.load_state_dict(est["opt"])
         if self.escala is not None and est.get("escala"):
             self.escala.load_state_dict(est["escala"])
         self.passos_warmup = est.get("passos_warmup", self.passos_warmup)
         self.passos_decay = est.get("passos_decay", self.passos_decay)
+
+    def retomar(self, saida: Path, *, permitir_legado: bool = False) -> int:
+        """Restaura a execução inteira; rollback de pesos usa outro caminho.
+
+        Checkpoints antigos continuam exportáveis. Continuá-los exige opção explícita,
+        porque não contêm as janelas/RNG necessários à equivalência com o treino original.
+        """
+        est = self._ler_checkpoint(saida)
+        if est is None:
+            return 0
+        if est.get("versao_estado") != VERSAO_ESTADO:
+            if "versao_estado" in est:
+                raise ValueError("versão desconhecida do checkpoint de pré-treino")
+            if not permitir_legado:
+                raise ValueError("checkpoint legado sem estado completo; a continuação não é "
+                                 "equivalente. Use permitir_legado=True explicitamente.")
+            log.warning("retomada de checkpoint legado: sem equivalência de RNG, detector e métricas")
+            self.retomada_legada = True
+        else:
+            if est["identidade"] != self._identidade_do_treino():
+                raise ValueError("configuração/dados/processos diferem do checkpoint; "
+                                 "isso mudaria o experimento na retomada")
+            self.detector = Detector.de_estado(est["detector_estado"])
+            self.metricas = Metricas(**est["metricas_estado"])
+            local = est["estados_por_processo"][self.dist.rank]
+            self.contadores = Contadores(**local["contadores"])
+            torch.set_rng_state(local["rng_torch"].cpu())
+            if local["rng_cuda"] is not None:
+                if self.dev.type != "cuda":
+                    raise ValueError("checkpoint CUDA requer CUDA para restaurar o RNG")
+                torch.cuda.set_rng_state(local["rng_cuda"].cpu(), self.dev)
+            np.random.set_state(local["rng_numpy"])
+            random.setstate(local["rng_python"])
+            self.retomada_legada = est.get("retomada_legada", False)
+        self._restaurar_pesos(est)
         passo = int(est["passo"])
         log.info("retomado do passo %d (warmup %d, decay %d do checkpoint)",
                  passo, self.passos_warmup, self.passos_decay)
@@ -565,7 +735,11 @@ class Treinador:
         determinístico — e o spike voltaria no mesmo lugar, indefinidamente.
         """
         m.rollbacks += 1
-        alvo = self.retomar(saida)
+        est = self._ler_checkpoint(saida)
+        if est is None:
+            raise RuntimeError("rollback sem checkpoint: nenhum peso válido para restaurar")
+        self._restaurar_pesos(est)
+        alvo = int(est["passo"])
         # A janela suspeita é do checkpoint até o spike. Retomar dali e pular até
         # depois do spike descarta os batches que a produziram.
         salto = passo + 1

@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass(frozen=True)
@@ -163,6 +163,27 @@ class Detector:
         É o passo 4 do §6.1: "reduzir a LR em 50% por 500 passos, depois restaurar".
         """
         return self.cfg.fator_lr if passo <= self._reduzir_ate else 1.0
+
+    def estado(self) -> dict:
+        """Estado de retomada, incluindo a janela que o resumo público omite."""
+        return {"versao": 1, "config": asdict(self.cfg),
+                "perdas": list(self._perdas), "normas": list(self._normas),
+                "spikes": list(self._spikes), "reduzir_lr_ate": self._reduzir_ate}
+
+    @classmethod
+    def de_estado(cls, estado: dict) -> Detector:
+        if estado.get("versao") != 1:
+            raise ValueError("versão desconhecida do estado do detector")
+        novo = cls(ConfigSpike(**estado["config"]))
+        perdas, normas = estado["perdas"], estado["normas"]
+        if (len(perdas) != len(normas) or len(perdas) > novo.cfg.janela
+                or not all(math.isfinite(v) for v in (*perdas, *normas))):
+            raise ValueError("janela inválida no estado do detector")
+        novo._perdas.extend(perdas)
+        novo._normas.extend(normas)
+        novo._spikes = list(estado["spikes"])
+        novo._reduzir_ate = int(estado["reduzir_lr_ate"])
+        return novo
 
     def como_dict(self) -> dict:
         return {"spikes": list(self._spikes), "n_spikes": len(self._spikes),

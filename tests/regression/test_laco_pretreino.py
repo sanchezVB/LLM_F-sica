@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import json
 import math
+import random
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -38,8 +40,10 @@ from phifm.training.pretrain.dados import (  # noqa: E402
     marcas_de,
 )
 from phifm.training.pretrain.laco import (  # noqa: E402
+    NOME_ESTADO,
     NOME_METRICAS,
     ConfigTreino,
+    Metricas,
     Treinador,
 )
 from phifm.training.pretrain.mascaramento import ConfigMascara  # noqa: E402
@@ -245,3 +249,154 @@ def test_no_CONTROLE_a_perda_uniforme_e_a_de_treino(tmp_path):
     t = _treinador(tmp_path, total=10, p_eq=0.0)
     perda, uniforme, _, _ = t._passo(0)
     assert uniforme == pytest.approx(perda, rel=1e-3)
+
+
+def test_retomada_restaura_detector_contadores_metricas_e_rng(tmp_path):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    for passo in range(40):
+        t.detector.observar(passo, 2 + 0.001 * (passo % 5), 1)
+    assert t.detector.observar(40, 100, 1).e_spike
+    t._mascarar_lote(0)
+    m = Metricas(passo=41, tokens=1024, rollbacks=1, historico=[{"passo": 40}])
+    t._gravar(saida, 41, m)
+    esperado_rng = (torch.rand(4), np.random.random(4), random.random())
+
+    novo = _treinador(tmp_path, total=99)
+    assert novo.retomar(saida) == 41
+    assert novo.detector.como_dict() == t.detector.como_dict()
+    assert novo.detector.fator_lr(41) == 0.5
+    assert asdict(novo.contadores) == asdict(t.contadores)
+    assert asdict(novo.metricas) == asdict(m)
+    assert torch.equal(torch.rand(4), esperado_rng[0])
+    assert np.array_equal(np.random.random(4), esperado_rng[1])
+    assert random.random() == esperado_rng[2]
+
+
+def test_reiniciar_no_meio_da_lr_reduzida_equivale_ao_treino_continuo(tmp_path, monkeypatch):
+    def preparado(raiz):
+        t = _treinador(raiz, total=8)
+        assert t.detector.observar(0, float("inf"), 1).e_spike
+        return t
+
+    continuo = preparado(tmp_path / "continuo")
+    m1 = continuo.treinar(tmp_path / "continuo" / "saida")
+    interrompido = preparado(tmp_path / "partido")
+    gravar = interrompido._gravar
+
+    def cair(saida, passo, m, **kwargs):
+        gravar(saida, passo, m, **kwargs)
+        if passo == 4:
+            raise RuntimeError("sessão interrompida")
+
+    monkeypatch.setattr(interrompido, "_gravar", cair)
+    saida = tmp_path / "partido" / "saida"
+    with pytest.raises(RuntimeError, match="sessão interrompida"):
+        interrompido.treinar(saida)
+    novo = _treinador(tmp_path / "partido", total=8)
+    m2 = novo.treinar(saida)
+
+    for nome, peso in continuo._nucleo().state_dict().items():
+        assert torch.equal(peso, novo._nucleo().state_dict()[nome]), nome
+    assert m2.tokens == m1.tokens == 8 * 2 * MINI.contexto
+    assert m2.rollbacks == m1.rollbacks
+    assert [h["lr"] for h in m2.historico] == [h["lr"] for h in m1.historico]
+    assert [h["perda"] for h in m2.historico] == [h["perda"] for h in m1.historico]
+    assert asdict(novo.contadores) == asdict(continuo.contadores)
+    assert novo.detector.como_dict() == continuo.detector.como_dict()
+
+
+def test_rollback_preserva_detector_metricas_e_contadores_correntes(tmp_path):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    m = Metricas(tokens=128)
+    t._gravar(saida, 1, m)
+    t._mascarar_lote(2)
+    assert t.detector.observar(2, float("inf"), 1).e_spike
+    estado = t.detector.como_dict()
+    contadores = asdict(t.contadores)
+    assert t._rollback(saida, 2, m) == 3
+    assert t.detector.como_dict() == estado
+    assert asdict(t.contadores) == contadores
+    assert m.rollbacks == 1 and m.tokens == 128
+
+
+def test_gravacao_interrompida_preserva_checkpoint_valido(tmp_path, monkeypatch):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    t._gravar(saida, 1, Metricas())
+    original = (saida / NOME_ESTADO).read_bytes()
+
+    def falhar(estado, arquivo, **kwargs):
+        if hasattr(arquivo, "write"):
+            arquivo.write(b"checkpoint truncado")
+        else:
+            Path(arquivo).write_bytes(b"checkpoint truncado")
+        raise OSError("disco interrompido")
+
+    monkeypatch.setattr(torch, "save", falhar)
+    with pytest.raises(OSError, match="disco interrompido"):
+        t._gravar(saida, 2, Metricas())
+    assert (saida / NOME_ESTADO).read_bytes() == original
+    assert _treinador(tmp_path, total=10).retomar(saida) == 1
+
+
+def test_checkpoint_corrompido_recupera_o_anterior(tmp_path, caplog):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    t._gravar(saida, 1, Metricas(tokens=128))
+    t._gravar(saida, 2, Metricas(tokens=256))
+    (saida / NOME_ESTADO).write_bytes(b"arquivo truncado")
+    novo = _treinador(tmp_path, total=10)
+    assert novo.retomar(saida) == 1
+    assert novo.metricas.tokens == 128
+    assert "anterior" in caplog.text
+
+    # Salvar depois da recuperação não pode copiar o arquivo corrompido por
+    # cima do único backup que ainda é válido.
+    novo._gravar(saida, 3, novo.metricas)
+    (saida / NOME_ESTADO).write_bytes(b"outra interrupcao")
+    assert _treinador(tmp_path, total=10).retomar(saida) == 1
+
+
+def test_retomada_recusa_dados_trocados_com_mesmo_tamanho(tmp_path):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    t._gravar(saida, 1, Metricas())
+    # Usa outra pasta para também funcionar no Windows, que mantém o memmap
+    # original aberto. Manifesto, tamanho e parâmetros continuam idênticos.
+    dados = _dados(tmp_path / "outra")
+    ids = np.fromfile(dados / NOME_TOKENS, dtype=np.uint16)
+    ids[0] = (int(ids[0]) + 1) % VOCAB
+    (dados / NOME_TOKENS).write_bytes(ids.tobytes())
+    outro = _treinador(tmp_path / "outra", total=10)
+    with pytest.raises(ValueError, match="dados"):
+        outro.retomar(saida)
+
+
+def test_checkpoint_legivel_mas_incompleto_recupera_o_anterior(tmp_path):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    t._gravar(saida, 1, Metricas())
+    t._gravar(saida, 2, Metricas())
+    torch.save({"passo": 2}, saida / NOME_ESTADO)
+    assert _treinador(tmp_path, total=10).retomar(saida) == 1
+
+
+def test_retomada_legada_exige_opcao_explicita(tmp_path, caplog):
+    saida = tmp_path / "saida"
+    saida.mkdir()
+    t = _treinador(tmp_path, total=10)
+    torch.save({"passo": 3, "modelo": t._nucleo().state_dict(),
+                "opt": t.opt.state_dict()}, saida / NOME_ESTADO)
+    novo = _treinador(tmp_path, total=10)
+    with pytest.raises(ValueError, match="legado"):
+        novo.retomar(saida)
+    assert novo.retomar(saida, permitir_legado=True) == 3
+    assert "equival" in caplog.text
