@@ -1,5 +1,8 @@
 # Instalação e continuidade em outra máquina
 
+Para as correções de robustez, o piloto causal e a instalação com todos os caches e
+temporários no HD, consulte [CONTINUAR-ROBUSTEZ](docs/CONTINUAR-ROBUSTEZ.md).
+
 O projeto tem **duas partes que vivem em lugares diferentes**, por decisão de
 arquitetura (DOC-01 §4.1):
 
@@ -90,6 +93,44 @@ Verificar:
 PYTHONPATH=src .venv-treino/Scripts/python -m pytest tests/regression/test_gradcache.py -q
 ```
 
+
+## 1c. Treino em CPU no Linux e no CI
+
+O job `treino-cpu` executa GradCache, pré-treino MLM e causal, retomada, detector de
+instabilidade, DDP em dois processos, exportação e integração com recuperação usando
+modelos minúsculos e dados sintéticos.
+Ele não precisa do corpus, de pesos externos ou de GPU. Cada alvo precisa executar
+testes aprovados: `importorskip`, falha e ausência de um alvo reprovam a conferência
+do relatório JUnit. O status original do pytest também é preservado.
+
+O lock abaixo fixa o ambiente **Linux x86_64, Python 3.12, Torch 2.4.1 CPU e
+Transformers 5.0.0**, incluindo as dependências transitivas. O wheel CPU usa a URL
+e o SHA-256 do índice oficial do PyTorch; as dependências gerais continuam em
+`requirements.lock`. Use uma venv separada da DirectML:
+
+```bash
+python3.12 -m venv .venv-treino-cpu
+.venv-treino-cpu/bin/python -m pip install -r requirements-treino-cpu.lock
+.venv-treino-cpu/bin/python -m pip check
+rm -f /tmp/phifm-treino-cpu.xml
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+PYTHONPATH=src .venv-treino-cpu/bin/python -m pytest -q -ra \
+  --junitxml=/tmp/phifm-treino-cpu.xml \
+  tests/regression/test_gradcache.py tests/regression/test_laco_pretreino.py \
+  tests/regression/test_laco_ddp.py tests/regression/test_laco_de_treino.py \
+  tests/regression/test_laco_causal.py tests/unit/test_spike.py \
+  tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py && \
+.venv-treino-cpu/bin/python scripts/conferir_testes_treino.py /tmp/phifm-treino-cpu.xml \
+  tests/regression/test_gradcache.py tests/regression/test_laco_pretreino.py \
+  tests/regression/test_laco_ddp.py tests/regression/test_laco_de_treino.py \
+  tests/regression/test_laco_causal.py tests/unit/test_spike.py \
+  tests/regression/test_exportar_phienc.py tests/regression/test_phienc_ate_a_recuperacao.py
+```
+
+Para atualizar o lock, recrie uma venv limpa, mantenha as versões da base e do
+Transformers alinhadas aos experimentos e execute esses testes antes de registrar
+as novas versões. A validação CPU não substitui a medição de CUDA/AMP, GPU ou a
+qualidade dos modelos treinados.
 
 ## 2. Configurar identificação
 

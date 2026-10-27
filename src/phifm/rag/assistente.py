@@ -26,6 +26,8 @@ from pathlib import Path
 
 import polars as pl
 
+from phifm.rag.evidencias import RelatorioEvidencias, VerificadorEvidencias
+
 SISTEMA_HYDE = (
     "You write the title and abstract of a physics research paper. Given a question, write "
     "a plausible, specific title and a ~120-word abstract, in English, of a paper that would "
@@ -117,6 +119,7 @@ class Resposta:
     citadas: list[int] = field(default_factory=list)
     removidas: list[int] = field(default_factory=list)
     frases_sem_fonte: list[str] = field(default_factory=list)
+    evidencias: RelatorioEvidencias | None = None
 
 
 def verificar_citacoes(texto: str, n_fontes: int) -> tuple[str, list[int], list[int], list[str]]:
@@ -173,10 +176,14 @@ class Assistente:
     def __init__(self, busca, modelo, spine: Path, k: int = 6, semente: int | None = None,
                  reordenador=None, passagens=None, sistema: str = SISTEMA_RESPOSTA,
                  sistema_com_passagens: str | None = None, lexica=None,
-                 reordenar_pelo_texto: bool = False):
+                 reordenar_pelo_texto: bool = False,
+                 verificador_evidencias: VerificadorEvidencias | None = None):
         self.busca, self.modelo, self.k, self.semente = busca, modelo, k, semente
         self.reordenador = reordenador
         self.passagens = passagens
+        # Experimento opt-in: o padrão continua sendo o sistema já medido. O juiz
+        # semântico precisa de avaliação própria antes de qualquer adoção.
+        self.verificador_evidencias = verificador_evidencias
         # No modo do texto completo, a ordem dos candidatos funde também a melhor janela do
         # texto de cada um (DOC-13 §9.10). Desligado até a regra da §9.11 dizer.
         self.reordenar_pelo_texto = reordenar_pelo_texto
@@ -276,8 +283,19 @@ class Assistente:
         """O passo 3 e o portão, com as fontes dadas — vindas da busca ou trocadas."""
         bruto = self.modelo.gerar(sistema or self.sistema, self._usuario(pergunta, fontes),
                                   semente=self.semente)
+        return self._finalizar_resposta(pergunta, bruto, fontes, consulta)
+
+    def _finalizar_resposta(self, pergunta: str, bruto: str, fontes: list[Fonte],
+                            consulta: str) -> Resposta:
         texto, citadas, removidas, sem_fonte = verificar_citacoes(bruto, len(fontes))
-        return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
+        relatorio = None
+        if self.verificador_evidencias is not None:
+            relatorio = self.verificador_evidencias.verificar(
+                pergunta, texto, fontes,
+                portugues="Portuguese" in instrucao_de_idioma(pergunta))
+            texto, citadas, _, sem_fonte = verificar_citacoes(relatorio.texto, len(fontes))
+        return Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte,
+                        relatorio)
 
     def _modo(self, com_passagens: bool | None) -> tuple[bool, str]:
         """`(usa as passagens?, a instrução)`. `com_passagens=None` é o comportamento de
@@ -311,7 +329,8 @@ class Assistente:
 
         ⚠️ Os pedaços são o texto CRU: uma citação inventada aparece na tela enquanto é
         escrita, e só o `fim` a tira. Quem mostra os pedaços tem de trocar o texto pelo do
-        `fim` — a página faz isso."""
+        `fim` — a página faz isso. Com verificação experimental de evidências, o texto
+        fica retido até o julgamento: nenhum pedaço rejeitado é enviado à tela."""
         consulta = self.consulta_hipotetica(pergunta)
         _, sistema = self._modo(com_passagens)
         fontes = self.fontes_para(pergunta, consulta, com_passagens)
@@ -321,7 +340,10 @@ class Assistente:
                                                  self._usuario(pergunta, fontes),
                                                  semente=self.semente):
             partes.append(pedaco)
-            yield "pedaco", pedaco
-        texto, citadas, removidas, sem_fonte = verificar_citacoes("".join(partes).strip(),
-                                                                  len(fontes))
-        yield "fim", Resposta(pergunta, consulta, texto, fontes, citadas, removidas, sem_fonte)
+            if self.verificador_evidencias is None:
+                yield "pedaco", pedaco
+        resposta = self._finalizar_resposta(pergunta, "".join(partes).strip(), fontes,
+                                             consulta)
+        if self.verificador_evidencias is not None:
+            yield "pedaco", resposta.texto
+        yield "fim", resposta

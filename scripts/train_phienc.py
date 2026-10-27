@@ -181,6 +181,8 @@ def main() -> int:
     p.add_argument("--passos-log", type=int, default=50)
     p.add_argument("--passos-estado", type=int, default=500)
     p.add_argument("--sem-amp", action="store_true")
+    p.add_argument("--permitir-legado", action="store_true",
+                   help="continua checkpoint antigo sem garantir equivalência de retomada")
     # ⚠️ O teto da SESSÃO, conferido contra a vazão MEDIDA na segunda janela de
     # log. Dimensionar por FLOPs é estimar MFU, e 15% contra 25% é a diferença
     # entre 5,9 h e 8,9 h num run de 0,8 B — os dois lados de uma sessão de 9 h.
@@ -267,7 +269,7 @@ def _treinar(a: argparse.Namespace, distribuicao, dev: torch.device) -> int:
     saida = a.out or Path(f"models/phienc-{nome}-eq{a.p_equacao}")
     impedir_suspensao()
     try:
-        m = t.treinar(saida)
+        m = t.treinar(saida, permitir_legado=a.permitir_legado)
     finally:
         liberar_suspensao()
 

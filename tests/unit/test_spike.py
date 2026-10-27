@@ -38,6 +38,18 @@ def _aquecer(d: Detector, n: int = 100, perda: float = 2.0,
         d.observar(i, perda + 0.01 * ((i % 7) - 3), norma + 0.001 * (i % 5))
 
 
+def test_estado_restaura_janela_spikes_e_proxima_decisao():
+    original = Detector(ConfigSpike(janela=40, minimo_para_julgar=10))
+    _aquecer(original, 45)
+    assert original.observar(45, 100, 0.5).e_spike
+    novo = Detector.de_estado(original.estado())
+    assert novo.como_dict() == original.como_dict()
+    assert novo.fator_lr(46) == original.fator_lr(46) == 0.5
+    for passo, perda in ((46, 2.01), (47, 100), (48, 100)):
+        assert novo.observar(passo, perda, 0.5) == original.observar(passo, perda, 0.5)
+    assert novo.como_dict() == original.como_dict()
+
+
 # ─── as duas armadilhas ──────────────────────────────────────────────────────
 
 

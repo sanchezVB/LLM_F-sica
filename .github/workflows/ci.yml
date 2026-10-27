@@ -48,7 +48,7 @@ jobs:
           # reportlab: `scripts/relatorio_pdf.py` o importa no topo, e um teste de
           # regressao importa esse script. Instalado para o teste RODAR — saltar
           # seria esconder a cobertura em vez de dar a dependencia.
-          pip install -q reportlab
+          pip install -q reportlab PyYAML==6.0.3
 
       - name: ruff
         run: ruff check src/ tests/ scripts/
@@ -83,3 +83,52 @@ jobs:
         # Piso em 80%, não nos 95% que o DOC-10 §10 exige. A diferença está
         # declarada em DOC-16 §5.1 como dívida com prazo — prometer 95% e
         # configurar 80% seria pior que declarar os dois números.
+
+  treino-cpu:
+    name: treino · retomada · exportação (CPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock
+            requirements-treino-cpu.lock
+      - name: Instalar stack CPU fixada
+        run: |
+          python -m pip install -r requirements-treino-cpu.lock
+          python -m pip check
+      - name: Testar treino com modelos sintéticos, sem downloads de pesos
+        run: |
+          rm -f "$RUNNER_TEMP/treino-cpu.xml"
+          python -m pytest -q -ra --junitxml="$RUNNER_TEMP/treino-cpu.xml" \
+            tests/regression/test_gradcache.py \
+            tests/regression/test_laco_pretreino.py \
+            tests/regression/test_laco_ddp.py \
+            tests/regression/test_laco_causal.py \
+            tests/regression/test_laco_de_treino.py \
+            tests/regression/test_exportar_phienc.py \
+            tests/regression/test_phienc_ate_a_recuperacao.py \
+            tests/unit/test_spike.py
+      - name: Exigir execução de todos os alvos, sem saltos
+        if: always()
+        run: |
+          python scripts/conferir_testes_treino.py "$RUNNER_TEMP/treino-cpu.xml" \
+            tests/regression/test_gradcache.py \
+            tests/regression/test_laco_pretreino.py \
+            tests/regression/test_laco_ddp.py \
+            tests/regression/test_laco_causal.py \
+            tests/regression/test_laco_de_treino.py \
+            tests/regression/test_exportar_phienc.py \
+            tests/regression/test_phienc_ate_a_recuperacao.py \
+            tests/unit/test_spike.py
