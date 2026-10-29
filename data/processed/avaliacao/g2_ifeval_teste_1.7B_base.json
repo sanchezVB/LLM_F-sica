@@ -1,0 +1,69 @@
+{
+ "o_que_e": "G2.3, IFEval, fase teste (DOC-12 §3.7.4): agregados",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "hashes": {
+  "amostras": "48d6715cc61b5c31976f334aa393e06a28727947b7de108bc9c7f891a856a544",
+  "gulosa": "d2e97a63142bf018f263db091a917fc3dccd5a7bab1f72101c0169f8e6027d7d",
+  "crua": "111d789d4bc7fc4e4a2e9eceaa2d7f7aa874b539eb005a70d8405e698b5795b2"
+ },
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_ifeval.py": "798fa48522946a84f8c74817cec4494373e617c9a7158e99c901e647a2e91686",
+  "scripts/medir_g2_ifeval.py": "4a7e06c9cabdaf2def309b5fcb51142deffb78e36e74102b745d9b37d9968167",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "segundos": 2579,
+ "amostras": {
+  "n": 8656,
+  "prompt_strict": 0.3528,
+  "prompt_loose": 0.3686,
+  "instrucao_strict": 0.4678,
+  "instrucao_loose": 0.4846,
+  "strict_medio_das_amostras": 0.3528,
+  "truncadas": 0.1134,
+  "fichas_media": 221.5,
+  "paradas": {
+   "eos": 2899,
+   "limit": 99,
+   "repeticao": 883,
+   "word": 4775
+  }
+ },
+ "gulosa": {
+  "n": 541,
+  "prompt_strict": 0.3586,
+  "prompt_loose": 0.3771,
+  "instrucao_strict": 0.4844,
+  "instrucao_loose": 0.5048,
+  "strict_medio_das_amostras": 0.3586,
+  "truncadas": 0.2052,
+  "fichas_media": 224.1,
+  "paradas": {
+   "eos": 138,
+   "limit": 13,
+   "repeticao": 98,
+   "word": 292
+  }
+ },
+ "crua": {
+  "n": 541,
+  "prompt_strict": 0.2181,
+  "prompt_loose": 0.2458,
+  "instrucao_strict": 0.3309,
+  "instrucao_loose": 0.3597,
+  "strict_medio_das_amostras": 0.2181,
+  "truncadas": 0.4473,
+  "fichas_media": 291.8,
+  "paradas": {
+   "eos": 299,
+   "limit": 26,
+   "repeticao": 216
+  }
+ }
+}

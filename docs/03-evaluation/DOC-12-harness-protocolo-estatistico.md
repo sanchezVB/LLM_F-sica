@@ -485,7 +485,20 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       | Física | 640 | 60,78% |
 
       **Guarda do instrumento:** o MMLU-57 deu 62,63, contra a referência de 62,63 ± 3. Passa.
-    - **IFEval e EvalPlus:** pendentes.
+    - **IFEval** (`g2_ifeval_teste_1.7B_base.json`, no envelope; o hash das amostras é `48d6715c…`):
+
+      | Corrida | Prompts × k | Prompt strict | Loose | Instrução strict | Truncadas |
+      |---|---|---|---|---|---|
+      | **Amostras k=16 (decide: strict médio)** | 541 × 16 | **35,28%** | 36,86% | 46,78% | 11,3% |
+      | Gulosa no envelope | 541 | 35,86% | 37,71% | 48,44% | 20,5% |
+      | Crua e gulosa (relatada) | 541 | 21,81% | 24,58% | 33,09% | 44,7% |
+
+      As truncadas são quase todas laço cortado pela guarda; o teto de 1.280 fichas pega só 99 das 8.656 amostras. O livro registra a medida e 3 retomadas, todas com o mesmo hash. O PC caiu 3 vezes durante a medida:
+      - **11:43 e 17:20:** reinício sem desligamento (Kernel-Power 41, sem tela azul registrada);
+      - **12:53:** um desligamento iniciado pelo sistema.
+
+      Nas duas primeiras quedas o arquivo de gerações ficou íntegro. Na de 17:20, ele ganhou 1.729 bytes NUL depois da última linha completa (o NTFS estende o arquivo antes de gravar os dados). **Reparo:** só a cauda NUL saiu, por `g2_kaggle.aparar_jsonl`; nenhuma linha completa foi tocada (SHA-256 `d0821281…` → `5a7bee18…`). A amostra que não chegou a ser gravada foi gerada de novo na retomada, com a mesma semente.
+    - **EvalPlus:** pendente da rodada de dev no Kaggle, antes de gerar o teste.
 
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
