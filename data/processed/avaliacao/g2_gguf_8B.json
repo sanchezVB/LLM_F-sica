@@ -1,0 +1,15 @@
+{
+ "o_que_e": "conversão da Qwen3-8B-Base para GGUF Q8_0 (DOC-12 §3.7.5), local, a partir dos safetensors da revisão fixada",
+ "quando": "2026-10-29",
+ "revisao": "Qwen/Qwen3-8B-Base 49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+ "conversor": "convert_hf_to_gguf.py da tag b11159 (6b790a9c2), --outtype q8_0, sem imatrix",
+ "ambiente": "torch 2.4.1+cpu, transformers 5.0.0, numpy 2.5.1, sentencepiece 0.2.2 (.venv-treino)",
+ "gguf": {
+  "q8_0": {
+   "arquivo": "Qwen3-8B-Base-Q8_0.gguf",
+   "bytes": 8709518176,
+   "sha256": "1ee221d026b35e702756c4536fc8f26af6b1a9029aaf13fd2e61f7a166264d33"
+  }
+ },
+ "pendente": "a KL do Q8_0 contra o F16 (≤0,01 nats, §3.7.5), antes de qualquer medida da 8B"
+}
