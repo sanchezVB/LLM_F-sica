@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import socket
 import subprocess
 import threading
@@ -35,7 +36,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[3]
-EXECUTAVEL = RAIZ / "ferramentas/llama.cpp/llama-server.exe"
+# O llama-server e o rótulo da GPU (que entra no hash) são os da RX 7600 local, salvo se o
+# ambiente disser outros: no Kaggle, o executor da 8B (kaggle/g2_8b_medida.py) define os
+# dois (emenda 3). Sem as variáveis, nada muda, e o hash da 1,7B é o mesmo.
+EXECUTAVEL = Path(os.environ.get("G2_LLAMA_SERVER")
+                  or RAIZ / "ferramentas/llama.cpp/llama-server.exe")
+GPU = os.environ.get("G2_GPU") or "RX 7600 (Vulkan)"
+if os.environ.get("G2_LLAMA_SERVER") and not os.environ.get("G2_GPU"):
+    raise RuntimeError("G2_LLAMA_SERVER sem G2_GPU: o hash levaria o rótulo da RX 7600")
 COMMIT_DO_SERVIDOR = "b11159 (6b790a9c2)"
 
 FICHAS_MAX = 4096

@@ -108,13 +108,12 @@ def gerar(fase: str, modelo: str, braco: str, por_conjunto: dict[str, list[dict]
         for rotulo, (gulosa, k) in corridas.items():
             pedido = pedido_evalplus(gulosa)
             hc = g2_geracao.hash_da_configuracao(srv, kl["gguf"]["q8_0"]["sha256"],
-                                                 "RX 7600 (Vulkan)", pedido)
+                                                 g2_geracao.GPU, pedido)
             hashes[rotulo] = hc
             saida = SAIDAS / f"evalplus_{fase}_{modelo}_{braco}_{rotulo}.jsonl"
             if fase == "teste" and rotulo == "amostras":
                 g2.exigir_aceite_e_congelamento()
-                continua = saida.exists() and hc in {d.get("hash_config")
-                                                     for d in g2_geracao.ler_jsonl(saida)}
+                continua = g2.medida_aberta(modelo, braco, hc, nota="evalplus")
                 g2.registrar_acesso(modelo, braco, "retomada" if continua else "medida", hc,
                                     nota="evalplus")
             for conjunto, tarefas in por_conjunto.items():

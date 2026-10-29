@@ -187,57 +187,74 @@ def linhas_do_tamanho(livro: bytes, tamanho: str = "8B") -> list[dict]:
 
 
 def salvar_estado(repo: Path, destino: Path, sessao: int, extra: dict | None = None) -> dict:
-    """Grava o estado do repositório em `destino` (no Output): um zip único (`estado.zip`;
-    o Kaggle lida mal com muitos arquivos soltos) e o ESTADO.json, com o número da sessão,
-    o SHA-256 do zip e o de cada arquivo (dos MESMOS bytes que foram para o zip). Os jsonl
-    são aparados antes. Grava num temporário e troca, para um Output nunca ficar pela metade."""
+    """Grava o estado do repositório em `destino` (no Output): um zip único (o Kaggle lida
+    mal com muitos arquivos soltos), com `.bin` no fim (o Kaggle descompacta todo `.zip` que
+    vira dataset) e o SHA-256 no nome, e o ESTADO.json, com o número da sessão, o nome e o
+    SHA-256 do zip e o de cada arquivo (dos MESMOS bytes que foram para o zip). Os jsonl
+    são aparados antes. A ordem é zip novo, depois o ESTADO.json, e só então sai o zip
+    velho: uma morte em qualquer ponto deixa um par (ESTADO.json, zip) que confere."""
     repo, destino = Path(repo), Path(destino)
     destino.mkdir(parents=True, exist_ok=True)
     for p in repo.glob("data/processed/avaliacao/g2_saidas/*.jsonl"):
         aparar_jsonl(p)
     arquivos = {}
-    temporario = destino / "estado.zip.parcial"
+    temporario = destino / "estado.parcial"
     with zipfile.ZipFile(temporario, "w", zipfile.ZIP_DEFLATED) as z:
         for p in arquivos_do_estado(repo):
             rel = p.relative_to(repo).as_posix()
             dados = p.read_bytes()
             z.writestr(rel, dados)
             arquivos[rel] = {"bytes": len(dados), "sha256": hashlib.sha256(dados).hexdigest()}
-    temporario.replace(destino / "estado.zip")
+    zip_sha = sha256_arquivo(temporario)
+    nome_zip = f"estado_{zip_sha[:12]}.zip.bin"
+    temporario.replace(destino / nome_zip)
     livro = (repo / LIVRO).read_bytes() if (repo / LIVRO).exists() else b""
     manifesto = {"estado": "g2_8b", "sessao": sessao, **(extra or {}),
-                 "zip_sha256": sha256_arquivo(destino / "estado.zip"),
+                 "zip": nome_zip, "zip_sha256": zip_sha,
                  "livro_8B": linhas_do_tamanho(livro), "arquivos": arquivos}
     parcial = destino / "ESTADO.json.parcial"
     parcial.write_text(json.dumps(manifesto, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     parcial.replace(destino / "ESTADO.json")
+    for velho in destino.glob("estado_*.zip.bin"):
+        if velho.name != nome_zip:
+            velho.unlink()
     return manifesto
 
 
-def restaurar_estado(origem: Path, repo: Path, sessao_esperada: int) -> dict:
-    """Devolve ao repositório o estado da sessão `sessao_esperada` (a pasta com ESTADO.json
-    e estado.zip), conferindo o SHA-256 do zip e de cada arquivo, e junta o livro (ver
-    `juntar_livros`). Recusa outra sessão (um estado velho refaria itens e perderia acessos
-    do livro) e um estado alterado."""
-    origem, repo = Path(origem), Path(repo)
+def ler_estado(origem: Path) -> tuple[dict, dict[str, bytes]]:
+    """O ESTADO.json e o conteúdo do zip de uma pasta de estado, conferidos (SHA-256 do zip
+    e de cada arquivo, e exatamente os arquivos do manifesto)."""
+    origem = Path(origem)
     manifesto = json.loads((origem / "ESTADO.json").read_text(encoding="utf-8"))
     if manifesto.get("estado") != "g2_8b":
         raise SystemExit(f"{origem} não é um estado do g2_8b")
-    if manifesto.get("sessao") != sessao_esperada:
-        raise SystemExit(f"o estado anexado é da sessão {manifesto.get('sessao')}, e esta "
-                         f"célula espera o da sessão {sessao_esperada}: atualize o dataset "
-                         "do estado para a versão mais nova, ou corrija SESSAO")
-    if sha256_arquivo(origem / "estado.zip") != manifesto["zip_sha256"]:
-        raise SystemExit("o estado.zip não confere com o ESTADO.json")
-    with zipfile.ZipFile(origem / "estado.zip") as z:
+    arq = origem / manifesto.get("zip", "estado.zip")
+    if arq.is_dir():
+        raise SystemExit(f"{arq.name} chegou como pasta: o Kaggle descompactou o zip do estado")
+    if not arq.is_file() or sha256_arquivo(arq) != manifesto["zip_sha256"]:
+        raise SystemExit(f"o zip do estado ({arq.name}) falta ou não confere com o ESTADO.json")
+    with zipfile.ZipFile(arq) as z:
         nomes = set(z.namelist())
         if nomes != set(manifesto["arquivos"]):
-            raise SystemExit("o estado.zip não traz exatamente os arquivos do ESTADO.json")
+            raise SystemExit("o zip do estado não traz exatamente os arquivos do ESTADO.json")
         conteudo = {rel: z.read(rel) for rel in nomes}
     ruins = [rel for rel, dados in conteudo.items()
              if hashlib.sha256(dados).hexdigest() != manifesto["arquivos"][rel]["sha256"]]
     if ruins:
-        raise SystemExit(f"o estado anterior não confere: {ruins[:5]}")
+        raise SystemExit(f"o estado não confere: {ruins[:5]}")
+    return manifesto, conteudo
+
+
+def restaurar_estado(origem: Path, repo: Path, sessao_esperada: int) -> dict:
+    """Devolve ao repositório o estado da sessão `sessao_esperada`, conferido (`ler_estado`),
+    e junta o livro (ver `juntar_livros`). Recusa outra sessão: um estado velho refaria itens
+    e perderia acessos do livro."""
+    repo = Path(repo)
+    manifesto, conteudo = ler_estado(origem)
+    if manifesto.get("sessao") != sessao_esperada:
+        raise SystemExit(f"o estado anexado é da sessão {manifesto.get('sessao')}, e esta "
+                         f"célula espera o da sessão {sessao_esperada}: atualize o dataset "
+                         "do estado para a versão mais nova, ou corrija SESSAO")
     livro_pacote = (repo / LIVRO).read_bytes() if (repo / LIVRO).exists() else b""
     if LIVRO not in conteudo:
         raise SystemExit("o estado anterior não traz o livro de acessos")

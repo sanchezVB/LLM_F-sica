@@ -103,3 +103,26 @@ def test_flags_do_servidor_dao_10240_por_slot():
     assert f[f.index("-c") + 1] == "40960" and f[f.index("-np") + 1] == "4"
     assert "--no-kv-unified" in f and f[f.index("-ctk") + 1] == "q8_0"
     assert s.porta != 8080
+
+
+def test_gpu_e_executavel_do_ambiente():
+    """Emenda 3: no Kaggle, o executor da 8B põe o llama-server e o rótulo da GPU no
+    ambiente; sem as variáveis, vale a RX 7600 local (o hash da 1,7B não muda). O
+    executável sem o rótulo é recusado: o hash levaria o rótulo errado."""
+    import os
+    import subprocess
+
+    codigo = ("import sys; sys.path.insert(0, 'src'); from phifm.eval import g2_geracao as g; "
+              "print(g.GPU); print(g.EXECUTAVEL.name)")
+    limpo = {k: v for k, v in os.environ.items() if not k.startswith("G2_")}
+
+    def rodar(**extra):
+        return subprocess.run([sys.executable, "-X", "utf8", "-c", codigo], cwd=RAIZ, capture_output=True,
+                              text=True, encoding="utf-8", env=limpo | extra)
+
+    r = rodar()
+    assert r.stdout.split("\n")[:2] == ["RX 7600 (Vulkan)", "llama-server.exe"]
+    r = rodar(G2_LLAMA_SERVER="/kaggle/tmp/llama-server", G2_GPU="2×T4 (CUDA)")
+    assert r.stdout.split("\n")[:2] == ["2×T4 (CUDA)", "llama-server"]
+    r = rodar(G2_LLAMA_SERVER="/kaggle/tmp/llama-server")
+    assert r.returncode != 0 and "G2_GPU" in r.stderr

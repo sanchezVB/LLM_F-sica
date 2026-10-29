@@ -61,7 +61,10 @@ def test_estado_vai_e_volta_conferido(tmp_path):
     with (av / "g2_acessos.jsonl").open("ab") as f:
         f.write(b'{"tamanho": "8B"}' + FIM)
     m = k.salvar_estado(sessao, tmp_path / "saida", sessao=1)
-    assert m["sessao"] == 1 and (tmp_path / "saida/estado.zip").is_file()
+    assert m["sessao"] == 1 and (tmp_path / "saida" / m["zip"]).is_file()
+    assert m["zip"].startswith("estado_") and m["zip"].endswith(".zip.bin")
+    m2 = k.salvar_estado(sessao, tmp_path / "saida", sessao=1)       # o zip velho sai
+    assert [p.name for p in (tmp_path / "saida").glob("estado_*")] == [m2["zip"]]
     assert set(m["arquivos"]) == {"data/processed/avaliacao/g2_saidas/teste_8B_base_veredito.jsonl",
                                   "data/processed/avaliacao/g2_dev_8B_base_it1.json",
                                   "data/processed/avaliacao/g2_acessos.jsonl"}
@@ -80,7 +83,8 @@ def test_estado_velho_alterado_ou_livro_que_nao_continua_e_recusado(tmp_path):
     with pytest.raises(SystemExit, match="não é da 8B"):
         k.restaurar_estado(tmp_path / "saida", _repo(tmp_path / "s2", b'{"t": "outro"}' + FIM),
                            sessao_esperada=2)
-    (tmp_path / "saida/estado.zip").write_bytes(b"adulterado")
+    nome = json.loads((tmp_path / "saida/ESTADO.json").read_text(encoding="utf-8"))["zip"]
+    (tmp_path / "saida" / nome).write_bytes(b"adulterado")
     with pytest.raises(SystemExit, match="não confere"):
         k.restaurar_estado(tmp_path / "saida", _repo(tmp_path / "s3", livro), sessao_esperada=2)
     manifesto = json.loads((tmp_path / "saida/ESTADO.json").read_text(encoding="utf-8"))

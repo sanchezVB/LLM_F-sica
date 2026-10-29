@@ -3,8 +3,8 @@
 
     .venv\\Scripts\\python.exe scripts\\trazer_g2_8b.py data\\processed\\kaggle_g2_8b_retorno\\estado
 
-A pasta é a `estado/` do Output da sessão (ESTADO.json e estado.zip). Confere o SHA-256 do
-zip e de cada arquivo e então:
+A pasta é a `estado/` do Output da sessão (ESTADO.json e o zip do estado). Confere o
+SHA-256 do zip e de cada arquivo (`g2_kaggle.ler_estado`) e então:
 - as gerações e os logs vão para `g2_saidas/` e os agregados da 8B para
   `data/processed/avaliacao/` (só os arquivos da 8B: nada daqui é sobrescrito);
 - o pacote do EvalPlus gerado lá vai para `data/processed/kaggle_g2_evalplus_8B/` (o daqui
@@ -15,10 +15,7 @@ zip e de cada arquivo e então:
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
 import sys
-import zipfile
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -35,19 +32,7 @@ def destino_de(rel: str) -> str:
 
 
 def trazer(origem: Path, raiz: Path = RAIZ) -> dict:
-    manifesto = json.loads((origem / "ESTADO.json").read_text(encoding="utf-8"))
-    if manifesto.get("estado") != "g2_8b":
-        raise SystemExit(f"{origem} não é um estado do g2_8b")
-    if g2_kaggle.sha256_arquivo(origem / "estado.zip") != manifesto["zip_sha256"]:
-        raise SystemExit("o estado.zip não confere com o ESTADO.json")
-    with zipfile.ZipFile(origem / "estado.zip") as z:
-        conteudo = {rel: z.read(rel) for rel in z.namelist()}
-    if set(conteudo) != set(manifesto["arquivos"]):
-        raise SystemExit("o estado.zip não traz exatamente os arquivos do ESTADO.json")
-    ruins = [rel for rel, d in conteudo.items()
-             if hashlib.sha256(d).hexdigest() != manifesto["arquivos"][rel]["sha256"]]
-    if ruins:
-        raise SystemExit(f"o estado não confere: {ruins[:5]}")
+    manifesto, conteudo = g2_kaggle.ler_estado(origem)
     livro_aqui = raiz / g2_kaggle.LIVRO
     antes = livro_aqui.read_bytes() if livro_aqui.exists() else b""
     junto = g2_kaggle.juntar_livros(antes, conteudo.pop(g2_kaggle.LIVRO))

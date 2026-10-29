@@ -7,19 +7,19 @@
   "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
   "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
   "src/phifm/eval/g2_prompt.py": "2d4ecf88f6ae11e2ea9ad9f46b0934afe60b3d09ee7dac79b0341c8e1cec43be",
-  "src/phifm/eval/g2_geracao.py": "bd883c6fe1cba3d292ced3ba08bd333d9f98c289f5f27964680cf6a4c58a8f7a",
+  "src/phifm/eval/g2_geracao.py": "d0bf2599dac477ea9c740213e2a6e0d07a43918f1ba6b4616b1bc97183567190",
   "src/phifm/eval/g2_correcao.py": "76ad3f332169d85a78e8996946f30e6c6de7ab58c7943dc0ff4ee719dd26fd4a",
-  "scripts/medir_g2.py": "4a4dba84293ffeb128a2e6df5d94dd27bb21e7a84dd5954ca3ef98c87283f3bf",
+  "scripts/medir_g2.py": "eba177d716e64cf362f7d7a86b0883c3e29a0f5f1d0070acf0a3911844eed21c",
   "src/phifm/eval/g2_mmlu.py": "a7ac56289de141ec547a5f81b34c3456edc147aa2bae866aec34026b52ec006e",
-  "scripts/medir_g2_mmlu.py": "c6d8151faefd3f3282a1e6eb728659ada104201bbc10e11908faf4e3164541d7",
+  "scripts/medir_g2_mmlu.py": "62049ad26e5712b3e0c3acedbea8cb06ad9cb4bb872e68cab6f6d58fa7960ea0",
   "src/phifm/eval/g2_ifeval.py": "798fa48522946a84f8c74817cec4494373e617c9a7158e99c901e647a2e91686",
-  "scripts/medir_g2_ifeval.py": "4a7e06c9cabdaf2def309b5fcb51142deffb78e36e74102b745d9b37d9968167",
+  "scripts/medir_g2_ifeval.py": "2d5f5e9021c0c7ab9cd57532530f9b55874d1471f5f3d05e459b937534f41ea5",
   "ferramentas/ifeval-oficial/instruction_following_eval/evaluation_lib.py": "35decc06000718487f44d7deafa6d3f48a8ec0886281edf40162c0265b7d248c",
   "ferramentas/ifeval-oficial/instruction_following_eval/instructions.py": "60e086f5342a03ce8e18b64bbcccf86308f523c08aa826707a562150a52f3edf",
   "ferramentas/ifeval-oficial/instruction_following_eval/instructions_registry.py": "ec92d72c264f6d906978613085db262356174300370a3fffe6fefd5969ce9cfc",
   "ferramentas/ifeval-oficial/instruction_following_eval/instructions_util.py": "a73797261eee5bf447e279d82a2b700b1bdd3cb1193412dbab1270a85832bc6b",
   "src/phifm/eval/g2_evalplus.py": "61a49c0d42e583ffe173c71f854d61c997ba494e5279bb3c7b160b9d8ba5e52a",
-  "scripts/medir_g2_evalplus.py": "0e0974eb5902edaecfee8b347a733f0f1c0e2261113ea0e0a86f11f1b5c4756a",
+  "scripts/medir_g2_evalplus.py": "9951090b20089788fd8c956cab565210374f7ff4d7bfe15dfbd1e1af8f66851d",
   "kaggle/g2_evalplus.py": "697811fb498162d07c81e48833bfee84718e0b77e1c15098c47542d3c66cb4c0",
   "sympy": "1.14.0",
   "antlr4-python3-runtime": "4.11.0",
@@ -97,6 +97,20 @@
    ],
    "congelamento_anterior_sha256": "cb7ac12308f485a29d72a3da140453ca2088538987d4b29b2b4b7d6c99134f09",
    "protocolo_anterior_sha256": "45b806302547b26352ecf554bf14577226c60556130342d58eea39747c48078c"
+  },
+  {
+   "n": 3,
+   "em": "2026-10-29",
+   "motivo": "8B no Kaggle: o executavel e o rotulo da GPU vem do ambiente (G2_LLAMA_SERVER, G2_GPU; sem eles, a RX 7600, e o hash da 1,7B e o mesmo); medida ou retomada pelo livro de acessos (g2.medida_aberta); a retomada do MMLU refaz os itens sem previsao",
+   "mudou": [
+    "scripts/medir_g2.py",
+    "scripts/medir_g2_evalplus.py",
+    "scripts/medir_g2_ifeval.py",
+    "scripts/medir_g2_mmlu.py",
+    "src/phifm/eval/g2_geracao.py"
+   ],
+   "congelamento_anterior_sha256": "c96b59289113fd0e327274df2380286a722d2855e264be8e8c7c128181916e08",
+   "protocolo_anterior_sha256": "5d848f12d014b01586bd127c92b11d1a232d5c8a2fe5fae4c04cf2584874aed8"
   }
  ]
 }

@@ -197,7 +197,7 @@ dados:
 # Preenchido por scripts/congelar_g2.py. Depois disto, o medir_g2 teste recusa se o
 # g2.yaml, o código ou os dados da medida mudarem (g2.exigir_aceite_e_congelamento).
 congelamento: {arquivo: configs/eval/preregistration/g2_congelamento.json,
-               sha256: c96b59289113fd0e327274df2380286a722d2855e264be8e8c7c128181916e08,
+               sha256: e4c0212f081b39ceb90ec71a5baa09ecd3e7d9c219592ee1f057bd04c1462e65,
                em: "2026-10-24"}
 
 # Emendas registradas no DOC-12 §3.7.4 (scripts/congelar_g2.py --emenda).
@@ -208,3 +208,6 @@ emendas:
   - {n: 2, em: "2026-10-29", motivo: "G2.3: o codigo do MMLU, do IFEval (com o codigo oficial do Google) e do EvalPlus (com a celula do Kaggle), os dados oficiais e as versoes de pacote entram no congelamento; a nota do livro de acessos entra na chave, um acesso por medida",
      congelamento_anterior: cb7ac12308f485a29d72a3da140453ca2088538987d4b29b2b4b7d6c99134f09,
      protocolo_anterior: 45b806302547b26352ecf554bf14577226c60556130342d58eea39747c48078c}
+  - {n: 3, em: "2026-10-29", motivo: "8B no Kaggle: o executavel e o rotulo da GPU vem do ambiente (G2_LLAMA_SERVER, G2_GPU; sem eles, a RX 7600, e o hash da 1,7B e o mesmo); medida ou retomada pelo livro de acessos (g2.medida_aberta); a retomada do MMLU refaz os itens sem previsao",
+     congelamento_anterior: c96b59289113fd0e327274df2380286a722d2855e264be8e8c7c128181916e08,
+     protocolo_anterior: 5d848f12d014b01586bd127c92b11d1a232d5c8a2fe5fae4c04cf2584874aed8}

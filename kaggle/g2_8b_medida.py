@@ -24,6 +24,10 @@ Antes de cada sessão, ajuste as três linhas abaixo:
   MMLU (76,89 ± 3) reprovada para tudo; a etapa só conta como feita com os contadores
   completos.
 - COTA_RESTANTE_H: a cota de GPU que o Kaggle mostra antes de rodar.
+
+Desde a sessão 1, deixe o notebook em "Settings → Environment → Pin to original
+environment": a imagem, o driver e o binário entram no hash, e uma sessão em outro
+ambiente para antes de medir.
 """
 FASE = "sanidade"          # "sanidade" (só na sessão 1) ou "teste"
 SESSAO = 1                 # 1, 2, 3, … : some 1 a cada sessão
@@ -128,6 +132,27 @@ AV = REPO / "data/processed/avaliacao"
 SAIDAS = AV / "g2_saidas"
 SAIDAS.mkdir(parents=True, exist_ok=True)
 LLAMA_ARQ = SAIDAS / "llama_8B.json"
+BIN = json.loads((PACOTE / "binarios.json").read_text(encoding="utf-8"))
+
+
+def compilado_guardado():
+    """O binário compilado na sessão 1, que volta pelo estado (g2-8b-estado) e vai de novo
+    para o Output desta sessão, para a seguinte também o ter. Chamado ANTES do 1º salvar():
+    um estado salvo sem o binário deixaria a sessão seguinte sem ele."""
+    man = unico("MANIFESTO_LLAMA.json", "commit", BIN["commit"])
+    assert man, "a variante é 'compilado', mas o binário guardado não está nas entradas"
+    info = json.loads(man.read_text(encoding="utf-8"))
+    ruins = [n for n, h in info["arquivos"].items() if sha256(man.parent / n) != h]
+    assert not ruins, f"o binário compilado guardado não confere: {ruins}"
+    pasta = SAIDA / "llama_compilado"
+    shutil.copytree(man.parent, pasta, dirs_exist_ok=True)
+    for n in info["arquivos"]:
+        (pasta / n).chmod(0o755)
+    return pasta, str(pasta)
+
+
+if LLAMA_ARQ.exists() and not json.loads(LLAMA_ARQ.read_text(encoding="utf-8"))["variante"].startswith("oficial"):
+    compilado_guardado()
 if FASE == "teste":
     assert (AV / "g2_dev_8B_base_it1.json").exists() and LLAMA_ARQ.exists(), \
         "o estado não traz a sanidade (sessão 1): o teste não começa sem ela"
@@ -153,6 +178,8 @@ KL = json.loads((AV / "g2_kl_8B.json").read_text(encoding="utf-8"))
 gguf = unico("Qwen3-8B-Base-Q8_0.gguf")
 assert gguf, "o g2-8b-gguf (Output da parte 1) não está nas entradas"
 assert sha256(gguf) == KL["gguf"]["q8_0"]["sha256"], "o Q8_0 não é o da conferência de KL"
+assert KL["passa"], (f"a KL do Q8_0 contra o F16 ({KL['kl_media_nats']} nats) não passa a regra "
+                     "(≤ 0,01, §3.7.5): nenhuma medida da 8B")
 Q8 = REPO / "models/base/gguf/Qwen3-8B-Base-Q8_0.gguf"
 Q8.parent.mkdir(parents=True, exist_ok=True)
 Q8.symlink_to(gguf)
@@ -176,7 +203,6 @@ passo(f"congelamento conferido ({r.stdout.strip()[:12]}…)")
 # o SHA-256 do binário, o driver e a imagem da sessão 1 ficam no estado (llama_8B.json) e
 # entram no rótulo da GPU, que entra no hash da configuração; uma sessão seguinte com outro
 # driver, outra imagem ou outro binário PARA antes de qualquer item de teste.
-BIN = json.loads((PACOTE / "binarios.json").read_text(encoding="utf-8"))
 ALVOS = ("llama-server", "llama-batched-bench", "llama-perplexity")
 os.environ["CUDA_CACHE_MAXSIZE"] = "4294967296"
 os.environ["PYTHONUNBUFFERED"] = "1"
@@ -224,31 +250,19 @@ def compilar():
     return pasta, str(pasta)
 
 
-def compilado_guardado():
-    """O binário compilado na sessão 1, que volta pelo estado (g2-8b-estado) e vai de novo
-    para o Output desta sessão, para a seguinte também o ter."""
-    man = unico("MANIFESTO_LLAMA.json", "commit", BIN["commit"])
-    assert man, "a variante é 'compilado', mas o binário guardado não está nas entradas"
-    info = json.loads(man.read_text(encoding="utf-8"))
-    ruins = [n for n, h in info["arquivos"].items() if sha256(man.parent / n) != h]
-    assert not ruins, f"o binário compilado guardado não confere: {ruins}"
-    pasta = SAIDA / "llama_compilado"
-    shutil.copytree(man.parent, pasta, dirs_exist_ok=True)
-    for n in info["arquivos"]:
-        (pasta / n).chmod(0o755)
-    return pasta, str(pasta)
-
-
 def gera_nas_duas(pasta, ld):
     """Um bench mínimo em cada T4 (código de saída e fichas/s): prova que os kernels rodam
     e já faz a compilação do PTX, que senão cairia dentro da primeira medida."""
     for gpu in ("0", "1"):
         amb = os.environ | {"LD_LIBRARY_PATH": f"{ld}:{os.environ.get('LD_LIBRARY_PATH', '')}",
                             "CUDA_VISIBLE_DEVICES": gpu}
-        r = subprocess.run([pasta / "llama-batched-bench", "-m", Q8, "-c", "2048", "-ngl", "99",
-                            "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0", "-npp", "64", "-ntg", "16",
-                            "-npl", "1", "--output-format", "jsonl"],
-                           capture_output=True, text=True, env=amb, timeout=1800)
+        try:
+            r = subprocess.run([pasta / "llama-batched-bench", "-m", Q8, "-c", "2048", "-ngl", "99",
+                                "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0", "-npp", "64", "-ntg",
+                                "16", "-npl", "1", "--output-format", "jsonl"],
+                               capture_output=True, text=True, env=amb, timeout=1800)
+        except subprocess.TimeoutExpired:
+            return False, f"o bench mínimo passou de 30 min na GPU {gpu}"
         linhas = [json.loads(x) for x in r.stdout.split("\n") if x.startswith("{")]
         if r.returncode != 0 or not linhas or not linhas[0].get("speed_tg"):
             return False, (r.stdout + r.stderr)[-1500:]
@@ -286,9 +300,12 @@ else:
     mudou = [k for k in ("llama_server_sha256", "driver", "imagem", "python", "glibc")
              if agora[k] != PLAT[k]]
     resultado["plataforma_agora"] = agora
-    assert not mudou, (f"o ambiente mudou desde a sessão 1 ({mudou}): o hash da configuração "
-                       "seria outro no meio da medida. O dono decide (re-medir a base com o "
-                       f"hash novo, ou esperar o ambiente antigo).\nantes: {PLAT}\nagora: {agora}")
+    assert not mudou, (
+        f"o ambiente mudou desde a sessão 1 ({mudou}): o hash da configuração seria outro no "
+        "meio da medida. Nada foi medido nesta sessão. Caminhos (o dono decide): esperar o "
+        "ambiente antigo (o notebook fixado em 'Pin to original environment'), ou trazer o "
+        "estado (scripts/trazer_g2_8b.py), reempacotar e começar outra campanha da sessão 1, "
+        f"com o hash novo (a base é re-medida).\nantes: {PLAT}\nagora: {agora}")
     ok, diag = gera_nas_duas(PASTA, LD)
     assert ok, f"o binário da sessão 1 não gera mais nas duas T4:\n{diag}"
 GPU = (f"2×T4 (CUDA, llama.cpp {BIN['tag']} {PLAT['variante']}, driver {PLAT['driver']}, "
@@ -302,13 +319,26 @@ passo(f"llama.cpp: {PLAT['variante']} · rótulo no hash: {GPU}")
 
 
 # ── as etapas ────────────────────────────────────────────────────────────────
+LIVRO = REPO / g2_kaggle.LIVRO
+ultimo = {"livro": LIVRO.stat().st_size, "quando": time.time()}
+
+
+def salvar_se_preciso():
+    """A cada minuto: salva já se o livro mudou (a linha do acesso chega ao Output em ~1 min)
+    e, de resto, a cada 20 min (as gerações)."""
+    tamanho = LIVRO.stat().st_size
+    if tamanho != ultimo["livro"] or time.time() - ultimo["quando"] >= 1200:
+        salvar()
+        ultimo.update(livro=tamanho, quando=time.time())
+
+
 def medir(rotulo, script, *args, prazo=None):
-    """Uma medida congelada, como subprocesso com prazo, salvando o estado a cada 20 min."""
+    """Uma medida congelada, como subprocesso com prazo, salvando o estado pelo caminho."""
     passo(f"{rotulo}: começa")
     st = g2_kaggle.rodar_com_prazo(
         [sys.executable, "-u", "-X", "utf8", REPO / "scripts" / script, *args],
         prazo or PRAZO, SAIDA / f"{rotulo}.log", cwd=REPO, env=dict(os.environ),
-        periodico=salvar, intervalo_s=1200)
+        periodico=salvar_se_preciso, intervalo_s=60)
     sobra = processos_na_gpu()
     resultado["etapas"][rotulo] = st if not sobra else f"{st}; processos na GPU: {sobra}"
     passo(f"{rotulo}: {resultado['etapas'][rotulo]}")
@@ -320,7 +350,7 @@ def tentar(rotulo, funcao):
     """Uma conferência da sanidade que não derruba a sessão: o erro vai para o resultado."""
     try:
         resultado[rotulo] = funcao()
-    except Exception as erro:  # noqa: BLE001
+    except (Exception, SystemExit) as erro:  # noqa: BLE001 — o ServidorG2 sai por SystemExit
         resultado[rotulo] = {"erro": f"{type(erro).__name__}: {erro}"[:2000]}
     salvar()
     passo(f"{rotulo}: {str(resultado[rotulo])[:300]}")
@@ -422,7 +452,8 @@ def memoria_e_subida():
 
     srv = g2_geracao.ServidorG2(Q8, log=SAIDA / "memoria_servidor.log")
     t = time.time()
-    with srv:
+    try:
+        srv.iniciar(espera_s=900)       # a 1ª subida pode compilar o PTX
         subida = round(time.time() - t)
         corpo = json.dumps({"prompt": "The history of physics " * 400, "n_predict": 512,
                             "temperature": 0.0, "cache_prompt": False}).encode()
@@ -438,6 +469,8 @@ def memoria_e_subida():
             time.sleep(20)
             usada = smi("memory.used")
             geradas = [f.result() for f in futuros]
+    finally:
+        srv.parar()                     # também quando a subida falha: nada órfão na GPU
     return {"executavel": str(srv.executavel), "flags": srv.flags(), "subida_s": subida,
             "memoria_usada_por_placa": usada, "fichas_geradas": geradas}
 
@@ -463,8 +496,10 @@ else:
     ETAPAS = (("mmlu", "medir_g2_mmlu.py"), ("g2_1", "medir_g2.py"),
               ("ifeval", "medir_g2_ifeval.py"), ("evalplus", "medir_g2_evalplus.py"))
     for rotulo, script in ETAPAS:
-        if mmlu_agg.exists() and not json.loads(mmlu_agg.read_text(encoding="utf-8")).get(
-                "guarda_do_instrumento", {}).get("ok"):
+        # a guarda só vale com o MMLU COMPLETO: um MMLU cortado (itens sem previsão contam
+        # como erro) não reprova o instrumento; ele é refeito na tentativa seguinte
+        if (SAIDAS / "etapa_mmlu_8B.ok").exists() and not json.loads(
+                mmlu_agg.read_text(encoding="utf-8")).get("guarda_do_instrumento", {}).get("ok"):
             resultado["parada"] = "a guarda do instrumento do MMLU reprovou: a medida para (§3.7.4)"
             break
         marcador = SAIDAS / f"etapa_{rotulo}_8B.ok"
@@ -476,8 +511,10 @@ else:
                 resultado["parada"] = f"menos de 1 h até o prazo antes de {rotulo}"
                 break
             st = medir(f"{rotulo}_{tentativa}", script, "teste", "--modelo", "8B", "--braco", "base")
-            if st != "ok":
+            if st == "prazo":
                 break
+            if st == "falhou":              # o EvalPlus sai com 1 se faltam gerações ('erro')
+                continue
             completa, porque = g2_kaggle.conferir_etapa(rotulo, REPO)
             resultado["etapas"][f"{rotulo}_{tentativa}_conferida"] = porque
             if completa:

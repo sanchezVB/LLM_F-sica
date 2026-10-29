@@ -500,6 +500,49 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       Nas duas primeiras quedas o arquivo de gerações ficou íntegro. Na de 17:20, ele ganhou 1.729 bytes NUL depois da última linha completa (o NTFS estende o arquivo antes de gravar os dados). **Reparo:** só a cauda NUL saiu, por `g2_kaggle.aparar_jsonl`; nenhuma linha completa foi tocada (SHA-256 `d0821281…` → `5a7bee18…`). A amostra que não chegou a ser gravada foi gerada de novo na retomada, com a mesma semente.
     - **EvalPlus:** pendente da rodada de dev no Kaggle, antes de gerar o teste.
 
+20. **Emenda 3 e o pacote da Qwen3-8B-Base para o Kaggle (2026-10-29).** O par 8B roda no Kaggle 2×T4 (§3.7.5).
+    - **Por que emendar.** Os scripts congelados traziam fixos o executável do Windows e o rótulo "RX 7600 (Vulkan)" que entra no hash. Além disso, a escolha entre medida e retomada vinha da saída gravada: uma medida morta entre o registro do acesso e a 1ª amostra seria recusada como 2º acesso.
+    - **Emenda 3** (`scripts/congelar_g2.py --emenda 3`):
+      - **Ambiente.** O executável e o rótulo da GPU vêm do ambiente (`G2_LLAMA_SERVER`, `G2_GPU`). Sem as variáveis, valem os da RX 7600, e o hash da 1,7B é o mesmo. O executável sem o rótulo é recusado.
+      - **Medida ou retomada.** A escolha vem do livro de acessos (`g2.medida_aberta`).
+      - **MMLU.** A retomada refaz os itens sem previsão (pedido que falhou), como a geração já refazia as amostras "erro". Na 1,7B não havia nenhum, e o efeito é nulo.
+
+      A configuração da geração da 1,7B é a mesma (`e1535689…`). O congelamento passa de `c96b5928…` para `e4c0212f…`, e o `PROTOCOLO_G2_SHA256`, de `5d848f12…` para `44a6b659…`.
+    - **O pacote** (`scripts/empacotar_g2_8b.py`, dataset `g2-8b`). Leva:
+      - o repositório byte a byte num `repo.zip.bin`, porque o congelamento confere os bytes, o Kaggle descompacta `.zip` e descarta arquivos vazios;
+      - a revisão e o SHA-256 de cada arquivo da Qwen3-8B-Base, e o Q8_0 convertido aqui, inteiro e tensor a tensor (`g2_gguf_8B.json`);
+      - os binários oficiais da b11159, com SHA-256;
+      - as versões congeladas dos pacotes e as da conversão local.
+
+      Antes de fechar, o empacotador extrai o `repo.zip.bin` e confere o congelamento nele.
+    - **Parte 1** (`kaggle/g2_8b_preparo.py`, CPU, sem cota de GPU):
+      - instala as versões congeladas e confere o congelamento no Python da imagem, de graça;
+      - baixa a 8B na revisão fixada e confere arquivo a arquivo contra os daqui;
+      - converte F16 e Q8_0 com o conversor da tag, nas versões da conversão local. Os pesos do Q8_0 têm de ser os mesmos do local, tensor a tensor; se não forem, para;
+      - mede a KL como na 1,7B (o mesmo texto, c=1024). Os logits do F16 vão ao Output.
+    - **Parte 2** (`kaggle/g2_8b_medida.py`, T4×2).
+      - **Sessão 1, sanidade.**
+        - O binário é escolhido por um teste nas duas T4. O oficial traz o sm_75 só em PTX; se não gerar, a tag é compilada para sm_75 e guardada no Output.
+        - Mede a KL no motor CUDA e a vazão (camadas, uma placa, um processo por placa) e confere a memória.
+        - Roda os 300 do UG-dev, primeiro cortados por prazo e retomados, para testar a retomada antes do teste.
+        - Para aí: o dono decide os cortes (§3.7.11 item 1) e se um servidor por placa entra (seria outra emenda).
+      - **Sessões de teste.**
+        - Ordem: MMLU (a guarda do instrumento antes do acesso mais caro), G2.1, IFEval e EvalPlus.
+        - Prazo de 10,75 h, ou a cota restante − 0,75 h. Nenhuma etapa nova começa a menos de 1 h do prazo.
+        - A etapa só conta como feita com os contadores completos: as amostras esperadas, nenhum ERROR, nenhum item sem previsão.
+        - Uma guarda do MMLU reprovada, já com o MMLU completo, para tudo.
+        - Uma KL acima de 0,01 barra qualquer medida.
+      - **Hash entre sessões.** O rótulo da GPU leva o binário, o driver, a imagem e o Python da sessão 1. Uma sessão em outro ambiente para antes de qualquer item.
+      - **Estado.**
+        - Fica num zip numerado no Output (`.zip.bin`, com o SHA-256 no nome), gravado em par seguro com o ESTADO.json e salvo a cada minuto quando o livro muda.
+        - A sessão N só aceita o estado da N−1.
+        - O livro é juntado por registro: o do pacote mais as linhas da 8B.
+        - `scripts/trazer_g2_8b.py` traz o estado e funde o livro aqui.
+    - **Revisão adversarial.** Duas rodadas, com 4 e depois 2 focos e um verificador, antes de entregar. Os achados confirmados entraram acima.
+    - **Pendente e declarado:**
+      - As sondas S1/S2 de contaminação da 8B-base (§3.7.9) não existem em código; a 8B volta ao Kaggle para elas.
+      - A correção do G2.1 da 8B roda no Kaggle (Python 3.13). A sanidade é recorrida aqui (`medir_g2.py dev --so-corrigir`), e os vereditos têm de bater.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

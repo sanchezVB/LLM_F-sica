@@ -118,12 +118,11 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
     t0 = time.time()
     with g2_geracao.ServidorG2(gguf, log=log) as srv:
         hc = g2_geracao.hash_da_configuracao(srv, kl["gguf"]["q8_0"]["sha256"],
-                                             "RX 7600 (Vulkan)", pedido)
+                                             g2_geracao.GPU, pedido)
         if fase == "teste":
             g2.exigir_aceite_e_congelamento()
-            # saída já começada com o MESMO hash: é a mesma medida continuando
-            continua = saida.exists() and hc in {d.get("hash_config")
-                                                 for d in g2_geracao.ler_jsonl(saida)}
+            # já há medida com o MESMO hash no livro: é a mesma medida continuando
+            continua = g2.medida_aberta(modelo, braco, hc)
             g2.registrar_acesso(modelo, braco, "retomada" if continua else "medida", hc)
         lote = g2_geracao.gerar_lote(srv.url, pedidos, g2_prompt.PARADAS, pedido, saida, hc)
         for feitas, a in enumerate(lote, start=1):

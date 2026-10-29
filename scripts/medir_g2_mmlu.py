@@ -61,12 +61,15 @@ def rodar(fase: str, modelo: str, braco: str, itens: list[dict]) -> dict:
     t0 = time.time()
     with g2_geracao.ServidorG2(gguf, log=SAIDAS / f"mmlu_{fase}_{modelo}_{braco}.servidor.log") as srv:
         hc = g2_geracao.hash_da_configuracao(srv, kl["gguf"]["q8_0"]["sha256"],
-                                             "RX 7600 (Vulkan)", pedido)
-        feitos = {d["id"]: d for d in g2_geracao.ler_jsonl(saida)
-                  if d.get("hash_config") == hc} if saida.exists() else {}
+                                             g2_geracao.GPU, pedido)
+        # um item sem previsão (o pedido falhou) é refeito na retomada (emenda 3)
+        feitos = ({d["id"]: d for d in g2_geracao.ler_jsonl(saida)
+                   if d.get("hash_config") == hc and d.get("letra") is not None}
+                  if saida.exists() else {})
         if fase == "teste":
             g2.exigir_aceite_e_congelamento()
-            g2.registrar_acesso(modelo, braco, "retomada" if feitos else "medida", hc,
+            continua = g2.medida_aberta(modelo, braco, hc, nota="mmlu")
+            g2.registrar_acesso(modelo, braco, "retomada" if continua else "medida", hc,
                                 nota="mmlu")
         fila = [x for x in itens if x["id"] not in feitos]
         trava = threading.Lock()

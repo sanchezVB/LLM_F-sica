@@ -162,7 +162,8 @@ def main() -> int:
                 for p in sorted(PACOTE.iterdir()) if p.is_file() and p.name != "MANIFESTO.json"}
     manifesto = {"pacote": "g2_8b", "protocolo_g2_sha256": congelado,
                  "celulas_sha256": {n: _sha(c) for n, c in CELULAS.items()},
-                 "kl_8b_pronta": KL_8B in repo,
+                 "kl_8b_pronta": KL_8B in repo and json.loads(
+                     (RAIZ / KL_8B).read_text(encoding="utf-8")).get("passa") is True,
                  "livro_fotografado": {"sha256": hashlib.sha256(livro).hexdigest(),
                                        "linhas": livro.count(b"\n")},
                  "arquivos": arquivos, "repo": repo}
