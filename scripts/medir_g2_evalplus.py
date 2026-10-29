@@ -228,6 +228,8 @@ def empacotar(avaliar: list[str]) -> dict:
                  "celula_sha256": _sha(CELULA), "avaliar": avaliar, "arquivos": arquivos}
     (PACOTE / "MANIFESTO.json").write_text(json.dumps(manifesto, ensure_ascii=False, indent=1) + "\n",
                                            encoding="utf-8")
+    # o mesmo pacote num .zip, para subir pela web (o Kaggle descompacta mantendo as pastas)
+    shutil.make_archive(str(PACOTE), "zip", root_dir=PACOTE)
     return manifesto
 
 

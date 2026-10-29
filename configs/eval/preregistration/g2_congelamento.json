@@ -10,15 +10,39 @@
   "src/phifm/eval/g2_geracao.py": "bd883c6fe1cba3d292ced3ba08bd333d9f98c289f5f27964680cf6a4c58a8f7a",
   "src/phifm/eval/g2_correcao.py": "76ad3f332169d85a78e8996946f30e6c6de7ab58c7943dc0ff4ee719dd26fd4a",
   "scripts/medir_g2.py": "4a4dba84293ffeb128a2e6df5d94dd27bb21e7a84dd5954ca3ef98c87283f3bf",
+  "src/phifm/eval/g2_mmlu.py": "a7ac56289de141ec547a5f81b34c3456edc147aa2bae866aec34026b52ec006e",
+  "scripts/medir_g2_mmlu.py": "c6d8151faefd3f3282a1e6eb728659ada104201bbc10e11908faf4e3164541d7",
+  "src/phifm/eval/g2_ifeval.py": "798fa48522946a84f8c74817cec4494373e617c9a7158e99c901e647a2e91686",
+  "scripts/medir_g2_ifeval.py": "4a7e06c9cabdaf2def309b5fcb51142deffb78e36e74102b745d9b37d9968167",
+  "ferramentas/ifeval-oficial/instruction_following_eval/evaluation_lib.py": "35decc06000718487f44d7deafa6d3f48a8ec0886281edf40162c0265b7d248c",
+  "ferramentas/ifeval-oficial/instruction_following_eval/instructions.py": "60e086f5342a03ce8e18b64bbcccf86308f523c08aa826707a562150a52f3edf",
+  "ferramentas/ifeval-oficial/instruction_following_eval/instructions_registry.py": "ec92d72c264f6d906978613085db262356174300370a3fffe6fefd5969ce9cfc",
+  "ferramentas/ifeval-oficial/instruction_following_eval/instructions_util.py": "a73797261eee5bf447e279d82a2b700b1bdd3cb1193412dbab1270a85832bc6b",
+  "src/phifm/eval/g2_evalplus.py": "61a49c0d42e583ffe173c71f854d61c997ba494e5279bb3c7b160b9d8ba5e52a",
+  "scripts/medir_g2_evalplus.py": "0e0974eb5902edaecfee8b347a733f0f1c0e2261113ea0e0a86f11f1b5c4756a",
+  "kaggle/g2_evalplus.py": "697811fb498162d07c81e48833bfee84718e0b77e1c15098c47542d3c66cb4c0",
   "sympy": "1.14.0",
   "antlr4-python3-runtime": "4.11.0",
-  "mpmath": "1.3.0"
+  "mpmath": "1.3.0",
+  "langdetect": "1.0.9",
+  "nltk": "3.10.3",
+  "absl-py": "2.5.1",
+  "immutabledict": "4.3.1",
+  "evalplus": "0.3.1",
+  "tree-sitter": "0.26.0",
+  "tree-sitter-python": "0.25.0"
  },
  "dados": {
   "data/processed/avaliacao/g2_particao.json": "3198479eab6879066616493bd6db663f31502d30d45d6f8fa3a0340edab4aa0b",
   "data/processed/avaliacao/g2_exemplos.json": "6458b8466cf5cd86a9e1c30aee9a0035208b0bb8297163b51d79b60009a213b5",
   "data/processed/avaliacao/g2_autoteste.json": "3a266d529f341beb5aa08f7591212cd1407b5ec93f96df04e319d43ec0a9355e",
-  "configs/eval/preregistration/g2_ifeval_envelope.txt": "975e81b603eb7eabc24c36841cf1e9a51a13f854f16a2db9dad41bfc8a3ec4fa"
+  "configs/eval/preregistration/g2_ifeval_envelope.txt": "975e81b603eb7eabc24c36841cf1e9a51a13f854f16a2db9dad41bfc8a3ec4fa",
+  "configs/eval/g2_ifeval_dev20.jsonl": "dc1a89ac7479f0628da2fe8e99aabdd76212a43921f9739e39864f9ab2cb97db",
+  "data/raw/benchmarks/mmlu/all/dev-00000-of-00001.parquet": "02790b4b79dfae405241620cddc80b22cfe20f58f8189655defa084a1d3279f7",
+  "data/raw/benchmarks/mmlu/all/test-00000-of-00001.parquet": "59ab4d89ef49bf9fde78eaca99a1b63f95d7177a2252126b9faba6819119d2c7",
+  "data/raw/benchmarks/ifeval/ifeval_input_data.jsonl": "6a85310ca8ce15eff755aa08a3a4ff931c7e273e7515ebb3c492ea85fd8288f2",
+  "data/raw/benchmarks/evalplus-oficial/HumanEvalPlus-v0.1.10.jsonl": "42526ec0e7d5f3ee0b06d6ced98f8c8bae3d76519151bfb3d36f79010645bd7f",
+  "data/raw/benchmarks/evalplus-oficial/MbppPlus-v0.2.0.jsonl": "b54e762755248ca411b523c917fa9f93c07b5ff2966bf60b3917b853926a3dad"
  },
  "hash_da_configuracao": {
   "Qwen3-1.7B-Base": "e15356892060e5f4b634d650fa346d14f4ef1d031cc83917590d51dda2f3d91e"
@@ -40,6 +64,39 @@
    ],
    "congelamento_anterior_sha256": "230829b22642bea68fc449ed0a8bd54786b324173e64589d6fb50bf35f524058",
    "protocolo_anterior_sha256": "daf804d752a187272aa9f469d3603852ebcb1397b646b01820d5c3f1cbf29bfa"
+  },
+  {
+   "n": 2,
+   "em": "2026-10-29",
+   "motivo": "G2.3: o codigo do MMLU, do IFEval (com o codigo oficial do Google) e do EvalPlus (com a celula do Kaggle), os dados oficiais e as versoes de pacote entram no congelamento; a nota do livro de acessos entra na chave, um acesso por medida",
+   "mudou": [
+    "absl-py",
+    "configs/eval/g2_ifeval_dev20.jsonl",
+    "data/raw/benchmarks/evalplus-oficial/HumanEvalPlus-v0.1.10.jsonl",
+    "data/raw/benchmarks/evalplus-oficial/MbppPlus-v0.2.0.jsonl",
+    "data/raw/benchmarks/ifeval/ifeval_input_data.jsonl",
+    "data/raw/benchmarks/mmlu/all/dev-00000-of-00001.parquet",
+    "data/raw/benchmarks/mmlu/all/test-00000-of-00001.parquet",
+    "evalplus",
+    "ferramentas/ifeval-oficial/instruction_following_eval/evaluation_lib.py",
+    "ferramentas/ifeval-oficial/instruction_following_eval/instructions.py",
+    "ferramentas/ifeval-oficial/instruction_following_eval/instructions_registry.py",
+    "ferramentas/ifeval-oficial/instruction_following_eval/instructions_util.py",
+    "immutabledict",
+    "kaggle/g2_evalplus.py",
+    "langdetect",
+    "nltk",
+    "scripts/medir_g2_evalplus.py",
+    "scripts/medir_g2_ifeval.py",
+    "scripts/medir_g2_mmlu.py",
+    "src/phifm/eval/g2_evalplus.py",
+    "src/phifm/eval/g2_ifeval.py",
+    "src/phifm/eval/g2_mmlu.py",
+    "tree-sitter",
+    "tree-sitter-python"
+   ],
+   "congelamento_anterior_sha256": "cb7ac12308f485a29d72a3da140453ca2088538987d4b29b2b4b7d6c99134f09",
+   "protocolo_anterior_sha256": "45b806302547b26352ecf554bf14577226c60556130342d58eea39747c48078c"
   }
  ]
 }

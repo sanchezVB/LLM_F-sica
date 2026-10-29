@@ -40,7 +40,7 @@ LIVRO_DE_ACESSOS = RAIZ / "data/processed/avaliacao/g2_acessos.jsonl"
 REGRA_G2_ACEITA = True
 # Preenchido no congelamento, com o hash do g2.yaml completo (partição, exemplos, envelope,
 # código do extrator e do corretor, motor). Antes disso, None.
-PROTOCOLO_G2_SHA256: str | None = "45b806302547b26352ecf554bf14577226c60556130342d58eea39747c48078c"
+PROTOCOLO_G2_SHA256: str | None = "5d848f12d014b01586bd127c92b11d1a232d5c8a2fe5fae4c04cf2584874aed8"
 
 SEMENTE_G2 = 20261019
 N_BOOTSTRAP = 10_000

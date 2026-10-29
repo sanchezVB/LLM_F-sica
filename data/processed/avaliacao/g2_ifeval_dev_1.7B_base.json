@@ -1,0 +1,34 @@
+{
+ "o_que_e": "G2.3, IFEval, fase dev (DOC-12 §3.7.4): agregados",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "hashes": {
+  "gulosa": "d2e97a63142bf018f263db091a917fc3dccd5a7bab1f72101c0169f8e6027d7d"
+ },
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_ifeval.py": "798fa48522946a84f8c74817cec4494373e617c9a7158e99c901e647a2e91686",
+  "scripts/medir_g2_ifeval.py": "4a7e06c9cabdaf2def309b5fcb51142deffb78e36e74102b745d9b37d9968167",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "segundos": 18,
+ "gulosa": {
+  "n": 20,
+  "prompt_strict": 0.75,
+  "prompt_loose": 0.75,
+  "instrucao_strict": 0.75,
+  "instrucao_loose": 0.75,
+  "strict_medio_das_amostras": 0.75,
+  "truncadas": 0.0,
+  "fichas_media": 155.8,
+  "paradas": {
+   "eos": 2,
+   "word": 18
+  }
+ }
+}

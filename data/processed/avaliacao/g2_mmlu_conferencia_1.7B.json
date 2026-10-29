@@ -1,0 +1,49 @@
+{
+ "o_que_e": "conferência do MMLU do G2.3: llama-server Q8_0 contra transformers float32 na CPU, nos itens de dev (DOC-12 §3.7.11, item 3)",
+ "itens": 50,
+ "iguais": 48,
+ "empates_numericos": [
+  "validation/1303"
+ ],
+ "diferentes": [
+  "validation/1505"
+ ],
+ "ok": false,
+ "diagnostico_dos_desacordos": {
+  "quando": "2026-10-29",
+  "tokenizacao": "o /tokenize do llama-server deu os mesmos ids do transformers nos 2 itens (308 e 1.814 fichas), e as fichas ' A'…' D' são as mesmas",
+  "validation/1505": {
+   "transformers_float32": {
+    "A": -1.3702,
+    "B": -1.3418,
+    "C": -1.6769,
+    "D": -1.2178
+   },
+   "servidor_3_chamadas": [
+    "A",
+    "A",
+    "A"
+   ],
+   "servidor_logprobs": {
+    "A": -1.2287,
+    "B": -1.3757,
+    "C": -1.7257,
+    "D": -1.29
+   }
+  },
+  "validation/1303": {
+   "transformers_float32": {
+    "A": -1.8308,
+    "B": -1.3319,
+    "C": -1.2593,
+    "D": -1.2327
+   },
+   "servidor_3_chamadas": [
+    "D",
+    "C",
+    "C"
+   ]
+  },
+  "leitura": "o instrumento está certo (mesmo prompt, mesmas fichas). Os 2 desacordos são numéricos: as 4 letras ficam quase empatadas (entre −1,2 e −1,4 nats), e o Q8_0 com KV q8_0 desloca até 0,16 nats; o servidor nem repete a si mesmo no 1303 (a 1ª chamada, sem cache de prompt, dá D, e as seguintes dão C). Vale igual nos dois braços. A trava que decide é a guarda do instrumento (MMLU-57 a ±3)."
+ }
+}

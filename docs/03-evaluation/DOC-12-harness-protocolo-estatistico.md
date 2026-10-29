@@ -452,6 +452,29 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
     - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
 
+18. **G2.3 na 1,7B: sanidades e emenda 2 (2026-10-29).**
+    - **MMLU.** O dev (`medir_g2_mmlu.py dev`, 50 itens da validation sem física) deu 52% de acerto e nenhum item sem previsão. **Conferência** (§3.7.11 item 3, `g2_mmlu_conferencia_1.7B.json`): o argmax do servidor (Q8_0, `n_probs`) contra o do transformers em float32 na CPU. O bf16 na CPU desta máquina roda num núcleo só, e o float32 sobe os pesos sem perda.
+      - **48 de 50 iguais.** Nos 2 desacordos, o `/tokenize` do servidor dá os mesmos ids do transformers, e as fichas ` A`…` D` são as mesmas.
+      - **Os desacordos são numéricos.** As 4 letras ficam quase empatadas (entre −1,2 e −1,4 nats), e o Q8_0 com KV q8_0 desloca até 0,16 nats. Num dos dois, o servidor não repete nem a si mesmo entre chamadas (sem e com cache de prompt).
+      - **Leitura declarada:** o instrumento está certo, e os desacordos valem igual nos dois braços. O que trava continua sendo a guarda do instrumento.
+    - **IFEval, o envelope** (`g2_ifeval_dev_1.7B_base.json`). São 20 instruções escritas por nós (`configs/eval/g2_ifeval_dev20.jsonl`, chaves 9001–9020, com ids e kwargs oficiais), geradas gulosas no envelope:
+      - as 20 param sozinhas (18 em `
+# Query` e 2 em EOS), nenhuma truncada, 156 fichas em média;
+      - strict 75%. As 5 falhas são do modelo (vírgula, maiúsculas, palavra proibida, frequência, parágrafos), não do envelope.
+    - **EvalPlus.**
+      - **Dados.** Os releases oficiais HumanEval+ v0.1.10 e MBPP+ v0.2.0, baixados com o aval do dono (1,2 MB, `g2_downloads.json`). Os espelhos do HF não servem: o prompt deles difere do oficial em 18 tarefas do MBPP+, e eles não separam as entradas base das plus.
+      - **Sobreposição** MBPP × MBPP+ por `task_id` (§3.7.11 item 9): as 378 do MBPP+ estão todas entre as 974 do MBPP. Sobram 596 para o dev.
+      - **Dev** (`g2_evalplus_dev_1.7B_base.json`): 20 tarefas do MBPP fora do MBPP+, no formato de prompt do MBPP+, gulosas. Nenhuma truncada, nenhuma sanitizada vazia, todas com a função pedida e com sintaxe válida.
+      - **Execução** (`kaggle/g2_evalplus.py`, notebook de CPU sem internet). A célula confere o pacote pelo MANIFESTO e recusa rodar com internet. Depois roda a sanidade pelo `evalplus.evaluate` oficial: as canônicas têm de passar 100% e as quebradas de falhar 100%. Só devolve contadores. O tempo de referência das canônicas medido no Kaggle volta junto, para o outro braço usar o mesmo. **Pendente:** a rodada de dev no Kaggle, antes de gerar o teste.
+      - **Sanidade gulosa, leitura declarada.** A referência de 52,70 vem do relatório do Qwen3, que chama de EvalPlus a média de HumanEval, MBPP, HumanEval+ e MBPP+. A sanidade usa essa mesma média; o que decide continua sendo o pass@1 plus nos 542.
+    - **Livro de acessos.** A nota (G2.1, `mmlu`, `ifeval`, `evalplus`) entra na chave. Sem isso, o ΦGen teria um acesso só para as 4 medidas.
+    - **Emenda 2** (`scripts/congelar_g2.py --emenda 2`). Entram no congelamento:
+      - o código das 3 medidas, o código oficial do IFEval e a célula do Kaggle;
+      - os dados: MMLU dev e teste, IFEval, EvalPlus e as 20 instruções de dev;
+      - as versões de langdetect, nltk, absl-py, immutabledict, evalplus e tree-sitter.
+
+      A configuração da geração é a mesma (`e1535689…`). O congelamento passa de `cb7ac123…` para `c96b5928…`, e o `PROTOCOLO_G2_SHA256`, de `45b80630…` para `5d848f12…`.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

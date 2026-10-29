@@ -1,0 +1,46 @@
+{
+ "o_que_e": "G2.3, EvalPlus, fase dev (DOC-12 §3.7.4): geração; a execução é no Kaggle (apurar)",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "hashes": {
+  "gulosa": "3255dad11f08fecbf85ca3ffc0252de690ade1ee7fa6f8b9264272b5b2ef21a1"
+ },
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_evalplus.py": "61a49c0d42e583ffe173c71f854d61c997ba494e5279bb3c7b160b9d8ba5e52a",
+  "scripts/medir_g2_evalplus.py": "0e0974eb5902edaecfee8b347a733f0f1c0e2261113ea0e0a86f11f1b5c4756a",
+  "kaggle/g2_evalplus.py": "697811fb498162d07c81e48833bfee84718e0b77e1c15098c47542d3c66cb4c0",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "evalplus": "0.3.1",
+ "segundos": 12,
+ "geracao": {
+  "gulosa": {
+   "mbppdev": {
+    "amostras": 20,
+    "sha256": "6b9489f0bfdd520771623a753c3534d5212b61f86e48d4e27b837d98f0166a6b",
+    "truncadas": 0.0,
+    "fichas_media": 74.5,
+    "paradas": {
+     "eos": 13,
+     "word": 7
+    },
+    "sanitizada_vazia": 0,
+    "sem_o_ponto_de_entrada": 0,
+    "sem_sintaxe": 0
+   }
+  }
+ },
+ "sobreposicao_mbpp": {
+  "mbpp": 974,
+  "mbpp_plus": 378,
+  "intersecao": 378,
+  "mbpp_plus_fora_do_mbpp": 0,
+  "dev_disponivel": 596
+ }
+}
