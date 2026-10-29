@@ -475,6 +475,18 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
       A configuração da geração é a mesma (`e1535689…`). O congelamento passa de `cb7ac123…` para `c96b5928…`, e o `PROTOCOLO_G2_SHA256`, de `45b80630…` para `5d848f12…`.
 
+19. **G2.3 da Qwen3-1.7B-Base no teste (2026-10-29).** O congelamento é o da emenda 2, e cada medida tem o seu acesso no livro (nota).
+    - **MMLU** (`g2_mmlu_teste_1.7B_base.json`, hash `97544733…`, 16 min na RX 7600). Nenhum dos 14.042 itens ficou sem previsão.
+
+      | Recorte | Itens | Acerto |
+      |---|---|---|
+      | **Sem física (decide)** | 13.402 | **62,72%** |
+      | MMLU-57 | 14.042 | 62,63% |
+      | Física | 640 | 60,78% |
+
+      **Guarda do instrumento:** o MMLU-57 deu 62,63, contra a referência de 62,63 ± 3. Passa.
+    - **IFEval e EvalPlus:** pendentes.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
