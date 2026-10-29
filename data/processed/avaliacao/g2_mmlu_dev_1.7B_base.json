@@ -1,0 +1,189 @@
+{
+ "o_que_e": "G2.3, MMLU, fase dev (DOC-12 §3.7.4): agregados",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "hash_config": "9754473342920eebbead4b011435f781dd21b7b85d57d6a94363bb6ca1927445",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_mmlu.py": "a7ac56289de141ec547a5f81b34c3456edc147aa2bae866aec34026b52ec006e",
+  "scripts/medir_g2_mmlu.py": "c6d8151faefd3f3282a1e6eb728659ada104201bbc10e11908faf4e3164541d7",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "segundos": 38,
+ "sem_fisica": {
+  "itens": 50,
+  "acerto": 0.52
+ },
+ "mmlu_57": {
+  "itens": 50,
+  "acerto": 0.52
+ },
+ "fisica": {
+  "itens": 0,
+  "acerto": null
+ },
+ "sem_previsao": 0,
+ "por_materia": {
+  "abstract_algebra": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "anatomy": {
+   "itens": 2,
+   "acerto": 0.5
+  },
+  "clinical_knowledge": {
+   "itens": 4,
+   "acerto": 0.75
+  },
+  "college_biology": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "elementary_mathematics": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "formal_logic": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "high_school_biology": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "high_school_european_history": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "high_school_geography": {
+   "itens": 2,
+   "acerto": 0.5
+  },
+  "high_school_mathematics": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "high_school_microeconomics": {
+   "itens": 2,
+   "acerto": 1.0
+  },
+  "high_school_psychology": {
+   "itens": 2,
+   "acerto": 0.5
+  },
+  "high_school_statistics": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "logical_fallacies": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "marketing": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "miscellaneous": {
+   "itens": 6,
+   "acerto": 0.6667
+  },
+  "moral_scenarios": {
+   "itens": 3,
+   "acerto": 0.0
+  },
+  "nutrition": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "philosophy": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "professional_law": {
+   "itens": 7,
+   "acerto": 0.1429
+  },
+  "professional_medicine": {
+   "itens": 2,
+   "acerto": 0.5
+  },
+  "professional_psychology": {
+   "itens": 3,
+   "acerto": 0.6667
+  },
+  "security_studies": {
+   "itens": 1,
+   "acerto": 0.0
+  },
+  "sociology": {
+   "itens": 2,
+   "acerto": 1.0
+  },
+  "us_foreign_policy": {
+   "itens": 1,
+   "acerto": 1.0
+  },
+  "virology": {
+   "itens": 1,
+   "acerto": 1.0
+  }
+ },
+ "previstas": {
+  "validation/1031": "C",
+  "validation/1171": "D",
+  "validation/1079": "D",
+  "validation/10": "C",
+  "validation/12": "D",
+  "validation/1238": "C",
+  "validation/1263": "A",
+  "validation/1268": "A",
+  "validation/13": "C",
+  "validation/1306": "D",
+  "validation/1303": "C",
+  "validation/1292": "D",
+  "validation/1333": "B",
+  "validation/1352": "C",
+  "validation/1385": "D",
+  "validation/1392": "B",
+  "validation/1481": "C",
+  "validation/1456": "D",
+  "validation/1482": "A",
+  "validation/1396": "A",
+  "validation/1486": "D",
+  "validation/1505": "A",
+  "validation/276": "B",
+  "validation/237": "C",
+  "validation/313": "B",
+  "validation/377": "B",
+  "validation/385": "C",
+  "validation/357": "D",
+  "validation/479": "D",
+  "validation/500": "B",
+  "validation/509": "C",
+  "validation/575": "A",
+  "validation/60": "B",
+  "validation/63": "D",
+  "validation/607": "C",
+  "validation/585": "B",
+  "validation/70": "C",
+  "validation/730": "C",
+  "validation/77": "A",
+  "validation/767": "B",
+  "validation/796": "A",
+  "validation/834": "B",
+  "validation/82": "D",
+  "validation/843": "C",
+  "validation/871": "C",
+  "validation/873": "C",
+  "validation/937": "C",
+  "validation/865": "B",
+  "validation/993": "C",
+  "validation/973": "A"
+ }
+}

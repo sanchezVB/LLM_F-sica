@@ -109,6 +109,17 @@ def test_livro_base_re_medida_so_com_outro_hash(tmp_path):
     g2.registrar_acesso("1.7B", "phigen", "medida", "h9", livro=livro)  # outro tamanho
 
 
+def test_livro_cada_medida_do_g2_3_tem_o_seu_acesso(tmp_path):
+    livro = tmp_path / "acessos.jsonl"
+    g2.registrar_acesso("8B", "phigen", "medida", "h1", livro=livro)               # G2.1
+    for nota in ("mmlu", "ifeval", "evalplus"):
+        g2.registrar_acesso("8B", "phigen", "medida", "h1", nota=nota, livro=livro)
+        with pytest.raises(g2.AcessoRecusado):
+            g2.registrar_acesso("8B", "phigen", "medida", "h2", nota=nota, livro=livro)
+    with pytest.raises(g2.AcessoRecusado):
+        g2.registrar_acesso("8B", "phigen", "retomada", "h1", nota="gpqa", livro=livro)
+
+
 def test_livro_retomada_nao_conta_e_exige_o_mesmo_hash(tmp_path):
     livro = tmp_path / "acessos.jsonl"
     with pytest.raises(g2.AcessoRecusado):

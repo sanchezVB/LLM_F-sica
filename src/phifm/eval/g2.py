@@ -121,17 +121,44 @@ def codigo_do_corretor(raiz: Path, extras: tuple[str, ...] = ()) -> dict[str, st
 # arquivo daqui mudar depois. O g2.py fica de fora: a trava dele é o próprio hash do yaml.
 CONGELAMENTO = RAIZ / "configs/eval/preregistration/g2_congelamento.json"
 CODIGO_DA_MEDIDA = ("src/phifm/eval/g2_prompt.py", "src/phifm/eval/g2_geracao.py",
-                    "src/phifm/eval/g2_correcao.py", "scripts/medir_g2.py")
+                    "src/phifm/eval/g2_correcao.py", "scripts/medir_g2.py",
+                    # G2.3 (emenda 2): o MMLU, o IFEval com o código oficial, e o EvalPlus
+                    "src/phifm/eval/g2_mmlu.py", "scripts/medir_g2_mmlu.py",
+                    "src/phifm/eval/g2_ifeval.py", "scripts/medir_g2_ifeval.py",
+                    *(f"ferramentas/ifeval-oficial/instruction_following_eval/{m}.py"
+                      for m in ("evaluation_lib", "instructions", "instructions_registry",
+                                "instructions_util")),
+                    "src/phifm/eval/g2_evalplus.py", "scripts/medir_g2_evalplus.py",
+                    "kaggle/g2_evalplus.py")
 DADOS_DA_MEDIDA = ("data/processed/avaliacao/g2_particao.json",
                    "data/processed/avaliacao/g2_exemplos.json",
                    "data/processed/avaliacao/g2_autoteste.json",
-                   "configs/eval/preregistration/g2_ifeval_envelope.txt")
+                   "configs/eval/preregistration/g2_ifeval_envelope.txt",
+                   # G2.3 (emenda 2)
+                   "configs/eval/g2_ifeval_dev20.jsonl",
+                   "data/raw/benchmarks/mmlu/all/dev-00000-of-00001.parquet",
+                   "data/raw/benchmarks/mmlu/all/test-00000-of-00001.parquet",
+                   "data/raw/benchmarks/ifeval/ifeval_input_data.jsonl",
+                   "data/raw/benchmarks/evalplus-oficial/HumanEvalPlus-v0.1.10.jsonl",
+                   "data/raw/benchmarks/evalplus-oficial/MbppPlus-v0.2.0.jsonl")
+# As versões que decidem a correção e a sanitização do G2.3. Fora do `codigo_do_corretor`,
+# para não mudar o hash do autoteste do corretor de física.
+PACOTES_DA_MEDIDA = ("langdetect", "nltk", "absl-py", "immutabledict", "evalplus",
+                     "tree-sitter", "tree-sitter-python")
 
 
 def estado_congelavel(raiz: Path = RAIZ) -> dict[str, dict]:
-    """O código (com as versões do parser) e os dados da medida, por SHA-256."""
-    return {"codigo": codigo_do_corretor(raiz, extras=CODIGO_DA_MEDIDA),
-            "dados": {p: sha256_arquivo(raiz / p) for p in DADOS_DA_MEDIDA}}
+    """O código (com as versões do parser e dos pacotes do G2.3) e os dados da medida, por
+    SHA-256."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    codigo = codigo_do_corretor(raiz, extras=CODIGO_DA_MEDIDA)
+    for pacote in PACOTES_DA_MEDIDA:
+        try:
+            codigo[pacote] = version(pacote)
+        except PackageNotFoundError:
+            codigo[pacote] = None
+    return {"codigo": codigo, "dados": {p: sha256_arquivo(raiz / p) for p in DADOS_DA_MEDIDA}}
 
 
 def exigir_estado_congelado(raiz: Path = RAIZ, congelamento: Path = CONGELAMENTO,
@@ -185,17 +212,18 @@ def exigir_aceite_e_congelamento(preregistro: Path = PREREGISTRO, aceita: bool |
 def _chave(r: dict) -> tuple:
     # A base é re-medida quando o hash da configuração muda (a base só vale no veredito com
     # o MESMO hash do ΦGen); o ΦGen e cada comparador têm um acesso só, qualquer que seja o
-    # hash.
-    return (r["tamanho"], r["braco"], r["hash_config"] if r["braco"] == "base" else None)
+    # hash. Por medida: a nota separa o G2.1 ("") do MMLU, do IFEval e do EvalPlus (emenda 2).
+    return (r["tamanho"], r["braco"], r.get("nota", ""),
+            r["hash_config"] if r["braco"] == "base" else None)
 
 
 def motivo_de_recusa(registros: Sequence[dict], tamanho: str, braco: str, motivo: str,
-                     hash_config: str) -> str | None:
+                     hash_config: str, nota: str = "") -> str | None:
     """None se o acesso é permitido; senão, o porquê. Por chave: 1 `medida` e, depois dela,
     no máximo 1 `falha_operacional` (a parcial é descartada e registrada)."""
     if motivo not in MOTIVOS_DE_ACESSO:
         return f"motivo desconhecido: {motivo}"
-    novo = {"tamanho": tamanho, "braco": braco, "hash_config": hash_config}
+    novo = {"tamanho": tamanho, "braco": braco, "hash_config": hash_config, "nota": nota}
     mesmos = [r for r in registros if _chave(r) == _chave(novo)]
     medidas = sum(r["motivo"] == "medida" for r in mesmos)
     repeticoes = sum(r["motivo"] == "falha_operacional" for r in mesmos)
@@ -224,7 +252,7 @@ def registrar_acesso(tamanho: str, braco: str, motivo: str, hash_config: str,
     livro = Path(livro)
     registros = ([json.loads(x) for x in livro.read_text(encoding="utf-8").splitlines()
                   if x.strip()] if livro.exists() else [])
-    if (porque := motivo_de_recusa(registros, tamanho, braco, motivo, hash_config)):
+    if (porque := motivo_de_recusa(registros, tamanho, braco, motivo, hash_config, nota)):
         raise AcessoRecusado(porque)
     r = {"quando": datetime.now(UTC).isoformat(timespec="seconds"), "tamanho": tamanho,
          "braco": braco, "motivo": motivo, "hash_config": hash_config, "nota": nota}

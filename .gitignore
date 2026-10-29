@@ -110,6 +110,8 @@ Thumbs.db
 # ─── Exceções: manifestos e amostras pequenas SÃO versionados ─────────────
 !benchmarks/**/*.jsonl
 !tests/golden/**/*.jsonl
+# As instruções de dev do IFEval do G2.3 (escritas por nós, congeladas pela emenda 2)
+!configs/eval/*.jsonl
 !docs/**/*.parquet
 
 # ─── Ambiente virtual local ───────────────────────────────────────────────
