@@ -216,16 +216,34 @@ def gerar_uma(url: str, prompt: str, paradas: list[str], pedido: dict, sem: int,
         return ler_fluxo(r, GuardaDeRepeticao())
 
 
+# U+0085, U+2028 e U+2029 crus numa linha de jsonl: o `json.dumps(ensure_ascii=False)` os
+# deixa crus, e o `str.splitlines()` parte a linha neles. Na medida da base, uma geração com
+# U+0085 travou a retomada (emenda 1, 2026-10-25). O gravador escapa; o leitor separa pelo
+# "\n" de verdade, e assim lê também os arquivos antigos.
+_SEPARADORES = {"\u0085": "\\u0085", " ": "\\u2028", " ": "\\u2029"}
+
+
+def linha_jsonl(registro: dict) -> str:
+    """O registro numa linha de jsonl que nenhum leitor parte."""
+    linha = json.dumps(registro, ensure_ascii=False)
+    for c, e in _SEPARADORES.items():
+        linha = linha.replace(c, e)
+    return linha
+
+
+def ler_jsonl(arquivo: Path) -> Iterator[dict]:
+    """Os registros de um jsonl, separados SÓ pelo "\\n"."""
+    for linha in Path(arquivo).read_text(encoding="utf-8").split("\n"):
+        linha = linha.rstrip("\r")
+        if linha.strip():
+            yield json.loads(linha)
+
+
 def ja_gerados(saida: Path) -> set[tuple[str, str, int]]:
     if not saida.exists():
         return set()
-    feitos = set()
-    for linha in saida.read_text(encoding="utf-8").splitlines():
-        if linha.strip():
-            d = json.loads(linha)
-            if d.get("parada") != "erro":
-                feitos.add((d["bench"], d["item_id"], d["j"]))
-    return feitos
+    return {(d["bench"], d["item_id"], d["j"]) for d in ler_jsonl(saida)
+            if d.get("parada") != "erro"}
 
 
 def gerar_lote(url: str, pedidos: list[tuple[str, str, int, str]], paradas: list[str],
@@ -249,7 +267,7 @@ def gerar_lote(url: str, pedidos: list[tuple[str, str, int, str]], paradas: list
         linha = {**a.__dict__, "truncada": a.truncada, "hash_config": hash_config,
                  "sha256_texto": hashlib.sha256(texto.encode()).hexdigest()}
         with trava, saida.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(linha, ensure_ascii=False) + "\n")
+            f.write(linha_jsonl(linha) + "\n")
         return a
 
     saida.parent.mkdir(parents=True, exist_ok=True)

@@ -122,9 +122,8 @@ def rodar(fase: str, modelo: str, rotulo: str, itens: list[g2_itens.Item],
         if fase == "teste":
             g2.exigir_aceite_e_congelamento()
             # saída já começada com o MESMO hash: é a mesma medida continuando
-            continua = hc in {json.loads(x).get("hash_config")
-                              for x in (saida.read_text(encoding="utf-8").splitlines()
-                                        if saida.exists() else []) if x.strip()}
+            continua = saida.exists() and hc in {d.get("hash_config")
+                                                 for d in g2_geracao.ler_jsonl(saida)}
             g2.registrar_acesso(modelo, braco, "retomada" if continua else "medida", hc)
         lote = g2_geracao.gerar_lote(srv.url, pedidos, g2_prompt.PARADAS, pedido, saida, hc)
         for feitas, a in enumerate(lote, start=1):
@@ -138,10 +137,7 @@ def _amostras(saida: Path, hc: str, por_id: dict) -> list[dict]:
     """As amostras do hash, UMA por (bench, id, j): a linha `erro` de uma rodada
     interrompida e refeita depois sai (a iteração 2 do dev contava 4 amostras duas vezes)."""
     por_chave: dict[tuple, dict] = {}
-    for x in saida.read_text(encoding="utf-8").splitlines():
-        if not x.strip():
-            continue
-        a = json.loads(x)
+    for a in g2_geracao.ler_jsonl(saida):
         if a["hash_config"] != hc or (a["bench"], a["item_id"]) not in por_id:
             continue
         chave = (a["bench"], a["item_id"], a["j"])

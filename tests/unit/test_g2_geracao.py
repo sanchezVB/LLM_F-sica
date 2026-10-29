@@ -16,6 +16,22 @@ def _linha(**d) -> bytes:
     return ("data: " + json.dumps(d) + "\n").encode()
 
 
+def test_jsonl_com_separador_cru_nao_parte_a_linha(tmp_path):
+    """Emenda 1: uma geração com U+0085 cru travou a retomada da medida da base, porque o
+    leitor usava splitlines. O gravador escapa e o leitor separa só pelo "\\n", lendo também
+    o arquivo antigo, de linha crua."""
+    reg = {"bench": "b", "item_id": "i", "j": 0, "parada": "word",
+           "texto": "a\u0085b c d", "hash_config": "h"}
+    linha = ger.linha_jsonl(reg)
+    assert len(linha.splitlines()) == 1 and json.loads(linha) == reg
+    arq = tmp_path / "g.jsonl"
+    cru = json.dumps(reg | {"j": 1}, ensure_ascii=False)          # como o gravador antigo
+    arq.write_text(linha + "\n" + cru + "\n", encoding="utf-8")
+    lidos = list(ger.ler_jsonl(arq))
+    assert [d["j"] for d in lidos] == [0, 1] and all(d["texto"] == reg["texto"] for d in lidos)
+    assert ger.ja_gerados(arq) == {("b", "i", 0), ("b", "i", 1)}
+
+
 def test_guarda_corta_na_quarta_repeticao_da_janela_em_laco():
     g = ger.GuardaDeRepeticao(janela=3, vezes=4)
     assert not g.alimentar([1, 2, 3, 9])

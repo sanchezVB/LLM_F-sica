@@ -12,6 +12,10 @@
 
 Depois disso, o `medir_g2 teste` recusa se o g2.yaml, o código ou os dados mudarem.
 Rodar de novo recusa: o protocolo já está congelado.
+
+Emenda registrada no DOC-12 §3.7.4 (código ou dados mudaram, a geração não):
+
+    .venv\\Scripts\\python.exe scripts\\congelar_g2.py --emenda 1 --motivo "..."
 """
 from __future__ import annotations
 
@@ -96,5 +100,63 @@ def main() -> int:
     return 0
 
 
+def emendar(numero: int, motivo: str) -> int:
+    """Recongela depois de uma emenda registrada no DOC-12 §3.7.4. Só se o protocolo já está
+    congelado e o g2.yaml não mudou desde então, o autoteste é da versão ATUAL do código e a
+    configuração da geração é a MESMA (as gerações já feitas continuam valendo). Guarda a
+    emenda no g2_congelamento.json e no g2.yaml, com os hashes anteriores."""
+    if not g2.PROTOCOLO_G2_SHA256:
+        raise SystemExit("o protocolo não está congelado: use o congelamento normal")
+    if g2.sha256_arquivo(g2.PREREGISTRO) != g2.PROTOCOLO_G2_SHA256:
+        raise SystemExit("o g2.yaml mudou desde o congelamento: emenda só no código e nos dados")
+    codigo = g2.codigo_do_corretor(RAIZ)
+    if json.loads((AVAL / "g2_autoteste.json").read_text(encoding="utf-8"))["codigo_sha256"] != codigo:
+        raise SystemExit("o autoteste é de outra versão do corretor: refaça antes de emendar")
+    anterior = json.loads(g2.CONGELAMENTO.read_text(encoding="utf-8"))
+    sha_cong_anterior = g2.sha256_arquivo(g2.CONGELAMENTO)
+    kl = json.loads((AVAL / "g2_kl_1.7B.json").read_text(encoding="utf-8"))
+    hc = g2_geracao.hash_da_configuracao(g2_geracao.ServidorG2(GGUF_1_7B),
+                                         kl["gguf"]["q8_0"]["sha256"], "RX 7600 (Vulkan)",
+                                         g2_geracao.amostragem())
+    if hc != anterior["hash_da_configuracao"]["Qwen3-1.7B-Base"]:
+        raise SystemExit("a configuração da geração mudou: a emenda invalidaria as gerações feitas")
+    estado = g2.estado_congelavel(RAIZ)
+    mudou = sorted(k for grupo in ("codigo", "dados") for k, v in estado[grupo].items()
+                   if anterior[grupo].get(k) != v)
+    hoje = date.today().isoformat()
+    emenda = {"n": numero, "em": hoje, "motivo": motivo, "mudou": mudou,
+              "congelamento_anterior_sha256": sha_cong_anterior,
+              "protocolo_anterior_sha256": g2.PROTOCOLO_G2_SHA256}
+    novo = {**anterior, **estado, "emendas": [*anterior.get("emendas", []), emenda]}
+    g2.CONGELAMENTO.write_text(json.dumps(novo, ensure_ascii=False, indent=1) + "\n",
+                               encoding="utf-8", newline="\n")
+    sha_cong = g2.sha256_arquivo(g2.CONGELAMENTO)
+
+    yaml = _trocar(g2.PREREGISTRO.read_text(encoding="utf-8"),
+                   f"sha256: {sha_cong_anterior},", f"sha256: {sha_cong},")
+    if "\nemendas:" not in yaml:
+        yaml = yaml.rstrip("\n") + "\n\n# Emendas registradas no DOC-12 §3.7.4 (scripts/congelar_g2.py --emenda).\nemendas:\n"
+    yaml = yaml.rstrip("\n") + (
+        f"\n  - {{n: {numero}, em: \"{hoje}\", motivo: \"{motivo}\",\n"
+        f"     congelamento_anterior: {sha_cong_anterior},\n"
+        f"     protocolo_anterior: {g2.PROTOCOLO_G2_SHA256}}}\n")
+    g2.PREREGISTRO.write_text(yaml, encoding="utf-8", newline="\n")
+    sha_yaml = g2.sha256_arquivo(g2.PREREGISTRO)
+
+    fonte = G2_PY.read_text(encoding="utf-8")
+    velho = f'PROTOCOLO_G2_SHA256: str | None = "{g2.PROTOCOLO_G2_SHA256}"'
+    if fonte.count(velho) != 1:
+        raise SystemExit("não achei a trava PROTOCOLO_G2_SHA256 em g2.py")
+    G2_PY.write_text(fonte.replace(velho, f'PROTOCOLO_G2_SHA256: str | None = "{sha_yaml}"'),
+                     encoding="utf-8", newline="")
+    print(f"emenda {numero}: mudou {', '.join(mudou)}\ncongelamento: {sha_cong}\n"
+          f"g2.yaml:      {sha_yaml}\nconfiguração: {hc} (a mesma)")
+    return 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--emenda":
+        if len(sys.argv) != 5 or sys.argv[3] != "--motivo":
+            raise SystemExit('uso: congelar_g2.py --emenda N --motivo "texto"')
+        sys.exit(emendar(int(sys.argv[2]), sys.argv[4]))
     sys.exit(main())

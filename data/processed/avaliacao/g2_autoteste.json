@@ -4,7 +4,7 @@
   "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
   "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
   "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
-  "src/phifm/verify/symbolic.py": "6a48ca36eb8349ca6407c0813fc5c70951f95f471b266a9f1cf7eb773246e714",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
   "sympy": "1.14.0",
   "antlr4-python3-runtime": "4.11.0",
   "mpmath": "1.3.0"

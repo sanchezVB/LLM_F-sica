@@ -435,6 +435,21 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **Pausas e desligamento.** Duas pausas pedidas pelo dono e um desligamento do computador.
     - **Separador cru.** Uma geração trazia o caractere U+0085 cru. Os leitores congelados partem a linha nele com `splitlines()`, e a retomada parava. **Reparo:** o registro foi remontado, conferido pelo `sha256_texto`, e regravado com o caractere escapado, sem mudar o texto. Até o fim da medida, o supervisor escapou o caractere antes de cada tentativa. A correção do leitor entra na emenda 1.
 
+17. **Emenda 1 (2026-10-26, decisão do dono).** Duas mudanças:
+    - **O PR #3 do verify (ADR-0005).** O `symbolic.py` novo traduz Unicode para LaTeX, unifica as variantes de ε, θ, φ, ρ e κ, recusa números absurdos e desfaz marcadores de subscrito em nomes de função. Antes do merge, com o código do PR (`8fbc044`):
+      - **Dev:** nenhum veredito mudou nas 802 gerações das iterações 1 e 2, e nenhum dos 1.047 gabaritos mudou no autoteste.
+      - **Teste:** o autoteste deu as mesmas exclusões nos 4 benchmarks, e a recorreção das 10.727 gerações da base deu agregados idênticos ao oficial, com as mesmas frações de cada veredito (`g2_teste_1.7B_base_veredito_emenda1_pr3.json`).
+
+      Efeito nulo. O PR foi mesclado em `6058d0e`, e o autoteste refeito com o código mesclado repetiu as mesmas exclusões nos 7 conjuntos.
+    - **O leitor e o gravador dos jsonl de geração.** O gravador escapa U+0085, U+2028 e U+2029, e os leitores (`g2_geracao.ler_jsonl`, usado pelo `medir_g2`) separam as linhas só pelo `\n`. Assim, a falha do item 16 não volta.
+
+    **Recongelamento** (`scripts/congelar_g2.py --emenda 1`): o script exige o g2.yaml intacto, o autoteste da versão atual e a MESMA configuração da geração (`e1535689…`), para que as gerações feitas continuem valendo. Ficaram registrados:
+    - o congelamento anterior (`230829b2…`) e o protocolo anterior (`daf804d7…`), no `g2_congelamento.json` e no g2.yaml;
+    - o novo congelamento, `cb7ac123…`;
+    - o novo `PROTOCOLO_G2_SHA256`, `45b80630…`.
+
+    O resultado oficial da base (item 16) não muda.
+
     - **Queda e retomada.** A primeira tentativa morreu às 07:31 sem erro em log nenhum, com o servidor e o Python juntos. A causa não foi achada: a outra sessão não encerrou nada, e o repositório não mata processo por nome. A retomada pulou as amostras feitas. Na agregação, a linha `erro` da requisição interrompida contava a amostra duas vezes; agora vale uma linha por amostra, e `medir_g2 dev --so-corrigir` refaz só a correção e o agregado, sem GPU.
 
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.

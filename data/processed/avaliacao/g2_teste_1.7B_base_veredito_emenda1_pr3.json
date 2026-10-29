@@ -1,0 +1,243 @@
+{
+ "src": "D:/LLMFisica-pr3/src",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "autoteste": {
+  "ugphysics/dev": {
+   "itens": 899,
+   "excluidos": 46,
+   "ids_excluidos": [
+    "AtomicPhysics/1195",
+    "AtomicPhysics/673",
+    "ClassicalElectromagnetism/432",
+    "ClassicalElectromagnetism/77",
+    "ClassicalElectromagnetism/82",
+    "ClassicalMechanics/1763",
+    "ClassicalMechanics/2246",
+    "ClassicalMechanics/2353",
+    "ClassicalMechanics/2413",
+    "ClassicalMechanics/2452",
+    "ClassicalMechanics/2656",
+    "ClassicalMechanics/2834",
+    "Electrodynamics/125",
+    "Electrodynamics/271",
+    "Electrodynamics/457",
+    "Electrodynamics/479",
+    "QuantumMechanics/4143",
+    "QuantumMechanics/4175",
+    "QuantumMechanics/4357",
+    "QuantumMechanics/4359",
+    "QuantumMechanics/4552",
+    "QuantumMechanics/4585",
+    "QuantumMechanics/4626",
+    "QuantumMechanics/4627",
+    "QuantumMechanics/4685",
+    "QuantumMechanics/4699",
+    "QuantumMechanics/4748",
+    "QuantumMechanics/4797",
+    "QuantumMechanics/4815",
+    "QuantumMechanics/4871",
+    "QuantumMechanics/4879",
+    "QuantumMechanics/4969",
+    "QuantumMechanics/5350",
+    "StatisticalMechanics/3102",
+    "StatisticalMechanics/3267",
+    "TheoreticalMechanics/2628",
+    "Thermodynamics/2903",
+    "Thermodynamics/3047",
+    "Thermodynamics/3316",
+    "Thermodynamics/3321",
+    "Thermodynamics/3415",
+    "Thermodynamics/3422",
+    "Thermodynamics/3497",
+    "Thermodynamics/3569",
+    "Thermodynamics/3623",
+    "WaveOptics/5506"
+   ]
+  },
+  "olympiadbench/dev": {
+   "itens": 115,
+   "excluidos": 0,
+   "ids_excluidos": []
+  },
+  "scibench/dev": {
+   "itens": 33,
+   "excluidos": 0,
+   "ids_excluidos": []
+  },
+  "ugphysics/teste": {
+   "itens": 1999,
+   "excluidos": 82,
+   "ids_excluidos": [
+    "AtomicPhysics/1077",
+    "AtomicPhysics/1429",
+    "AtomicPhysics/1437",
+    "AtomicPhysics/1459",
+    "ClassicalElectromagnetism/2",
+    "ClassicalElectromagnetism/203",
+    "ClassicalElectromagnetism/357",
+    "ClassicalElectromagnetism/48",
+    "ClassicalElectromagnetism/71",
+    "ClassicalMechanics/1666",
+    "ClassicalMechanics/1687",
+    "ClassicalMechanics/1783",
+    "ClassicalMechanics/2096",
+    "ClassicalMechanics/2118",
+    "ClassicalMechanics/2504",
+    "ClassicalMechanics/2710",
+    "Electrodynamics/400",
+    "GeometricalOptics/5361",
+    "QuantumMechanics/4150",
+    "QuantumMechanics/4177",
+    "QuantumMechanics/4197",
+    "QuantumMechanics/4244",
+    "QuantumMechanics/4256",
+    "QuantumMechanics/4314",
+    "QuantumMechanics/4331",
+    "QuantumMechanics/4376",
+    "QuantumMechanics/4390",
+    "QuantumMechanics/4444",
+    "QuantumMechanics/4495",
+    "QuantumMechanics/4546",
+    "QuantumMechanics/4548",
+    "QuantumMechanics/4604",
+    "QuantumMechanics/4605",
+    "QuantumMechanics/4608",
+    "QuantumMechanics/4637",
+    "QuantumMechanics/4644",
+    "QuantumMechanics/4687",
+    "QuantumMechanics/4700",
+    "QuantumMechanics/4707",
+    "QuantumMechanics/4749",
+    "QuantumMechanics/4900",
+    "QuantumMechanics/4904",
+    "QuantumMechanics/4935",
+    "QuantumMechanics/4964",
+    "QuantumMechanics/4970",
+    "QuantumMechanics/5002",
+    "QuantumMechanics/5034",
+    "QuantumMechanics/5042",
+    "QuantumMechanics/5214",
+    "QuantumMechanics/5326",
+    "Relativity/1462",
+    "Relativity/992",
+    "SemiconductorPhysics/4019",
+    "StatisticalMechanics/3063",
+    "StatisticalMechanics/3064",
+    "StatisticalMechanics/3150",
+    "StatisticalMechanics/3155",
+    "StatisticalMechanics/3182",
+    "StatisticalMechanics/3221",
+    "StatisticalMechanics/3237",
+    "StatisticalMechanics/3251",
+    "StatisticalMechanics/3446",
+    "StatisticalMechanics/3563",
+    "StatisticalMechanics/3605",
+    "StatisticalMechanics/3689",
+    "StatisticalMechanics/3730",
+    "StatisticalMechanics/3761",
+    "TheoreticalMechanics/1807",
+    "TheoreticalMechanics/2411",
+    "TheoreticalMechanics/2424",
+    "TheoreticalMechanics/2503",
+    "TheoreticalMechanics/2563",
+    "TheoreticalMechanics/2801",
+    "TheoreticalMechanics/2805",
+    "Thermodynamics/2922",
+    "Thermodynamics/3015",
+    "Thermodynamics/3050",
+    "Thermodynamics/3305",
+    "Thermodynamics/3357",
+    "Thermodynamics/3388",
+    "Thermodynamics/3430",
+    "WaveOptics/5038"
+   ]
+  },
+  "olympiadbench/teste": {
+   "itens": 236,
+   "excluidos": 5,
+   "ids_excluidos": [
+    "1462",
+    "1482",
+    "1493",
+    "987",
+    "988"
+   ]
+  },
+  "phybench/teste": {
+   "itens": 100,
+   "excluidos": 1,
+   "ids_excluidos": [
+    "367"
+   ]
+  },
+  "scibench/teste": {
+   "itens": 193,
+   "excluidos": 0,
+   "ids_excluidos": []
+  }
+ },
+ "mortes": 0,
+ "reinicios": 6,
+ "hash_config": "e15356892060e5f4b634d650fa346d14f4ef1d031cc83917590d51dda2f3d91e",
+ "por_benchmark": {
+  "ugphysics": {
+   "itens": 1917,
+   "amostras": 5751,
+   "acerto": 0.1003,
+   "fracoes": {
+    "fail": 0.8214,
+    "inconclusive": 0.001,
+    "pass": 0.1003,
+    "sem_resposta": 0.023,
+    "truncado": 0.0543
+   },
+   "fichas_media": 333.9
+  },
+  "olympiadbench": {
+   "itens": 231,
+   "amostras": 1848,
+   "acerto": 0.0433,
+   "fracoes": {
+    "fail": 0.7684,
+    "pass": 0.0433,
+    "sem_resposta": 0.0281,
+    "truncado": 0.1602
+   },
+   "fichas_media": 577.0
+  },
+  "phybench": {
+   "itens": 99,
+   "amostras": 1584,
+   "acerto": 0.0013,
+   "fracoes": {
+    "fail": 0.8062,
+    "inconclusive": 0.0032,
+    "pass": 0.0013,
+    "sem_resposta": 0.0114,
+    "truncado": 0.178
+   },
+   "fichas_media": 562.9
+  },
+  "scibench": {
+   "itens": 193,
+   "amostras": 1544,
+   "acerto": 0.1056,
+   "fracoes": {
+    "fail": 0.7953,
+    "pass": 0.1056,
+    "sem_resposta": 0.0013,
+    "truncado": 0.0978
+   },
+   "fichas_media": 451.4
+  }
+ },
+ "o_que_e": "emenda 1 do G2 (PR #3, symbolic.py novo): autoteste refeito e gerações da base recorrigidas com o corretor do PR, ANTES do merge; agregados idênticos ao oficial"
+}

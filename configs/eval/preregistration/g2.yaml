@@ -197,5 +197,11 @@ dados:
 # Preenchido por scripts/congelar_g2.py. Depois disto, o medir_g2 teste recusa se o
 # g2.yaml, o código ou os dados da medida mudarem (g2.exigir_aceite_e_congelamento).
 congelamento: {arquivo: configs/eval/preregistration/g2_congelamento.json,
-               sha256: 230829b22642bea68fc449ed0a8bd54786b324173e64589d6fb50bf35f524058,
+               sha256: cb7ac12308f485a29d72a3da140453ca2088538987d4b29b2b4b7d6c99134f09,
                em: "2026-10-24"}
+
+# Emendas registradas no DOC-12 §3.7.4 (scripts/congelar_g2.py --emenda).
+emendas:
+  - {n: 1, em: "2026-10-29", motivo: "PR 3: symbolic.py novo do verify (ADR-0005), efeito nulo no dev e no teste; leitor e gravador de jsonl sem splitlines (U+0085 cru)",
+     congelamento_anterior: 230829b22642bea68fc449ed0a8bd54786b324173e64589d6fb50bf35f524058,
+     protocolo_anterior: daf804d752a187272aa9f469d3603852ebcb1397b646b01820d5c3f1cbf29bfa}
