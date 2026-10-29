@@ -349,3 +349,14 @@ def test_yaml_e_codigo_concordam():
     assert tuple(pre["g2_2"]["comparadores"]) == g2.COMPARADORES_G2_2
     assert pre["g2_2"]["margem_contra_quantizado_abaixo_de_q8"] == g2.MARGEM_QUANTIZADO_G2_2
     assert set(pre["g2_3"]) >= {*g2.NAO_INFERIORIDADE_G2_3, *g2.DESCLASSIFICA_G2_3}
+
+
+def test_medida_aberta_pelo_livro(tmp_path):
+    livro = tmp_path / "acessos.jsonl"
+    assert not g2.medida_aberta("8B", "base", "h1", nota="ifeval", livro=livro)
+    g2.registrar_acesso("8B", "base", "medida", "h1", nota="ifeval", livro=livro)
+    assert g2.medida_aberta("8B", "base", "h1", nota="ifeval", livro=livro)
+    assert not g2.medida_aberta("8B", "base", "h1", nota="mmlu", livro=livro)     # outra medida
+    assert not g2.medida_aberta("8B", "base", "h2", nota="ifeval", livro=livro)   # outro hash
+    # morta antes da 1ª amostra: a entrada seguinte é retomada, e o livro aceita
+    g2.registrar_acesso("8B", "base", "retomada", "h1", nota="ifeval", livro=livro)

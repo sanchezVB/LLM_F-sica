@@ -245,6 +245,22 @@ def motivo_de_recusa(registros: Sequence[dict], tamanho: str, braco: str, motivo
     return None
 
 
+def medida_aberta(tamanho: str, braco: str, hash_config: str, nota: str = "",
+                  livro: Path | None = None) -> bool:
+    """Se o livro já tem uma `medida` (ou `falha_operacional`) desta chave com este hash: a
+    próxima entrada é `retomada`. Decidir pelo livro, e não pela saída gravada, faz uma
+    medida morta entre o registro e a 1ª amostra (o prazo do Kaggle, um desligamento)
+    retomar, em vez de ser recusada como 2º acesso (emenda 3)."""
+    livro = Path(livro or LIVRO_DE_ACESSOS)
+    if not livro.exists():
+        return False
+    novo = {"tamanho": tamanho, "braco": braco, "hash_config": hash_config, "nota": nota}
+    return any(_chave(r) == _chave(novo) and r["motivo"] in ("medida", "falha_operacional")
+               and r["hash_config"] == hash_config
+               for r in (json.loads(x) for x in livro.read_text(encoding="utf-8").splitlines()
+                         if x.strip()))
+
+
 def registrar_acesso(tamanho: str, braco: str, motivo: str, hash_config: str,
                      nota: str = "", livro: Path = LIVRO_DE_ACESSOS) -> dict:
     """Confere a regra, grava o acesso no livro (versionado) e só então devolve. Quem toca
