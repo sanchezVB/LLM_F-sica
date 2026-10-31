@@ -11,6 +11,8 @@
     .venv\\Scripts\\python.exe scripts\\publicar_g2_8b.py baixar preparo
     # entre as sessões: o estado que voltou vira a nova versão do dataset do estado
     .venv\\Scripts\\python.exe scripts\\publicar_g2_8b.py subir-estado
+    # a execução do EvalPlus (CPU, internet DESLIGADA)
+    .venv\\Scripts\\python.exe scripts\\publicar_g2_8b.py evalplus --enviar
 
 As lições do `publicar_kaggle.py` valem aqui: `python -m kaggle`, nunca o executável
 solto; `create` só na 1ª vez, depois `version`; esperar o dataset ficar pronto antes do
@@ -28,17 +30,23 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import zipfile
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 PACOTE = RAIZ / "data/processed/kaggle_g2_8b"
 NOTEBOOKS = RAIZ / "data/processed/kaggle_notebook"
 RETORNO = RAIZ / "data/processed/kaggle_g2_8b_retorno"
-SLUGS = {"dados": "phifm-g2-8b", "estado": "phifm-g2-8b-estado",
-         "preparo": "phifm-g2-8b-preparo", "medida": "phifm-g2-8b-medida"}
+PACOTE_EVALPLUS = RAIZ / "data/processed/kaggle_g2_evalplus"
+RETORNO_EVALPLUS = RAIZ / "data/processed/kaggle_g2_evalplus_retorno"
+SLUGS = {"dados": "phifm-g2-8b", "estado": "phifm-g2-8b-estado", "preparo": "phifm-g2-8b-preparo",
+         "medida": "phifm-g2-8b-medida", "evalplus": "phifm-g2-evalplus-execucao",
+         "evalplus_dados": "phifm-g2-evalplus"}
 TITULOS = {"dados": "PhiFM G2 8B", "estado": "PhiFM G2 8B Estado",
-           "preparo": "PhiFM G2 8B Preparo", "medida": "PhiFM G2 8B Medida"}
+           "preparo": "PhiFM G2 8B Preparo", "medida": "PhiFM G2 8B Medida",
+           "evalplus": "PhiFM G2 EvalPlus Execucao", "evalplus_dados": "PhiFM G2 EvalPlus"}
 # só o que é pequeno volta: nunca o Q8_0 (8,7 GB) nem os logits (3,6 GB)
 PEQUENOS = r"(\.json|\.log|\.jsonl|estado_[0-9a-f]+\.zip\.bin)$|llama_compilado/"
 
@@ -69,17 +77,39 @@ def dataset_existe(ref: str) -> bool:
                                           ref.split("/", 1)[1], saida=False)
 
 
-def subir_dataset(pasta: Path, ref: str, titulo: str, mensagem: str) -> None:
-    """Cria (1ª vez) ou versiona o dataset e espera o Kaggle processá-lo."""
+def versao_no_ar(ref: str, arquivo: Path) -> bool:
+    """O `arquivo` (pelo nome) que o Kaggle serve hoje é igual ao daqui? Numa versão nova, o
+    status diz "ready" antes de a versão valer: um `kernels push` logo depois anexaria a
+    velha, e a célula acusaria isso já com a cota correndo."""
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            kaggle("datasets", "download", ref, "-f", arquivo.name, "-p", d, "--force", saida=False)
+        except SystemExit:
+            return False
+        for p in Path(d).iterdir():
+            if zipfile.is_zipfile(p):
+                with zipfile.ZipFile(p) as z:
+                    return z.read(arquivo.name) == arquivo.read_bytes()
+            return p.read_bytes() == arquivo.read_bytes()
+    return False
+
+
+def subir_dataset(pasta: Path, ref: str, titulo: str, mensagem: str, marca: str) -> None:
+    """Cria (1ª vez) ou versiona o dataset e espera a versão nova valer de verdade: o Kaggle
+    tem de servir o arquivo `marca` igual ao daqui."""
     (pasta / "dataset-metadata.json").write_text(json.dumps(
         {"title": titulo, "id": ref, "licenses": [{"name": "other"}]}, indent=2), encoding="utf-8")
     if dataset_existe(ref):
+        if versao_no_ar(ref, pasta / marca):
+            print(f"dataset {ref}: já está nesta versão")
+            return
         kaggle("datasets", "version", "-p", str(pasta), "--dir-mode", "zip", "-m", mensagem)
     else:
         kaggle("datasets", "create", "-p", str(pasta), "--dir-mode", "zip")
     for _ in range(90):
-        if "ready" in kaggle("datasets", "status", ref, saida=False).lower():
-            print(f"dataset {ref}: pronto")
+        if "ready" in kaggle("datasets", "status", ref, saida=False).lower() \
+                and versao_no_ar(ref, pasta / marca):
+            print(f"dataset {ref}: pronto, na versão nova")
             return
         time.sleep(20)
     raise SystemExit(f"o dataset {ref} não ficou pronto em 30 min")
@@ -115,7 +145,7 @@ def preparo(enviar: bool) -> None:
         print("(sem --enviar: nada foi enviado)")
         return
     subir_dataset(PACOTE, f"{dono}/{SLUGS['dados']}", TITULOS["dados"],
-                  f"protocolo {man['protocolo_g2_sha256'][:12]}")
+                  f"protocolo {man['protocolo_g2_sha256'][:12]}", "MANIFESTO.json")
     empurrar("preparo", celula_do_pacote("preparo"),
              {"id": f"{dono}/{SLUGS['preparo']}", "enable_gpu": False,
               "docker_image_pinning_type": "latest",
@@ -141,10 +171,31 @@ def medida(sessao: int, cota: float, enviar: bool) -> None:
     if not enviar:
         print("(sem --enviar: nada foi enviado)")
         return
+    subir_dataset(PACOTE, f"{dono}/{SLUGS['dados']}", TITULOS["dados"],
+                  f"protocolo {man['protocolo_g2_sha256'][:12]}, KL aprovada", "MANIFESTO.json")
     empurrar("medida", celula,
              {"id": f"{dono}/{SLUGS['medida']}", "enable_gpu": True, "machine_shape": "NvidiaTeslaT4",
               "docker_image_pinning_type": "original", "dataset_sources": fontes,
               "kernel_sources": [f"{dono}/{SLUGS['preparo']}"]})
+
+
+def evalplus(enviar: bool) -> None:
+    """A rodada do EvalPlus: o pacote de `medir_g2_evalplus.py` e a sua célula (CPU, internet
+    DESLIGADA, DOC-12 §3.7.4). O notebook não pode ter o slug do dataset: o `kernels push`
+    responde 409 (2026-10-31)."""
+    dono = usuario()
+    man = json.loads((PACOTE_EVALPLUS / "MANIFESTO.json").read_text(encoding="utf-8"))
+    print(f"pacote do EvalPlus: {len(man['arquivos'])} arquivos; avaliar {man['avaliar']}")
+    if not enviar:
+        print("(sem --enviar: nada foi enviado)")
+        return
+    ref = f"{dono}/{SLUGS['evalplus_dados']}"
+    subir_dataset(PACOTE_EVALPLUS, ref, TITULOS["evalplus_dados"],
+                  f"avaliar {len(man['avaliar'])} arquivos", "MANIFESTO.json")
+    nb = json.loads((PACOTE_EVALPLUS / "g2_evalplus.ipynb").read_text(encoding="utf-8"))
+    empurrar("evalplus", "".join(nb["cells"][0]["source"]),
+             {"id": f"{dono}/{SLUGS['evalplus']}", "enable_gpu": False, "enable_internet": False,
+              "docker_image_pinning_type": "latest", "dataset_sources": [ref], "kernel_sources": []})
 
 
 def estado(nome: str) -> None:
@@ -152,10 +203,10 @@ def estado(nome: str) -> None:
 
 
 def baixar(nome: str) -> Path:
-    destino = RETORNO / nome
+    destino = RETORNO_EVALPLUS if nome == "evalplus" else RETORNO / nome
     destino.mkdir(parents=True, exist_ok=True)
     kaggle("kernels", "output", f"{usuario()}/{SLUGS[nome]}", "-p", str(destino), "-o",
-           "--file-pattern", PEQUENOS)
+           "--file-pattern", r"g2_evalplus_resultado\.json$" if nome == "evalplus" else PEQUENOS)
     print(f"→ {destino}")
     return destino
 
@@ -169,7 +220,8 @@ def subir_estado() -> None:
     compilado = RETORNO / "medida" / "llama_compilado"
     if compilado.is_dir():
         shutil.copytree(compilado, pasta / "llama_compilado", dirs_exist_ok=True)
-    subir_dataset(pasta, f"{usuario()}/{SLUGS['estado']}", TITULOS["estado"], f"sessão {man['sessao']}")
+    subir_dataset(pasta, f"{usuario()}/{SLUGS['estado']}", TITULOS["estado"],
+                  f"sessão {man['sessao']}", "ESTADO.json")
 
 
 def main() -> int:
@@ -184,15 +236,19 @@ def main() -> int:
     a2.add_argument("--sessao", type=int, required=True)
     a2.add_argument("--cota", type=float, required=True, help="horas de GPU que restam")
     a2.add_argument("--enviar", action="store_true")
+    a3 = sub.add_parser("evalplus")
+    a3.add_argument("--enviar", action="store_true")
     for nome in ("estado", "baixar"):
         s = sub.add_parser(nome)
-        s.add_argument("notebook", choices=("preparo", "medida"))
+        s.add_argument("notebook", choices=("preparo", "medida", "evalplus"))
     sub.add_parser("subir-estado")
     a = p.parse_args()
     if a.acao == "preparo":
         preparo(a.enviar)
     elif a.acao == "medida":
         medida(a.sessao, a.cota, a.enviar)
+    elif a.acao == "evalplus":
+        evalplus(a.enviar)
     elif a.acao == "estado":
         estado(a.notebook)
     elif a.acao == "subir-estado":
