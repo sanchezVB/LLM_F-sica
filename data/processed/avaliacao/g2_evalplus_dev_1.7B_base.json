@@ -42,5 +42,54 @@
   "intersecao": 378,
   "mbpp_plus_fora_do_mbpp": 0,
   "dev_disponivel": 596
+ },
+ "kaggle": {
+  "quando": "2026-10-31T15:48:28+00:00",
+  "plataforma": {
+   "python": "3.13.15",
+   "sistema": "Linux-6.18.55+-x86_64-with-glibc2.39",
+   "cpus": 4
+  },
+  "internet": false,
+  "evalplus": "0.3.1",
+  "manifesto_ok": true,
+  "sanidade": {
+   "humaneval": {
+    "tarefas": 164,
+    "canonicas_passam_base": 163,
+    "canonicas_passam_plus": 163,
+    "quebradas_passam_base": 0,
+    "canonicas_que_falham": [
+     "HumanEval/32"
+    ]
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "canonicas_passam_base": 378,
+    "canonicas_passam_plus": 377,
+    "quebradas_passam_base": 0,
+    "canonicas_que_falham": [
+     "Mbpp/255"
+    ]
+   },
+   "ok": false
+  }
+ },
+ "sha256_eval_results": {
+  "dev_1.7B_base_gulosa_mbppdev": null
+ },
+ "resultado": {
+  "gulosa": {
+   "mbppdev": {
+    "tarefas": 20,
+    "passam": 8
+   }
+  }
+ },
+ "sanidade_canonicas_lida": {
+  "canonicas_que_passam": "540 de 542; as quebradas passam em 0",
+  "HumanEval/32": "bug do evalplus 0.3.1: no ramo do find_zero, o continue pula o progress.value += 1; com todas as entradas certas, details fica vazio e o untrusted_check marca FAIL. Nenhuma solução passa nesta tarefa",
+  "Mbpp/255": "a maior entrada plus gera 1,66 milhão de tuplas (~1,1 GB), e o avaliador roda com RLIMIT_AS de 4 GB num processo que já traz as saídas esperadas: causa provável, não confirmada",
+  "efeito": "as duas valem 0 nos dois braços: no máximo -0,37 ponto no pass@1 dos dois lados e nenhum viés no Δ"
  }
 }
