@@ -148,8 +148,10 @@ def main() -> int:
         {**HF, "arquivos": gguf["safetensors_locais"], "q8_0_local": gguf["gguf"]["q8_0"],
          "mapa_q8_0": gguf["mapa_q8_0"]}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     (PACOTE / "binarios.json").write_text(json.dumps(BINARIOS, indent=1) + "\n", encoding="utf-8")
+    # pyarrow e pyyaml: sem versão fixa (não decidem resultado), só para garantir que existam
     (PACOTE / "requisitos.txt").write_text(
-        "".join(f"{p}=={version(p)}\n" for p in CONGELADOS + LEVES), encoding="utf-8")
+        "".join(f"{p}=={version(p)}\n" for p in CONGELADOS + LEVES) + "pyarrow\npyyaml\n",
+        encoding="utf-8")
     (PACOTE / "requisitos_sem_dependencias.txt").write_text(
         "".join(f"{p}=={version(p)}\n" for p in SEM_DEPENDENCIAS), encoding="utf-8")
     (PACOTE / "requisitos_conversao.txt").write_text(
@@ -158,8 +160,10 @@ def main() -> int:
         (PACOTE / nome).write_text(json.dumps(notebook(celula.read_text(encoding="utf-8")),
                                               ensure_ascii=False, indent=1), encoding="utf-8")
     livro = (RAIZ / "data/processed/avaliacao/g2_acessos.jsonl").read_bytes()
+    # dataset-metadata.json é do CLI (publicar_g2_8b.py) e não sobe como dado
     arquivos = {p.relative_to(PACOTE).as_posix(): {"bytes": p.stat().st_size, "sha256": _sha(p)}
-                for p in sorted(PACOTE.iterdir()) if p.is_file() and p.name != "MANIFESTO.json"}
+                for p in sorted(PACOTE.iterdir()) if p.is_file()
+                and p.name not in ("MANIFESTO.json", "dataset-metadata.json")}
     manifesto = {"pacote": "g2_8b", "protocolo_g2_sha256": congelado,
                  "celulas_sha256": {n: _sha(c) for n, c in CELULAS.items()},
                  "kl_8b_pronta": KL_8B in repo and json.loads(

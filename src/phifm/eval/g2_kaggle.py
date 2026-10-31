@@ -147,6 +147,12 @@ PADROES_DO_ESTADO = ("data/processed/avaliacao/g2_saidas/*",
                      LIVRO)
 
 
+def aparar_saidas(repo: Path) -> int:
+    """Apara todos os jsonl de `g2_saidas/` e devolve os bytes tirados. Só com a medida
+    morta: ver `salvar_estado`."""
+    return sum(aparar_jsonl(p) for p in Path(repo).glob("data/processed/avaliacao/g2_saidas/*.jsonl"))
+
+
 def arquivos_do_estado(repo: Path) -> list[Path]:
     return sorted({p for padrao in PADROES_DO_ESTADO for p in Path(repo).glob(padrao)
                    if p.is_file()})
@@ -190,13 +196,16 @@ def salvar_estado(repo: Path, destino: Path, sessao: int, extra: dict | None = N
     """Grava o estado do repositório em `destino` (no Output): um zip único (o Kaggle lida
     mal com muitos arquivos soltos), com `.bin` no fim (o Kaggle descompacta todo `.zip` que
     vira dataset) e o SHA-256 no nome, e o ESTADO.json, com o número da sessão, o nome e o
-    SHA-256 do zip e o de cada arquivo (dos MESMOS bytes que foram para o zip). Os jsonl
-    são aparados antes. A ordem é zip novo, depois o ESTADO.json, e só então sai o zip
-    velho: uma morte em qualquer ponto deixa um par (ESTADO.json, zip) que confere."""
+    SHA-256 do zip e o de cada arquivo (dos MESMOS bytes que foram para o zip). A ordem é zip
+    novo, depois o ESTADO.json, e só então sai o zip velho: uma morte em qualquer ponto
+    deixa um par (ESTADO.json, zip) que confere.
+
+    ⚠️ Roda com a medida no ar, então NÃO apara nada aqui: cortar uma linha que o processo
+    ainda está escrevendo corromperia o arquivo. Uma linha pela metade vai para o zip como
+    está, e quem apara é quem lê (`restaurar_estado`) ou `aparar_saidas`, com o processo
+    já morto."""
     repo, destino = Path(repo), Path(destino)
     destino.mkdir(parents=True, exist_ok=True)
-    for p in repo.glob("data/processed/avaliacao/g2_saidas/*.jsonl"):
-        aparar_jsonl(p)
     arquivos = {}
     temporario = destino / "estado.parcial"
     with zipfile.ZipFile(temporario, "w", zipfile.ZIP_DEFLATED) as z:
@@ -263,6 +272,7 @@ def restaurar_estado(origem: Path, repo: Path, sessao_esperada: int) -> dict:
         alvo = repo / rel
         alvo.parent.mkdir(parents=True, exist_ok=True)
         alvo.write_bytes(dados)
+    aparar_saidas(repo)
     return manifesto
 
 

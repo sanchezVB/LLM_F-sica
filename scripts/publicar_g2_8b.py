@@ -9,6 +9,8 @@
     # o andamento e a volta dos arquivos pequenos (JSON e logs; nunca o GGUF)
     .venv\\Scripts\\python.exe scripts\\publicar_g2_8b.py estado preparo
     .venv\\Scripts\\python.exe scripts\\publicar_g2_8b.py baixar preparo
+    # entre as sessões: o estado que voltou vira a nova versão do dataset do estado
+    .venv\\Scripts\\python.exe scripts\\publicar_g2_8b.py subir-estado
 
 As lições do `publicar_kaggle.py` valem aqui: `python -m kaggle`, nunca o executável
 solto; `create` só na 1ª vez, depois `version`; esperar o dataset ficar pronto antes do
@@ -21,7 +23,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -36,12 +40,15 @@ SLUGS = {"dados": "phifm-g2-8b", "estado": "phifm-g2-8b-estado",
 TITULOS = {"dados": "PhiFM G2 8B", "estado": "PhiFM G2 8B Estado",
            "preparo": "PhiFM G2 8B Preparo", "medida": "PhiFM G2 8B Medida"}
 # só o que é pequeno volta: nunca o Q8_0 (8,7 GB) nem os logits (3,6 GB)
-PEQUENOS = r"(\.json|\.log|\.jsonl|ESTADO\.json|estado_[0-9a-f]+\.zip\.bin)$"
+PEQUENOS = r"(\.json|\.log|\.jsonl|estado_[0-9a-f]+\.zip\.bin)$|llama_compilado/"
 
 
 def kaggle(*args: str, saida: bool = True) -> str:
+    # PYTHONUTF8: sem isto, o CLI grava o log do notebook em cp1252 no Windows e morre no 1º
+    # caractere fora dele (o "≤" do preparo, em 2026-10-31), depois de baixar o resto
     r = subprocess.run([sys.executable, "-m", "kaggle", *args], cwd=RAIZ, capture_output=True,
-                       text=True, encoding="utf-8", errors="replace")
+                       text=True, encoding="utf-8", errors="replace",
+                       env=os.environ | {"PYTHONUTF8": "1"})
     texto = "\n".join(x for x in (r.stdout + r.stderr).split("\n") if "outdated" not in x).strip()
     if saida and texto:
         print(texto)
@@ -153,6 +160,18 @@ def baixar(nome: str) -> Path:
     return destino
 
 
+def subir_estado() -> None:
+    """A pasta `estado/` que voltou da sessão vira a versão nova do dataset do estado (com o
+    binário compilado junto, se a variante for essa). O `kernels push` seguinte pega a
+    versão mais nova, e a célula confere o número da sessão."""
+    pasta = RETORNO / "medida" / "estado"
+    man = json.loads((pasta / "ESTADO.json").read_text(encoding="utf-8"))
+    compilado = RETORNO / "medida" / "llama_compilado"
+    if compilado.is_dir():
+        shutil.copytree(compilado, pasta / "llama_compilado", dirs_exist_ok=True)
+    subir_dataset(pasta, f"{usuario()}/{SLUGS['estado']}", TITULOS["estado"], f"sessão {man['sessao']}")
+
+
 def main() -> int:
     for fluxo in (sys.stdout, sys.stderr):
         with contextlib.suppress(Exception):
@@ -168,6 +187,7 @@ def main() -> int:
     for nome in ("estado", "baixar"):
         s = sub.add_parser(nome)
         s.add_argument("notebook", choices=("preparo", "medida"))
+    sub.add_parser("subir-estado")
     a = p.parse_args()
     if a.acao == "preparo":
         preparo(a.enviar)
@@ -175,6 +195,8 @@ def main() -> int:
         medida(a.sessao, a.cota, a.enviar)
     elif a.acao == "estado":
         estado(a.notebook)
+    elif a.acao == "subir-estado":
+        subir_estado()
     else:
         baixar(a.notebook)
     return 0

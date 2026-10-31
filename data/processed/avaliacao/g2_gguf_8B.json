@@ -11,7 +11,6 @@
    "sha256": "1ee221d026b35e702756c4536fc8f26af6b1a9029aaf13fd2e61f7a166264d33"
   }
  },
- "pendente": "a KL do Q8_0 contra o F16 (≤0,01 nats, §3.7.5), antes de qualquer medida da 8B",
  "safetensors_locais": {
   ".gitattributes": {
    "bytes": 1519,
@@ -506,5 +505,6 @@
    "output_norm.weight": "51557d3d41c52d2f0279f3e7e2e920b613b6733e449e91bfac826058c7e5e97d",
    "output.weight": "9638d506a6b8d479ec9d31feb9088ca4b60234f5c0c6e2c4874cf078741b0dbb"
   }
- }
+ },
+ "kl": "g2_kl_8B.json: 0,00174 nats, passa; o Q8_0 do Kaggle é idêntico a este (g2_8b_preparo_resultado.json)"
 }

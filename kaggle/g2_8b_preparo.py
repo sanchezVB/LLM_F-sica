@@ -23,7 +23,8 @@ Em ordem:
    CUDA na parte 2), o `g2_kl_8B.json`, os logs e `g2_8b_preparo_resultado.json` — este
    último sempre, mesmo se algo reprovar.
 
-Depois: faça um dataset `g2-8b-gguf` do Output desta versão (Output → New Dataset).
+Depois: o Output deste notebook é entrada da parte 2 (`scripts/publicar_g2_8b.py medida`).
+Não rode este notebook de novo: a entrada segue a versão mais recente do Output.
 """
 import hashlib
 import json

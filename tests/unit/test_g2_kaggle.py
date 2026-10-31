@@ -62,6 +62,8 @@ def test_estado_vai_e_volta_conferido(tmp_path):
         f.write(b'{"tamanho": "8B"}' + FIM)
     m = k.salvar_estado(sessao, tmp_path / "saida", sessao=1)
     assert m["sessao"] == 1 and (tmp_path / "saida" / m["zip"]).is_file()
+    # salvar roda com a medida no ar: a linha pela metade do arquivo vivo fica como está
+    assert (av / "g2_saidas/teste_8B_base_veredito.jsonl").read_bytes().endswith(b'"x')
     assert m["zip"].startswith("estado_") and m["zip"].endswith(".zip.bin")
     m2 = k.salvar_estado(sessao, tmp_path / "saida", sessao=1)       # o zip velho sai
     assert [p.name for p in (tmp_path / "saida").glob("estado_*")] == [m2["zip"]]

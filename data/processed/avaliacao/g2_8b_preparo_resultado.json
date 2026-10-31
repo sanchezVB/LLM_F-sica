@@ -1,0 +1,31 @@
+{
+ "o_que_e": "G2, a 8B no Kaggle, parte 1: GGUF e KL do Q8_0 contra o F16 (DOC-12 §3.7.5)",
+ "quando": "2026-10-30T04:23:29+00:00",
+ "plataforma": {
+  "python": "3.13.15",
+  "sistema": "Linux-6.18.55+-x86_64-with-glibc2.39",
+  "glibc": "2.39",
+  "cpus": 4
+ },
+ "disco_livre_gb": 1126.1,
+ "congelamento_no_kaggle": "44a6b6598670",
+ "llama_cpu": "oficial",
+ "safetensors_iguais_aos_locais": true,
+ "ambiente_da_conversao": "as versões da conversão local (requisitos_conversao.txt)",
+ "q8_0": {
+  "bytes": 8709518176,
+  "sha256": "1ee221d026b35e702756c4536fc8f26af6b1a9029aaf13fd2e61f7a166264d33",
+  "igual_ao_local": true,
+  "metadados_diferentes": [],
+  "tensores_diferentes": []
+ },
+ "conversao": "convert_hf_to_gguf.py da tag b11159 (6b790a9c2), no Kaggle; Python 3.13.15, torch 2.11.0+cpu, transformers 5.0.0, numpy 2.5.1; KL no llama-perplexity de CPU (oficial)",
+ "segundos": 14064,
+ "kl": {
+  "kl_media_nats": 0.001738,
+  "kl_erro_padrao": 2.8e-05,
+  "passa": true,
+  "mesma_ficha_mais_provavel_pct": 98.46,
+  "razao_ppl_q8_f16": 1.001936
+ }
+}

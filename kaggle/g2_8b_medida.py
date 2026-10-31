@@ -5,11 +5,12 @@ LIGADA** (instala as versões congeladas dos pacotes e baixa o binário oficial 
 sem segredos. Rode por "Save Version → Save & Run All": a célula para sozinha antes das 12 h
 (e antes de a cota acabar) e grava o estado no Output ao longo do caminho. Entradas:
 - o dataset `g2-8b` (`scripts/empacotar_g2_8b.py`), já com o `g2_kl_8B.json` da parte 1;
-- o dataset `g2-8b-gguf`, feito do Output da parte 1 (o Q8_0 e os logits do F16);
+- o Output do notebook da parte 1 (o Q8_0 e os logits do F16);
 - da 2ª sessão em diante: o dataset `g2-8b-estado`, feito do Output da sessão ANTERIOR (a
   versão mais nova; a célula recusa outra).
 
-Antes de cada sessão, ajuste as três linhas abaixo:
+`scripts/publicar_g2_8b.py` faz tudo isso pela CLI: monta as entradas, ajusta as três
+linhas abaixo e envia. Na mão, antes de cada sessão:
 - FASE = "sanidade" na 1ª sessão (SESSAO = 1, ~1 h 30 de cota):
   1. o GPU, o driver e o binário, escolhido por um teste de verdade nas duas T4;
   2. a KL do Q8_0 no próprio motor (CUDA) contra os logits do F16 da parte 1;
@@ -77,10 +78,18 @@ def smi(*campos):
     return [x.strip() for x in r.stdout.strip().split("\n") if x.strip()]
 
 
-def processos_na_gpu():
-    r = subprocess.run(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
-                       capture_output=True, text=True)
-    return [x.strip() for x in r.stdout.split("\n") if x.strip()]
+def servidores_vivos():
+    """Os `llama-server` ainda vivos, pelo /proc: dentro de um contêiner, o `nvidia-smi`
+    costuma não listar processos."""
+    vivos = []
+    for p in Path("/proc").iterdir():
+        if p.name.isdigit():
+            try:
+                if b"llama-server" in (p / "cmdline").read_bytes().split(b"\0")[0]:
+                    vivos.append(p.name)
+            except OSError:
+                pass
+    return vivos
 
 
 def unico(nome, chave=None, valor=None):
@@ -176,7 +185,7 @@ salvar()      # o estado segue adiante mesmo que esta sessão caia cedo
 # ── 3. o Q8_0 da parte 1, o mesmo da KL ──────────────────────────────────────
 KL = json.loads((AV / "g2_kl_8B.json").read_text(encoding="utf-8"))
 gguf = unico("Qwen3-8B-Base-Q8_0.gguf")
-assert gguf, "o g2-8b-gguf (Output da parte 1) não está nas entradas"
+assert gguf, "o Output da parte 1 (Qwen3-8B-Base-Q8_0.gguf) não está nas entradas"
 assert sha256(gguf) == KL["gguf"]["q8_0"]["sha256"], "o Q8_0 não é o da conferência de KL"
 assert KL["passa"], (f"a KL do Q8_0 contra o F16 ({KL['kl_media_nats']} nats) não passa a regra "
                      "(≤ 0,01, §3.7.5): nenhuma medida da 8B")
@@ -339,8 +348,10 @@ def medir(rotulo, script, *args, prazo=None):
         [sys.executable, "-u", "-X", "utf8", REPO / "scripts" / script, *args],
         prazo or PRAZO, SAIDA / f"{rotulo}.log", cwd=REPO, env=dict(os.environ),
         periodico=salvar_se_preciso, intervalo_s=60)
-    sobra = processos_na_gpu()
-    resultado["etapas"][rotulo] = st if not sobra else f"{st}; processos na GPU: {sobra}"
+    aparados = g2_kaggle.aparar_saidas(REPO)     # só aqui: a medida já morreu
+    sobra = servidores_vivos()
+    resultado["etapas"][rotulo] = st + (f"; llama-server vivo: {sobra}" if sobra else "") + (
+        f"; {aparados} bytes de linha cortada" if aparados else "")
     passo(f"{rotulo}: {resultado['etapas'][rotulo]}")
     salvar()
     return st
@@ -362,8 +373,8 @@ def kl_no_motor():
     assert kld, "os logits do F16 (kl_f16.kld, Output da parte 1) não estão nas entradas"
     log = SAIDA / "kl_8b_cuda.log"
     with log.open("w", encoding="utf-8") as f:
-        r = subprocess.run([PASTA / "llama-perplexity", "-m", Q8, "-c", "1024", "-ngl", "99",
-                            "--kl-divergence-base", kld, "--kl-divergence"],
+        r = subprocess.run([PASTA / "llama-perplexity", "-m", Q8, "-f", REPO / "models/base/gguf/kl_dev.txt",
+                            "-c", "1024", "-ngl", "99", "--kl-divergence-base", kld, "--kl-divergence"],
                            stdout=f, stderr=subprocess.STDOUT)
     texto = log.read_text(encoding="utf-8", errors="replace")
     kl = re.search(r"Mean\s+KLD\s*:\s*(-?[\d.]+)", texto)
@@ -379,12 +390,14 @@ def kl_no_motor():
     return d
 
 
-def bench(rotulo, gpus_visiveis, npl="1,4,6,8", ntg="512,2048"):
-    """A vazão com os parâmetros da 1,7B (g2_vazao_1.7B.json), KV q8_0 e flash attention."""
+def bench(rotulo, gpus_visiveis, npl, ntg):
+    """A vazão com os parâmetros da 1,7B (g2_vazao_1.7B.json: prompt de 3.500 fichas, KV q8_0
+    e flash attention), no contexto do servidor do G2. A grade é menor que a da 1,7B: lá ela
+    escolheu os slots, e aqui eles já são 4; a grade inteira custaria ~40 min de cota."""
     amb = os.environ | ({"CUDA_VISIBLE_DEVICES": gpus_visiveis} if gpus_visiveis else {})
     with (SAIDA / f"vazao_{rotulo}.jsonl").open("w", encoding="utf-8") as f, \
          (SAIDA / f"vazao_{rotulo}.log").open("w", encoding="utf-8") as erro:
-        subprocess.run([PASTA / "llama-batched-bench", "-m", Q8, "-c", "49152", "-b", "2048",
+        subprocess.run([PASTA / "llama-batched-bench", "-m", Q8, "-c", "40960", "-b", "2048",
                         "-ub", "512", "-ngl", "99", "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0",
                         "-npp", "3500", "-ntg", ntg, "-npl", npl, "--output-format", "jsonl"],
                        stdout=f, stderr=erro, env=amb, check=True)
@@ -402,15 +415,17 @@ def dois_processos():
     for gpu in ("0", "1"):
         amb = os.environ | {"CUDA_VISIBLE_DEVICES": gpu}
         f = (SAIDA / f"vazao_dois_{gpu}.jsonl").open("w", encoding="utf-8")
-        procs.append((f, subprocess.Popen(
-            [PASTA / "llama-batched-bench", "-m", Q8, "-c", "16384", "-b", "2048", "-ub", "512",
+        erro = (SAIDA / f"vazao_dois_{gpu}.log").open("w", encoding="utf-8")
+        procs.append((f, erro, subprocess.Popen(
+            [PASTA / "llama-batched-bench", "-m", Q8, "-c", "40960", "-b", "2048", "-ub", "512",
              "-ngl", "99", "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0", "-npp", "3500",
              "-ntg", "512", "-npl", "4", "--output-format", "jsonl"],
-            stdout=f, stderr=subprocess.DEVNULL, env=amb)))
+            stdout=f, stderr=erro, env=amb)))
     total = 0.0
-    for f, p in procs:
+    for f, erro, p in procs:
         p.wait()
         f.close()
+        erro.close()
         linhas = [json.loads(x) for x in Path(f.name).read_text(encoding="utf-8").split("\n")
                   if x.startswith("{")]
         total += linhas[0]["speed_tg"] if linhas else 0.0
@@ -419,7 +434,9 @@ def dois_processos():
 
 def vazao():
     ref = json.loads((AV / "g2_vazao_1.7B.json").read_text(encoding="utf-8"))
-    medidas = {"duas_placas_camadas": bench("duas", None), "uma_placa": bench("uma", "0")}
+    medidas = {"duas_placas_camadas": bench("duas", None, "1,4", "512,2048"),
+               "uma_placa": bench("uma", "0", "4", "512")}
+    salvar()
     v4 = next(x["fichas_s_gerando"] for x in medidas["duas_placas_camadas"]
               if x["paralelos"] == 4 and x["geradas_por_sequencia"] == 512)
     v_dois = dois_processos()
@@ -485,7 +502,7 @@ if FASE == "sanidade":
     jsonl = SAIDAS / "dev_8B_base_it1.jsonl"
     feitas = sum(1 for x in jsonl.read_bytes().split(b"\n") if x.strip()) if jsonl.exists() else 0
     resultado["retomada"] = {"cortada": st, "amostras_antes": feitas,
-                             "processos_na_gpu_depois_do_corte": processos_na_gpu()}
+                             "llama_server_vivo_depois_do_corte": servidores_vivos()}
     medir("sanidade_ug300", "medir_g2.py", *args)
     if (AV / "g2_dev_8B_base_it1.json").exists():
         d = json.loads((AV / "g2_dev_8B_base_it1.json").read_text(encoding="utf-8"))

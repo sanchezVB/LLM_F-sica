@@ -543,6 +543,14 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       - As sondas S1/S2 de contaminação da 8B-base (§3.7.9) não existem em código; a 8B volta ao Kaggle para elas.
       - A correção do G2.1 da 8B roda no Kaggle (Python 3.13). A sanidade é recorrida aqui (`medir_g2.py dev --so-corrigir`), e os vereditos têm de bater.
 
+21. **A 8B no Kaggle, parte 1: o GGUF e a KL (2026-10-30).** Enviada pela CLI do Kaggle (`scripts/publicar_g2_8b.py`), num notebook de CPU, sem cota de GPU, em 3,9 h. Resultado em `g2_8b_preparo_resultado.json`:
+    - **Os pesos.** Os 14 arquivos baixados do Hugging Face na revisão fixada têm os mesmos SHA-256 dos daqui.
+    - **O Q8_0.** O convertido no Kaggle (Python 3.13.15, torch 2.11.0, com transformers 5.0.0 e numpy 2.5.1 fixados) é **idêntico byte a byte** ao convertido aqui (torch 2.4.1): SHA-256 `1ee221d0…`, nenhum metadado e nenhum tensor diferente.
+    - **O F16.** 16,39 GB, SHA-256 `7ce5b3de…`, em `g2_kl_8B.json`.
+    - **A KL do Q8_0 contra o F16** (`g2_kl_8B.json`): **0,00174 nats** ± 0,00003, no mesmo texto e com o mesmo c=1024 da 1,7B, no `llama-perplexity` de CPU da tag. Passa a regra (≤ 0,01); na 1,7B foi 0,00317. A mesma ficha fica no topo em 98,46% das posições, e a razão de PPL é 1,0019.
+    - **As versões congeladas** instalam no Python 3.13 da imagem, e o congelamento confere no Kaggle (`44a6b659…`).
+    - **O que falta da KL.** Ela foi medida na CPU. A sessão 1 da parte 2 repete a medida no motor CUDA, contra os mesmos logits do F16.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

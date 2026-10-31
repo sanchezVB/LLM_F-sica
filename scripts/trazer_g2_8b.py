@@ -44,6 +44,8 @@ def trazer(origem: Path, raiz: Path = RAIZ) -> dict:
             raise SystemExit(f"o estado traz um arquivo que não é da 8B: {rel}")
         alvo.parent.mkdir(parents=True, exist_ok=True)
         alvo.write_bytes(dados)
+        if alvo.suffix == ".jsonl":
+            g2_kaggle.aparar_jsonl(alvo)   # o zip pode ter sido feito com a medida no ar
         escritos.append(destino_de(rel))
     livro_aqui.write_bytes(junto)
     novas = len(g2_kaggle.registros(junto)) - len(g2_kaggle.registros(antes))
