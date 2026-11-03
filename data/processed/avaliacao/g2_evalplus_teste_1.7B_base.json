@@ -1,0 +1,88 @@
+{
+ "o_que_e": "G2.3, EvalPlus, fase teste (DOC-12 §3.7.4): geração; a execução é no Kaggle (apurar)",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "hashes": {
+  "amostras": "37ff0646b92d46fe844a6e94547e3dd11bb159c094ccfec83f5f1ab38455c573",
+  "gulosa": "3255dad11f08fecbf85ca3ffc0252de690ade1ee7fa6f8b9264272b5b2ef21a1"
+ },
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_evalplus.py": "61a49c0d42e583ffe173c71f854d61c997ba494e5279bb3c7b160b9d8ba5e52a",
+  "scripts/medir_g2_evalplus.py": "9951090b20089788fd8c956cab565210374f7ff4d7bfe15dfbd1e1af8f66851d",
+  "kaggle/g2_evalplus.py": "697811fb498162d07c81e48833bfee84718e0b77e1c15098c47542d3c66cb4c0",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "evalplus": "0.3.1",
+ "segundos": 667,
+ "geracao": {
+  "amostras": {
+   "humaneval": {
+    "amostras": 1640,
+    "sha256": "9b1d5f19426b9bffeb6a48975f1757940c50087de7b888d60ae256e4c3d667be",
+    "truncadas": 0.0287,
+    "fichas_media": 58.3,
+    "paradas": {
+     "eos": 1134,
+     "limit": 16,
+     "repeticao": 31,
+     "word": 459
+    },
+    "sanitizada_vazia": 0,
+    "sem_o_ponto_de_entrada": 13,
+    "sem_sintaxe": 0
+   },
+   "mbpp": {
+    "amostras": 3780,
+    "sha256": "3ce2f3d45f3155a425571d3e38d49bc401d2339bb91e880458c6c42a796151bd",
+    "truncadas": 0.0093,
+    "fichas_media": 62.6,
+    "paradas": {
+     "eos": 2268,
+     "limit": 20,
+     "repeticao": 15,
+     "word": 1477
+    },
+    "sanitizada_vazia": 0,
+    "sem_o_ponto_de_entrada": 10,
+    "sem_sintaxe": 0
+   }
+  },
+  "gulosa": {
+   "humaneval": {
+    "amostras": 164,
+    "sha256": "8c7a1435b2f510d5e304716dc1bfa4e245b573f983605b71ac7b4ac918b6cb33",
+    "truncadas": 0.0183,
+    "fichas_media": 57.0,
+    "paradas": {
+     "eos": 117,
+     "limit": 1,
+     "repeticao": 2,
+     "word": 44
+    },
+    "sanitizada_vazia": 0,
+    "sem_o_ponto_de_entrada": 1,
+    "sem_sintaxe": 0
+   },
+   "mbpp": {
+    "amostras": 378,
+    "sha256": "9baae499e578dad7d5de7e66d3c97c20fa25c82f5fbff300d1e0187a1b58adcd",
+    "truncadas": 0.0026,
+    "fichas_media": 59.4,
+    "paradas": {
+     "eos": 227,
+     "repeticao": 1,
+     "word": 150
+    },
+    "sanitizada_vazia": 0,
+    "sem_o_ponto_de_entrada": 0,
+    "sem_sintaxe": 0
+   }
+  }
+ }
+}
