@@ -1,0 +1,57 @@
+{
+ "o_que_e": "ensaio de vazão do G2 na 8B (DOC-12 §3.7.11 item 1): llama-batched-bench b11159, Qwen3-8B-Base Q8_0, 2×T4 (CUDA, llama.cpp b11159 oficial 12.8, driver 580.178.04, Ubuntu 24.04.1 LTS, Python 3.13.15), flash attention, KV q8_0",
+ "data": "2026-10-31",
+ "medidas": {
+  "duas_placas_camadas": [
+   {
+    "paralelos": 1,
+    "prompt": 3500,
+    "geradas_por_sequencia": 512,
+    "fichas_s_gerando": 27.4,
+    "fichas_s_lendo_prompt": 1795.0
+   },
+   {
+    "paralelos": 4,
+    "prompt": 3500,
+    "geradas_por_sequencia": 512,
+    "fichas_s_gerando": 78.9,
+    "fichas_s_lendo_prompt": 769.2
+   },
+   {
+    "paralelos": 1,
+    "prompt": 3500,
+    "geradas_por_sequencia": 2048,
+    "fichas_s_gerando": 26.8,
+    "fichas_s_lendo_prompt": 1788.4
+   },
+   {
+    "paralelos": 4,
+    "prompt": 3500,
+    "geradas_por_sequencia": 2048,
+    "fichas_s_gerando": 70.7,
+    "fichas_s_lendo_prompt": 1816.1
+   }
+  ],
+  "uma_placa": [
+   {
+    "paralelos": 4,
+    "prompt": 3500,
+    "geradas_por_sequencia": 512,
+    "fichas_s_gerando": 50.2,
+    "fichas_s_lendo_prompt": 979.9
+   }
+  ]
+ },
+ "slots_escolhidos": 4,
+ "vazao_usada_na_conta": 78.9,
+ "vazao_um_processo_por_placa_somada": 102.2,
+ "horas_estimadas_total_um_servidor": 38.0,
+ "horas_estimadas_total_um_servidor_por_placa": 29.4,
+ "premissa_da_regra_fichas_s_da_1_7B": [
+  120,
+  250
+ ],
+ "suposta_da_8B": null,
+ "corte_disparado": null,
+ "decisao": "do dono (§3.7.11 item 1): cortes de k e/ou um servidor por placa (emenda)"
+}

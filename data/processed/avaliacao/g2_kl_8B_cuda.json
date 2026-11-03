@@ -1,0 +1,8 @@
+{
+ "o_que_e": "KL do Q8_0 contra o F16 no motor da medida da 8B (CUDA nas T4), com os logits do F16 da parte 1 (CPU); a regra é a mesma (≤0,01 nats)",
+ "codigo": 0,
+ "kl_media_nats": 0.001745,
+ "mesma_ficha_mais_provavel_pct": 98.528,
+ "gpu": "2×T4 (CUDA, llama.cpp b11159 oficial 12.8, driver 580.178.04, Ubuntu 24.04.1 LTS, Python 3.13.15)",
+ "passa": true
+}

@@ -10,3 +10,5 @@
 {"quando": "2026-10-29T14:56:44+00:00", "tamanho": "1.7B", "braco": "base", "motivo": "retomada", "hash_config": "48d6715cc61b5c31976f334aa393e06a28727947b7de108bc9c7f891a856a544", "nota": "ifeval"}
 {"quando": "2026-10-29T19:33:15+00:00", "tamanho": "1.7B", "braco": "base", "motivo": "retomada", "hash_config": "48d6715cc61b5c31976f334aa393e06a28727947b7de108bc9c7f891a856a544", "nota": "ifeval"}
 {"quando": "2026-10-29T20:30:46+00:00", "tamanho": "1.7B", "braco": "base", "motivo": "retomada", "hash_config": "48d6715cc61b5c31976f334aa393e06a28727947b7de108bc9c7f891a856a544", "nota": "ifeval"}
+{"quando": "2026-10-31T16:02:02+00:00", "tamanho": "1.7B", "braco": "base", "motivo": "medida", "hash_config": "37ff0646b92d46fe844a6e94547e3dd11bb159c094ccfec83f5f1ab38455c573", "nota": "evalplus"}
+{"quando": "2026-11-03T17:32:10+00:00", "tamanho": "1.7B", "braco": "base", "motivo": "retomada", "hash_config": "37ff0646b92d46fe844a6e94547e3dd11bb159c094ccfec83f5f1ab38455c573", "nota": "evalplus"}

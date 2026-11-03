@@ -551,6 +551,34 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **As versões congeladas** instalam no Python 3.13 da imagem, e o congelamento confere no Kaggle (`44a6b659…`).
     - **O que falta da KL.** Ela foi medida na CPU. A sessão 1 da parte 2 repete a medida no motor CUDA, contra os mesmos logits do F16.
 
+22. **EvalPlus da 1,7B: a rodada de dev no Kaggle (2026-10-31).** CPU, internet desligada, `evalplus.evaluate` oficial 0.3.1, enviada pela CLI, em 4 min 21 s (`g2_evalplus_dev_1.7B_base.json`).
+    - **Sanidade (§3.7.3 item 4).** As quebradas passam em 0 de 542. As canônicas passam em **540 de 542**, e não nas 100% que o protocolo pede:
+      - **HumanEval/32.** É bug do avaliador oficial: no ramo especial do `find_zero`, o `continue` pula o `progress.value += 1`. Com todas as entradas certas, `details` fica vazio, e o `untrusted_check` marca FAIL. Nenhuma solução passa nesta tarefa.
+      - **Mbpp/255.** Passa no *base* e falha no *plus*. A maior entrada gera 1,66 milhão de tuplas (~1,1 GB), e o avaliador roda sob RLIMIT_AS de 4 GB num processo que já traz as saídas esperadas. É a causa provável, não confirmada.
+    - **Decisão do dono (2026-10-31).** Ficam as 542. As 2 tarefas contam como falha fixa nos dois braços, e o pass@1 nas 540 é relatado ao lado. O efeito é de no máximo −0,37 ponto nos dois braços, sem viés no Δ. O avaliador oficial não é alterado.
+    - **Dev.** 8 das 20 tarefas do MBPP fora do MBPP+ passam. As 12 falhas, lidas, são erro de lógica do modelo; nenhuma é código cortado pela sanitização nem import perdido.
+
+23. **A 8B no Kaggle, parte 2, sessão 1: a sanidade (2026-10-31).** Enviada pela CLI com o OK do dono, em T4×2, gastou 51 min de cota (`g2_8b_medida_resultado.json`, trazido por `scripts/trazer_g2_8b.py`).
+    - **Motor.** O binário oficial da b11159 (CUDA 12.8) gera nas duas T4, com o PTX do sm_75 compilado pelo driver; não foi preciso compilar a tag. O ambiente da sessão 1 fica no rótulo da GPU, que entra no hash, e as sessões seguintes param se ele mudar: driver 580.178.04 (CUDA 13.0), Ubuntu 24.04.1, Python 3.13.15, glibc 2.39, `llama-server` com SHA-256 `4e1f5087…`.
+    - **KL no motor CUDA** (`g2_kl_8B_cuda.json`): 0,00175 nats contra os logits do F16 da parte 1, e a mesma ficha no topo em 98,53%. Bate com a da CPU (0,00174).
+    - **Memória.** O servidor do G2 (as flags congeladas) sobe em 4 s. Com 4 pedidos de 512 fichas, usa 5,7 GB por placa.
+    - **Retomada testada.** A sanidade cortada pelo prazo em 8 min tinha 91 amostras gravadas e nenhum `llama-server` vivo. A segunda rodada retomou e terminou.
+    - **Sanidade da 8B-base** (§3.7.11 item 8; `g2_dev_8B_base_it1.json`, hash `a264f076…`), k=1:
+
+      | Benchmark | Itens | Acerto | Truncado | Sem resposta | Fichas médias |
+      |---|---|---|---|---|---|
+      | UGPhysics (300 do dev) | 300 | 17,7% | 3,0% | 0,3% | 335 |
+      | OlympiadBench-zh | 115 | 35,7% | 1,7% | 0% | 328 |
+      | SciBench `_sol` | 24 | 20,8% | 12,5% | 0% | 474 |
+
+      Nenhuma correção morreu no teto. **Recorrigidas aqui** (Windows, Python 3.14), as 439 gerações dão os **mesmos 439 vereditos** do Kaggle (Linux, Python 3.13), com o mesmo código e as mesmas versões do corretor. A correção feita no Kaggle vale.
+    - **Vazão** (`g2_vazao_8B.json`; prompt de 3.500 fichas, KV q8_0, flash attention, 4 sequências e 512 fichas geradas):
+      - **78,9 fichas/s:** um servidor nas duas T4, em camadas (o congelado);
+      - **50,2 fichas/s:** uma T4 sozinha;
+      - **102,2 fichas/s:** um processo por T4, os dois juntos (só 1,3×).
+
+      Com as cargas da 1,7B, a geração toda leva ~38 h com o servidor congelado e ~29 h com um servidor por placa, o que seria uma emenda. Somados o MMLU, a correção e as retomadas, são ~41 h por braço da 8B. A 8B não tem vazão suposta declarada, e a decisão dos cortes é do dono (§3.7.11 item 1).
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
