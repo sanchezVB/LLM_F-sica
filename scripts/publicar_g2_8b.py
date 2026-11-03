@@ -97,15 +97,22 @@ def versao_no_ar(ref: str, arquivo: Path) -> bool:
 def subir_dataset(pasta: Path, ref: str, titulo: str, mensagem: str, marca: str) -> None:
     """Cria (1ª vez) ou versiona o dataset e espera a versão nova valer de verdade: o Kaggle
     tem de servir o arquivo `marca` igual ao daqui."""
-    (pasta / "dataset-metadata.json").write_text(json.dumps(
-        {"title": titulo, "id": ref, "licenses": [{"name": "other"}]}, indent=2), encoding="utf-8")
-    if dataset_existe(ref):
-        if versao_no_ar(ref, pasta / marca):
-            print(f"dataset {ref}: já está nesta versão")
-            return
-        kaggle("datasets", "version", "-p", str(pasta), "--dir-mode", "zip", "-m", mensagem)
-    else:
-        kaggle("datasets", "create", "-p", str(pasta), "--dir-mode", "zip")
+    # O dataset-metadata.json só existe durante o envio: deixado na pasta, o empacotador
+    # congelado do EvalPlus o pôs no MANIFESTO, o Kaggle não o sobe como dado, e a célula
+    # recusou o pacote (2026-11-03).
+    meta = pasta / "dataset-metadata.json"
+    meta.write_text(json.dumps({"title": titulo, "id": ref, "licenses": [{"name": "other"}]},
+                               indent=2), encoding="utf-8")
+    try:
+        if dataset_existe(ref):
+            if versao_no_ar(ref, pasta / marca):
+                print(f"dataset {ref}: já está nesta versão")
+                return
+            kaggle("datasets", "version", "-p", str(pasta), "--dir-mode", "zip", "-m", mensagem)
+        else:
+            kaggle("datasets", "create", "-p", str(pasta), "--dir-mode", "zip")
+    finally:
+        meta.unlink(missing_ok=True)
     for _ in range(90):
         if "ready" in kaggle("datasets", "status", ref, saida=False).lower() \
                 and versao_no_ar(ref, pasta / marca):
