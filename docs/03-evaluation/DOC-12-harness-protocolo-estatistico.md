@@ -498,7 +498,18 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       - **12:53:** um desligamento iniciado pelo sistema.
 
       Nas duas primeiras quedas o arquivo de gerações ficou íntegro. Na de 17:20, ele ganhou 1.729 bytes NUL depois da última linha completa (o NTFS estende o arquivo antes de gravar os dados). **Reparo:** só a cauda NUL saiu, por `g2_kaggle.aparar_jsonl`; nenhuma linha completa foi tocada (SHA-256 `d0821281…` → `5a7bee18…`). A amostra que não chegou a ser gravada foi gerada de novo na retomada, com a mesma semente.
-    - **EvalPlus:** pendente da rodada de dev no Kaggle, antes de gerar o teste.
+    - **EvalPlus** (`g2_evalplus_teste_1.7B_base.json`). A geração foi na RX 7600, com hash `37ff0646…`. A execução foi no Kaggle, em CPU sem internet, pelo `evalplus.evaluate` 0.3.1, em 27 min:
+
+      | Corrida | HumanEval | HumanEval+ | MBPP | MBPP+ | **Plus nas 542 (decide)** | Média dos 4 |
+      |---|---|---|---|---|---|---|
+      | Amostras k=10 (pass@1 = c/10) | 48,17% | 40,98% | 67,99% | 57,49% | **52,49%** | 53,66 |
+      | Gulosa | 48,78% | 41,46% | 69,31% | 59,26% | 53,87% | 54,70 |
+
+      - **Sanidade gulosa.** A média dos 4 deu 54,70, dentro de 52,70 ± 5. Passa.
+      - **As 2 tarefas inatingíveis** (item 22). Sem elas, o pass@1 plus seria 52,69% nas amostras e 54,07% na gulosa. É só relatado; decide o das 542.
+      - **Geração.** Saíram as 5.962 amostras, nenhuma sanitizada vazia e nenhuma sem sintaxe. Em 23 o modelo não define a função pedida. O PC foi desligado no meio (31/10, pelo menu Iniciar), e a medida retomou com o mesmo hash.
+      - **Execução.** A 1ª tentativa no Kaggle parou em 17 s, na conferência do pacote: o publicador tinha deixado um `dataset-metadata.json` na pasta. Nenhuma amostra chegou a ser executada. O MANIFESTO foi remontado sem regenerar nada (as amostras têm os SHA-256 da geração), e a 2ª tentativa rodou.
+    - **O G2.3 da 1,7B-base está completo:** MMLU sem física 62,72%, IFEval strict médio 35,28% e EvalPlus pass@1 52,49%.
 
 20. **Emenda 3 e o pacote da Qwen3-8B-Base para o Kaggle (2026-10-29).** O par 8B roda no Kaggle 2×T4 (§3.7.5).
     - **Por que emendar.** Os scripts congelados traziam fixos o executável do Windows e o rótulo "RX 7600 (Vulkan)" que entra no hash. Além disso, a escolha entre medida e retomada vinha da saída gravada: uma medida morta entre o registro do acesso e a 1ª amostra seria recusada como 2º acesso.

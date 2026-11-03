@@ -84,5 +84,104 @@
     "sem_sintaxe": 0
    }
   }
+ },
+ "kaggle": {
+  "quando": "2026-11-03T17:48:58+00:00",
+  "plataforma": {
+   "python": "3.13.18",
+   "sistema": "Linux-6.18.55+-x86_64-with-glibc2.39",
+   "cpus": 4
+  },
+  "internet": false,
+  "evalplus": "0.3.1",
+  "manifesto_ok": true,
+  "sanidade": {
+   "humaneval": {
+    "tarefas": 164,
+    "canonicas_passam_base": 163,
+    "canonicas_passam_plus": 163,
+    "quebradas_passam_base": 0,
+    "canonicas_que_falham": [
+     "HumanEval/32"
+    ]
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "canonicas_passam_base": 378,
+    "canonicas_passam_plus": 377,
+    "quebradas_passam_base": 0,
+    "canonicas_que_falham": [
+     "Mbpp/255"
+    ]
+   },
+   "ok": false
+  }
+ },
+ "sha256_eval_results": {
+  "teste_1.7B_base_amostras_humaneval": "9bdc4e4b498bad751ef6f83484950de1bb7fc4b7f67afafabd83fce2b7987bcf",
+  "teste_1.7B_base_amostras_mbpp": "4467845628bfeafd194df6d3c9e311a487abfb4210b4420bfa9c81fe901d4af5",
+  "teste_1.7B_base_gulosa_humaneval": "6553ae0886ff27ab55900a8a992a2f072ef0f202044b8f9f9809b5aafd7a731d",
+  "teste_1.7B_base_gulosa_mbpp": "449615b8c949425c533f135387794c77e8773488dc82704fb9e6b8c4564a892a"
+ },
+ "resultado": {
+  "amostras": {
+   "humaneval": {
+    "tarefas": 164,
+    "n_por_tarefa": [
+     10
+    ],
+    "base": 48.17,
+    "plus": 40.98
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "n_por_tarefa": [
+     10
+    ],
+    "base": 67.99,
+    "plus": 57.49
+   },
+   "plus_542": 52.49,
+   "media_4": 53.66
+  },
+  "gulosa": {
+   "humaneval": {
+    "tarefas": 164,
+    "n_por_tarefa": [
+     1
+    ],
+    "base": 48.78,
+    "plus": 41.46
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "n_por_tarefa": [
+     1
+    ],
+    "base": 69.31,
+    "plus": 59.26
+   },
+   "plus_542": 53.87,
+   "media_4": 54.7
+  }
+ },
+ "sanidade_gulosa": {
+  "referencia": 52.7,
+  "folga": 5.0,
+  "medida": 54.7,
+  "ok": true
+ },
+ "referencia_540": {
+  "o_que_e": "pass@1 plus sem HumanEval/32 e Mbpp/255, que nenhuma solução passa no avaliador oficial 0.3.1 (DOC-12 item 22; decisão do dono: decide o das 542, este é só relatado)",
+  "amostras": {
+   "plus_540": 52.69,
+   "tarefas": 540,
+   "acertos_nas_2_excluidas": 0
+  },
+  "gulosa": {
+   "plus_540": 54.07,
+   "tarefas": 540,
+   "acertos_nas_2_excluidas": 0
+  }
  }
 }
