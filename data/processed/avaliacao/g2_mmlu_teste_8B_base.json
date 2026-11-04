@@ -1,0 +1,37 @@
+{
+ "o_que_e": "G2.3, MMLU, fase teste (DOC-12 §3.7.4): agregados",
+ "modelo": "Qwen3-8B-Base",
+ "braco": "base",
+ "hash_config": "249312fc5f29dea48620fcc679683c7ef5fb1f65313cd27daf0c9534fcf534ec",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_mmlu.py": "a7ac56289de141ec547a5f81b34c3456edc147aa2bae866aec34026b52ec006e",
+  "scripts/medir_g2_mmlu.py": "62049ad26e5712b3e0c3acedbea8cb06ad9cb4bb872e68cab6f6d58fa7960ea0",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "segundos": 2040,
+ "sem_fisica": {
+  "itens": 13402,
+  "acerto": 0.7656
+ },
+ "mmlu_57": {
+  "itens": 14042,
+  "acerto": 0.7678
+ },
+ "fisica": {
+  "itens": 640,
+  "acerto": 0.8156
+ },
+ "sem_previsao": 0,
+ "guarda_do_instrumento": {
+  "referencia": 76.89,
+  "folga": 3.0,
+  "medido": 76.78,
+  "ok": true
+ }
+}

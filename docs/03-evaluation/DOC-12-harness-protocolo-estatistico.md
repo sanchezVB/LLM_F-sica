@@ -590,6 +590,19 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
       Com as cargas da 1,7B, a geração toda leva ~38 h com o servidor congelado e ~29 h com um servidor por placa, o que seria uma emenda. Somados o MMLU, a correção e as retomadas, são ~41 h por braço da 8B. A 8B não tem vazão suposta declarada, e a decisão dos cortes é do dono (§3.7.11 item 1).
 
+24. **A 8B no Kaggle, sessão 2: a 1ª de teste (2026-11-03).** Rodou em T4×2 e gastou 10,75 h de cota: parou no prazo, como desenhado. O ambiente era o da sessão 1 (o mesmo driver, a mesma imagem e o mesmo binário).
+    - **MMLU da 8B-base** (`g2_mmlu_teste_8B_base.json`, hash `249312fc…`, 34 min). Nenhum item ficou sem previsão.
+
+      | Recorte | Itens | Acerto |
+      |---|---|---|
+      | **Sem física (decide)** | 13.402 | **76,56%** |
+      | MMLU-57 | 14.042 | 76,78% |
+      | Física | 640 | 81,56% |
+
+      **Guarda do instrumento:** 76,78 contra a referência de 76,89 ± 3. Passa.
+    - **G2.1.** O acesso foi registrado (`medida`, hash `a264f076…`, o mesmo da sanidade). Até o prazo, 6.247 das 10.727 amostras foram gravadas, e a sessão 3 retoma delas.
+    - **Livro de acessos.** As duas linhas da 8B voltaram por `trazer_g2_8b.py` e foram juntadas ao livro daqui.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
