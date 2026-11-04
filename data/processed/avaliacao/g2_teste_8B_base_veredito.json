@@ -1,0 +1,82 @@
+{
+ "o_que_e": "G2, fase teste: agregados por benchmark (DOC-12 §3.7); as gerações ficam fora do git",
+ "modelo": "Qwen3-8B-Base",
+ "braco": "base",
+ "rotulo": "veredito",
+ "hash_config": "a264f076cd832d32983f5a7c8be3f0d5304b6627a28b012cd64ebf5092605cd9",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_prompt.py": "2d4ecf88f6ae11e2ea9ad9f46b0934afe60b3d09ee7dac79b0341c8e1cec43be",
+  "src/phifm/eval/g2_geracao.py": "d0bf2599dac477ea9c740213e2a6e0d07a43918f1ba6b4616b1bc97183567190",
+  "src/phifm/eval/g2_correcao.py": "76ad3f332169d85a78e8996946f30e6c6de7ab58c7943dc0ff4ee719dd26fd4a",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "correcoes_mortas_no_teto": 0,
+ "k": {
+  "ugphysics": 3,
+  "olympiadbench": 8,
+  "phybench": 16,
+  "scibench": 8
+ },
+ "segundos": 653,
+ "por_benchmark": {
+  "olympiadbench": {
+   "itens": 231,
+   "amostras": 1848,
+   "acerto": 0.1228,
+   "fracoes": {
+    "fail": 0.7873,
+    "inconclusive": 0.0005,
+    "pass": 0.1228,
+    "sem_resposta": 0.0016,
+    "truncado": 0.0877
+   },
+   "fichas_media": 605.1,
+   "fichas_p95": 1660
+  },
+  "phybench": {
+   "itens": 99,
+   "amostras": 1584,
+   "acerto": 0.0114,
+   "fracoes": {
+    "fail": 0.8977,
+    "inconclusive": 0.0013,
+    "pass": 0.0114,
+    "truncado": 0.0896
+   },
+   "fichas_media": 625.4,
+   "fichas_p95": 1378
+  },
+  "scibench": {
+   "itens": 193,
+   "amostras": 1544,
+   "acerto": 0.2532,
+   "fracoes": {
+    "fail": 0.693,
+    "pass": 0.2532,
+    "truncado": 0.0538
+   },
+   "fichas_media": 445.9,
+   "fichas_p95": 1039
+  },
+  "ugphysics": {
+   "itens": 1917,
+   "amostras": 5751,
+   "acerto": 0.1781,
+   "fracoes": {
+    "fail": 0.7929,
+    "inconclusive": 0.0005,
+    "pass": 0.1781,
+    "sem_resposta": 0.001,
+    "truncado": 0.0275
+   },
+   "fichas_media": 328.5,
+   "fichas_p95": 803
+  }
+ }
+}

@@ -603,6 +603,20 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **G2.1.** O acesso foi registrado (`medida`, hash `a264f076…`, o mesmo da sanidade). Até o prazo, 6.247 das 10.727 amostras foram gravadas, e a sessão 3 retoma delas.
     - **Livro de acessos.** As duas linhas da 8B voltaram por `trazer_g2_8b.py` e foram juntadas ao livro daqui.
 
+25. **A 8B no Kaggle, sessão 3, e o G2.1 da 8B-base no teste (2026-11-04).** A sessão gastou 10,75 h de cota. Ela retomou o G2.1 (a retomada está no livro, com o mesmo hash `a264f076…`) e completou as 10.727 amostras; o prazo pegou a correção.
+    - **A correção foi feita aqui,** em 11 min, para não gastar cota de GPU parada. O `scripts/corrigir_g2_teste.py` chama as mesmas funções congeladas do `medir_g2.py` e recusa hash fora do livro, amostra faltando ou linha `erro`. A sanidade já tinha dado os mesmos vereditos aqui e no Kaggle (item 23), e a 1,7B também foi corrigida aqui.
+    - **Resultado oficial** (`g2_teste_8B_base_veredito.json`):
+
+      | Benchmark | Itens | Acerto (avg@k) | Truncado | Sem resposta | Fichas médias |
+      |---|---|---|---|---|---|
+      | UGPhysics | 1.917 | 17,8% | 2,8% | 0,1% | 329 |
+      | OlympiadBench | 231 | 12,3% | 8,8% | 0,2% | 605 |
+      | PHYBench | 99 | 1,1% | 9,0% | 0% | 625 |
+      | SciBench | 193 | 25,3% | 5,4% | 0% | 446 |
+
+      Macro da 8B-base: ~14,1 pontos (a 1,7B fez ~6,3). Nenhuma correção morreu no teto.
+    - **Para a sessão 4.** O estado leva o agregado e o marcador da etapa, montados sobre o estado que voltou do Kaggle (o mesmo livro), e a sessão pula o G2.1.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
