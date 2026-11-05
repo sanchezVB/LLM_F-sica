@@ -617,6 +617,8 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       Macro da 8B-base: ~14,1 pontos (a 1,7B fez ~6,3). Nenhuma correção morreu no teto.
     - **Para a sessão 4.** O estado leva o agregado e o marcador da etapa, montados sobre o estado que voltou do Kaggle (o mesmo livro), e a sessão pula o G2.1.
 
+26. **A 8B no Kaggle, sessão 4 (2026-11-04).** Gastou 6,75 h de cota, o resto da semana. O ambiente era o mesmo das sessões anteriores. A sessão pulou o MMLU e o G2.1, já feitos, e começou o IFEval: o acesso está no livro (`medida`, nota `ifeval`, hash `c91b605f…`). Até o prazo, foram gravadas 8.242 das 8.656 amostras (k=16), com um só hash e nenhuma linha `erro`. A gulosa e a crua ainda não começaram. A sessão 5, depois da renovação da cota, termina o IFEval e faz a geração do EvalPlus.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

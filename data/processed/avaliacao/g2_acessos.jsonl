@@ -15,3 +15,4 @@
 {"quando": "2026-11-03T17:51:23+00:00", "tamanho": "8B", "braco": "base", "motivo": "medida", "hash_config": "249312fc5f29dea48620fcc679683c7ef5fb1f65313cd27daf0c9534fcf534ec", "nota": "mmlu"}
 {"quando": "2026-11-03T18:29:15+00:00", "tamanho": "8B", "braco": "base", "motivo": "medida", "hash_config": "a264f076cd832d32983f5a7c8be3f0d5304b6627a28b012cd64ebf5092605cd9", "nota": ""}
 {"quando": "2026-11-04T04:55:59+00:00", "tamanho": "8B", "braco": "base", "motivo": "retomada", "hash_config": "a264f076cd832d32983f5a7c8be3f0d5304b6627a28b012cd64ebf5092605cd9", "nota": ""}
+{"quando": "2026-11-04T17:26:43+00:00", "tamanho": "8B", "braco": "base", "motivo": "medida", "hash_config": "c91b605f8a1341933e10351cc82c6ab5f2dfef68b5b2953d4bff869cebae0baf", "nota": "ifeval"}
