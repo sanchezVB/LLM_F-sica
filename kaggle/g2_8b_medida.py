@@ -19,8 +19,9 @@ linhas abaixo e envia. Na mão, antes de cada sessão:
   4. a sanidade da 8B-base em 300 itens do UG-dev (§3.7.11 item 8), primeiro cortada por
      prazo e retomada, para a retomada ser testada antes de qualquer item de teste.
   Para aqui: o dono decide os cortes (§3.7.11 item 1) e libera o teste.
-- FASE = "teste" nas seguintes (SESSAO = 2, 3, …): MMLU, G2.1, IFEval e a geração do
-  EvalPlus, nessa ordem (a guarda do instrumento vem antes do acesso mais caro). Cada uma
+- FASE = "teste" nas seguintes (SESSAO = 2, 3, …): MMLU, G2.1, IFEval, a geração do
+  EvalPlus e as sondas de contaminação S1/S2 (§3.7.9), nessa ordem (a guarda do
+  instrumento vem antes do acesso mais caro). Cada uma
   retoma do que já gravou; uma etapa nova não começa a menos de 1 h do prazo; a guarda do
   MMLU (76,89 ± 3) reprovada para tudo; a etapa só conta como feita com os contadores
   completos.
@@ -52,6 +53,8 @@ from pathlib import Path  # noqa: E402
 T0 = time.time()
 PRAZO = T0 + 3600 * min(10.75, COTA_RESTANTE_H - 0.75)
 MARGEM_ETAPA_S = 3600          # uma medida nova não começa com menos que isto até o prazo
+MARGEM_SONDAS_S = 4.5 * 3600  # as sondas (1 slot, ~2,5–4 h na 8B) só começam do zero com isto:
+                              # cortadas no prazo, retomariam noutra ordem (um servidor novo)
 SAIDA = Path("/kaggle/working")
 RASCUNHO = Path("/kaggle/tmp/g2_8b")
 RASCUNHO.mkdir(parents=True, exist_ok=True)
@@ -511,7 +514,8 @@ if FASE == "sanidade":
 else:
     mmlu_agg = AV / "g2_mmlu_teste_8B_base.json"
     ETAPAS = (("mmlu", "medir_g2_mmlu.py"), ("g2_1", "medir_g2.py"),
-              ("ifeval", "medir_g2_ifeval.py"), ("evalplus", "medir_g2_evalplus.py"))
+              ("ifeval", "medir_g2_ifeval.py"), ("evalplus", "medir_g2_evalplus.py"),
+              ("sondas", "medir_g2_sondas.py"))
     for rotulo, script in ETAPAS:
         # a guarda só vale com o MMLU COMPLETO: um MMLU cortado (itens sem previsão contam
         # como erro) não reprova o instrumento; ele é refeito na tentativa seguinte
@@ -524,8 +528,10 @@ else:
             resultado["etapas"][rotulo] = "feita antes"
             continue
         for tentativa in (1, 2):            # a 2ª refaz as amostras 'erro' da 1ª
-            if PRAZO - time.time() < MARGEM_ETAPA_S:
-                resultado["parada"] = f"menos de 1 h até o prazo antes de {rotulo}"
+            margem = (MARGEM_SONDAS_S if rotulo == "sondas" and tentativa == 1
+                      and not (SAIDAS / "sondas_teste_8B_base.jsonl").exists() else MARGEM_ETAPA_S)
+            if PRAZO - time.time() < margem:
+                resultado["parada"] = f"menos de {margem / 3600:.1f} h até o prazo antes de {rotulo}"
                 break
             st = medir(f"{rotulo}_{tentativa}", script, "teste", "--modelo", "8B", "--braco", "base")
             if st == "prazo":

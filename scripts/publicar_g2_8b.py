@@ -164,12 +164,31 @@ def preparo(enviar: bool) -> None:
               "dataset_sources": [f"{dono}/{SLUGS['dados']}"], "kernel_sources": []})
 
 
+def recusar_pacote_velho(man: dict) -> None:
+    """Depois de uma emenda (ou de mudar a célula), o pacote tem de ser remontado: senão o
+    `subir_dataset` vê o MESMO MANIFESTO, diz que já está na versão, e a sessão roda o
+    repositório e a célula de antes."""
+    import hashlib
+
+    sys.path.insert(0, str(RAIZ / "src"))
+    from phifm.eval import g2
+
+    celula = hashlib.sha256((RAIZ / "kaggle/g2_8b_medida.py").read_bytes()).hexdigest()
+    if man.get("protocolo_g2_sha256") != g2.PROTOCOLO_G2_SHA256:
+        raise SystemExit(f"pacote velho: protocolo {str(man.get('protocolo_g2_sha256'))[:12]}… ≠ "
+                         f"{g2.PROTOCOLO_G2_SHA256[:12]}… daqui; rode scripts/empacotar_g2_8b.py")
+    if man.get("celulas_sha256", {}).get("g2_8b_medida.ipynb") != celula:
+        raise SystemExit("pacote velho: a célula kaggle/g2_8b_medida.py mudou depois do "
+                         "empacotamento; rode scripts/empacotar_g2_8b.py")
+
+
 def medida(sessao: int, cota: float, enviar: bool) -> None:
     dono = usuario()
     man = json.loads((PACOTE / "MANIFESTO.json").read_text(encoding="utf-8"))
     if not man.get("kl_8b_pronta"):
         raise SystemExit("o pacote não tem a KL da 8B aprovada: rode a parte 1, traga o "
                          "g2_kl_8B.json e reempacote")
+    recusar_pacote_velho(man)
     fase = "sanidade" if sessao == 1 else "teste"
     celula = celula_do_pacote("medida")
     for velho, novo in ((r'^FASE = "sanidade"', f'FASE = "{fase}"'), (r"^SESSAO = 1\b", f"SESSAO = {sessao}"),

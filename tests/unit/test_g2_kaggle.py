@@ -130,6 +130,25 @@ def test_conferir_etapa_pelos_contadores(tmp_path):
     i = {"amostras": {"n": 541 * 16}, "gulosa": {"n": 541}, "crua": {"n": 540}}
     (av / "g2_ifeval_teste_8B_base.json").write_text(json.dumps(i), encoding="utf-8")
     assert k.conferir_etapa("ifeval", tmp_path)[1].startswith("crua: 540")
+    s = {"itens": 2528, "registros": 5055, "faltam": 1}
+    (av / "g2_sondas_teste_8B_base.json").write_text(json.dumps(s), encoding="utf-8")
+    assert k.conferir_etapa("sondas", tmp_path) == (False, "registros: 5055, esperados 5056")
+    s.update(registros=5056, faltam=0)
+    (av / "g2_sondas_teste_8B_base.json").write_text(json.dumps(s), encoding="utf-8")
+    # sem a referência da 1,7B: recusa a rodada degenerada (nenhuma sonda aplicável)
+    assert k.conferir_etapa("sondas", tmp_path)[1].startswith("nenhuma sonda aplicável")
+    s["por_benchmark"] = {b: {"S1": {"aplicaveis": 3}, "S2": {"aplicaveis": 2}}
+                          for b in ("ugphysics", "olympiadbench", "phybench", "scibench")}
+    s["sha256_entradas"] = "e" * 64
+    (av / "g2_sondas_teste_8B_base.json").write_text(json.dumps(s), encoding="utf-8")
+    assert k.conferir_etapa("sondas", tmp_path) == (True, "completa")
+    # com a referência da 1,7B: as fichas sondadas têm de ser as mesmas
+    (av / "g2_sondas_teste_1.7B_base.json").write_text(json.dumps({"sha256_entradas": "f" * 64}),
+                                                       encoding="utf-8")
+    assert k.conferir_etapa("sondas", tmp_path)[1].startswith("as fichas sondadas")
+    (av / "g2_sondas_teste_1.7B_base.json").write_text(json.dumps({"sha256_entradas": "e" * 64}),
+                                                       encoding="utf-8")
+    assert k.conferir_etapa("sondas", tmp_path) == (True, "completa")
 
 
 def test_trazer_funde_so_a_8B_no_livro_daqui(tmp_path):

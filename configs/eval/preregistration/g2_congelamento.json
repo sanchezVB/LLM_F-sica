@@ -21,6 +21,8 @@
   "src/phifm/eval/g2_evalplus.py": "61a49c0d42e583ffe173c71f854d61c997ba494e5279bb3c7b160b9d8ba5e52a",
   "scripts/medir_g2_evalplus.py": "9951090b20089788fd8c956cab565210374f7ff4d7bfe15dfbd1e1af8f66851d",
   "kaggle/g2_evalplus.py": "697811fb498162d07c81e48833bfee84718e0b77e1c15098c47542d3c66cb4c0",
+  "src/phifm/eval/g2_sondas.py": "434ecd51b78236dd31b9fdcb651507407375cc8a5285e427a0cde4381f28e4ce",
+  "scripts/medir_g2_sondas.py": "f19070fe87e49868e6babca56b3dd8a13ea605c7d7ba67c9f109df323b98ca8c",
   "sympy": "1.14.0",
   "antlr4-python3-runtime": "4.11.0",
   "mpmath": "1.3.0",
@@ -111,6 +113,18 @@
    ],
    "congelamento_anterior_sha256": "c96b59289113fd0e327274df2380286a722d2855e264be8e8c7c128181916e08",
    "protocolo_anterior_sha256": "5d848f12d014b01586bd127c92b11d1a232d5c8a2fe5fae4c04cf2584874aed8"
+  },
+  {
+   "n": 4,
+   "em": "2026-11-07",
+   "motivo": "sondas de contaminação S1/S2 (DOC-12 3.7.9 A): o código das sondas (g2_sondas.py e medir_g2_sondas.py) entra no congelamento antes de tocar o teste; servidor de 1 slot e ordem fixa; listas de ids lacradas fora do git, com o SHA-256 no agregado; nota sondas no livro de acessos",
+   "mudou": [
+    "scripts/medir_g2_sondas.py",
+    "src/phifm/eval/g2_sondas.py"
+   ],
+   "congelamento_anterior_sha256": "e4c0212f081b39ceb90ec71a5baa09ecd3e7d9c219592ee1f057bd04c1462e65",
+   "protocolo_anterior_sha256": "44a6b6598670ff1eec496add4f60965dbe036a7e92bda14745e5b1c0b7d5facb",
+   "regra": "condição 3 do G2.1, decisão do dono em 2026-11-07, antes de qualquer sonda no teste: o sinal de memorização é a S1 com 13 fichas, como no bloco contaminacao, ou a S2 com trecho comum de 32 fichas ou mais (g2.sinal_da_condicao_3); as listas de 13 fichas nas duas sondas continuam lacradas e relatadas"
   }
  ]
 }

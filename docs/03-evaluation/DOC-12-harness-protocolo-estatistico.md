@@ -631,6 +631,51 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **EvalPlus, a geração** (`g2_evalplus_teste_8B_base.json`, hash `d5e343fa…`; o acesso está no livro, nota `evalplus`). Saíram as 5.420 amostras (k=10) e as 542 gulosas, nenhuma sanitizada vazia e nenhuma sem sintaxe. Em 161 das 5.962 gerações (147 amostras e 14 gulosas, quase todas do MBPP+) o modelo não define a função pedida; na 1,7B foram 23. O pacote da execução voltou com o estado (`data/processed/kaggle_g2_evalplus_8B/`).
     - **Falta para o G2.3 da 8B-base:** a execução do EvalPlus, em CPU no Kaggle e sem cota de GPU, como na 1,7B.
 
+28. **As sondas de contaminação S1/S2 em código, a decisão do dono sobre a condição 3 e a emenda 4 (2026-11-07).** O item 20 deixava as sondas pendentes.
+    - **Código.** `src/phifm/eval/g2_sondas.py` e `scripts/medir_g2_sondas.py`, com as fases dev e teste. O teste exige o congelamento e registra o acesso no livro, com a nota `sondas`. A 8B ganha a etapa `sondas` no Kaggle, depois do EvalPlus.
+    - **Leituras declaradas do g2.yaml:**
+      - tudo em fichas do tokenizer do modelo; o prompt vai ao servidor como lista de fichas, e as geradas voltam do servidor, sem retokenizar;
+      - **S1:** os ≥32 valem para a metade mostrada, ou seja, enunciado de ≥64 fichas;
+      - **S2:** enunciado, uma linha em branco e as primeiras round(0,4·n) fichas da solução; só vale com solução e com resto de ≥13 fichas. O SciBench do teste não tem solução, e lá só cabe a S1;
+      - **suspeito:** um 13-grama da geração em qualquer posição da continuação verdadeira (o resto do enunciado na S1, o resto da solução na S2);
+      - **sinal** é S1 ou S2, por item; item sem sonda aplicável nunca tem sinal;
+      - gulosa e sem cache de prompt. Prompt e geração acima do contexto do slot (32.768, lido do servidor) não se aplicam; no dev, isso não acontece.
+    - **Relatados, sem decidir:** alinhado (na mesma posição), cópia do prompt, maior trecho comum e o número de suspeitos com trecho de ≥32 fichas.
+    - **Reprodutibilidade, medida no dev da 1,7B:**
+      - com 4 slots, duas rodadas com os mesmos prompts deram gerações diferentes em 42% das sondas, e 11 de 785 sinais trocaram: o servidor junta no mesmo lote pedidos de slots diferentes;
+      - com 1 slot, servidor novo e a mesma ordem, o dev refeito deu as mesmas 785 gerações, ficha a ficha, e nenhum sinal trocado;
+      - a ordem conta: numa ordem diferente, ~10% das gerações mudam em alguma ficha depois da 8ª, e nenhum sinal mudou em 262. Desligar o cache de prompt em RAM não muda isso.
+
+      **Decisão:** 1 slot, um pedido por vez, sempre na mesma ordem, a 2,3× o tempo de 4 slots (dev: 533 s). Uma retomada (um servidor novo) é ordem diferente dali em diante, e cada linha leva a marca da execução.
+    - **O lacre (§3.7.3: nada se lê por item até o veredito).** No teste, as listas de ids suspeitos (as de 13 fichas e as de trecho ≥32, por benchmark e sonda) vão para `g2_saidas/sondas_teste_<modelo>_<braco>_listas.json`, fora do git, em JSON canônico. O agregado versionado leva só os contadores e o SHA-256 desses bytes. No veredito, `g2.ler_listas_lacradas` confere o hash antes de abrir.
+    - **As mesmas fichas nos dois braços.** Cada sonda grava o SHA-256 das fichas mostradas e das esperadas, e o agregado grava o do conjunto (`sha256_entradas`), que tem de ser igual entre a base e o ΦGen. A 1,7B e a 8B têm o mesmo tokenizer (`c0382117…`), e a etapa do Kaggle exige da 8B o mesmo `sha256_entradas` da 1,7B.
+    - **Dev da 1,7B** (`g2_sondas_dev_1.7B_base.json`; 448 itens, 896 sondas):
+
+      | Benchmark | S1: suspeitos/aplicáveis | S2: suspeitos/aplicáveis (trecho ≥32) | União, 13 fichas | Híbrida: S1 13 + S2 ≥32 |
+      |---|---|---|---|---|
+      | UGPhysics (300 do dev) | 24/218 | 117/295 (14) | 128 (43%) | 37 (12%) |
+      | OlympiadBench-zh | 2/102 | 22/115 (1) | 24 (21%) | 3 (3%) |
+      | SciBench `_sol` | 7/22 | 26/33 (6) | 27 (82%) | 11 (33%) |
+
+    - **O que o dev mostra.** Na S2, o 13-grama casa sobretudo pedaços de LaTeX: 13 fichas de fórmula são poucos símbolos, e quem sabe continuar a conta escreve igual à solução. A cópia do prompt explica pouco (16 dos 117 suspeitos S2 do UG). No UG:
+      - a S2 marca 48% dos itens de resposta EX, 38% dos NV e 30% dos outros;
+      - por tercil do tamanho do resto da solução, marca 19%, 41% e 59%;
+      - ela não acompanha o acerto: na 1,7B, os suspeitos acertam 0% (n=44) e os outros, 8,2% (n=61); na 8B, 12,2% contra 17,4%.
+    - **Revisão adversarial.** Duas rodadas, com 4 e depois 3 focos e verificadores céticos. Parte dos verificadores caiu por limite de uso, e os achados sem voto foram conferidos no código pelo Claude. Entraram:
+      - a trava do congelamento recusa arquivo listado e não congelado;
+      - o lacre por hash;
+      - o teto lido do servidor;
+      - a retomada à prova de queda de energia, lendo as sondas feitas antes do registro no livro;
+      - o código das sondas no hash da configuração;
+      - `--braco` só `base`, até a emenda do ΦGen;
+      - o laço para depois de 3 erros seguidos ou com o servidor fora do ar;
+      - o livro de acessos com fsync e recusa de linha corrompida;
+      - o motivo e a regra da emenda com escape, tudo conferido antes de gravar;
+      - o publicador recusa pacote velho;
+      - as sondas da 8B só começam com 4,5 h de prazo.
+    - **Decisão do dono (2026-11-07), antes de qualquer sonda no teste.** A condição 3 do G2.1 usa a lista **híbrida**: a S1 com 13 fichas e a S2 só com trecho comum de ≥32 fichas (`g2.sinal_da_condicao_3`, montada em `g2.memorizacao_nova`). As listas de 13 fichas nas duas sondas continuam lacradas e relatadas (leitura A). Numa simulação feita na revisão, com ganho verdadeiro de +13 e as marcas novas caindo 3× mais nos itens que melhoraram, a regra com 13 fichas passaria em 39% das vezes, contra 84% com marcas ao acaso.
+    - **Emenda 4** (`scripts/congelar_g2.py --emenda 4 --motivo … --regra …`). O código das sondas entra no congelamento, e a regra da condição 3 entra no g2.yaml, no registro da emenda. A configuração da geração da 1,7B é a mesma (`e1535689…`). O congelamento passa de `e4c0212f…` para `cc65abf9…`, e o `PROTOCOLO_G2_SHA256`, de `44a6b659…` para `ff210a62…`. O dev refeito com o código congelado deu as mesmas listas da rodada anterior (SHA-256 `0e808ce6…`).
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
@@ -668,7 +713,7 @@ Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a fri
 **O G2.1 PASSA só com as três condições:**
 1. o limite de baixo do IC 95% de Δ_macro é **≥ +10,0**;
 2. nenhum dos quatro Δ_b tem o IC **inteiro abaixo de 0**;
-3. sem os itens de **memorização nova** (sinal S1 ou S2 no ΦGen e não na base, ver §3.7.9), o limite de baixo continua ≥ +10,0.
+3. sem os itens de **memorização nova** (sinal S1 ou S2 no ΦGen e não na base, ver §3.7.9), o limite de baixo continua ≥ +10,0. Desde a emenda 4, o sinal é a S1 com 13 fichas ou a S2 com trecho comum de ≥32 fichas (§3.7.4 item 28).
 
 Fora disso, NÃO PASSA. A leitura é "demonstrado abaixo" se o IC fica inteiro abaixo de +10, ou "não demonstrado" se o IC atravessa +10. Se mais da metade do ganho vier de itens em que a base não tinha resposta extraível, a publicação diz **"ganho de formato"**.
 
@@ -720,7 +765,7 @@ Fora disso, NÃO PASSA. A leitura é "demonstrado abaixo" se o IC fica inteiro a
 - **S1:** o modelo recebe a primeira metade do enunciado e gera 48 fichas;
 - **S2:** o modelo recebe o enunciado e 40% da solução e gera 64 fichas.
 
-O item é suspeito se houver ≥1 sequência de 13 fichas idêntica à verdadeira. O PHYBench, publicado depois dos dados da base, é o nulo. A lista de ids suspeitos é lacrada antes do treino.
+O item é suspeito se houver ≥1 sequência de 13 fichas idêntica à verdadeira. O PHYBench, publicado depois dos dados da base, é o nulo. A lista de ids suspeitos é lacrada antes do treino: o SHA-256 dela vai ao git, e a lista fica fora dele até o veredito (§3.7.4 item 28).
 
 **(B) O corpus do CPT — PRÉ-CONDIÇÃO.** Sem ela, o ΦGen não é medido. O corpus final é varrido contra **todos** os itens do G2 (dev, teste, reserva e exemplos). Sai o documento que:
 - tiver ≥1 13-grama de palavras de um enunciado ou de uma solução. Frase-feita é o 13-grama presente em ≥3 itens de benchmark ou em >1.000 documentos;
@@ -728,7 +773,7 @@ O item é suspeito se houver ≥1 sequência de 13 fichas idêntica à verdadeir
 
 O vetor semântico só é relatado. As remoções são publicadas por benchmark.
 
-**(C) Depois do treino.** As sondas S1 e S2 são refeitas no ΦGen. Item com sinal no ΦGen e sem sinal na base é **memorização nova**, e alimenta a condição 3 do G2.1.
+**(C) Depois do treino.** As sondas S1 e S2 são refeitas no ΦGen. Item com sinal no ΦGen e sem sinal na base é **memorização nova**, e alimenta a condição 3 do G2.1. Desde a emenda 4 (decisão do dono, antes de qualquer sonda no teste), o sinal da condição 3 é a S1 com 13 fichas ou a S2 com trecho comum de ≥32 fichas (§3.7.4 item 28).
 
 #### 3.7.10 Limites declarados
 

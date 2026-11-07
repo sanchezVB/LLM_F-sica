@@ -197,7 +197,7 @@ dados:
 # Preenchido por scripts/congelar_g2.py. Depois disto, o medir_g2 teste recusa se o
 # g2.yaml, o código ou os dados da medida mudarem (g2.exigir_aceite_e_congelamento).
 congelamento: {arquivo: configs/eval/preregistration/g2_congelamento.json,
-               sha256: e4c0212f081b39ceb90ec71a5baa09ecd3e7d9c219592ee1f057bd04c1462e65,
+               sha256: cc65abf9eff3776973992a9ef88cd669fbf1011c129aa7f96d8101ef5f0cd208,
                em: "2026-10-24"}
 
 # Emendas registradas no DOC-12 §3.7.4 (scripts/congelar_g2.py --emenda).
@@ -211,3 +211,7 @@ emendas:
   - {n: 3, em: "2026-10-29", motivo: "8B no Kaggle: o executavel e o rotulo da GPU vem do ambiente (G2_LLAMA_SERVER, G2_GPU; sem eles, a RX 7600, e o hash da 1,7B e o mesmo); medida ou retomada pelo livro de acessos (g2.medida_aberta); a retomada do MMLU refaz os itens sem previsao",
      congelamento_anterior: c96b59289113fd0e327274df2380286a722d2855e264be8e8c7c128181916e08,
      protocolo_anterior: 5d848f12d014b01586bd127c92b11d1a232d5c8a2fe5fae4c04cf2584874aed8}
+  - {n: 4, em: "2026-11-07", motivo: "sondas de contaminação S1/S2 (DOC-12 3.7.9 A): o código das sondas (g2_sondas.py e medir_g2_sondas.py) entra no congelamento antes de tocar o teste; servidor de 1 slot e ordem fixa; listas de ids lacradas fora do git, com o SHA-256 no agregado; nota sondas no livro de acessos",
+     regra: "condição 3 do G2.1, decisão do dono em 2026-11-07, antes de qualquer sonda no teste: o sinal de memorização é a S1 com 13 fichas, como no bloco contaminacao, ou a S2 com trecho comum de 32 fichas ou mais (g2.sinal_da_condicao_3); as listas de 13 fichas nas duas sondas continuam lacradas e relatadas",
+     congelamento_anterior: e4c0212f081b39ceb90ec71a5baa09ecd3e7d9c219592ee1f057bd04c1462e65,
+     protocolo_anterior: 44a6b6598670ff1eec496add4f60965dbe036a7e92bda14745e5b1c0b7d5facb}

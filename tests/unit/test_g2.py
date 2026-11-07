@@ -36,6 +36,66 @@ def test_estado_congelado_recusa_codigo_ou_dados_mudados(tmp_path):
         g2.exigir_estado_congelado(RAIZ, cong)
 
 
+def test_estado_congelado_recusa_arquivo_listado_e_nao_congelado(tmp_path):
+    # um arquivo novo em CODIGO_DA_MEDIDA não passa antes da emenda que o congela
+    estado = g2.estado_congelavel(RAIZ)
+    del estado["codigo"]["scripts/medir_g2_sondas.py"]
+    cong = tmp_path / "cong.json"
+    cong.write_text(json.dumps(estado), encoding="utf-8")
+    with pytest.raises(g2.ProtocoloMudou, match="fora do congelamento: scripts/medir_g2_sondas.py"):
+        g2.exigir_estado_congelado(RAIZ, cong)
+
+
+def test_memorizacao_nova_uniao_por_item_na_ordem_do_g2_1():
+    base = {"ugphysics": {"S1": ["u1"], "S2": ["u2"]}}
+    phigen = {"ugphysics": {"S1": ["u2", "u3"], "S2": ["u4"]}, "phybench": {"S2": ["p1"]}}
+    ids = {"ugphysics": ["u4", "u1", "u2", "u3", "u5"], "phybench": ["p1", "p2"],
+           "scibench": ["s1"], "olympiadbench": []}
+    m = g2.memorizacao_nova(base, phigen, ids)
+    # u2: S1 no ΦGen e S2 na base → não é nova (o sinal é por item, S1 ou S2)
+    assert m["ugphysics"].tolist() == [True, False, False, True, False]
+    assert m["phybench"].tolist() == [True, False] and m["scibench"].tolist() == [False]
+    assert m["ugphysics"].dtype == bool and m["olympiadbench"].size == 0
+    # o mesmo id em outro benchmark não conta: a chave é (bench, id)
+    assert not g2.memorizacao_nova({}, {"ugphysics": {"S1": ["p2"]}}, ids)["phybench"].any()
+    # forma errada (o arquivo lacrado inteiro, benchmark faltando) não passa calada
+    with pytest.raises(ValueError):
+        g2.memorizacao_nova({}, {"suspeitos": {"ugphysics": {"S1": ["u1"]}}}, ids)
+    with pytest.raises(ValueError):
+        g2.memorizacao_nova({}, {}, {"ugphysics": ["u1"]})
+    with pytest.raises(ValueError):
+        g2.memorizacao_nova({}, {"ugphysics": {"S1": [7]}}, ids)
+
+
+def test_sinal_da_condicao_3_hibrido_e_o_lacre(tmp_path):
+    # emenda 4: a S1 com 13 fichas, a S2 só com trecho ≥32
+    listas = {"suspeitos": {"ugphysics": {"S1": ["u1"], "S2": ["u2", "u3"]},
+                            "phybench": {"S2": ["p1"]}},
+              "trecho_longo": {"ugphysics": {"S2": ["u3"]}, "scibench": {"S1": ["s1"]}}}
+    assert g2.sinal_da_condicao_3(listas) == {
+        "phybench": {"S1": [], "S2": []}, "scibench": {"S1": [], "S2": []},
+        "ugphysics": {"S1": ["u1"], "S2": ["u3"]}}
+    arq = tmp_path / "listas.json"
+    arq.write_bytes(json.dumps(listas).encode())
+    import hashlib
+    sha = hashlib.sha256(arq.read_bytes()).hexdigest()
+    assert g2.ler_listas_lacradas(arq, sha) == listas
+    with pytest.raises(g2.ProtocoloMudou):
+        g2.ler_listas_lacradas(arq, "0" * 64)
+
+
+def test_livro_no_disco_e_cauda_de_queda_recusada(tmp_path):
+    livro = tmp_path / "acessos.jsonl"
+    g2.registrar_acesso("1.7B", "base", "medida", "h1", nota="sondas", livro=livro)
+    assert g2.medida_aberta("1.7B", "base", "h1", nota="sondas", livro=livro)
+    with livro.open("ab") as f:
+        f.write(b"\x00" * 40)                       # a cauda que o NTFS deixa numa queda
+    with pytest.raises(g2.AcessoRecusado, match="linha 2"):
+        g2.medida_aberta("1.7B", "base", "h1", nota="sondas", livro=livro)
+    with pytest.raises(g2.AcessoRecusado, match="não é JSON"):
+        g2.registrar_acesso("1.7B", "base", "retomada", "h1", nota="sondas", livro=livro)
+
+
 def test_hash_do_corretor_cobre_as_dependencias_e_o_parser():
     codigo = g2.codigo_do_corretor(RAIZ)
     assert {"src/phifm/core/latex/subscritos.py", "src/phifm/verify/symbolic.py",

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import re
 from collections import Counter, defaultdict
@@ -40,7 +41,7 @@ LIVRO_DE_ACESSOS = RAIZ / "data/processed/avaliacao/g2_acessos.jsonl"
 REGRA_G2_ACEITA = True
 # Preenchido no congelamento, com o hash do g2.yaml completo (partição, exemplos, envelope,
 # código do extrator e do corretor, motor). Antes disso, None.
-PROTOCOLO_G2_SHA256: str | None = "44a6b6598670ff1eec496add4f60965dbe036a7e92bda14745e5b1c0b7d5facb"
+PROTOCOLO_G2_SHA256: str | None = "ff210a62b9f0beb0a21c28f931ad0e74cad8c2e6937905dc26111768ae077516"
 
 SEMENTE_G2 = 20261019
 N_BOOTSTRAP = 10_000
@@ -129,7 +130,9 @@ CODIGO_DA_MEDIDA = ("src/phifm/eval/g2_prompt.py", "src/phifm/eval/g2_geracao.py
                       for m in ("evaluation_lib", "instructions", "instructions_registry",
                                 "instructions_util")),
                     "src/phifm/eval/g2_evalplus.py", "scripts/medir_g2_evalplus.py",
-                    "kaggle/g2_evalplus.py")
+                    "kaggle/g2_evalplus.py",
+                    # as sondas de contaminação S1/S2, §3.7.9 A (emenda 4)
+                    "src/phifm/eval/g2_sondas.py", "scripts/medir_g2_sondas.py")
 DADOS_DA_MEDIDA = ("data/processed/avaliacao/g2_particao.json",
                    "data/processed/avaliacao/g2_exemplos.json",
                    "data/processed/avaliacao/g2_autoteste.json",
@@ -169,6 +172,10 @@ def exigir_estado_congelado(raiz: Path = RAIZ, congelamento: Path = CONGELAMENTO
         raise ProtocoloMudou("g2_congelamento.json não é o registrado no g2.yaml")
     gravado = json.loads(congelamento.read_text(encoding="utf-8"))
     atual = estado_congelavel(raiz)
+    fora = [k for grupo in ("codigo", "dados") for k in atual[grupo] if k not in gravado[grupo]]
+    if fora:
+        raise ProtocoloMudou(f"fora do congelamento: {', '.join(fora)}; arquivo da medida só "
+                             "entra por emenda registrada")
     difere = [k for grupo in ("codigo", "dados") for k, v in gravado[grupo].items()
               if atual[grupo].get(k) != v]
     if difere:
@@ -252,22 +259,37 @@ def medida_aberta(tamanho: str, braco: str, hash_config: str, nota: str = "",
     medida morta entre o registro e a 1ª amostra (o prazo do Kaggle, um desligamento)
     retomar, em vez de ser recusada como 2º acesso (emenda 3)."""
     livro = Path(livro or LIVRO_DE_ACESSOS)
-    if not livro.exists():
-        return False
     novo = {"tamanho": tamanho, "braco": braco, "hash_config": hash_config, "nota": nota}
     return any(_chave(r) == _chave(novo) and r["motivo"] in ("medida", "falha_operacional")
-               and r["hash_config"] == hash_config
-               for r in (json.loads(x) for x in livro.read_text(encoding="utf-8").splitlines()
-                         if x.strip()))
+               and r["hash_config"] == hash_config for r in ler_livro(livro))
+
+
+def ler_livro(livro: Path) -> list[dict]:
+    """Os registros do livro de acessos. Uma linha que não é JSON (a cauda de uma queda de
+    energia, bytes NUL) para tudo com o porquê: o livro é a contagem dos acessos ao teste e
+    só se conserta à mão, registrado."""
+    livro = Path(livro)
+    if not livro.exists():
+        return []
+    registros = []
+    for k, x in enumerate(livro.read_text(encoding="utf-8").splitlines(), start=1):
+        if not x.strip():
+            continue
+        try:
+            registros.append(json.loads(x))
+        except ValueError as e:
+            raise AcessoRecusado(f"{livro.name}, linha {k}, não é JSON (queda de energia?): "
+                                 "confira e conserte o livro à mão antes de qualquer acesso") from e
+    return registros
 
 
 def registrar_acesso(tamanho: str, braco: str, motivo: str, hash_config: str,
                      nota: str = "", livro: Path = LIVRO_DE_ACESSOS) -> dict:
-    """Confere a regra, grava o acesso no livro (versionado) e só então devolve. Quem toca
-    o teste chama isto ANTES da primeira geração."""
+    """Confere a regra, grava o acesso no livro (versionado) e só então devolve, com a linha
+    já no disco (fsync): quem toca o teste chama isto ANTES da primeira geração, e uma queda
+    de energia logo depois não pode apagar o registro."""
     livro = Path(livro)
-    registros = ([json.loads(x) for x in livro.read_text(encoding="utf-8").splitlines()
-                  if x.strip()] if livro.exists() else [])
+    registros = ler_livro(livro)
     if (porque := motivo_de_recusa(registros, tamanho, braco, motivo, hash_config, nota)):
         raise AcessoRecusado(porque)
     r = {"quando": datetime.now(UTC).isoformat(timespec="seconds"), "tamanho": tamanho,
@@ -275,6 +297,8 @@ def registrar_acesso(tamanho: str, braco: str, motivo: str, hash_config: str,
     livro.parent.mkdir(parents=True, exist_ok=True)
     with livro.open("a", encoding="utf-8") as f:
         f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
     return r
 
 
@@ -436,13 +460,64 @@ def delta_macro(notas_a: dict[str, np.ndarray], notas_b: dict[str, np.ndarray],
 # ── a decisão ────────────────────────────────────────────────────────────────
 
 
+def ler_listas_lacradas(arquivo: Path, sha256: str) -> dict:
+    """As listas lacradas de uma sonda de teste (`g2_saidas/sondas_teste_*_listas.json`),
+    abertas só no veredito: os bytes têm de ter o SHA-256 que o agregado versionado gravou
+    antes do treino."""
+    dados = Path(arquivo).read_bytes()
+    if hashlib.sha256(dados).hexdigest() != sha256:
+        raise ProtocoloMudou(f"{Path(arquivo).name} não tem o SHA-256 lacrado no agregado")
+    return json.loads(dados)
+
+
+def sinal_da_condicao_3(listas: dict) -> dict[str, dict[str, list[str]]]:
+    """O sinal que entra na condição 3 do G2.1 (emenda 4, decisão do dono em 2026-11-07,
+    antes de qualquer sonda no teste): a S1 com o critério pré-registrado de 13 fichas e a
+    S2 só com trecho comum de ≥32 fichas. Na S2, 13 fichas de LaTeX acompanham o estilo e o
+    tamanho da solução, não a memória (dev, DOC-12 §3.7.4 item 28). `listas` são as lacradas
+    ({"suspeitos": …, "trecho_longo": …})."""
+    s1, longos = listas["suspeitos"], listas["trecho_longo"]
+    return {b: {"S1": list(s1.get(b, {}).get("S1", [])),
+                "S2": list(longos.get(b, {}).get("S2", []))}
+            for b in sorted(set(s1) | set(longos))}
+
+
+def sinal_por_item(listas: dict[str, dict[str, Sequence[str]]]) -> dict[str, set[str]]:
+    """{bench: ids com sinal}: a união das sondas por item (§3.7.9 C: sinal é S1 ou S2).
+    Recusa o que não tem a forma {bench do G2.1: {S1/S2: [ids]}}, para o arquivo lacrado
+    inteiro não passar como lista vazia."""
+    for b, ss in listas.items():
+        if b not in BENCH_G2_1 or not isinstance(ss, dict) or not set(ss) <= {"S1", "S2"}:
+            raise ValueError(f"lista de sinais fora da forma {{bench: {{S1/S2: [ids]}}}}: {b!r}")
+        if not all(isinstance(i, str) for x in ss.values() for i in x):
+            raise ValueError(f"lista de sinais de {b} com id que não é texto")
+    return {b: set().union(*(set(x) for x in ss.values())) for b, ss in listas.items()}
+
+
+def memorizacao_nova(lista_base: dict[str, dict[str, Sequence[str]]],
+                     lista_phigen: dict[str, dict[str, Sequence[str]]],
+                     ids_por_bench: dict[str, Sequence[str]]) -> dict[str, np.ndarray]:
+    """O `memorizacao_nova` do `decidir_g2_1`, fixado antes do treino. Por benchmark, na
+    ordem dos itens do G2.1 (`ids_por_bench`: os do teste sem os excluídos pelo autoteste,
+    os 4 benchmarks), True no item com sinal no ΦGen e NENHUM sinal na base. As listas são
+    `sinal_da_condicao_3` das lacradas de cada braço; a chave é (bench, id); item sem sonda
+    aplicável nunca tem sinal, e por isso nunca é memorização nova."""
+    if set(ids_por_bench) != set(BENCH_G2_1):
+        raise ValueError(f"ids_por_bench tem de trazer os 4 benchmarks do G2.1: {sorted(ids_por_bench)}")
+    base, phigen = sinal_por_item(lista_base), sinal_por_item(lista_phigen)
+    return {b: np.array([i in phigen.get(b, set()) and i not in base.get(b, set()) for i in ids],
+                        dtype=bool)
+            for b, ids in ids_por_bench.items()}
+
+
 def decidir_g2_1(notas_phigen: dict[str, np.ndarray], notas_base: dict[str, np.ndarray],
                  grupos: dict[str, Sequence[int] | None],
                  memorizacao_nova: dict[str, np.ndarray],
                  n_bootstrap: int = N_BOOTSTRAP, semente: int = SEMENTE_G2) -> dict:
     """PASSA só com: (1) limite de baixo do IC 95% de Δ_macro ≥ +10; (2) nenhum Δ_b com o IC
-    inteiro abaixo de 0; (3) sem os itens de memorização NOVA (sinal S1/S2 no ΦGen e não na
-    base), o limite de baixo continua ≥ +10."""
+    inteiro abaixo de 0; (3) sem os itens de memorização NOVA (sinal no ΦGen e não na base,
+    com o sinal de `sinal_da_condicao_3`, emenda 4; montado por `memorizacao_nova`), o
+    limite de baixo continua ≥ +10."""
     todos = delta_macro(notas_phigen, notas_base, grupos, n_bootstrap=n_bootstrap,
                         semente=semente)
     limpos = {}

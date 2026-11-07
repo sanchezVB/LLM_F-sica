@@ -43,7 +43,7 @@ KL_8B = "data/processed/avaliacao/g2_kl_8B.json"
 ARQUIVOS = (
     "src/phifm/**/*.py",
     "scripts/medir_g2.py", "scripts/medir_g2_mmlu.py", "scripts/medir_g2_ifeval.py",
-    "scripts/medir_g2_evalplus.py", "scripts/registrar_kl_g2.py",
+    "scripts/medir_g2_evalplus.py", "scripts/medir_g2_sondas.py", "scripts/registrar_kl_g2.py",
     "kaggle/g2_evalplus.py",
     "configs/eval/preregistration/*", "configs/eval/g2_ifeval_dev20.jsonl",
     "data/processed/avaliacao/g2_particao.json", "data/processed/avaliacao/g2_exemplos.json",
@@ -51,6 +51,8 @@ ARQUIVOS = (
     "data/processed/avaliacao/g2_downloads.json", "data/processed/avaliacao/g2_gguf_8B.json",
     "data/processed/avaliacao/g2_vazao_1.7B.json",
     "data/processed/avaliacao/g2_teste_1.7B_base_veredito.json",   # as amostras esperadas
+    # as fichas sondadas na 1,7B (mesmo tokenizer): a etapa das sondas confere as da 8B
+    "data/processed/avaliacao/g2_sondas_teste_1.7B_base.json",
     KL_8B,
     "data/raw/benchmarks/ugphysics/*/en.jsonl",
     "data/raw/benchmarks/olympiadbench/OlympiadBench/*/*.parquet",

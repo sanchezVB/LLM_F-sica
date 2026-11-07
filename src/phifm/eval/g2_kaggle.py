@@ -140,7 +140,8 @@ LIVRO = "data/processed/avaliacao/g2_acessos.jsonl"
 PADROES_DO_ESTADO = ("data/processed/avaliacao/g2_saidas/*",
                      *(f"data/processed/avaliacao/g2_{m}_8B_*.json"
                        for m in ("dev", "teste", "mmlu_dev", "mmlu_teste", "ifeval_dev",
-                                 "ifeval_teste", "evalplus_dev", "evalplus_teste")),
+                                 "ifeval_teste", "evalplus_dev", "evalplus_teste",
+                                 "sondas_dev", "sondas_teste")),
                      "data/processed/avaliacao/g2_vazao_8B.json",
                      "data/processed/avaliacao/g2_kl_8B_cuda.json",
                      "data/processed/kaggle_g2_evalplus/**/*",
@@ -309,17 +310,20 @@ def comparar_mapas(a: dict, b: dict) -> dict:
 
 # Só contadores dos agregados (o lacre permite): amostras esperadas, ERROR e sem previsão.
 AGREGADOS = {"mmlu": "g2_mmlu_teste_{m}_{b}.json", "g2_1": "g2_teste_{m}_{b}_veredito.json",
-             "ifeval": "g2_ifeval_teste_{m}_{b}.json", "evalplus": "g2_evalplus_teste_{m}_{b}.json"}
+             "ifeval": "g2_ifeval_teste_{m}_{b}.json", "evalplus": "g2_evalplus_teste_{m}_{b}.json",
+             "sondas": "g2_sondas_teste_{m}_{b}.json"}
 ESPERADO_IFEVAL = {"amostras": 541 * 16, "gulosa": 541, "crua": 541}
 ESPERADO_EVALPLUS = {"amostras": {"humaneval": 1640, "mbpp": 3780},
                      "gulosa": {"humaneval": 164, "mbpp": 378}}
+ESPERADO_SONDAS = {"itens": 2528, "registros": 2528 * 2, "faltam": 0}
 
 
 def conferir_etapa(rotulo: str, repo: Path, modelo: str = "8B", braco: str = "base") -> tuple[bool, str]:
     """(completa, porquê) de uma medida de teste, pelos contadores do agregado. O G2.1 tem
     de ter as MESMAS amostras por benchmark da medida oficial da 1,7B (os mesmos itens, sem
     os excluídos pelo autoteste) e nenhum ERROR; o MMLU, nenhum item sem previsão; o IFEval,
-    as 541×16 + 541 + 541; o EvalPlus, 10 + 1 por problema."""
+    as 541×16 + 541 + 541; o EvalPlus, 10 + 1 por problema; as sondas, S1 e S2 nos 2.528
+    itens, sem nenhuma faltando."""
     av = Path(repo) / "data/processed/avaliacao"
     p = av / AGREGADOS[rotulo].format(m=modelo, b=braco)
     if not p.exists():
@@ -346,4 +350,21 @@ def conferir_etapa(rotulo: str, repo: Path, modelo: str = "8B", braco: str = "ba
                 feitas = d.get("geracao", {}).get(rot, {}).get(conjunto, {}).get("amostras")
                 if feitas != n:
                     return False, f"{rot}/{conjunto}: {feitas} amostras, esperadas {n}"
+    elif rotulo == "sondas":
+        for rot, n in ESPERADO_SONDAS.items():
+            if d.get(rot) != n:
+                return False, f"{rot}: {d.get(rot)}, esperados {n}"
+        # o tokenizer da 8B é o da 1,7B (c0382117…): as fichas sondadas têm de ser as mesmas
+        ref = av / AGREGADOS["sondas"].format(m="1.7B", b="base")
+        if modelo != "1.7B" and ref.exists():
+            esperado = json.loads(ref.read_text(encoding="utf-8")).get("sha256_entradas")
+            if d.get("sha256_entradas") != esperado:
+                return False, "as fichas sondadas não são as da 1,7B (sha256_entradas)"
+        else:                                    # sem a referência: ao menos não degenerada
+            por = d.get("por_benchmark", {})
+            vazias = [f"{b}/{s}" for b in ("ugphysics", "olympiadbench", "phybench", "scibench")
+                      for s in ("S1", "S2") if not (b == "scibench" and s == "S2")
+                      and not por.get(b, {}).get(s, {}).get("aplicaveis")]
+            if vazias:
+                return False, f"nenhuma sonda aplicável em {', '.join(vazias)}"
     return True, "completa"

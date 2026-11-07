@@ -1,0 +1,410 @@
+{
+ "o_que_e": "G2, sondas de contaminação S1 e S2, fase dev (DOC-12 §3.7.9 A)",
+ "modelo": "Qwen3-1.7B-Base",
+ "braco": "base",
+ "hash_config": "d5365cd7249c27f0eb64bc9294b380cfe7b84874bc85f276bf6f1b3b44d0c7d6",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_sondas.py": "434ecd51b78236dd31b9fdcb651507407375cc8a5285e427a0cde4381f28e4ce",
+  "scripts/medir_g2_sondas.py": "f19070fe87e49868e6babca56b3dd8a13ea605c7d7ba67c9f109df323b98ca8c"
+ },
+ "parametros": {
+  "n_fichas": 13,
+  "S1": {
+   "gera": 48,
+   "metade_minima": 32
+  },
+  "S2": {
+   "gera": 64,
+   "fracao_da_solucao": 0.4,
+   "separador": "\n\n",
+   "resto_minimo": 13
+  },
+  "criterio": "13-grama da geração em qualquer posição da continuação verdadeira",
+  "relatados": {
+   "alinhado": "mesma posição",
+   "copia_do_prompt": "todo 13-grama casado também no prompt",
+   "trecho_longo": 32
+  },
+  "teto": "prompt + geradas ≤ contexto do slot (/props), senão não se aplica"
+ },
+ "slots": 1,
+ "contexto_do_slot": 32768,
+ "segundos": 548,
+ "itens": 448,
+ "registros": 896,
+ "faltam": 0,
+ "linhas_de_erro": 0,
+ "execucoes": {
+  "2026-11-07T14:59:03+00:00": 896
+ },
+ "por_benchmark": {
+  "ugphysics": {
+   "S1": {
+    "itens": 300,
+    "aplicaveis": 218,
+    "suspeitos": 24,
+    "alinhados": 11,
+    "so_copia_do_prompt": 2,
+    "trecho_longo": 1,
+    "nao_aplicaveis": {
+     "metade_curta": 82
+    },
+    "fracao": 0.1101
+   },
+   "S2": {
+    "itens": 300,
+    "aplicaveis": 295,
+    "suspeitos": 117,
+    "alinhados": 52,
+    "so_copia_do_prompt": 16,
+    "trecho_longo": 14,
+    "nao_aplicaveis": {
+     "resto_curto": 5
+    },
+    "fracao": 0.3966
+   },
+   "uniao": {
+    "itens": 300,
+    "com_sonda_aplicavel": 298,
+    "sem_sonda_aplicavel": 2,
+    "suspeitos": 128,
+    "fracao": 0.4267,
+    "fracao_dos_aplicaveis": 0.4295,
+    "trecho_longo": 15
+   }
+  },
+  "olympiadbench": {
+   "S1": {
+    "itens": 115,
+    "aplicaveis": 102,
+    "suspeitos": 2,
+    "alinhados": 1,
+    "so_copia_do_prompt": 0,
+    "trecho_longo": 0,
+    "nao_aplicaveis": {
+     "metade_curta": 13
+    },
+    "fracao": 0.0196
+   },
+   "S2": {
+    "itens": 115,
+    "aplicaveis": 115,
+    "suspeitos": 22,
+    "alinhados": 14,
+    "so_copia_do_prompt": 0,
+    "trecho_longo": 1,
+    "nao_aplicaveis": {},
+    "fracao": 0.1913
+   },
+   "uniao": {
+    "itens": 115,
+    "com_sonda_aplicavel": 115,
+    "sem_sonda_aplicavel": 0,
+    "suspeitos": 24,
+    "fracao": 0.2087,
+    "fracao_dos_aplicaveis": 0.2087,
+    "trecho_longo": 1
+   }
+  },
+  "scibench": {
+   "S1": {
+    "itens": 33,
+    "aplicaveis": 22,
+    "suspeitos": 7,
+    "alinhados": 3,
+    "so_copia_do_prompt": 1,
+    "trecho_longo": 0,
+    "nao_aplicaveis": {
+     "metade_curta": 11
+    },
+    "fracao": 0.3182
+   },
+   "S2": {
+    "itens": 33,
+    "aplicaveis": 33,
+    "suspeitos": 26,
+    "alinhados": 11,
+    "so_copia_do_prompt": 3,
+    "trecho_longo": 6,
+    "nao_aplicaveis": {},
+    "fracao": 0.7879
+   },
+   "uniao": {
+    "itens": 33,
+    "com_sonda_aplicavel": 33,
+    "sem_sonda_aplicavel": 0,
+    "suspeitos": 27,
+    "fracao": 0.8182,
+    "fracao_dos_aplicaveis": 0.8182,
+    "trecho_longo": 6
+   }
+  }
+ },
+ "nulo": "phybench",
+ "sha256_entradas": "db12aa65a5beefc616db9d87fbf64f68b09e634040e3390ca25f6551248c3e94",
+ "fracao_no_nulo": null,
+ "fracao_no_nulo_por_sonda": {
+  "S1": null,
+  "S2": null
+ },
+ "total_suspeitos": 179,
+ "sha256_listas": "0e808ce60a48d22d3136f31b66fbc7e6878c9e18d1146627c3dcb662ec5a3ad3",
+ "listas": {
+  "suspeitos": {
+   "olympiadbench": {
+    "S1": [
+     "8731",
+     "8732"
+    ],
+    "S2": [
+     "7421",
+     "7592",
+     "7603",
+     "7659",
+     "7693",
+     "7730",
+     "7731",
+     "7777",
+     "7989",
+     "8083",
+     "8103",
+     "8119",
+     "8203",
+     "8298",
+     "8301",
+     "8302",
+     "8531",
+     "8533",
+     "8546",
+     "8547",
+     "8658",
+     "8833"
+    ]
+   },
+   "scibench": {
+    "S1": [
+     "fund/13.02",
+     "fund/8.05",
+     "thermo/11.3",
+     "thermo/17.9",
+     "thermo/5.6",
+     "thermo/6.13",
+     "thermo/6.4"
+    ],
+    "S2": [
+     "class/2.6",
+     "class/8.4",
+     "class/8.5",
+     "class/9.12",
+     "fund/10.04",
+     "fund/10.11",
+     "fund/13.03",
+     "fund/13.05",
+     "fund/14.01",
+     "fund/8.03",
+     "fund/8.05",
+     "fund/9.03",
+     "thermo/11.3",
+     "thermo/12.8",
+     "thermo/13.5",
+     "thermo/14.4",
+     "thermo/15.5",
+     "thermo/17.1",
+     "thermo/17.7",
+     "thermo/17.9",
+     "thermo/18.4",
+     "thermo/19.6",
+     "thermo/5.5",
+     "thermo/5.6",
+     "thermo/6.13",
+     "thermo/6.4"
+    ]
+   },
+   "ugphysics": {
+    "S1": [
+     "AtomicPhysics/1103",
+     "AtomicPhysics/601",
+     "AtomicPhysics/676",
+     "AtomicPhysics/697",
+     "AtomicPhysics/723",
+     "AtomicPhysics/968",
+     "ClassicalMechanics/1895",
+     "ClassicalMechanics/2413",
+     "Electrodynamics/164",
+     "GeometricalOptics/5180",
+     "QuantumMechanics/4172",
+     "QuantumMechanics/5018",
+     "QuantumMechanics/5141",
+     "Relativity/1008",
+     "Relativity/1016",
+     "Relativity/1832",
+     "Relativity/1945",
+     "SemiconductorPhysics/3798",
+     "SemiconductorPhysics/3870",
+     "StatisticalMechanics/3070",
+     "TheoreticalMechanics/2002",
+     "WaveOptics/5175",
+     "WaveOptics/5346",
+     "WaveOptics/5474"
+    ],
+    "S2": [
+     "AtomicPhysics/1017",
+     "AtomicPhysics/1103",
+     "AtomicPhysics/1136",
+     "AtomicPhysics/1241",
+     "AtomicPhysics/1242",
+     "AtomicPhysics/1360",
+     "AtomicPhysics/1398",
+     "AtomicPhysics/1412",
+     "AtomicPhysics/1416",
+     "AtomicPhysics/1422",
+     "AtomicPhysics/1454",
+     "AtomicPhysics/1484",
+     "AtomicPhysics/579",
+     "AtomicPhysics/587",
+     "AtomicPhysics/601",
+     "AtomicPhysics/755",
+     "AtomicPhysics/837",
+     "AtomicPhysics/858",
+     "AtomicPhysics/968",
+     "ClassicalElectromagnetism/191",
+     "ClassicalElectromagnetism/34",
+     "ClassicalElectromagnetism/4",
+     "ClassicalElectromagnetism/459",
+     "ClassicalMechanics/1567",
+     "ClassicalMechanics/1579",
+     "ClassicalMechanics/1604",
+     "ClassicalMechanics/1640",
+     "ClassicalMechanics/1682",
+     "ClassicalMechanics/1690",
+     "ClassicalMechanics/1709",
+     "ClassicalMechanics/1736",
+     "ClassicalMechanics/1756",
+     "ClassicalMechanics/1787",
+     "ClassicalMechanics/1895",
+     "ClassicalMechanics/1985",
+     "ClassicalMechanics/2087",
+     "ClassicalMechanics/2110",
+     "ClassicalMechanics/2137",
+     "ClassicalMechanics/2213",
+     "ClassicalMechanics/2271",
+     "ClassicalMechanics/2317",
+     "ClassicalMechanics/2348",
+     "ClassicalMechanics/2353",
+     "ClassicalMechanics/2372",
+     "ClassicalMechanics/2413",
+     "ClassicalMechanics/2444",
+     "ClassicalMechanics/2571",
+     "ClassicalMechanics/2656",
+     "ClassicalMechanics/2695",
+     "ClassicalMechanics/2728",
+     "ClassicalMechanics/2733",
+     "Electrodynamics/376",
+     "Electrodynamics/381",
+     "Electrodynamics/75",
+     "GeometricalOptics/5422",
+     "QuantumMechanics/4285",
+     "QuantumMechanics/4357",
+     "QuantumMechanics/4365",
+     "QuantumMechanics/4428",
+     "QuantumMechanics/4614",
+     "QuantumMechanics/4622",
+     "QuantumMechanics/4626",
+     "QuantumMechanics/4638",
+     "QuantumMechanics/4648",
+     "QuantumMechanics/4688",
+     "QuantumMechanics/4815",
+     "QuantumMechanics/4817",
+     "QuantumMechanics/4857",
+     "QuantumMechanics/4868",
+     "QuantumMechanics/4994",
+     "QuantumMechanics/5003",
+     "QuantumMechanics/5072",
+     "QuantumMechanics/5141",
+     "QuantumMechanics/5374",
+     "Relativity/1008",
+     "Relativity/1016",
+     "Relativity/1833",
+     "Relativity/1945",
+     "Relativity/2448",
+     "Relativity/2466",
+     "SemiconductorPhysics/3798",
+     "SemiconductorPhysics/3908",
+     "SemiconductorPhysics/3910",
+     "Solid-StatePhysics/3814",
+     "Solid-StatePhysics/3821",
+     "Solid-StatePhysics/3889",
+     "Solid-StatePhysics/3926",
+     "Solid-StatePhysics/4000",
+     "Solid-StatePhysics/4033",
+     "Solid-StatePhysics/4044",
+     "StatisticalMechanics/3062",
+     "StatisticalMechanics/3115",
+     "StatisticalMechanics/3262",
+     "StatisticalMechanics/3499",
+     "StatisticalMechanics/3562",
+     "StatisticalMechanics/3572",
+     "StatisticalMechanics/3599",
+     "StatisticalMechanics/3624",
+     "StatisticalMechanics/3633",
+     "StatisticalMechanics/3660",
+     "StatisticalMechanics/3661",
+     "StatisticalMechanics/3723",
+     "TheoreticalMechanics/1804",
+     "TheoreticalMechanics/2002",
+     "TheoreticalMechanics/2804",
+     "Thermodynamics/2935",
+     "Thermodynamics/2971",
+     "Thermodynamics/3034",
+     "Thermodynamics/3333",
+     "Thermodynamics/3497",
+     "Thermodynamics/3558",
+     "Thermodynamics/3706",
+     "WaveOptics/5040",
+     "WaveOptics/5048",
+     "WaveOptics/5175",
+     "WaveOptics/5338",
+     "WaveOptics/5474"
+    ]
+   }
+  },
+  "trecho_longo": {
+   "olympiadbench": {
+    "S2": [
+     "7730"
+    ]
+   },
+   "scibench": {
+    "S2": [
+     "fund/13.03",
+     "fund/13.05",
+     "thermo/11.3",
+     "thermo/17.1",
+     "thermo/17.9",
+     "thermo/5.5"
+    ]
+   },
+   "ugphysics": {
+    "S1": [
+     "Relativity/1008"
+    ],
+    "S2": [
+     "AtomicPhysics/1360",
+     "AtomicPhysics/1412",
+     "AtomicPhysics/1454",
+     "AtomicPhysics/837",
+     "ClassicalElectromagnetism/34",
+     "ClassicalElectromagnetism/459",
+     "ClassicalMechanics/1579",
+     "QuantumMechanics/4994",
+     "Relativity/2448",
+     "Relativity/2466",
+     "StatisticalMechanics/3633",
+     "StatisticalMechanics/3660",
+     "TheoreticalMechanics/2804",
+     "WaveOptics/5175"
+    ]
+   }
+  }
+ }
+}
