@@ -39,14 +39,19 @@ RAIZ = Path(__file__).resolve().parents[1]
 PACOTE = RAIZ / "data/processed/kaggle_g2_8b"
 NOTEBOOKS = RAIZ / "data/processed/kaggle_notebook"
 RETORNO = RAIZ / "data/processed/kaggle_g2_8b_retorno"
-PACOTE_EVALPLUS = RAIZ / "data/processed/kaggle_g2_evalplus"
+# O EvalPlus de cada tamanho tem o seu pacote (o da 8B vem do Kaggle por trazer_g2_8b.py), o
+# seu dataset e o seu notebook: uma versão nova de um não mexe no resultado do outro.
+PACOTES_EVALPLUS = {"1.7B": RAIZ / "data/processed/kaggle_g2_evalplus",
+                    "8B": RAIZ / "data/processed/kaggle_g2_evalplus_8B"}
 RETORNO_EVALPLUS = RAIZ / "data/processed/kaggle_g2_evalplus_retorno"
 SLUGS = {"dados": "phifm-g2-8b", "estado": "phifm-g2-8b-estado", "preparo": "phifm-g2-8b-preparo",
          "medida": "phifm-g2-8b-medida", "evalplus": "phifm-g2-evalplus-execucao",
-         "evalplus_dados": "phifm-g2-evalplus"}
+         "evalplus_dados": "phifm-g2-evalplus", "evalplus8b": "phifm-g2-evalplus-8b-execucao",
+         "evalplus8b_dados": "phifm-g2-evalplus-8b"}
 TITULOS = {"dados": "PhiFM G2 8B", "estado": "PhiFM G2 8B Estado",
            "preparo": "PhiFM G2 8B Preparo", "medida": "PhiFM G2 8B Medida",
-           "evalplus": "PhiFM G2 EvalPlus Execucao", "evalplus_dados": "PhiFM G2 EvalPlus"}
+           "evalplus": "PhiFM G2 EvalPlus Execucao", "evalplus_dados": "PhiFM G2 EvalPlus",
+           "evalplus8b": "PhiFM G2 EvalPlus 8B Execucao", "evalplus8b_dados": "PhiFM G2 EvalPlus 8B"}
 # só o que é pequeno volta: nunca o Q8_0 (8,7 GB) nem os logits (3,6 GB)
 PEQUENOS = r"(\.json|\.log|\.jsonl|estado_[0-9a-f]+\.zip\.bin)$|llama_compilado/"
 
@@ -186,22 +191,26 @@ def medida(sessao: int, cota: float, enviar: bool) -> None:
               "kernel_sources": [f"{dono}/{SLUGS['preparo']}"]})
 
 
-def evalplus(enviar: bool) -> None:
+def evalplus(enviar: bool, modelo: str = "1.7B") -> None:
     """A rodada do EvalPlus: o pacote de `medir_g2_evalplus.py` e a sua célula (CPU, internet
     DESLIGADA, DOC-12 §3.7.4). O notebook não pode ter o slug do dataset: o `kernels push`
     responde 409 (2026-10-31)."""
     dono = usuario()
-    man = json.loads((PACOTE_EVALPLUS / "MANIFESTO.json").read_text(encoding="utf-8"))
-    print(f"pacote do EvalPlus: {len(man['arquivos'])} arquivos; avaliar {man['avaliar']}")
+    pacote = PACOTES_EVALPLUS[modelo]
+    chave = "evalplus" if modelo == "1.7B" else "evalplus8b"
+    man = json.loads((pacote / "MANIFESTO.json").read_text(encoding="utf-8"))
+    print(f"pacote do EvalPlus ({modelo}): {len(man['arquivos'])} arquivos; avaliar {man['avaliar']}")
+    if any(f"_{modelo}_" not in rel for rel in man["avaliar"]):
+        raise SystemExit(f"o pacote {pacote} manda avaliar amostras que não são da {modelo}")
     if not enviar:
         print("(sem --enviar: nada foi enviado)")
         return
-    ref = f"{dono}/{SLUGS['evalplus_dados']}"
-    subir_dataset(PACOTE_EVALPLUS, ref, TITULOS["evalplus_dados"],
+    ref = f"{dono}/{SLUGS[chave + '_dados']}"
+    subir_dataset(pacote, ref, TITULOS[chave + "_dados"],
                   f"avaliar {len(man['avaliar'])} arquivos", "MANIFESTO.json")
-    nb = json.loads((PACOTE_EVALPLUS / "g2_evalplus.ipynb").read_text(encoding="utf-8"))
-    empurrar("evalplus", "".join(nb["cells"][0]["source"]),
-             {"id": f"{dono}/{SLUGS['evalplus']}", "enable_gpu": False, "enable_internet": False,
+    nb = json.loads((pacote / "g2_evalplus.ipynb").read_text(encoding="utf-8"))
+    empurrar(chave, "".join(nb["cells"][0]["source"]),
+             {"id": f"{dono}/{SLUGS[chave]}", "enable_gpu": False, "enable_internet": False,
               "docker_image_pinning_type": "latest", "dataset_sources": [ref], "kernel_sources": []})
 
 
@@ -210,10 +219,11 @@ def estado(nome: str) -> None:
 
 
 def baixar(nome: str) -> Path:
-    destino = RETORNO_EVALPLUS if nome == "evalplus" else RETORNO / nome
+    # o da 8B desce numa subpasta: o apurar lê o da pasta de cima, e o da 1,7B fica intacto
+    destino = {"evalplus": RETORNO_EVALPLUS, "evalplus8b": RETORNO_EVALPLUS / "8B"}.get(nome, RETORNO / nome)
     destino.mkdir(parents=True, exist_ok=True)
     kaggle("kernels", "output", f"{usuario()}/{SLUGS[nome]}", "-p", str(destino), "-o",
-           "--file-pattern", r"g2_evalplus_resultado\.json$" if nome == "evalplus" else PEQUENOS)
+           "--file-pattern", r"g2_evalplus_resultado\.json$" if nome.startswith("evalplus") else PEQUENOS)
     print(f"→ {destino}")
     return destino
 
@@ -244,10 +254,11 @@ def main() -> int:
     a2.add_argument("--cota", type=float, required=True, help="horas de GPU que restam")
     a2.add_argument("--enviar", action="store_true")
     a3 = sub.add_parser("evalplus")
+    a3.add_argument("--modelo", choices=tuple(PACOTES_EVALPLUS), default="1.7B")
     a3.add_argument("--enviar", action="store_true")
     for nome in ("estado", "baixar"):
         s = sub.add_parser(nome)
-        s.add_argument("notebook", choices=("preparo", "medida", "evalplus"))
+        s.add_argument("notebook", choices=("preparo", "medida", "evalplus", "evalplus8b"))
     sub.add_parser("subir-estado")
     a = p.parse_args()
     if a.acao == "preparo":
@@ -255,7 +266,7 @@ def main() -> int:
     elif a.acao == "medida":
         medida(a.sessao, a.cota, a.enviar)
     elif a.acao == "evalplus":
-        evalplus(a.enviar)
+        evalplus(a.enviar, a.modelo)
     elif a.acao == "estado":
         estado(a.notebook)
     elif a.acao == "subir-estado":
