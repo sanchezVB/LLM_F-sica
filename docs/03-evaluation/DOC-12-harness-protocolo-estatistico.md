@@ -619,6 +619,18 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
 
 26. **A 8B no Kaggle, sessão 4 (2026-11-04).** Gastou 6,75 h de cota, o resto da semana. O ambiente era o mesmo das sessões anteriores. A sessão pulou o MMLU e o G2.1, já feitos, e começou o IFEval: o acesso está no livro (`medida`, nota `ifeval`, hash `c91b605f…`). Até o prazo, foram gravadas 8.242 das 8.656 amostras (k=16), com um só hash e nenhuma linha `erro`. A gulosa e a crua ainda não começaram. A sessão 5, depois da renovação da cota, termina o IFEval e faz a geração do EvalPlus.
 
+27. **A 8B no Kaggle, sessão 5: o IFEval completo e a geração do EvalPlus (2026-11-07).** Gastou 2,8 h de cota, no mesmo ambiente das anteriores. A sessão pulou o MMLU e o G2.1 e retomou o IFEval; a retomada está no livro, com o mesmo hash `c91b605f…`. As duas etapas fecharam com os contadores completos.
+    - **IFEval da 8B-base** (`g2_ifeval_teste_8B_base.json`, no envelope):
+
+      | Corrida | Prompts × k | Prompt strict | Loose | Instrução strict | Truncadas |
+      |---|---|---|---|---|---|
+      | **Amostras k=16 (decide: strict médio)** | 541 × 16 | **54,57%** | 57,34% | 64,31% | 5,2% |
+      | Gulosa no envelope | 541 | 53,79% | 55,45% | 64,15% | 10,4% |
+      | Crua e gulosa (relatada) | 541 | 35,86% | 39,00% | 45,68% | 41,6% |
+
+    - **EvalPlus, a geração** (`g2_evalplus_teste_8B_base.json`, hash `d5e343fa…`; o acesso está no livro, nota `evalplus`). Saíram as 5.420 amostras (k=10) e as 542 gulosas, nenhuma sanitizada vazia e nenhuma sem sintaxe. Em 161 das 5.962 gerações (147 amostras e 14 gulosas, quase todas do MBPP+) o modelo não define a função pedida; na 1,7B foram 23. O pacote da execução voltou com o estado (`data/processed/kaggle_g2_evalplus_8B/`).
+    - **Falta para o G2.3 da 8B-base:** a execução do EvalPlus, em CPU no Kaggle e sem cota de GPU, como na 1,7B.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

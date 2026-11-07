@@ -1,0 +1,69 @@
+{
+ "o_que_e": "G2.3, IFEval, fase teste (DOC-12 §3.7.4): agregados",
+ "modelo": "Qwen3-8B-Base",
+ "braco": "base",
+ "hashes": {
+  "amostras": "c91b605f8a1341933e10351cc82c6ab5f2dfef68b5b2953d4bff869cebae0baf",
+  "gulosa": "ef8562237866df9eeea7e588b2eefeb6330c1aa246fb92d6bdd27d552600c7f5",
+  "crua": "154f01254067e1381f4f031e2ff2db37fa8aaa2642f5f1e83832fcd0d9c21ea0"
+ },
+ "codigo_sha256": {
+  "src/phifm/eval/g2_corretor.py": "5701cd4a2d9dd0298f373102fd16c55d903c259bad259048eb2d6c41b9f3e7a4",
+  "src/phifm/eval/g2_itens.py": "df263bf6a5ebaa021cdc64c89fad080d1dc5d4330dbe7439866da27017f29856",
+  "src/phifm/core/latex/subscritos.py": "7a9d723aadc875ab0a7c5bedb142be21db7d1ff5d460cb2be605eabe5b2ec80c",
+  "src/phifm/verify/symbolic.py": "7c05790df909409cb2c2bfdd205e2f670fd5468a16b4f1d21e48ea26cb9b5692",
+  "src/phifm/eval/g2_ifeval.py": "798fa48522946a84f8c74817cec4494373e617c9a7158e99c901e647a2e91686",
+  "scripts/medir_g2_ifeval.py": "2d5f5e9021c0c7ab9cd57532530f9b55874d1471f5f3d05e459b937534f41ea5",
+  "sympy": "1.14.0",
+  "antlr4-python3-runtime": "4.11.0",
+  "mpmath": "1.3.0"
+ },
+ "segundos": 4549,
+ "amostras": {
+  "n": 8656,
+  "prompt_strict": 0.5457,
+  "prompt_loose": 0.5734,
+  "instrucao_strict": 0.6431,
+  "instrucao_loose": 0.6707,
+  "strict_medio_das_amostras": 0.5457,
+  "truncadas": 0.0521,
+  "fichas_media": 225.1,
+  "paradas": {
+   "eos": 5684,
+   "limit": 98,
+   "repeticao": 353,
+   "word": 2521
+  }
+ },
+ "gulosa": {
+  "n": 541,
+  "prompt_strict": 0.5379,
+  "prompt_loose": 0.5545,
+  "instrucao_strict": 0.6415,
+  "instrucao_loose": 0.6607,
+  "strict_medio_das_amostras": 0.5379,
+  "truncadas": 0.1035,
+  "fichas_media": 239.7,
+  "paradas": {
+   "eos": 371,
+   "limit": 7,
+   "repeticao": 49,
+   "word": 114
+  }
+ },
+ "crua": {
+  "n": 541,
+  "prompt_strict": 0.3586,
+  "prompt_loose": 0.39,
+  "instrucao_strict": 0.4568,
+  "instrucao_loose": 0.482,
+  "strict_medio_das_amostras": 0.3586,
+  "truncadas": 0.4159,
+  "fichas_media": 348.7,
+  "paradas": {
+   "eos": 316,
+   "limit": 38,
+   "repeticao": 187
+  }
+ }
+}
