@@ -12,6 +12,7 @@ um plano que tire registros de `eval_only`.
 
 from __future__ import annotations
 
+import os
 from importlib import util
 from pathlib import Path
 
@@ -224,7 +225,12 @@ def test_preserva_metadados_permissoes_e_elo_simbolico(mod, tmp_path):
     assert elo.is_symlink(), "o elo simbólico virou arquivo comum"
     assert mod.mudancas(mod.plano(alvo)).height == 0, "o alvo do elo ficou com os rótulos antigos"
     assert pl.read_parquet_metadata(alvo).get("proveniencia") == "coleta de teste"
-    assert (alvo.stat().st_mode & 0o777) == 0o600
+    if os.name == "posix":
+        assert (alvo.stat().st_mode & 0o777) == 0o600
+    else:
+        # o Windows não tem os bits POSIX: o chmod(0o600) vira "pode escrever" (0o666), e é
+        # só isso que dá para conferir aqui; a máquina do corpus (Linux) confere os bits
+        assert alvo.stat().st_mode & 0o200, "o alvo do elo perdeu a permissão de escrita"
 
 
 def test_interrupcao_durante_a_escrita_nao_deixa_temporario(mod, tmp_path, monkeypatch):
