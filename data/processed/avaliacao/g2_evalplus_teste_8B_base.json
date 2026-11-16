@@ -84,5 +84,104 @@
     "sem_sintaxe": 0
    }
   }
+ },
+ "kaggle": {
+  "quando": "2026-11-07T15:11:06+00:00",
+  "plataforma": {
+   "python": "3.13.18",
+   "sistema": "Linux-6.18.55+-x86_64-with-glibc2.39",
+   "cpus": 4
+  },
+  "internet": false,
+  "evalplus": "0.3.1",
+  "manifesto_ok": true,
+  "sanidade": {
+   "humaneval": {
+    "tarefas": 164,
+    "canonicas_passam_base": 163,
+    "canonicas_passam_plus": 163,
+    "quebradas_passam_base": 0,
+    "canonicas_que_falham": [
+     "HumanEval/32"
+    ]
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "canonicas_passam_base": 378,
+    "canonicas_passam_plus": 377,
+    "quebradas_passam_base": 0,
+    "canonicas_que_falham": [
+     "Mbpp/255"
+    ]
+   },
+   "ok": false
+  }
+ },
+ "sha256_eval_results": {
+  "teste_8B_base_amostras_humaneval": "d69f63e956b5400ddc8c180793d66c13f3cd3d0f8c2328770ba476ee17b73e55",
+  "teste_8B_base_amostras_mbpp": "7ad99b5ebca099b020a8b7bd3e506d024a83d534fcc6b4a3822ab9c1cc31e84f",
+  "teste_8B_base_gulosa_humaneval": "d874ff8f8319f61d062e9183a76ea46aec89343076811d578e2cd0b9d0341916",
+  "teste_8B_base_gulosa_mbpp": "bb73d123881c19e763f46fa2dab112a6dbcfdee49cbf27e08305331e800edc88"
+ },
+ "resultado": {
+  "amostras": {
+   "humaneval": {
+    "tarefas": 164,
+    "n_por_tarefa": [
+     10
+    ],
+    "base": 71.1,
+    "plus": 63.66
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "n_por_tarefa": [
+     10
+    ],
+    "base": 75.69,
+    "plus": 64.23
+   },
+   "plus_542": 64.06,
+   "media_4": 68.67
+  },
+  "gulosa": {
+   "humaneval": {
+    "tarefas": 164,
+    "n_por_tarefa": [
+     1
+    ],
+    "base": 70.73,
+    "plus": 63.41
+   },
+   "mbpp": {
+    "tarefas": 378,
+    "n_por_tarefa": [
+     1
+    ],
+    "base": 75.66,
+    "plus": 64.02
+   },
+   "plus_542": 63.84,
+   "media_4": 68.45
+  }
+ },
+ "sanidade_gulosa": {
+  "referencia": 67.65,
+  "folga": 5.0,
+  "medida": 68.45,
+  "ok": true
+ },
+ "referencia_540": {
+  "o_que_e": "pass@1 plus sem HumanEval/32 e Mbpp/255, que nenhuma solução passa no avaliador oficial 0.3.1 (DOC-12 item 22; decisão do dono: decide o das 542, este é só relatado)",
+  "amostras": {
+   "plus_540": 64.3,
+   "tarefas": 540,
+   "acertos_nas_2_excluidas": 0
+  },
+  "gulosa": {
+   "plus_540": 64.07,
+   "tarefas": 540,
+   "acertos_nas_2_excluidas": 0
+  }
  }
 }

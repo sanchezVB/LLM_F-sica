@@ -676,6 +676,18 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **Decisão do dono (2026-11-07), antes de qualquer sonda no teste.** A condição 3 do G2.1 usa a lista **híbrida**: a S1 com 13 fichas e a S2 só com trecho comum de ≥32 fichas (`g2.sinal_da_condicao_3`, montada em `g2.memorizacao_nova`). As listas de 13 fichas nas duas sondas continuam lacradas e relatadas (leitura A). Numa simulação feita na revisão, com ganho verdadeiro de +13 e as marcas novas caindo 3× mais nos itens que melhoraram, a regra com 13 fichas passaria em 39% das vezes, contra 84% com marcas ao acaso.
     - **Emenda 4** (`scripts/congelar_g2.py --emenda 4 --motivo … --regra …`). O código das sondas entra no congelamento, e a regra da condição 3 entra no g2.yaml, no registro da emenda. A configuração da geração da 1,7B é a mesma (`e1535689…`). O congelamento passa de `e4c0212f…` para `cc65abf9…`, e o `PROTOCOLO_G2_SHA256`, de `44a6b659…` para `ff210a62…`. O dev refeito com o código congelado deu as mesmas listas da rodada anterior (SHA-256 `0e808ce6…`).
 
+29. **EvalPlus da 8B-base no teste: o G2.3 da 8B-base está completo (2026-11-15).** A execução foi no Kaggle com o aval do dono, em CPU sem internet, pelo `evalplus.evaluate` 0.3.1 (`g2_evalplus_teste_8B_base.json`; a geração tem o hash `d5e343fa…`, item 27):
+
+      | Corrida | HumanEval | HumanEval+ | MBPP | MBPP+ | **Plus nas 542 (decide)** | Média dos 4 |
+      |---|---|---|---|---|---|---|
+      | Amostras k=10 (pass@1 = c/10) | 71,10% | 63,66% | 75,69% | 64,23% | **64,06%** | 68,67 |
+      | Gulosa | 70,73% | 63,41% | 75,66% | 64,02% | 63,84% | 68,45 |
+
+    - **Sanidade gulosa.** A média dos 4 deu 68,45, dentro de 67,65 ± 5. Passa.
+    - **As canônicas** passam em 540 de 542, as mesmas da 1,7B (HumanEval/32 e Mbpp/255), e as quebradas em 0.
+    - **As 2 tarefas inatingíveis** (item 22). Sem elas, o pass@1 plus seria 64,30% nas amostras e 64,07% na gulosa. É só relatado; decide o das 542.
+    - **O G2.3 da 8B-base está completo:** MMLU sem física 76,56%, IFEval strict médio 54,57% e EvalPlus pass@1 64,06%.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
