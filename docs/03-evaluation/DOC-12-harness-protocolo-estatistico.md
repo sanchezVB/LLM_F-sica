@@ -688,6 +688,21 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
     - **As 2 tarefas inatingíveis** (item 22). Sem elas, o pass@1 plus seria 64,30% nas amostras e 64,07% na gulosa. É só relatado; decide o das 542.
     - **O G2.3 da 8B-base está completo:** MMLU sem física 76,56%, IFEval strict médio 54,57% e EvalPlus pass@1 64,06%.
 
+30. **As sondas S1/S2 da Qwen3-1.7B-Base no teste (2026-11-07 e 2026-11-15).** O congelamento é o da emenda 4. O acesso está no livro (`medida`, nota `sondas`, hash `d5365cd7…`), com 1 slot e a ordem fixa (`g2_sondas_teste_1.7B_base.json`).
+    - **A queda e a retomada.** Na sonda 1.558, o `llama-server` caiu sem deixar erro no log, e a sonda virou uma linha `erro`. No mesmo minuto, o Windows carregou o driver do anti-cheat de um jogo (Riot Vanguard), e é a causa provável: a GPU de 8 GB disputada. O laço parou, como desenhado. A retomada de 2026-11-15 está no livro, com o mesmo hash, e refez as 3.499 sondas que faltavam num servidor novo, uma "ordem diferente dali em diante" marcada nas linhas. As 5.056 sondas estão gravadas, 1.558 da 1ª execução e 3.498 da 2ª, com 1 linha `erro` refeita.
+    - **O lacre.** As listas por item ficam em `g2_saidas/sondas_teste_1.7B_base_listas.json`, fora do git, com o SHA-256 `9eee1b2f…` no agregado. O conjunto das fichas sondadas tem o `sha256_entradas` `8d87b8bc…`, que a 8B tem de repetir.
+    - **Resultado** (contadores; a fração é sobre as sondas aplicáveis):
+
+      | Benchmark | S1: suspeitos/aplicáveis | S2: suspeitos/aplicáveis | União, 13 fichas | Híbrida (condição 3) |
+      |---|---|---|---|---|
+      | UGPhysics | 161/1.411 (11,4%) | 736/1.972 (37,3%) | 814/1.999 (40,7%) | 259 (13,0%) |
+      | OlympiadBench | 95/235 (40,4%) | 86/236 (36,4%) | 150/236 (63,6%) | 104 (44,1%) |
+      | **PHYBench (nulo)** | **1/99 (1,0%)** | **37/100 (37,0%)** | 38/100 (38,0%) | **7 (7,0%)** |
+      | SciBench | 29/145 (20,0%) | sem solução | 29/193 (15,0%) | 29 (15,0%) |
+
+      Sem nenhuma sonda aplicável: 15 itens do UG e 48 do SciBench (enunciado curto e sem solução). A contagem da híbrida é automática, só com os totais.
+    - **Leitura (A).** No nulo, a S2 de 13 fichas marca 37%, o mesmo que no UG (37,3%) e no Oly (36,4%): no teste, ela não se distingue do acaso, como o dev indicava (item 28). A S1 tem sinal: 1,0% no nulo contra 40,4% no OlympiadBench, 20,0% no SciBench e 11,4% no UGPhysics. É contaminação herdada nos enunciados, maior nos de olimpíada. O G2.1 é um delta e cancela a herdada se o CPT não a ampliar; a condição 3 (item 28) olha só a memorização nova.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
