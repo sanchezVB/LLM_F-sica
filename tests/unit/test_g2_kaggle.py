@@ -170,3 +170,28 @@ def test_trazer_funde_so_a_8B_no_livro_daqui(tmp_path):
     assert [x["n"] for x in k.registros((aqui / k.LIVRO).read_bytes())] == [1, 2, 9]
     assert (aqui / "data/processed/kaggle_g2_evalplus_8B/amostras/teste_8B_base_gulosa_mbpp.jsonl").exists()
     assert not (aqui / "data/processed/kaggle_g2_evalplus").exists()
+
+
+def test_trazer_mantem_o_agregado_mais_completo_daqui(tmp_path):
+    # 2026-11-16: a sessão 6 trazia o EvalPlus de antes do apurar e sobrescrevia o apurado
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    import trazer_g2_8b as t
+
+    base = b'{"tamanho": "1.7B", "n": 1}' + FIM
+    kaggle = _repo(tmp_path / "kaggle", base)
+    av = kaggle / "data/processed/avaliacao"
+    geracao = {"geracao": {"amostras": 10}, "hashes": {"amostras": "h"}}
+    (av / "g2_evalplus_teste_8B_base.json").write_text(json.dumps(geracao), encoding="utf-8")
+    (av / "g2_mmlu_teste_8B_base.json").write_text(json.dumps({"acerto": 0.7}), encoding="utf-8")
+    k.salvar_estado(kaggle, tmp_path / "estado", sessao=6)
+    aqui = _repo(tmp_path / "aqui", base)
+    av_aqui = aqui / "data/processed/avaliacao"
+    apurado = geracao | {"resultado": {"plus_542": 64.06}}
+    (av_aqui / "g2_evalplus_teste_8B_base.json").write_text(json.dumps(apurado), encoding="utf-8")
+    (av_aqui / "g2_mmlu_teste_8B_base.json").write_text(json.dumps({"acerto": 0.1, "x": 1}),
+                                                         encoding="utf-8")
+    r = t.trazer(tmp_path / "estado", aqui)
+    assert r["mantidos"] == ["data/processed/avaliacao/g2_evalplus_teste_8B_base.json"]
+    assert json.loads((av_aqui / "g2_evalplus_teste_8B_base.json").read_text(encoding="utf-8")) == apurado
+    # um campo em comum com outro valor: o do estado vale (não é o mesmo agregado enriquecido)
+    assert json.loads((av_aqui / "g2_mmlu_teste_8B_base.json").read_text(encoding="utf-8")) == {"acerto": 0.7}

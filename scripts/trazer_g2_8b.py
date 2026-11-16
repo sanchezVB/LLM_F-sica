@@ -15,6 +15,7 @@ SHA-256 do zip e de cada arquivo (`g2_kaggle.ler_estado`) e então:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -37,11 +38,15 @@ def trazer(origem: Path, raiz: Path = RAIZ) -> dict:
     antes = livro_aqui.read_bytes() if livro_aqui.exists() else b""
     junto = g2_kaggle.juntar_livros(antes, conteudo.pop(g2_kaggle.LIVRO))
     escritos = []
+    mantidos = []
     for rel, dados in sorted(conteudo.items()):
         alvo = raiz / destino_de(rel)
         if "8B" not in alvo.name and not rel.startswith(EVALPLUS_KAGGLE) \
                 and not alvo.name.startswith("etapa_"):
             raise SystemExit(f"o estado traz um arquivo que não é da 8B: {rel}")
+        if mais_completo_aqui(alvo, dados):
+            mantidos.append(destino_de(rel))
+            continue
         alvo.parent.mkdir(parents=True, exist_ok=True)
         alvo.write_bytes(dados)
         if alvo.suffix == ".jsonl":
@@ -49,7 +54,23 @@ def trazer(origem: Path, raiz: Path = RAIZ) -> dict:
         escritos.append(destino_de(rel))
     livro_aqui.write_bytes(junto)
     novas = len(g2_kaggle.registros(junto)) - len(g2_kaggle.registros(antes))
-    return {"sessao": manifesto["sessao"], "arquivos": escritos, "linhas_novas_no_livro": novas}
+    return {"sessao": manifesto["sessao"], "arquivos": escritos, "mantidos": mantidos,
+            "linhas_novas_no_livro": novas}
+
+
+def mais_completo_aqui(alvo: Path, dados: bytes) -> bool:
+    """O agregado daqui é o MESMO do estado com mais campos (o apurar do EvalPlus junta o
+    resultado do Kaggle ao agregado da geração): todo campo que vem do estado existe aqui com o
+    mesmo valor, e aqui há mais. Aí o daqui fica; o estado traria a versão de antes (2026-11-16,
+    a sessão 6 sobrescreveu o EvalPlus apurado)."""
+    if alvo.suffix != ".json" or not alvo.exists():
+        return False
+    try:
+        aqui, vindo = json.loads(alvo.read_bytes()), json.loads(dados)
+    except ValueError:
+        return False
+    return (isinstance(aqui, dict) and isinstance(vindo, dict) and len(aqui) > len(vindo)
+            and all(k in aqui and aqui[k] == v for k, v in vindo.items()))
 
 
 def main() -> int:
@@ -58,6 +79,8 @@ def main() -> int:
     r = trazer(p.parse_args().origem)
     print(f"sessão {r['sessao']}: {len(r['arquivos'])} arquivos; {r['linhas_novas_no_livro']} "
           "linhas novas no livro de acessos")
+    for rel in r["mantidos"]:
+        print(f"   mantido o daqui (o mesmo agregado, mais completo): {rel}")
     return 0
 
 
