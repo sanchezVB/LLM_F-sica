@@ -703,6 +703,32 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       Sem nenhuma sonda aplicável: 15 itens do UG e 48 do SciBench (enunciado curto e sem solução). A contagem da híbrida é automática, só com os totais.
     - **Leitura (A).** No nulo, a S2 de 13 fichas marca 37%, o mesmo que no UG (37,3%) e no Oly (36,4%): no teste, ela não se distingue do acaso, como o dev indicava (item 28). A S1 tem sinal: 1,0% no nulo contra 40,4% no OlympiadBench, 20,0% no SciBench e 11,4% no UGPhysics. É contaminação herdada nos enunciados, maior nos de olimpíada. O G2.1 é um delta e cancela a herdada se o CPT não a ampliar; a condição 3 (item 28) olha só a memorização nova.
 
+31. **As sondas S1/S2 da Qwen3-8B-Base no teste: a 8B no Kaggle, sessão 6 (2026-11-16).** A sessão rodou com o aval do dono e o pacote da emenda 4, em T4×2, e gastou 2,6 h de cota, no mesmo ambiente das anteriores. Ela pulou as quatro medidas já feitas. O acesso está no livro (`medida`, nota `sondas`, hash `064f0c9a…`). As 5.056 sondas saíram numa execução só, sem nenhuma linha `erro`, com 1 slot e a ordem fixa (`g2_sondas_teste_8B_base.json`).
+    - **As mesmas fichas da 1,7B.** O `sha256_entradas` é o mesmo da 1,7B (`8d87b8bc…`), como a etapa do Kaggle exige. As listas por item ficam lacradas fora do git (SHA-256 `a5a72750…`).
+    - **Resultado**, com a 1,7B entre parênteses:
+
+      | Benchmark | S1 | S2 | União, 13 fichas | Híbrida (condição 3) |
+      |---|---|---|---|---|
+      | UGPhysics | 191/1.411: 13,5% (11,4%) | 877/1.972: 44,5% (37,3%) | 961: 48,1% (40,7%) | 315: 15,8% (13,0%) |
+      | OlympiadBench | 110/235: 46,8% (40,4%) | 102/236: 43,2% (36,4%) | 167: 70,8% (63,6%) | 121: 51,3% (44,1%) |
+      | **PHYBench (nulo)** | **1/99: 1,0% (1,0%)** | **49/100: 49,0% (37,0%)** | 49: 49,0% (38,0%) | **5: 5,0% (7,0%)** |
+      | SciBench | 75/145: 51,7% (20,0%) | sem solução | 75: 38,9% (15,0%) | 75: 38,9% (15,0%) |
+
+    - **Leitura (A).**
+      - No nulo, a S2 de 13 fichas sobe de 37% para 49% só com o modelo maior: ela acompanha a competência, não a memória.
+      - A S1 fica em 1% no nulo nos dois tamanhos e cresce com a escala onde há memória. No SciBench (problemas de livro-texto), ela vai de 20% para 52%, com 37 casamentos de ≥32 fichas contra 2.
+    - **Placebo da condição 3** (só relatado; contagem automática, só os totais). A regra aplicada ao par, com a 8B no lugar do ΦGen e a 1,7B no lugar da base, marcaria como "memorização nova":
+
+      | Benchmark | Com a híbrida | Com 13 fichas |
+      |---|---|---|
+      | UGPhysics | 112 (5,6%) | 266 (13,3%) |
+      | OlympiadBench | 23 (9,7%) | 25 (10,6%) |
+      | **PHYBench (nulo)** | **2 (2,0%)** | **16 (16,0%)** |
+      | SciBench | 50 (25,9%) | 50 (25,9%) |
+
+      No nulo, que nenhum dos dois modelos viu, a lista de 13 fichas inventaria memorização nova em 16% dos itens, e a híbrida em 2%. No SciBench só cabe a S1, e as duas coincidem.
+    - **As sondas das duas bases estão completas,** com as listas lacradas antes do treino. As do ΦGen (§3.7.9 C) entram por emenda, com o GGUF dele.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.

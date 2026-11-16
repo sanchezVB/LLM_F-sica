@@ -1,0 +1,187 @@
+{
+ "o_que_e": "G2, sondas de contaminação S1 e S2, fase teste (DOC-12 §3.7.9 A)",
+ "modelo": "Qwen3-8B-Base",
+ "braco": "base",
+ "hash_config": "064f0c9a8c73cf703f726ad7c5e0c6c378fe3863679baed58152fa316d84697a",
+ "codigo_sha256": {
+  "src/phifm/eval/g2_sondas.py": "434ecd51b78236dd31b9fdcb651507407375cc8a5285e427a0cde4381f28e4ce",
+  "scripts/medir_g2_sondas.py": "f19070fe87e49868e6babca56b3dd8a13ea605c7d7ba67c9f109df323b98ca8c"
+ },
+ "parametros": {
+  "n_fichas": 13,
+  "S1": {
+   "gera": 48,
+   "metade_minima": 32
+  },
+  "S2": {
+   "gera": 64,
+   "fracao_da_solucao": 0.4,
+   "separador": "\n\n",
+   "resto_minimo": 13
+  },
+  "criterio": "13-grama da geração em qualquer posição da continuação verdadeira",
+  "relatados": {
+   "alinhado": "mesma posição",
+   "copia_do_prompt": "todo 13-grama casado também no prompt",
+   "trecho_longo": 32
+  },
+  "teto": "prompt + geradas ≤ contexto do slot (/props), senão não se aplica"
+ },
+ "slots": 1,
+ "contexto_do_slot": 32768,
+ "segundos": 9287,
+ "itens": 2528,
+ "registros": 5056,
+ "faltam": 0,
+ "linhas_de_erro": 0,
+ "execucoes": {
+  "2026-11-16T02:06:30+00:00": 5056
+ },
+ "por_benchmark": {
+  "ugphysics": {
+   "S1": {
+    "itens": 1999,
+    "aplicaveis": 1411,
+    "suspeitos": 191,
+    "alinhados": 107,
+    "so_copia_do_prompt": 8,
+    "trecho_longo": 12,
+    "nao_aplicaveis": {
+     "metade_curta": 588
+    },
+    "fracao": 0.1354
+   },
+   "S2": {
+    "itens": 1999,
+    "aplicaveis": 1972,
+    "suspeitos": 877,
+    "alinhados": 388,
+    "so_copia_do_prompt": 128,
+    "trecho_longo": 148,
+    "nao_aplicaveis": {
+     "resto_curto": 27
+    },
+    "fracao": 0.4447
+   },
+   "uniao": {
+    "itens": 1999,
+    "com_sonda_aplicavel": 1984,
+    "sem_sonda_aplicavel": 15,
+    "suspeitos": 961,
+    "fracao": 0.4807,
+    "fracao_dos_aplicaveis": 0.4844,
+    "trecho_longo": 156
+   }
+  },
+  "olympiadbench": {
+   "S1": {
+    "itens": 236,
+    "aplicaveis": 235,
+    "suspeitos": 110,
+    "alinhados": 64,
+    "so_copia_do_prompt": 11,
+    "trecho_longo": 4,
+    "nao_aplicaveis": {
+     "metade_curta": 1
+    },
+    "fracao": 0.4681
+   },
+   "S2": {
+    "itens": 236,
+    "aplicaveis": 236,
+    "suspeitos": 102,
+    "alinhados": 42,
+    "so_copia_do_prompt": 14,
+    "trecho_longo": 15,
+    "nao_aplicaveis": {},
+    "fracao": 0.4322
+   },
+   "uniao": {
+    "itens": 236,
+    "com_sonda_aplicavel": 236,
+    "sem_sonda_aplicavel": 0,
+    "suspeitos": 167,
+    "fracao": 0.7076,
+    "fracao_dos_aplicaveis": 0.7076,
+    "trecho_longo": 19
+   }
+  },
+  "phybench": {
+   "S1": {
+    "itens": 100,
+    "aplicaveis": 99,
+    "suspeitos": 1,
+    "alinhados": 1,
+    "so_copia_do_prompt": 0,
+    "trecho_longo": 0,
+    "nao_aplicaveis": {
+     "metade_curta": 1
+    },
+    "fracao": 0.0101
+   },
+   "S2": {
+    "itens": 100,
+    "aplicaveis": 100,
+    "suspeitos": 49,
+    "alinhados": 20,
+    "so_copia_do_prompt": 5,
+    "trecho_longo": 4,
+    "nao_aplicaveis": {},
+    "fracao": 0.49
+   },
+   "uniao": {
+    "itens": 100,
+    "com_sonda_aplicavel": 100,
+    "sem_sonda_aplicavel": 0,
+    "suspeitos": 49,
+    "fracao": 0.49,
+    "fracao_dos_aplicaveis": 0.49,
+    "trecho_longo": 4
+   }
+  },
+  "scibench": {
+   "S1": {
+    "itens": 193,
+    "aplicaveis": 145,
+    "suspeitos": 75,
+    "alinhados": 64,
+    "so_copia_do_prompt": 0,
+    "trecho_longo": 37,
+    "nao_aplicaveis": {
+     "metade_curta": 48
+    },
+    "fracao": 0.5172
+   },
+   "S2": {
+    "itens": 193,
+    "aplicaveis": 0,
+    "suspeitos": 0,
+    "alinhados": 0,
+    "so_copia_do_prompt": 0,
+    "trecho_longo": 0,
+    "nao_aplicaveis": {
+     "sem_solucao": 193
+    },
+    "fracao": null
+   },
+   "uniao": {
+    "itens": 193,
+    "com_sonda_aplicavel": 145,
+    "sem_sonda_aplicavel": 48,
+    "suspeitos": 75,
+    "fracao": 0.3886,
+    "fracao_dos_aplicaveis": 0.5172,
+    "trecho_longo": 37
+   }
+  }
+ },
+ "nulo": "phybench",
+ "sha256_entradas": "8d87b8bc20b88ce840596e768b70cda70f3f3cf45fc212c770391616f1e25d1b",
+ "fracao_no_nulo": 0.49,
+ "fracao_no_nulo_por_sonda": {
+  "S1": 0.0101,
+  "S2": 0.49
+ },
+ "total_suspeitos": 1252,
+ "sha256_listas": "a5a7275004c8388574fbd5dd992ea295fe1138bde7539ebc57415051318160c2"
+}
