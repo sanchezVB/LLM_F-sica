@@ -64,14 +64,14 @@ O que cabe sem dinheiro novo. As vazões da 1,7B são **estimativas**, calibrada
 |---|---|---|---|
 | **Kaggle 2×T4**, 1,7B (Adam de 8 bits, FSDP nas 2 placas, checkpoint de ativações; o AdamW pleno não cabe) | 105–350 h de cota, **3,5–12 semanas** | 35–117 semanas | Só piloto, até ~0,5–1 B |
 | Kaggle 2×T4, 8B | — | — | **Não**: nem o ajuste completo cabe |
-| **TPU do Kaggle**, v5e-8, 1,7B em bf16 (20 h por semana, sessões de 9 h) | 4–9 h | **2–5 semanas** | Sim, **se** a conta tiver a v5e-8 e o treino for portado para JAX |
+| **TPU do Kaggle**, v5e-8, 1,7B em bf16 (20 h por semana, sessões de 9 h; **está na conta**) | 4–9 h | **2–5 semanas** | Sim, **se** a identidade for verificada e o treino for portado para JAX |
 | Colab Pro (já pago), 1,7B em A100 ou L4 | 1,6–2,6 meses | 16–26 meses | Só complemento |
 | TPU Research Cloud (Google), se concedido | horas | horas (1,7B) ou 1–2 dias (8B) | Não garantido |
 | Referência alugada (premissas do DOC-17A) | US$ 18–22 | **~US$ 200** | Fora da restrição atual do dono |
 
-- **A TPU do Kaggle** é o único caminho grátis na escala do plano. A documentação do Kaggle cita 20 h por semana e a v5e-8, mas se contradiz, e a conta do dono não foi conferida. Treinar nela exige portar o laço para JAX (MaxText ou EasyDeL): segundo a documentação lida em 2026-11-18, o PyTorch/XLA foi descontinuado em favor do TorchTPU. E a conversão HF ↔ Orbax da Qwen3-1.7B não está na tabela do MaxText (a 0,6B, a 4B e a 8B estão).
+- **A TPU do Kaggle** é o único caminho grátis na escala do plano. Conferido na conta do dono em 2026-11-18: o menu de acelerador oferece só None, GPU T4 x2 e **TPU v5e-8**, e a cota é de 20 h por semana, com sessões de até 9 h. Mas o Kaggle avisa que "algumas aceleradoras, como as TPUs, exigem verificação de identidade", e a conta ainda não fez essa verificação (Persona). Treinar nela exige portar o laço para JAX (MaxText ou EasyDeL): segundo a documentação lida em 2026-11-18, o PyTorch/XLA foi descontinuado em favor do TorchTPU. E a conversão HF ↔ Orbax da Qwen3-1.7B não está na tabela do MaxText (a 0,6B, a 4B e a 8B estão).
 - **O TRC** é o único programa gratuito aberto a pesquisador independente: "qualquer um pode manifestar interesse", e os convites saem aos poucos, sem garantia. Os de créditos do Google, da AWS e da NVIDIA pedem vínculo de docente ou pós-graduando. A TPU é grátis por tempo limitado, num projeto do Google Cloud, mas o que não é TPU (VMs pequenas, armazenamento) se paga, ainda que pouco. Em troca, pede-se compartilhar a pesquisa (artigo, código aberto ou blog) e dar retorno ao Google.
-- **O Kaggle anuncia +15 h por semana de GPU** para quem vincula uma conta Colab Pro, numa promoção experimental. A conta do dono não foi conferida.
+- **O bônus do Colab Pro não está ativo.** A cota de GPU da conta é de 30 h por semana (2 h 38 usadas na semana da conferência). O Kaggle dá +15 h por semana a quem vincula uma conta Colab Pro, no editor de notebook (File → Link to Colab), numa "promoção por tempo limitado", e essas horas não gastam as unidades do Colab.
 
 ### 2.4 As travas que não custam GPU
 
@@ -92,7 +92,7 @@ Antes de qualquer ΦGen medido, há trabalho e decisões que nenhuma GPU resolve
 **Diz:**
 - **Dá para treinar sem custo, mas só a 1,7B**, e em uma de duas escalas:
   - a de piloto, nas T4 do Kaggle, até ~0,5–1 B fichas, ao longo de semanas de cota;
-  - a do plano, só pela TPU do Kaggle, se a conta a tiver e o treino for portado para JAX, ou pelo TRC, se concedido.
+  - a do plano, só pela TPU v5e-8 do Kaggle, que está na conta, depois de verificar a identidade e portar o treino para JAX, ou pelo TRC, se concedido.
 
   A 8B não cabe no grátis, salvo pelo TRC.
 - **Na escala de piloto, a literatura indica poucos pontos.** Em matemática de nível médio, foram de +1,6 a +2,0 com até 4 B fichas de texto. Esperar +12 num macro de Física difícil seria esperar mais do que qualquer resultado publicado que achamos nessa escala.
@@ -102,7 +102,7 @@ Antes de qualquer ΦGen medido, há trabalho e decisões que nenhuma GPU resolve
 **Não diz:**
 1. **Nada foi medido nesta régua.** Nenhum CPT publicado tem o antes e o depois nos quatro benchmarks do G2.1, e o projeto não tem âncora própria. O único análogo é o CPT do encoder no ADR-0003: 0,4 B fichas compraram +0,010 de nDCG@10, contra +0,069 de só trocar a base.
 2. **As vazões da 1,7B em T4 e em TPU são estimativas**, com uma faixa de ~3×. Só encoders foram medidos.
-3. **A oferta de TPU e o bônus do Colab na conta do dono** não foram conferidos.
+3. **A vazão na TPU v5e-8 não foi medida.** Ela está na conta, mas a faixa de 4–9 h por bilhão de fichas é suposição (MFU de 25–55%).
 4. **A rota com mais ganho por ficha não foi avaliada:** dados de Física com solução, como pergunta e resposta, derivações ou destilação. Ela esbarra no "ganho de formato" (§3.7.6), no risco de memorização (condição 3) e na fronteira entre CPT e pós-treino (§3.7.1), que pede regra própria com braço de controle.
 
 ---
@@ -125,14 +125,16 @@ Antes de qualquer ΦGen medido, há trabalho e decisões que nenhuma GPU resolve
 
 Por quê:
 - **Não achamos precedente para a barra.** O G2.1 pede +12 pontos num macro de Física difícil sobre uma base forte em STEM. Nos resultados publicados que achamos, o CPT só chegou a +12 em matemática, sobre bases fracas, e com dezenas de vezes mais fichas do que a computação gratuita compra.
-- **O gratuito só chega ao piloto,** a não ser pela TPU do Kaggle ou pelo TRC, que ainda não estão confirmados.
+- **O gratuito só chega ao piloto,** a não ser pela TPU v5e-8 do Kaggle, que está na conta mas pede a verificação de identidade e o porte do treino para JAX, ou pelo TRC, que não é garantido.
 - **Antes de qualquer ΦGen medido, há quatro travas que não custam GPU:** os pareceres jurídicos, o código da varredura, o código de CPT e o corpus que falta.
 - **Treinar agora levaria, muito provavelmente, a "não demonstrado"**, depois de semanas de engenharia e de cota.
 - **O que já existe é completo e publicável:** a regra congelada antes de qualquer treino, as duas bases medidas e a régua calibrada pelo poder.
 
-**Duas ações de custo zero, que mantêm a opção C aberta:**
-1. **Conferir no menu do Kaggle** qual TPU a conta recebe e se o vínculo do Colab Pro dá as +15 h por semana. É um clique, do dono.
-2. **Decidir se pede o TRC.** O pedido é do dono: exige uma conta e um projeto no Google Cloud, onde o que não é TPU se paga, e o compromisso de compartilhar a pesquisa. A concessão não é garantida.
+**O que já foi conferido, e o que fica com o dono, sem custo, para manter a opção C aberta:**
+1. **Conferido em 2026-11-18:** a conta tem a TPU v5e-8, com 20 h por semana. A GPU está em 30 h por semana, sem o bônus do Colab.
+2. **Se quiser a TPU:** verificar a identidade no Kaggle (Settings → Identity verification, pela Persona). É um passo do dono, com um serviço de terceiros.
+3. **Se quiser +15 h de GPU por semana:** vincular o Colab Pro no editor de notebook (File → Link to Colab). Também é do dono, porque autoriza o acesso entre as contas.
+4. **Decidir se pede o TRC.** O pedido é do dono: exige uma conta e um projeto no Google Cloud, onde o que não é TPU se paga, e o compromisso de compartilhar a pesquisa. A concessão não é garantida.
 
 **Se o dono preferir treinar mesmo assim**, a ordem é esta:
 1. os pareceres do ADR-0001 §7;
@@ -144,7 +146,7 @@ Por quê:
 
 ## 6. O que reabriria esta decisão
 
-- **Computação na escala do plano a custo zero:** o TRC concedido, ou a TPU v5e-8 confirmada na conta com o porte para JAX feito. A opção C passaria a custar só engenharia.
+- **Computação na escala do plano a custo zero:** o TRC concedido, ou a TPU v5e-8 da conta liberada (identidade verificada), com o porte para JAX feito e a vazão medida. A opção C passaria a custar só engenharia.
 - **Um CPT publicado com o antes e o depois** em UGPhysics, OlympiadBench, PHYBench ou SciBench, sobre uma base forte, com ganho grande e fichas alcançáveis.
 - **Um piloto (opção B) que mostre no dev** um ganho que projete ≥ +12 no macro.
 - **A decisão de escrever a regra da rota com dados de solução** (opção D), com braço de controle (§3.7.1).
