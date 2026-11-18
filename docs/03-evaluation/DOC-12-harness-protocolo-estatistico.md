@@ -729,6 +729,33 @@ Cada comparação tem limite de 10 s. Estourar o limite dá INCONCLUSIVE.
       No nulo, que nenhum dos dois modelos viu, a lista de 13 fichas inventaria memorização nova em 16% dos itens, e a híbrida em 2%. No SciBench só cabe a S1, e as duas coincidem.
     - **As sondas das duas bases estão completas,** com as listas lacradas antes do treino. As do ΦGen (§3.7.9 C) entram por emenda, com o GGUF dele.
 
+32. **O poder do G2.1 recalculado com as bases medidas (2026-11-16).** O §3.7.6 simulou o poder com premissas e pedia o recálculo com a base medida, sem mudar a regra (`scripts/poder_g2_1.py`, `g2_poder_g2_1.json`).
+    - **Como.** As notas por item (avg@k) de cada base saem da recorreção do teste com o código congelado. Elas ficam fora do git, com hash, e só o processo as lê (lacre); a média por benchmark bate com o agregado versionado. Um ΦGen é simulado com ganho de Δ pontos em cada benchmark, e a regra é aplicada como está (`g2.decidir_g2_1`, bootstrap de 10.000), em 150 réplicas por ganho.
+    - **Cenários:**
+      - o ganho uniforme nos itens, o limite otimista;
+      - o ganho **concentrado** em 30% dos itens, sorteados, que é como um modelo ganha de verdade: é o que vale;
+      - o concentrado com marcas de memorização nova ao acaso, nas taxas do placebo da lista híbrida (item 31), que a condição 3 tira;
+      - a gulosa (k=1), com o ganho concentrado.
+
+      No concentrado, o teto de nota 1 corta parte do ganho nos itens fáceis, e o Δ_macro que sai fica abaixo do nominal. O eixo honesto é o **ganho efetivo** (o Δ_macro médio que saiu).
+
+      | Cenário | Base | Erro-padrão do macro (+10 a +13) | Passa com +10 nominal | 80% de poder, ganho efetivo |
+      |---|---|---|---|---|
+      | Ganho uniforme | 1,7B | 0,37–0,40 | 2,7% | +11,3 |
+      | | 8B | 0,39–0,41 | 0% | +11,4 |
+      | **Ganho concentrado (vale)** | 1,7B | 0,63–0,78 | 1,3% | **+12,2** |
+      | | 8B | 0,63–0,77 | 0% | **+12,1** |
+      | Concentrado + marcas do placebo | 1,7B | 0,63–0,77 | 0% | +12,2 |
+      | | 8B | 0,64–0,77 | 0,7% | +12,6 |
+      | Gulosa (k=1), concentrado | 1,7B | 1,13–1,26 | 2,0% | +13,5 |
+      | | 8B | 1,19–1,29 | 0% | +13,5 |
+
+    - **Leitura.**
+      - A premissa declarada se confirma com as bases medidas. Com o ganho concentrado, o erro-padrão perto do limiar fica em 0,63–0,78 (declarado: 0,72–0,92), e a regra passa com 80% de chance a partir de +12,2 e +12,1 de ganho efetivo (declarado: +12,0 a +12,6). Com +10, passa em 0–1,3% das vezes (declarado: 2,5%).
+      - A condição 3 com a lista híbrida custa pouco: nada na 1,7B e +0,5 ponto na 8B, que perde 26% do SciBench, onde acerta mais e a nota varia mais.
+      - A amostragem a T=0,6 (avg@k) vale o que custa: a gulosa quase dobra o erro-padrão e empurra os 80% para +13,5.
+    - **O que isso pede do ΦGen.** Para passar com 80% de chance, ele precisa de ~+12 pontos no macro sobre a própria base: a 1,7B iria de ~6,3 para ~18,5, e a 8B de ~14,1 para ~26.
+
 Os defeitos do item 4 que estão no próprio `verify/` (módulo, π, carga a frio) ficam para uma correção lá, porque o verify também é a recompensa do RLVR.
 
 **MMLU.** 5-shot com os 5 itens de dev da matéria, uma chamada por item.
@@ -774,6 +801,8 @@ Fora disso, NÃO PASSA. A leitura é "demonstrado abaixo" se o IC fica inteiro a
 - o erro-padrão do macro fica entre 0,72 e 0,92 ponto;
 - a regra passa com 80% de chance a partir de +12,0 a +12,6 de ganho verdadeiro, e em 2,5% das vezes com +10 exato;
 - com decodificação gulosa, o erro-padrão seria 1,57–1,83 ponto.
+
+Recalculado com as bases medidas em 2026-11-16 (§3.7.4 item 32), com o ganho concentrado em 30% dos itens: erro-padrão de 0,63–0,78 perto do limiar, e 80% de poder a partir de +12,2 (1,7B) e +12,1 (8B) de ganho efetivo; +12,6 na 8B com a condição 3. A regra não muda.
 
 #### 3.7.7 G2.3 — a regra
 

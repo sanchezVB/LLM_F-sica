@@ -1,0 +1,710 @@
+{
+ "o_que_e": "G2.1: o poder da regra (DOC-12 §3.7.6) recalculado com as bases medidas, sem mudar a regra; ΦGen simulado com ganho uniforme por benchmark sobre a nota medida de cada item da base",
+ "premissas": {
+  "ganho": "Δ_b = Δ em cada benchmark (o macro é a média); uniforme nos itens, ou concentrado numa fração sorteada deles (p_i + Δ/fração, teto 1)",
+  "fracao_concentrada": 0.3,
+  "phigen": "Binomial(k_b, p_i')/k_b, p_i = nota medida da base",
+  "base": "fixa, como medida",
+  "k": {
+   "ugphysics": 3,
+   "olympiadbench": 8,
+   "phybench": 16,
+   "scibench": 8
+  },
+  "agrupamentos": {
+   "ugphysics": 1433,
+   "olympiadbench": 113,
+   "phybench": "itens",
+   "scibench": "itens"
+  },
+  "itens": {
+   "ugphysics": 1917,
+   "olympiadbench": 231,
+   "phybench": 99,
+   "scibench": 193
+  },
+  "marcas_placebo": {
+   "ugphysics": 0.056,
+   "olympiadbench": 0.097,
+   "phybench": 0.02,
+   "scibench": 0.259
+  },
+  "semente": 20261030
+ },
+ "por_base": {
+  "1.7B": {
+   "hash_config": "e15356892060e5f4b634d650fa346d14f4ef1d031cc83917590d51dda2f3d91e",
+   "acerto_por_benchmark": {
+    "ugphysics": 0.1003,
+    "olympiadbench": 0.0433,
+    "phybench": 0.0013,
+    "scibench": 0.1056
+   },
+   "sha256_notas": "454b03944fc5626c76a279ad4886c8460881f2561aadcbfd79fafd77e0f7095b",
+   "cenarios": {
+    "regra_ganho_uniforme": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.1855,
+       "delta_macro_medio": -0.0046,
+       "condicao_1": 0.0,
+       "condicao_2": 0.8867,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.3398,
+       "delta_macro_medio": 7.9253,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0267,
+       "erro_padrao_macro": 0.3661,
+       "delta_macro_medio": 9.9608,
+       "condicao_1": 0.0267,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0267
+      },
+      "11.0": {
+       "poder": 0.6333,
+       "erro_padrao_macro": 0.3766,
+       "delta_macro_medio": 10.877,
+       "condicao_1": 0.6333,
+       "condicao_2": 1.0,
+       "condicao_3": 0.6333
+      },
+      "12.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.3894,
+       "delta_macro_medio": 11.9039,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "13.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.397,
+       "delta_macro_medio": 12.8634,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "14.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.4075,
+       "delta_macro_medio": 13.8408,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "15.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.416,
+       "delta_macro_medio": 14.8642,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "16.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.4243,
+       "delta_macro_medio": 15.8047,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      }
+     },
+     "ganho_para_poder_80": 11.45,
+     "erro_padrao_macro": 0.3669,
+     "ganho_efetivo_para_poder_80": 11.34
+    },
+    "regra_ganho_concentrado_30": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.1876,
+       "delta_macro_medio": -0.0069,
+       "condicao_1": 0.0,
+       "condicao_2": 0.94,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.5335,
+       "delta_macro_medio": 7.9479,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0133,
+       "erro_padrao_macro": 0.6254,
+       "delta_macro_medio": 9.7907,
+       "condicao_1": 0.0133,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0133
+      },
+      "11.0": {
+       "poder": 0.2333,
+       "erro_padrao_macro": 0.6767,
+       "delta_macro_medio": 10.8944,
+       "condicao_1": 0.2333,
+       "condicao_2": 1.0,
+       "condicao_3": 0.2333
+      },
+      "12.0": {
+       "poder": 0.68,
+       "erro_padrao_macro": 0.7269,
+       "delta_macro_medio": 11.7646,
+       "condicao_1": 0.68,
+       "condicao_2": 1.0,
+       "condicao_3": 0.68
+      },
+      "13.0": {
+       "poder": 0.9667,
+       "erro_padrao_macro": 0.7764,
+       "delta_macro_medio": 12.8051,
+       "condicao_1": 0.9667,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9667
+      },
+      "14.0": {
+       "poder": 0.9867,
+       "erro_padrao_macro": 0.8184,
+       "delta_macro_medio": 13.6304,
+       "condicao_1": 0.9867,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9867
+      },
+      "15.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.8681,
+       "delta_macro_medio": 14.6372,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "16.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.9178,
+       "delta_macro_medio": 15.5317,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      }
+     },
+     "ganho_para_poder_80": 12.42,
+     "erro_padrao_macro": 0.6812,
+     "ganho_efetivo_para_poder_80": 12.2
+    },
+    "regra_com_marcas_do_placebo": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.185,
+       "delta_macro_medio": -0.0227,
+       "condicao_1": 0.0,
+       "condicao_2": 0.8867,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.5302,
+       "delta_macro_medio": 7.8339,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.6308,
+       "delta_macro_medio": 9.9224,
+       "condicao_1": 0.0067,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0067
+      },
+      "11.0": {
+       "poder": 0.1867,
+       "erro_padrao_macro": 0.6768,
+       "delta_macro_medio": 10.8247,
+       "condicao_1": 0.2333,
+       "condicao_2": 1.0,
+       "condicao_3": 0.2
+      },
+      "12.0": {
+       "poder": 0.6733,
+       "erro_padrao_macro": 0.7238,
+       "delta_macro_medio": 11.8288,
+       "condicao_1": 0.7333,
+       "condicao_2": 1.0,
+       "condicao_3": 0.68
+      },
+      "13.0": {
+       "poder": 0.9467,
+       "erro_padrao_macro": 0.7704,
+       "delta_macro_medio": 12.6872,
+       "condicao_1": 0.9667,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9467
+      },
+      "14.0": {
+       "poder": 0.9867,
+       "erro_padrao_macro": 0.8232,
+       "delta_macro_medio": 13.7579,
+       "condicao_1": 0.9933,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9867
+      },
+      "15.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.8705,
+       "delta_macro_medio": 14.7328,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "16.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.9238,
+       "delta_macro_medio": 15.6175,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      }
+     },
+     "ganho_para_poder_80": 12.46,
+     "erro_padrao_macro": 0.6816,
+     "ganho_efetivo_para_poder_80": 12.23
+    },
+    "gulosa_k1": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.5187,
+       "delta_macro_medio": 0.042,
+       "condicao_1": 0.0,
+       "condicao_2": 0.88,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 1.0607,
+       "delta_macro_medio": 8.01,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.02,
+       "erro_padrao_macro": 1.1327,
+       "delta_macro_medio": 9.8059,
+       "condicao_1": 0.02,
+       "condicao_2": 1.0,
+       "condicao_3": 0.02
+      },
+      "11.0": {
+       "poder": 0.1,
+       "erro_padrao_macro": 1.1827,
+       "delta_macro_medio": 10.969,
+       "condicao_1": 0.1,
+       "condicao_2": 1.0,
+       "condicao_3": 0.1
+      },
+      "12.0": {
+       "poder": 0.3133,
+       "erro_padrao_macro": 1.2088,
+       "delta_macro_medio": 11.7054,
+       "condicao_1": 0.3133,
+       "condicao_2": 1.0,
+       "condicao_3": 0.3133
+      },
+      "13.0": {
+       "poder": 0.6733,
+       "erro_padrao_macro": 1.2592,
+       "delta_macro_medio": 12.8888,
+       "condicao_1": 0.6733,
+       "condicao_2": 1.0,
+       "condicao_3": 0.6733
+      },
+      "14.0": {
+       "poder": 0.8467,
+       "erro_padrao_macro": 1.2787,
+       "delta_macro_medio": 13.7626,
+       "condicao_1": 0.8467,
+       "condicao_2": 1.0,
+       "condicao_3": 0.8467
+      },
+      "15.0": {
+       "poder": 0.96,
+       "erro_padrao_macro": 1.3059,
+       "delta_macro_medio": 14.6035,
+       "condicao_1": 0.96,
+       "condicao_2": 1.0,
+       "condicao_3": 0.96
+      },
+      "16.0": {
+       "poder": 0.98,
+       "erro_padrao_macro": 1.337,
+       "delta_macro_medio": 15.5497,
+       "condicao_1": 0.98,
+       "condicao_2": 1.0,
+       "condicao_3": 0.98
+      }
+     },
+     "ganho_para_poder_80": 13.73,
+     "erro_padrao_macro": 1.1427,
+     "ganho_efetivo_para_poder_80": 13.53
+    }
+   }
+  },
+  "8B": {
+   "hash_config": "a264f076cd832d32983f5a7c8be3f0d5304b6627a28b012cd64ebf5092605cd9",
+   "acerto_por_benchmark": {
+    "ugphysics": 0.1781,
+    "olympiadbench": 0.1228,
+    "phybench": 0.0114,
+    "scibench": 0.2532
+   },
+   "sha256_notas": "3eecd34940ea9b4d8352de0a3ba1948aeb60ca274b7ccaff5022129206d27052",
+   "cenarios": {
+    "regra_ganho_uniforme": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.2541,
+       "delta_macro_medio": -0.035,
+       "condicao_1": 0.0,
+       "condicao_2": 0.8867,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.3669,
+       "delta_macro_medio": 7.7197,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.385,
+       "delta_macro_medio": 9.6087,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "11.0": {
+       "poder": 0.34,
+       "erro_padrao_macro": 0.3927,
+       "delta_macro_medio": 10.6165,
+       "condicao_1": 0.34,
+       "condicao_2": 1.0,
+       "condicao_3": 0.34
+      },
+      "12.0": {
+       "poder": 0.98,
+       "erro_padrao_macro": 0.4024,
+       "delta_macro_medio": 11.6684,
+       "condicao_1": 0.98,
+       "condicao_2": 1.0,
+       "condicao_3": 0.98
+      },
+      "13.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.4124,
+       "delta_macro_medio": 12.5892,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "14.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.4206,
+       "delta_macro_medio": 13.5105,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "15.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.4259,
+       "delta_macro_medio": 14.4545,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "16.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.4332,
+       "delta_macro_medio": 15.3636,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      }
+     },
+     "ganho_para_poder_80": 11.72,
+     "erro_padrao_macro": 0.3881,
+     "ganho_efetivo_para_poder_80": 11.37
+    },
+    "regra_ganho_concentrado_30": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.2553,
+       "delta_macro_medio": 0.0049,
+       "condicao_1": 0.0,
+       "condicao_2": 0.9133,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.5471,
+       "delta_macro_medio": 7.6494,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.634,
+       "delta_macro_medio": 9.4462,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "11.0": {
+       "poder": 0.08,
+       "erro_padrao_macro": 0.6824,
+       "delta_macro_medio": 10.4145,
+       "condicao_1": 0.08,
+       "condicao_2": 1.0,
+       "condicao_3": 0.08
+      },
+      "12.0": {
+       "poder": 0.4133,
+       "erro_padrao_macro": 0.7243,
+       "delta_macro_medio": 11.3123,
+       "condicao_1": 0.4133,
+       "condicao_2": 1.0,
+       "condicao_3": 0.4133
+      },
+      "13.0": {
+       "poder": 0.84,
+       "erro_padrao_macro": 0.7719,
+       "delta_macro_medio": 12.1844,
+       "condicao_1": 0.84,
+       "condicao_2": 1.0,
+       "condicao_3": 0.84
+      },
+      "14.0": {
+       "poder": 0.9867,
+       "erro_padrao_macro": 0.8167,
+       "delta_macro_medio": 13.0434,
+       "condicao_1": 0.9867,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9867
+      },
+      "15.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.8664,
+       "delta_macro_medio": 13.9986,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "16.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.9086,
+       "delta_macro_medio": 14.8361,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      }
+     },
+     "ganho_para_poder_80": 12.91,
+     "erro_padrao_macro": 0.6896,
+     "ganho_efetivo_para_poder_80": 12.1
+    },
+    "regra_com_marcas_do_placebo": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.2553,
+       "delta_macro_medio": 0.007,
+       "condicao_1": 0.0,
+       "condicao_2": 0.9,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.546,
+       "delta_macro_medio": 7.6504,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0067,
+       "erro_padrao_macro": 0.6374,
+       "delta_macro_medio": 9.5757,
+       "condicao_1": 0.0067,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0067
+      },
+      "11.0": {
+       "poder": 0.0267,
+       "erro_padrao_macro": 0.6806,
+       "delta_macro_medio": 10.3995,
+       "condicao_1": 0.04,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0533
+      },
+      "12.0": {
+       "poder": 0.2733,
+       "erro_padrao_macro": 0.7261,
+       "delta_macro_medio": 11.2636,
+       "condicao_1": 0.3733,
+       "condicao_2": 1.0,
+       "condicao_3": 0.2933
+      },
+      "13.0": {
+       "poder": 0.6667,
+       "erro_padrao_macro": 0.7658,
+       "delta_macro_medio": 12.0625,
+       "condicao_1": 0.7467,
+       "condicao_2": 1.0,
+       "condicao_3": 0.6867
+      },
+      "14.0": {
+       "poder": 0.9467,
+       "erro_padrao_macro": 0.8204,
+       "delta_macro_medio": 13.0931,
+       "condicao_1": 0.9733,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9467
+      },
+      "15.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.8666,
+       "delta_macro_medio": 14.0321,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      },
+      "16.0": {
+       "poder": 1.0,
+       "erro_padrao_macro": 0.9097,
+       "delta_macro_medio": 14.8689,
+       "condicao_1": 1.0,
+       "condicao_2": 1.0,
+       "condicao_3": 1.0
+      }
+     },
+     "ganho_para_poder_80": 13.48,
+     "erro_padrao_macro": 0.6898,
+     "ganho_efetivo_para_poder_80": 12.55
+    },
+    "gulosa_k1": {
+     "replicas": 150,
+     "n_bootstrap": 10000,
+     "por_ganho": {
+      "0.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 0.7257,
+       "delta_macro_medio": -0.0176,
+       "condicao_1": 0.0,
+       "condicao_2": 0.6933,
+       "condicao_3": 0.0
+      },
+      "8.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 1.1302,
+       "delta_macro_medio": 7.6886,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "10.0": {
+       "poder": 0.0,
+       "erro_padrao_macro": 1.1948,
+       "delta_macro_medio": 9.4949,
+       "condicao_1": 0.0,
+       "condicao_2": 1.0,
+       "condicao_3": 0.0
+      },
+      "11.0": {
+       "poder": 0.02,
+       "erro_padrao_macro": 1.2242,
+       "delta_macro_medio": 10.3908,
+       "condicao_1": 0.02,
+       "condicao_2": 1.0,
+       "condicao_3": 0.02
+      },
+      "12.0": {
+       "poder": 0.1867,
+       "erro_padrao_macro": 1.2528,
+       "delta_macro_medio": 11.2846,
+       "condicao_1": 0.1867,
+       "condicao_2": 1.0,
+       "condicao_3": 0.1867
+      },
+      "13.0": {
+       "poder": 0.4,
+       "erro_padrao_macro": 1.293,
+       "delta_macro_medio": 12.2192,
+       "condicao_1": 0.4,
+       "condicao_2": 1.0,
+       "condicao_3": 0.4
+      },
+      "14.0": {
+       "poder": 0.6467,
+       "erro_padrao_macro": 1.3128,
+       "delta_macro_medio": 12.932,
+       "condicao_1": 0.6467,
+       "condicao_2": 1.0,
+       "condicao_3": 0.6467
+      },
+      "15.0": {
+       "poder": 0.9,
+       "erro_padrao_macro": 1.3428,
+       "delta_macro_medio": 13.9441,
+       "condicao_1": 0.9,
+       "condicao_2": 1.0,
+       "condicao_3": 0.9
+      },
+      "16.0": {
+       "poder": 0.94,
+       "erro_padrao_macro": 1.365,
+       "delta_macro_medio": 14.8283,
+       "condicao_1": 0.94,
+       "condicao_2": 1.0,
+       "condicao_3": 0.94
+      }
+     },
+     "ganho_para_poder_80": 14.61,
+     "erro_padrao_macro": 1.2046,
+     "ganho_efetivo_para_poder_80": 13.54
+    }
+   }
+  }
+ },
+ "segundos": 3963,
+ "nota_pontos_de_80": "ganho_efetivo_para_poder_80 derivado do por_ganho já gravado (interpolação no Δ_macro médio que saiu), com scripts/poder_g2_1.pontos_de_80, em 2026-11-18"
+}
